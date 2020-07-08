@@ -19,12 +19,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/gardener/docode/pkg/metrics"
 	"github.com/gardener/docode/pkg/util/tests"
 	"github.com/gardener/docode/pkg/util/units"
 	"github.com/prometheus/client_golang/prometheus"
@@ -38,26 +40,28 @@ func init() {
 
 var shortSenderCallsCount int32
 
-func newPayloadsList(payloadsCount int) []*Payload {
-	var payloads []*Payload
+func newWorkerInputsList(workerInputsCount int, serverURL string, randomizePaths bool) []*WorkerInput {
+	var workerInputs []*WorkerInput
 
-	if payloadsCount > 0 {
-		payloads = make([]*Payload, payloadsCount)
-		for i, c := 0, int('a'); i < len(payloads); i++ {
-			c++
-			if c > 127 {
-				c = int('a')
+	if workerInputsCount > 0 {
+		workerInputs = make([]*WorkerInput, workerInputsCount)
+		for i, c := 0, int('a'); i < len(workerInputs); i++ {
+			if randomizePaths {
+				c++
+				if c > 127 {
+					c = int('a')
+				}
 			}
-			payloads[i] = &Payload{
-				URL: fmt.Sprintf("http://localhost/%s", string(c)),
+			workerInputs[i] = &WorkerInput{
+				URL: fmt.Sprintf("%s/%s", serverURL, string(c)),
 			}
 		}
 	}
 
-	return payloads
+	return workerInputs
 }
 
-func shortSender(ctx context.Context, message *Payload) *WorkerError {
+func shortSender(ctx context.Context, message *WorkerInput) *WorkerError {
 	time.Sleep(10 * time.Millisecond)
 	atomic.AddInt32(&shortSenderCallsCount, 1)
 	return nil
@@ -79,7 +83,7 @@ func TestDispatchAdaptive(t *testing.T) {
 	}
 
 	t0 := time.Now()
-	if err := backend.Dispatch(ctx, newPayloadsList(messagesCount)); err != nil {
+	if err := backend.Dispatch(ctx, newWorkerInputsList(messagesCount, "", false)); err != nil {
 		t.Errorf("%v", err)
 	}
 	processingDuration := time.Now().Sub(t0)
@@ -103,7 +107,7 @@ func TestDispatchStrict(t *testing.T) {
 	}
 
 	t0 := time.Now()
-	if err := backend.Dispatch(ctx, newPayloadsList(messagesCount)); err != nil {
+	if err := backend.Dispatch(ctx, newWorkerInputsList(messagesCount, "", false)); err != nil {
 		t.Errorf("%v", err)
 	}
 	processingDuration := time.Now().Sub(t0)
@@ -126,7 +130,7 @@ func TestDispatchNoWorkers(t *testing.T) {
 		Worker:     WorkerFunc(shortSender),
 	}
 
-	err := backend.Dispatch(ctx, newPayloadsList(messagesCount))
+	err := backend.Dispatch(ctx, newWorkerInputsList(messagesCount, "", false))
 
 	assert.NotNil(t, err)
 	assert.Equal(t, context.DeadlineExceeded, err.error)
@@ -155,7 +159,7 @@ func TestDispatchWrongWorkersRange(t *testing.T) {
 		}
 	}(t, shortSenderCallsCount)
 
-	backend.Dispatch(ctx, newPayloadsList(messagesCount))
+	backend.Dispatch(ctx, newWorkerInputsList(messagesCount, "", false))
 }
 
 func TestDispatchCtxTimeout(t *testing.T) {
@@ -173,7 +177,7 @@ func TestDispatchCtxTimeout(t *testing.T) {
 		Worker:     WorkerFunc(shortSender),
 	}
 
-	var actualError = backend.Dispatch(ctx, newPayloadsList(messagesCount))
+	var actualError = backend.Dispatch(ctx, newWorkerInputsList(messagesCount, "", false))
 
 	assert.NotNil(t, actualError)
 	assert.Equal(t, newerror(context.DeadlineExceeded, 0), actualError)
@@ -198,7 +202,7 @@ func TestDispatchCtxCancel(t *testing.T) {
 		cancel()
 	}()
 
-	var actualError = backend.Dispatch(ctx, newPayloadsList(messagesCount))
+	var actualError = backend.Dispatch(ctx, newWorkerInputsList(messagesCount, "", false))
 
 	assert.NotNil(t, actualError)
 	assert.Equal(t, newerror(context.Canceled, 0), actualError)
@@ -209,7 +213,7 @@ var expectedError = newerror(errors.New("test"), 123)
 
 var faultySenderCallsCount uint32
 
-func faultySender(ctx context.Context, message *Payload) *WorkerError {
+func faultySender(ctx context.Context, message *WorkerInput) *WorkerError {
 	time.Sleep(50 * time.Millisecond)
 	atomic.AddUint32(&faultySenderCallsCount, 1)
 	count := int(atomic.LoadUint32(&faultySenderCallsCount))
@@ -234,14 +238,13 @@ func TestDispatchError(t *testing.T) {
 		Worker:     WorkerFunc(faultySender),
 	}
 
-	actualError := backend.Dispatch(ctx, newPayloadsList(messagesCount))
+	actualError := backend.Dispatch(ctx, newWorkerInputsList(messagesCount, "", false))
 
 	assert.NotNil(t, actualError)
 	assert.Equal(t, expectedError, actualError)
 }
 
-// fixme
-func _TestClientMetering(t *testing.T) {
+func TestClientMetering(t *testing.T) {
 	messagesCount := 4
 	minWorkers := 4
 	maxWorkers := 4
@@ -265,7 +268,8 @@ func _TestClientMetering(t *testing.T) {
 
 	reg := prometheus.NewRegistry()
 	RegisterMetrics(true, reg)
-	if err := backend.Dispatch(ctx, newPayloadsList(messagesCount)); err != nil {
+	inputs := newWorkerInputsList(messagesCount, backendService.URL, true)
+	if err := backend.Dispatch(ctx, inputs); err != nil {
 		t.Errorf("%v", err)
 	}
 
@@ -279,16 +283,16 @@ func _TestClientMetering(t *testing.T) {
 			assertions func(string, []*io_prometheus_client.Metric)
 		}{
 			{
-				name: "auditlog_client_api_requests_total",
+				name: metrics.Namespace + "_client_api_requests_total",
 				assertions: func(metricName string, samples []*io_prometheus_client.Metric) {
 					assert.Lenf(t, samples, 1, "unexpected number of metric families `%s` gathered", metricName)
 					assert.True(t, samples[0].Counter.GetValue() == 4)
 				},
 			}, {
-				name:       "auditlog_client_in_flight_requests",
+				name:       metrics.Namespace + "_client_in_flight_requests",
 				assertions: nil,
 			}, {
-				name: "auditlog_request_duration_seconds",
+				name: metrics.Namespace + "_request_duration_seconds",
 				assertions: func(metricName string, samples []*io_prometheus_client.Metric) {
 					assert.Lenf(t, samples, 1, "unexpected number of metric families `%s` gathered", metricName)
 					assert.True(t, samples[0].Histogram.GetSampleCount() == 4)
@@ -306,23 +310,18 @@ func _TestClientMetering(t *testing.T) {
 // BackendWorker tests
 func TestWorker(t *testing.T) {
 	var (
-		// actual               *Payload
+		actual               bool
 		err                  error
 		backendRequestsCount int
 	)
 	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		backendRequestsCount++
 		defer r.Body.Close()
-		// var data []byte
-		// if data, err = ioutil.ReadAll(r.Body); err != nil {
-		// 	w.WriteHeader(http.StatusInternalServerError)
-		// 	return
-		// }
-		// actual = &Payload{}
-		// if err = json.Unmarshal(data, actual); err != nil {
-		// 	w.WriteHeader(http.StatusInternalServerError)
-		// 	return
-		// }
+		if _, err = ioutil.ReadAll(r.Body); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		actual = true
 		w.Write([]byte("123"))
 	}))
 	defer backend.Close()
@@ -330,15 +329,15 @@ func TestWorker(t *testing.T) {
 		URL:                 backend.URL,
 		MaxSizeResponseBody: units.KB,
 	}
-	expected := &Payload{
+	input := &WorkerInput{
 		URL: backend.URL,
 	}
 
-	workerError := w.Work(context.Background(), expected)
+	workerError := w.Work(context.Background(), input)
 
 	assert.Nil(t, err)
 	assert.Nil(t, workerError)
-	// assert.Equal(t, expected, actual)
+	assert.True(t, actual)
 	assert.Equal(t, 1, backendRequestsCount)
 }
 
@@ -352,12 +351,12 @@ func TestWorkerResponseTooLarge(t *testing.T) {
 		MaxSizeResponseBody: 0,
 	}
 
-	err := w.Work(context.Background(), &Payload{
+	err := w.Work(context.Background(), &WorkerInput{
 		URL: backend.URL,
 	})
 
 	assert.NotNil(t, err)
-	assert.Equal(t, fmt.Sprintf("reading response for payload resource %s failed: response body too large", backend.URL), err.Error())
+	assert.Equal(t, fmt.Sprintf("reading response for workerInput resource %s failed: response body too large", backend.URL), err.Error())
 }
 
 func TestWorkerResponseFault(t *testing.T) {
@@ -370,12 +369,12 @@ func TestWorkerResponseFault(t *testing.T) {
 		MaxSizeResponseBody: units.KB,
 	}
 
-	err := w.Work(context.Background(), &Payload{
+	err := w.Work(context.Background(), &WorkerInput{
 		URL: backend.URL,
 	})
 
 	assert.NotNil(t, err)
-	assert.Equal(t, fmt.Sprintf("sending payload resource for %s failed with response code 500", backend.URL), err.Error())
+	assert.Equal(t, fmt.Sprintf("sending workerInput resource for %s failed with response code 500", backend.URL), err.Error())
 }
 
 func TestWorkerCtxTimeout(t *testing.T) {
@@ -390,7 +389,7 @@ func TestWorkerCtxTimeout(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 
-	err := w.Work(ctx, &Payload{
+	err := w.Work(ctx, &WorkerInput{
 		URL: backend.URL,
 	})
 
@@ -413,7 +412,7 @@ func TestWorkerCtxCancel(t *testing.T) {
 		cancel()
 	}()
 
-	err := w.Work(ctx, &Payload{
+	err := w.Work(ctx, &WorkerInput{
 		URL: backend.URL,
 	})
 
