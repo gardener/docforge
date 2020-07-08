@@ -40,28 +40,28 @@ func init() {
 
 var shortSenderCallsCount int32
 
-func newWorkerInputsList(workerInputsCount int, serverURL string, randomizePaths bool) []*WorkerInput {
-	var workerInputs []*WorkerInput
+func newTasksList(tasksCount int, serverURL string, randomizePaths bool) []*Task {
+	var Tasks []*Task
 
-	if workerInputsCount > 0 {
-		workerInputs = make([]*WorkerInput, workerInputsCount)
-		for i, c := 0, int('a'); i < len(workerInputs); i++ {
+	if tasksCount > 0 {
+		Tasks = make([]*Task, tasksCount)
+		for i, c := 0, int('a'); i < len(Tasks); i++ {
 			if randomizePaths {
 				c++
 				if c > 127 {
 					c = int('a')
 				}
 			}
-			workerInputs[i] = &WorkerInput{
+			Tasks[i] = &Task{
 				URL: fmt.Sprintf("%s/%s", serverURL, string(c)),
 			}
 		}
 	}
 
-	return workerInputs
+	return Tasks
 }
 
-func shortSender(ctx context.Context, message *WorkerInput) *WorkerError {
+func shortSender(ctx context.Context, task *Task) *WorkerError {
 	time.Sleep(10 * time.Millisecond)
 	atomic.AddInt32(&shortSenderCallsCount, 1)
 	return nil
@@ -69,68 +69,68 @@ func shortSender(ctx context.Context, message *WorkerInput) *WorkerError {
 
 func TestDispatchAdaptive(t *testing.T) {
 	shortSenderCallsCount = 0
-	messagesCount := 20
+	tasksCount := 20
 	minWorkers := 0
 	maxWorkers := 40
 	timeout := 1 * time.Second
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	backend := &Backend{
+	job := &Job{
 		MinWorkers: minWorkers,
 		MaxWorkers: maxWorkers,
 		Worker:     WorkerFunc(shortSender),
 	}
 
 	t0 := time.Now()
-	if err := backend.Dispatch(ctx, newWorkerInputsList(messagesCount, "", false)); err != nil {
+	if err := job.Dispatch(ctx, newTasksList(tasksCount, "", false)); err != nil {
 		t.Errorf("%v", err)
 	}
 	processingDuration := time.Now().Sub(t0)
 	t.Logf("\nProcess duration: %s\n", processingDuration.String())
-	assert.Equal(t, messagesCount, int(shortSenderCallsCount))
+	assert.Equal(t, tasksCount, int(shortSenderCallsCount))
 }
 
 func TestDispatchStrict(t *testing.T) {
 	shortSenderCallsCount = 0
-	messagesCount := 10
+	tasksCount := 10
 	minWorkers := 10
 	maxWorkers := 10
 	timeout := 1 * time.Second
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	backend := &Backend{
+	job := &Job{
 		MinWorkers: minWorkers,
 		MaxWorkers: maxWorkers,
 		Worker:     WorkerFunc(shortSender),
 	}
 
 	t0 := time.Now()
-	if err := backend.Dispatch(ctx, newWorkerInputsList(messagesCount, "", false)); err != nil {
+	if err := job.Dispatch(ctx, newTasksList(tasksCount, "", false)); err != nil {
 		t.Errorf("%v", err)
 	}
 	processingDuration := time.Now().Sub(t0)
 	t.Logf("\nProcess duration: %s\n", processingDuration.String())
-	assert.Equal(t, messagesCount, int(shortSenderCallsCount))
+	assert.Equal(t, tasksCount, int(shortSenderCallsCount))
 }
 
 func TestDispatchNoWorkers(t *testing.T) {
 	shortSenderCallsCount = 0
-	messagesCount := 10
+	tasksCount := 10
 	minWorkers := 0
 	maxWorkers := 0
 	timeout := 100 * time.Millisecond
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	backend := &Backend{
+	job := &Job{
 		MinWorkers: minWorkers,
 		MaxWorkers: maxWorkers,
 		Worker:     WorkerFunc(shortSender),
 	}
 
-	err := backend.Dispatch(ctx, newWorkerInputsList(messagesCount, "", false))
+	err := job.Dispatch(ctx, newTasksList(tasksCount, "", false))
 
 	assert.NotNil(t, err)
 	assert.Equal(t, context.DeadlineExceeded, err.error)
@@ -139,14 +139,14 @@ func TestDispatchNoWorkers(t *testing.T) {
 
 func TestDispatchWrongWorkersRange(t *testing.T) {
 	shortSenderCallsCount = 0
-	messagesCount := 10
+	tasksCount := 10
 	minWorkers := 10
 	maxWorkers := 0
 	timeout := 1 * time.Second
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	backend := &Backend{
+	job := &Job{
 		MinWorkers: minWorkers,
 		MaxWorkers: maxWorkers,
 		Worker:     WorkerFunc(shortSender),
@@ -159,40 +159,40 @@ func TestDispatchWrongWorkersRange(t *testing.T) {
 		}
 	}(t, shortSenderCallsCount)
 
-	backend.Dispatch(ctx, newWorkerInputsList(messagesCount, "", false))
+	job.Dispatch(ctx, newTasksList(tasksCount, "", false))
 }
 
 func TestDispatchCtxTimeout(t *testing.T) {
 	shortSenderCallsCount = 0
-	messagesCount := 400
+	tasksCount := 400
 	minWorkers := 0
 	maxWorkers := 1
 	timeout := 100 * time.Millisecond
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	backend := &Backend{
+	job := &Job{
 		MinWorkers: minWorkers,
 		MaxWorkers: maxWorkers,
 		Worker:     WorkerFunc(shortSender),
 	}
 
-	var actualError = backend.Dispatch(ctx, newWorkerInputsList(messagesCount, "", false))
+	var actualError = job.Dispatch(ctx, newTasksList(tasksCount, "", false))
 
 	assert.NotNil(t, actualError)
 	assert.Equal(t, newerror(context.DeadlineExceeded, 0), actualError)
-	assert.NotEqual(t, messagesCount, int(atomic.LoadInt32(&shortSenderCallsCount)))
+	assert.NotEqual(t, tasksCount, int(atomic.LoadInt32(&shortSenderCallsCount)))
 }
 
 func TestDispatchCtxCancel(t *testing.T) {
 	shortSenderCallsCount = 0
-	messagesCount := 400
+	tasksCount := 400
 	minWorkers := 0
 	maxWorkers := 1
 	timeout := 5 * time.Second
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	backend := &Backend{
+	job := &Job{
 		MinWorkers: minWorkers,
 		MaxWorkers: maxWorkers,
 		Worker:     WorkerFunc(shortSender),
@@ -202,18 +202,18 @@ func TestDispatchCtxCancel(t *testing.T) {
 		cancel()
 	}()
 
-	var actualError = backend.Dispatch(ctx, newWorkerInputsList(messagesCount, "", false))
+	var actualError = job.Dispatch(ctx, newTasksList(tasksCount, "", false))
 
 	assert.NotNil(t, actualError)
 	assert.Equal(t, newerror(context.Canceled, 0), actualError)
-	assert.NotEqual(t, messagesCount, int(atomic.LoadInt32(&shortSenderCallsCount)))
+	assert.NotEqual(t, tasksCount, int(atomic.LoadInt32(&shortSenderCallsCount)))
 }
 
 var expectedError = newerror(errors.New("test"), 123)
 
 var faultySenderCallsCount uint32
 
-func faultySender(ctx context.Context, message *WorkerInput) *WorkerError {
+func faultySender(ctx context.Context, task *Task) *WorkerError {
 	time.Sleep(50 * time.Millisecond)
 	atomic.AddUint32(&faultySenderCallsCount, 1)
 	count := int(atomic.LoadUint32(&faultySenderCallsCount))
@@ -224,7 +224,7 @@ func faultySender(ctx context.Context, message *WorkerInput) *WorkerError {
 }
 
 func TestDispatchError(t *testing.T) {
-	messagesCount := 10
+	tasksCount := 10
 	minWorkers := 0
 	maxWorkers := 10
 	timeout := 1 * time.Second
@@ -232,20 +232,20 @@ func TestDispatchError(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	backend := &Backend{
+	job := &Job{
 		MinWorkers: minWorkers,
 		MaxWorkers: maxWorkers,
 		Worker:     WorkerFunc(faultySender),
 	}
 
-	actualError := backend.Dispatch(ctx, newWorkerInputsList(messagesCount, "", false))
+	actualError := job.Dispatch(ctx, newTasksList(tasksCount, "", false))
 
 	assert.NotNil(t, actualError)
 	assert.Equal(t, expectedError, actualError)
 }
 
 func TestClientMetering(t *testing.T) {
-	messagesCount := 4
+	tasksCount := 4
 	minWorkers := 4
 	maxWorkers := 4
 	timeout := 60 * 60 * time.Second
@@ -258,7 +258,7 @@ func TestClientMetering(t *testing.T) {
 		w.Write([]byte("123"))
 	}))
 	defer backendService.Close()
-	var backend = &Backend{
+	var job = &Job{
 		MinWorkers: minWorkers,
 		MaxWorkers: maxWorkers,
 		Worker: &BackendWorker{
@@ -268,8 +268,8 @@ func TestClientMetering(t *testing.T) {
 
 	reg := prometheus.NewRegistry()
 	RegisterMetrics(true, reg)
-	inputs := newWorkerInputsList(messagesCount, backendService.URL, true)
-	if err := backend.Dispatch(ctx, inputs); err != nil {
+	inputs := newTasksList(tasksCount, backendService.URL, true)
+	if err := job.Dispatch(ctx, inputs); err != nil {
 		t.Errorf("%v", err)
 	}
 
@@ -329,7 +329,7 @@ func TestWorker(t *testing.T) {
 		URL:                 backend.URL,
 		MaxSizeResponseBody: units.KB,
 	}
-	input := &WorkerInput{
+	input := &Task{
 		URL: backend.URL,
 	}
 
@@ -351,12 +351,12 @@ func TestWorkerResponseTooLarge(t *testing.T) {
 		MaxSizeResponseBody: 0,
 	}
 
-	err := w.Work(context.Background(), &WorkerInput{
+	err := w.Work(context.Background(), &Task{
 		URL: backend.URL,
 	})
 
 	assert.NotNil(t, err)
-	assert.Equal(t, fmt.Sprintf("reading response for workerInput resource %s failed: response body too large", backend.URL), err.Error())
+	assert.Equal(t, fmt.Sprintf("reading response from Task resource %s failed: response body too large", backend.URL), err.Error())
 }
 
 func TestWorkerResponseFault(t *testing.T) {
@@ -369,12 +369,12 @@ func TestWorkerResponseFault(t *testing.T) {
 		MaxSizeResponseBody: units.KB,
 	}
 
-	err := w.Work(context.Background(), &WorkerInput{
+	err := w.Work(context.Background(), &Task{
 		URL: backend.URL,
 	})
 
 	assert.NotNil(t, err)
-	assert.Equal(t, fmt.Sprintf("sending workerInput resource for %s failed with response code 500", backend.URL), err.Error())
+	assert.Equal(t, fmt.Sprintf("sending Task to resource %s failed with response code 500", backend.URL), err.Error())
 }
 
 func TestWorkerCtxTimeout(t *testing.T) {
@@ -389,7 +389,7 @@ func TestWorkerCtxTimeout(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 
-	err := w.Work(ctx, &WorkerInput{
+	err := w.Work(ctx, &Task{
 		URL: backend.URL,
 	})
 
@@ -412,7 +412,7 @@ func TestWorkerCtxCancel(t *testing.T) {
 		cancel()
 	}()
 
-	err := w.Work(ctx, &WorkerInput{
+	err := w.Work(ctx, &Task{
 		URL: backend.URL,
 	})
 

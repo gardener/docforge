@@ -5,7 +5,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//      http://www.apache.org/licenses/LICENSE-2.0
+//      http://wwj.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -27,19 +27,18 @@ import (
 	"github.com/golang/glog"
 )
 
-// WorkerInput is ..
-type WorkerInput struct {
+// Task is ..
+type Task struct {
 	URL string
 }
 
-// Backend dispatches assignments for parallel processing of workerInput queue
-// and synchronous response
-type Backend struct {
-	// MaxWorkers is the maximum number of workers sending a batch auditlog workerInputs in parallel to backend
+// Job enques assignments for parallel processing and synchronous response
+type Job struct {
+	// MaxWorkers is the maximum number of workers processing a batch of Tasks in parallel
 	MaxWorkers int
-	// MinWorkers is the minimum number of workers sending a batch auditlog workerInputs in parallel to backend
+	// MinWorkers is the minimum number of workers processing a batch of Tasks in parallel
 	MinWorkers int
-	// Worker implements a unit of work, i.e. a backend roundtrip
+	// Worker for processing tasks
 	Worker Worker
 }
 
@@ -59,30 +58,33 @@ func newerror(err error, code int) *WorkerError {
 
 // Worker declares workers functional interface
 type Worker interface {
-	// Work processes the workerInput with the given context
-	Work(ctx context.Context, workerInput *WorkerInput) *WorkerError
+	// Work processes the task within the given context
+	Work(ctx context.Context, task *Task) *WorkerError
 }
 
 // The WorkerFunc type is an adapter to allow the use of
 // ordinary functions as Workers. If f is a function
 // with the appropriate signature, WorkerFunc(f) is a
 // Worker object that calls f.
-type WorkerFunc func(ctx context.Context, workerInput *WorkerInput) *WorkerError
+type WorkerFunc func(ctx context.Context, task *Task) *WorkerError
 
-// Work calls f(ctx, workerInput).
-func (f WorkerFunc) Work(ctx context.Context, workerInput *WorkerInput) *WorkerError {
-	return f(ctx, workerInput)
+// Work calls f(ctx, Task).
+func (f WorkerFunc) Work(ctx context.Context, task *Task) *WorkerError {
+	return f(ctx, task)
 }
 
-func (w *Backend) allocate(ctx context.Context, workerInputs []*WorkerInput) (<-chan *WorkerInput, <-chan *WorkerError) {
-	msgCh := make(chan *WorkerInput)
+// Allocates worker tasks and error channels and asynchronously feeds Tasks to the worker tasks channel
+// staying sensitive to termination signals from the provided context. Context terminal signals are registered
+// as errors to the error channel.
+func (j *Job) allocate(ctx context.Context, tasks []*Task) (<-chan *Task, <-chan *WorkerError) {
+	msgCh := make(chan *Task)
 	errCh := make(chan *WorkerError)
 	go func() {
 		defer close(msgCh)
 		defer close(errCh)
-		for _, workerInput := range workerInputs {
+		for _, task := range tasks {
 			select {
-			case msgCh <- workerInput:
+			case msgCh <- task:
 			case <-ctx.Done():
 				{
 					errCh <- newerror(ctx.Err(), 0)
@@ -94,18 +96,21 @@ func (w *Backend) allocate(ctx context.Context, workerInputs []*WorkerInput) (<-
 	return msgCh, errCh
 }
 
-func (w *Backend) process(ctx context.Context, workerInputCh <-chan *WorkerInput) <-chan *WorkerError {
+// Processes asynchronously tasks from the Tasks channel until channel is closed or context signals
+// termination. The processing delegates to the Worker.Work function implementation registered in this Job.
+// Context terminal signals are registered as errors to the error channel.
+func (j *Job) process(ctx context.Context, taskCh <-chan *Task) <-chan *WorkerError {
 	errCh := make(chan *WorkerError, 1)
 	go func() {
 		defer close(errCh)
 		for {
 			select {
-			case workerInput, ok := <-workerInputCh:
+			case Task, ok := <-taskCh:
 				{
 					if !ok {
 						return
 					}
-					if err := w.Worker.Work(ctx, workerInput); err != nil {
+					if err := j.Worker.Work(ctx, Task); err != nil {
 						errCh <- err
 						return
 					}
@@ -121,35 +126,36 @@ func (w *Backend) process(ctx context.Context, workerInputCh <-chan *WorkerInput
 	return errCh
 }
 
-// Dispatch spawns a set of workers processing in parallel the supplied workerInputs.
+// Dispatch spawns a set of workers processing in parallel the supplied tasks.
 // If the context is cancelled or has timed out (if it's a timeout context), or if
-// any other error occurs during processing of workerInputs, a Proxy error is returned
-// as soon as possible, processing halts and workers are disposed.
-func (w *Backend) Dispatch(ctx context.Context, workerInputs []*WorkerInput) *WorkerError {
-	if w.MaxWorkers < w.MinWorkers {
-		panic(fmt.Sprintf("Backend maxWorkers < minWorkers: %d < %d", w.MaxWorkers, w.MinWorkers))
+// any other error occurs during processing of Tasks, a workerError error is
+// returned as soon as possible, processing halts and workers are disposed.
+func (j *Job) Dispatch(ctx context.Context, tasks []*Task) *WorkerError {
+	if j.MaxWorkers < j.MinWorkers {
+		panic(fmt.Sprintf("Job maxWorkers < minWorkers: %d < %d", j.MaxWorkers, j.MinWorkers))
 	}
-	workersCount := len(workerInputs)
-	if workersCount > w.MaxWorkers {
-		workersCount = w.MaxWorkers
+	workersCount := len(tasks)
+	if workersCount > j.MaxWorkers {
+		workersCount = j.MaxWorkers
 	}
-	if workersCount < w.MinWorkers {
-		workersCount = w.MinWorkers
+	if workersCount < j.MinWorkers {
+		workersCount = j.MinWorkers
 	}
 
 	var errcList []<-chan *WorkerError
 
-	workerInputCh, errc := w.allocate(ctx, workerInputs)
+	taskCh, errc := j.allocate(ctx, tasks)
 	errcList = append(errcList, errc)
 
 	for i := 0; i < workersCount; i++ {
-		errc = w.process(ctx, workerInputCh)
+		errc = j.process(ctx, taskCh)
 		errcList = append(errcList, errc)
 	}
 
 	return waitForPipeline(errcList...)
 }
 
+// merges asynchronously produced errors from multiple error channels into a single channel
 func mergeErrors(channels ...<-chan *WorkerError) <-chan *WorkerError {
 	var wg sync.WaitGroup
 	// We must ensure that the output channel has the capacity to hold as many errors
@@ -171,7 +177,7 @@ func mergeErrors(channels ...<-chan *WorkerError) <-chan *WorkerError {
 	}
 
 	// Start a goroutine to close errCh once all the outputF goroutines are
-	// done.  This must start after the wg.Add call.
+	// done. This must start after the wg.Add call.
 	go func() {
 		wg.Wait()
 		close(errCh)
@@ -191,8 +197,7 @@ func waitForPipeline(errChs ...<-chan *WorkerError) *WorkerError {
 	return nil
 }
 
-// BackendWorker implements a Backend Work function for POSTing
-// WorkerInput resources to the Auditlog service endpoint
+// BackendWorker specializes in processing remote GitHub resources
 type BackendWorker struct {
 	// URL is the address that this worker will send logs to
 	URL string
@@ -205,9 +210,9 @@ type BackendWorker struct {
 }
 
 // Work implements Worker#Work function
-func (b *BackendWorker) Work(ctx context.Context, workerInput *WorkerInput) *WorkerError {
-	url := workerInput.URL
-	//glog.V(6).Infof("marshalling workerInput for transport to url %s", workerInput.URL)
+func (b *BackendWorker) Work(ctx context.Context, Task *Task) *WorkerError {
+	url := Task.URL
+	//glog.V(6).Infof("marshalling Task for transport to url %s", Task.URL)
 
 	req, err := http.NewRequest("GET", url, nil)
 	req = req.WithContext(ctx)
@@ -217,8 +222,8 @@ func (b *BackendWorker) Work(ctx context.Context, workerInput *WorkerInput) *Wor
 	// req.Header.Set("Content-Type", "application/json")
 	// req.SetBasicAuth(b.Username, b.Password)
 
-	glog.V(6).Infof("sending workerInput resource to %s", url)
-	// glog.V(16).Infof("WorkerInput with UUID %s in request workerInput: %+v", workerInput.UUID, string(marshaled))
+	glog.V(6).Infof("sending Task resource to %s", url)
+	// glog.V(16).Infof("Task with UUID %s in request Task: %+v", Task.UUID, string(marshaled))
 
 	client := InstrumentClient(http.DefaultClient)
 
@@ -229,7 +234,7 @@ func (b *BackendWorker) Work(ctx context.Context, workerInput *WorkerInput) *Wor
 
 	// check for errors returned from the backend service
 	if resp.StatusCode > 399 {
-		return newerror(fmt.Errorf("sending workerInput to resource %s failed with response code %d", workerInput.URL, resp.StatusCode), resp.StatusCode)
+		return newerror(fmt.Errorf("sending Task to resource %s failed with response code %d", Task.URL, resp.StatusCode), resp.StatusCode)
 	}
 
 	var body []byte
@@ -239,18 +244,18 @@ func (b *BackendWorker) Work(ctx context.Context, workerInput *WorkerInput) *Wor
 	// ("http: request body too large") or nil for empty body.
 	resp.Body = http.MaxBytesReader(nil, resp.Body, b.MaxSizeResponseBody)
 	if body, err = ioutil.ReadAll(resp.Body); err != nil {
-		// change error workerInput to be less misleading
+		// change error Task to be less misleading
 		if err.Error() == "http: request body too large" {
 			err = fmt.Errorf("response body too large")
 		}
-		return newerror(fmt.Errorf("reading response from workerInput resource %s failed: %v", workerInput.URL, err), 0)
+		return newerror(fmt.Errorf("reading response from Task resource %s failed: %v", Task.URL, err), 0)
 	}
 
 	if len(body) == 0 {
-		return newerror(fmt.Errorf("reading response from workerInput resource %s failed: no response body workerInput found", workerInput.URL), 0)
+		return newerror(fmt.Errorf("reading response from Task resource %s failed: no response body Task found", Task.URL), 0)
 	}
 
-	glog.V(4).Infof("successfully saved workerInput resource %s", workerInput.URL)
+	glog.V(4).Infof("successfully saved Task resource %s", Task.URL)
 
 	return nil
 }
