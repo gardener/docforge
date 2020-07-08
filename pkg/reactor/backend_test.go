@@ -29,6 +29,7 @@ import (
 	"github.com/gardener/docode/pkg/metrics"
 	"github.com/gardener/docode/pkg/util/tests"
 	"github.com/gardener/docode/pkg/util/units"
+	"github.com/hashicorp/go-multierror"
 	"github.com/prometheus/client_golang/prometheus"
 	io_prometheus_client "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
@@ -80,6 +81,7 @@ func TestDispatchAdaptive(t *testing.T) {
 		MinWorkers: minWorkers,
 		MaxWorkers: maxWorkers,
 		Worker:     WorkerFunc(shortSender),
+		FailFast:   true,
 	}
 
 	t0 := time.Now()
@@ -104,6 +106,7 @@ func TestDispatchStrict(t *testing.T) {
 		MinWorkers: minWorkers,
 		MaxWorkers: maxWorkers,
 		Worker:     WorkerFunc(shortSender),
+		FailFast:   true,
 	}
 
 	t0 := time.Now()
@@ -128,6 +131,7 @@ func TestDispatchNoWorkers(t *testing.T) {
 		MinWorkers: minWorkers,
 		MaxWorkers: maxWorkers,
 		Worker:     WorkerFunc(shortSender),
+		FailFast:   true,
 	}
 
 	err := job.Dispatch(ctx, newTasksList(tasksCount, "", false))
@@ -150,6 +154,7 @@ func TestDispatchWrongWorkersRange(t *testing.T) {
 		MinWorkers: minWorkers,
 		MaxWorkers: maxWorkers,
 		Worker:     WorkerFunc(shortSender),
+		FailFast:   true,
 	}
 
 	defer func(t *testing.T, shortSenderCallsCount int32) {
@@ -175,6 +180,7 @@ func TestDispatchCtxTimeout(t *testing.T) {
 		MinWorkers: minWorkers,
 		MaxWorkers: maxWorkers,
 		Worker:     WorkerFunc(shortSender),
+		FailFast:   true,
 	}
 
 	var actualError = job.Dispatch(ctx, newTasksList(tasksCount, "", false))
@@ -196,6 +202,7 @@ func TestDispatchCtxCancel(t *testing.T) {
 		MinWorkers: minWorkers,
 		MaxWorkers: maxWorkers,
 		Worker:     WorkerFunc(shortSender),
+		FailFast:   true,
 	}
 	go func() {
 		time.Sleep(500 * time.Millisecond)
@@ -212,9 +219,11 @@ func TestDispatchCtxCancel(t *testing.T) {
 var expectedError = newerror(errors.New("test"), 123)
 
 var faultySenderCallsCount uint32
+var totalCallsCount uint32
 
 func faultySender(ctx context.Context, task *Task) *WorkerError {
 	time.Sleep(50 * time.Millisecond)
+	atomic.AddUint32(&totalCallsCount, 1)
 	atomic.AddUint32(&faultySenderCallsCount, 1)
 	count := int(atomic.LoadUint32(&faultySenderCallsCount))
 	if count == 3 || count == 5 || count == 8 {
@@ -226,7 +235,7 @@ func faultySender(ctx context.Context, task *Task) *WorkerError {
 func TestDispatchError(t *testing.T) {
 	tasksCount := 10
 	minWorkers := 0
-	maxWorkers := 10
+	maxWorkers := 2
 	timeout := 1 * time.Second
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -236,12 +245,47 @@ func TestDispatchError(t *testing.T) {
 		MinWorkers: minWorkers,
 		MaxWorkers: maxWorkers,
 		Worker:     WorkerFunc(faultySender),
+		FailFast:   true,
 	}
 
 	actualError := job.Dispatch(ctx, newTasksList(tasksCount, "", false))
 
 	assert.NotNil(t, actualError)
 	assert.Equal(t, expectedError, actualError)
+	//Did we fail fast
+	actualCallCount := int(atomic.LoadUint32(&totalCallsCount))
+	assert.True(t, actualCallCount < tasksCount)
+	atomic.StoreUint32(&totalCallsCount, 0)
+}
+
+func TestDispatchFaultTolerantOnError(t *testing.T) {
+	tasksCount := 10
+	minWorkers := 0
+	maxWorkers := 4
+	timeout := 1 * time.Second
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	job := &Job{
+		MinWorkers: minWorkers,
+		MaxWorkers: maxWorkers,
+		Worker:     WorkerFunc(faultySender),
+		FailFast:   false,
+	}
+
+	actualError := job.Dispatch(ctx, newTasksList(tasksCount, "", false))
+
+	assert.NotNil(t, actualError)
+	if actualError != nil {
+		assert.NotNil(t, actualError.error)
+		if merr, ok := actualError.error.(*multierror.Error); ok {
+			assert.True(t, merr.Len() == 1)
+			assert.Equal(t, merr.Errors[0], expectedError)
+		}
+	}
+	assert.True(t, int(atomic.LoadUint32(&totalCallsCount)) == tasksCount)
+	atomic.StoreUint32(&totalCallsCount, 0)
 }
 
 func TestClientMetering(t *testing.T) {

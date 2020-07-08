@@ -17,6 +17,7 @@ package reactor
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -25,6 +26,7 @@ import (
 	"sync"
 
 	"github.com/golang/glog"
+	"github.com/hashicorp/go-multierror"
 )
 
 // Task is ..
@@ -40,6 +42,10 @@ type Job struct {
 	MinWorkers int
 	// Worker for processing tasks
 	Worker Worker
+	// FailFast controls the behavior of this Job upon errors. If set to true, it will quit
+	// further processing upon the first error that occurs. For fault tolerant applications
+	// use false.
+	FailFast bool
 }
 
 // WorkerError wraps an underlying error struct and adds optional code
@@ -47,6 +53,24 @@ type Job struct {
 type WorkerError struct {
 	error
 	code int
+}
+
+// Is implements the contract for errors.Is (https://golang.org/pkg/errors/#Is)
+func (we WorkerError) Is(target error) bool {
+	var (
+		_target WorkerError
+		ok      bool
+	)
+	if _target, ok = target.(WorkerError); !ok {
+		return false
+	}
+	if we.code != _target.code {
+		return false
+	}
+	if !errors.Is(we.error, _target.error) {
+		return false
+	}
+	return true
 }
 
 func newerror(err error, code int) *WorkerError {
@@ -152,7 +176,7 @@ func (j *Job) Dispatch(ctx context.Context, tasks []*Task) *WorkerError {
 		errcList = append(errcList, errc)
 	}
 
-	return waitForPipeline(errcList...)
+	return waitForPipeline(j.FailFast, errcList...)
 }
 
 // merges asynchronously produced errors from multiple error channels into a single channel
@@ -186,15 +210,28 @@ func mergeErrors(channels ...<-chan *WorkerError) <-chan *WorkerError {
 }
 
 // waitForPipeline waits for results from all error channels.
-// It returns early on the first error.
-func waitForPipeline(errChs ...<-chan *WorkerError) *WorkerError {
+// It returns early on the first error if failfast is true or
+//
+func waitForPipeline(failFast bool, errChs ...<-chan *WorkerError) *WorkerError {
+	var (
+		errors      *multierror.Error
+		workerError *WorkerError
+	)
 	errCh := mergeErrors(errChs...)
 	for err := range errCh {
 		if err != nil {
-			return err
+			if failFast {
+				return err
+			}
+			errors = multierror.Append(err)
 		}
 	}
-	return nil
+	if err := errors.ErrorOrNil(); err != nil {
+		workerError = &WorkerError{
+			error: errors,
+		}
+	}
+	return workerError
 }
 
 // BackendWorker specializes in processing remote GitHub resources
