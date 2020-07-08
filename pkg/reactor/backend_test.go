@@ -394,7 +394,7 @@ func TestWorkerCtxTimeout(t *testing.T) {
 	})
 
 	assert.NotNil(t, err)
-	// assert.Equal(t, fmt.Sprintf("Post %s: context deadline exceeded", w.URL+urlSuffix), err.Error())
+	assert.Equal(t, fmt.Sprintf("Get %q: context deadline exceeded", backend.URL), err.Error())
 }
 
 func TestWorkerCtxCancel(t *testing.T) {
@@ -417,5 +417,5 @@ func TestWorkerCtxCancel(t *testing.T) {
 	})
 
 	assert.NotNil(t, err)
-	// assert.Equal(t, fmt.Sprintf("Post %s: context canceled", w.URL+urlSuffix), err.Error())
+	assert.Equal(t, fmt.Sprintf("Get %q: context canceled", backend.URL), err.Error())
 }

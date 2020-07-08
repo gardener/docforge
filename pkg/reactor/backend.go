@@ -207,7 +207,7 @@ type BackendWorker struct {
 // Work implements Worker#Work function
 func (b *BackendWorker) Work(ctx context.Context, workerInput *WorkerInput) *WorkerError {
 	url := workerInput.URL
-	glog.V(6).Infof("marshalling workerInput for transport to url %s", workerInput.URL)
+	//glog.V(6).Infof("marshalling workerInput for transport to url %s", workerInput.URL)
 
 	req, err := http.NewRequest("GET", url, nil)
 	req = req.WithContext(ctx)
@@ -217,7 +217,7 @@ func (b *BackendWorker) Work(ctx context.Context, workerInput *WorkerInput) *Wor
 	// req.Header.Set("Content-Type", "application/json")
 	// req.SetBasicAuth(b.Username, b.Password)
 
-	glog.V(6).Infof("sending workerInput resource with to %s", url)
+	glog.V(6).Infof("sending workerInput resource to %s", url)
 	// glog.V(16).Infof("WorkerInput with UUID %s in request workerInput: %+v", workerInput.UUID, string(marshaled))
 
 	client := InstrumentClient(http.DefaultClient)
@@ -229,7 +229,7 @@ func (b *BackendWorker) Work(ctx context.Context, workerInput *WorkerInput) *Wor
 
 	// check for errors returned from the backend service
 	if resp.StatusCode > 399 {
-		return newerror(fmt.Errorf("sending workerInput resource for %s failed with response code %d", workerInput.URL, resp.StatusCode), resp.StatusCode)
+		return newerror(fmt.Errorf("sending workerInput to resource %s failed with response code %d", workerInput.URL, resp.StatusCode), resp.StatusCode)
 	}
 
 	var body []byte
@@ -243,11 +243,11 @@ func (b *BackendWorker) Work(ctx context.Context, workerInput *WorkerInput) *Wor
 		if err.Error() == "http: request body too large" {
 			err = fmt.Errorf("response body too large")
 		}
-		return newerror(fmt.Errorf("reading response for workerInput resource %s failed: %v", workerInput.URL, err), 0)
+		return newerror(fmt.Errorf("reading response from workerInput resource %s failed: %v", workerInput.URL, err), 0)
 	}
 
 	if len(body) == 0 {
-		return newerror(fmt.Errorf("reading response for workerInput resource %s failed: no response body workerInput found", workerInput.URL), 0)
+		return newerror(fmt.Errorf("reading response from workerInput resource %s failed: no response body workerInput found", workerInput.URL), 0)
 	}
 
 	glog.V(4).Infof("successfully saved workerInput resource %s", workerInput.URL)

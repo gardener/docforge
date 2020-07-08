@@ -15,7 +15,7 @@
 package version_test
 
 import (
-	. "github.wdf.sap.corp/kubernetes/auditlog-extension/pkg/version"
+	. "github.com/gardener/docode/pkg/version"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
