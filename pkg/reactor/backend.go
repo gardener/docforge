@@ -29,16 +29,11 @@ import (
 	"github.com/hashicorp/go-multierror"
 )
 
-// Task is ..
-type Task struct {
-	URL string
-}
-
 // Job enques assignments for parallel processing and synchronous response
 type Job struct {
-	// MaxWorkers is the maximum number of workers processing a batch of Tasks in parallel
+	// MaxWorkers is the maximum number of workers processing a batch of tasks in parallel
 	MaxWorkers int
-	// MinWorkers is the minimum number of workers processing a batch of Tasks in parallel
+	// MinWorkers is the minimum number of workers processing a batch of tasks in parallel
 	MinWorkers int
 	// Worker for processing tasks
 	Worker Worker
@@ -82,26 +77,26 @@ func newerror(err error, code int) *WorkerError {
 
 // Worker declares workers functional interface
 type Worker interface {
-	// Work processes the task within the given context
-	Work(ctx context.Context, task *Task) *WorkerError
+	// Work processes the task within the given context.
+	Work(ctx context.Context, task interface{}) *WorkerError
 }
 
 // The WorkerFunc type is an adapter to allow the use of
 // ordinary functions as Workers. If f is a function
 // with the appropriate signature, WorkerFunc(f) is a
 // Worker object that calls f.
-type WorkerFunc func(ctx context.Context, task *Task) *WorkerError
+type WorkerFunc func(ctx context.Context, task interface{}) *WorkerError
 
 // Work calls f(ctx, Task).
-func (f WorkerFunc) Work(ctx context.Context, task *Task) *WorkerError {
+func (f WorkerFunc) Work(ctx context.Context, task interface{}) *WorkerError {
 	return f(ctx, task)
 }
 
-// Allocates worker tasks and error channels and asynchronously feeds Tasks to the worker tasks channel
+// Allocates worker tasks and error channels and asynchronously feeds tasks to the worker tasks channel
 // staying sensitive to termination signals from the provided context. Context terminal signals are registered
 // as errors to the error channel.
-func (j *Job) allocate(ctx context.Context, tasks []*Task) (<-chan *Task, <-chan *WorkerError) {
-	msgCh := make(chan *Task)
+func (j *Job) allocate(ctx context.Context, tasks []interface{}) (<-chan interface{}, <-chan *WorkerError) {
+	msgCh := make(chan interface{})
 	errCh := make(chan *WorkerError)
 	go func() {
 		defer close(msgCh)
@@ -120,21 +115,21 @@ func (j *Job) allocate(ctx context.Context, tasks []*Task) (<-chan *Task, <-chan
 	return msgCh, errCh
 }
 
-// Processes asynchronously tasks from the Tasks channel until channel is closed or context signals
+// Processes asynchronously tasks from the tasks channel until channel is closed or context signals
 // termination. The processing delegates to the Worker.Work function implementation registered in this Job.
 // Context terminal signals are registered as errors to the error channel.
-func (j *Job) process(ctx context.Context, taskCh <-chan *Task) <-chan *WorkerError {
+func (j *Job) process(ctx context.Context, taskCh <-chan interface{}) <-chan *WorkerError {
 	errCh := make(chan *WorkerError, 1)
 	go func() {
 		defer close(errCh)
 		for {
 			select {
-			case Task, ok := <-taskCh:
+			case task, ok := <-taskCh:
 				{
 					if !ok {
 						return
 					}
-					if err := j.Worker.Work(ctx, Task); err != nil {
+					if err := j.Worker.Work(ctx, task); err != nil {
 						errCh <- err
 						return
 					}
@@ -152,9 +147,9 @@ func (j *Job) process(ctx context.Context, taskCh <-chan *Task) <-chan *WorkerEr
 
 // Dispatch spawns a set of workers processing in parallel the supplied tasks.
 // If the context is cancelled or has timed out (if it's a timeout context), or if
-// any other error occurs during processing of Tasks, a workerError error is
+// any other error occurs during processing of tasks, a workerError error is
 // returned as soon as possible, processing halts and workers are disposed.
-func (j *Job) Dispatch(ctx context.Context, tasks []*Task) *WorkerError {
+func (j *Job) Dispatch(ctx context.Context, tasks []interface{}) *WorkerError {
 	if j.MaxWorkers < j.MinWorkers {
 		panic(fmt.Sprintf("Job maxWorkers < minWorkers: %d < %d", j.MaxWorkers, j.MinWorkers))
 	}
@@ -211,7 +206,7 @@ func mergeErrors(channels ...<-chan *WorkerError) <-chan *WorkerError {
 
 // waitForPipeline waits for results from all error channels.
 // It returns early on the first error if failfast is true or
-//
+// collects errors and returns an aggregated error at the end.
 func waitForPipeline(failFast bool, errChs ...<-chan *WorkerError) *WorkerError {
 	var (
 		errors      *multierror.Error
@@ -234,65 +229,73 @@ func waitForPipeline(failFast bool, errChs ...<-chan *WorkerError) *WorkerError 
 	return workerError
 }
 
-// BackendWorker specializes in processing remote GitHub resources
-type BackendWorker struct {
-	// URL is the address that this worker will send logs to
-	URL string
-	// Username is the user in the credentials used to authenticate to the backend
-	Username string
-	// Password is the password in the credentials used to authenticate to the backend
-	Password string
-	// MaxSizeResponseBody defines the maximum acceptable size of the body of a response from backend service
+// GitHubWorker specializes in processing remote GitHub resources
+type GitHubWorker struct {
+	// MaxSizeResponseBody defines the maximum acceptable size of the body of a response from Github API service
 	MaxSizeResponseBody int64
 }
 
+// GitHubTask is a unit of work specification that is processed by Worker
+type GitHubTask struct {
+	// URL is the address of the Github API used by this Task
+	URL string
+	// Username is the user in the credentials used to authenticate to Github API
+	Username string
+	// Password is the password in the credentials used to authenticate to Github API
+	Password string
+	// Token is the perosnal token in the credentials used to authenticate to Github API
+	Token string
+}
+
 // Work implements Worker#Work function
-func (b *BackendWorker) Work(ctx context.Context, Task *Task) *WorkerError {
-	url := Task.URL
-	//glog.V(6).Infof("marshalling Task for transport to url %s", Task.URL)
+func (b *GitHubWorker) Work(ctx context.Context, task interface{}) *WorkerError {
+	if task, ok := task.(*GitHubTask); ok {
+		url := task.URL
+		//glog.V(6).Infof("marshalling task for transport to url %s", task.URL)
 
-	req, err := http.NewRequest("GET", url, nil)
-	req = req.WithContext(ctx)
-	if err != nil {
-		return newerror(fmt.Errorf("error in creating request to url `%v`", url), 0)
-	}
-	// req.Header.Set("Content-Type", "application/json")
-	// req.SetBasicAuth(b.Username, b.Password)
-
-	glog.V(6).Infof("sending Task resource to %s", url)
-	// glog.V(16).Infof("Task with UUID %s in request Task: %+v", Task.UUID, string(marshaled))
-
-	client := InstrumentClient(http.DefaultClient)
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return newerror(err, 0)
-	}
-
-	// check for errors returned from the backend service
-	if resp.StatusCode > 399 {
-		return newerror(fmt.Errorf("sending Task to resource %s failed with response code %d", Task.URL, resp.StatusCode), resp.StatusCode)
-	}
-
-	var body []byte
-	// Wrap the request body reader with MaxBytesReader to prevent clients
-	// from accidentally or maliciously sending a large request and wasting
-	// server resources. Returns a non-EOF error for a Read beyond the limit
-	// ("http: request body too large") or nil for empty body.
-	resp.Body = http.MaxBytesReader(nil, resp.Body, b.MaxSizeResponseBody)
-	if body, err = ioutil.ReadAll(resp.Body); err != nil {
-		// change error Task to be less misleading
-		if err.Error() == "http: request body too large" {
-			err = fmt.Errorf("response body too large")
+		req, err := http.NewRequest("GET", url, nil)
+		req = req.WithContext(ctx)
+		if err != nil {
+			return newerror(fmt.Errorf("error in creating request to url `%v`", url), 0)
 		}
-		return newerror(fmt.Errorf("reading response from Task resource %s failed: %v", Task.URL, err), 0)
-	}
+		// req.Header.Set("Content-Type", "application/json")
+		// req.SetBasicAuth(b.Username, b.Password)
 
-	if len(body) == 0 {
-		return newerror(fmt.Errorf("reading response from Task resource %s failed: no response body Task found", Task.URL), 0)
-	}
+		glog.V(6).Infof("sending task resource to %s", url)
+		// glog.V(16).Infof("Task with UUID %s in request task: %+v", task.UUID, string(marshaled))
 
-	glog.V(4).Infof("successfully saved Task resource %s", Task.URL)
+		client := InstrumentClient(http.DefaultClient)
+
+		resp, err := client.Do(req)
+		if err != nil {
+			return newerror(err, 0)
+		}
+
+		// check for errors returned from the backend service
+		if resp.StatusCode > 399 {
+			return newerror(fmt.Errorf("sending task to resource %s failed with response code %d", task.URL, resp.StatusCode), resp.StatusCode)
+		}
+
+		var body []byte
+		// Wrap the request body reader with MaxBytesReader to prevent clients
+		// from accidentally or maliciously sending a large request and wasting
+		// server resources. Returns a non-EOF error for a Read beyond the limit
+		// ("http: request body too large") or nil for empty body.
+		resp.Body = http.MaxBytesReader(nil, resp.Body, b.MaxSizeResponseBody)
+		if body, err = ioutil.ReadAll(resp.Body); err != nil {
+			// change error Task to be less misleading
+			if err.Error() == "http: request body too large" {
+				err = fmt.Errorf("response body too large")
+			}
+			return newerror(fmt.Errorf("reading response from task resource %s failed: %v", task.URL, err), 0)
+		}
+
+		if len(body) == 0 {
+			return newerror(fmt.Errorf("reading response from task resource %s failed: no response body task found", task.URL), 0)
+		}
+
+		glog.V(4).Infof("successfully saved task resource %s", task.URL)
+	}
 
 	return nil
 }

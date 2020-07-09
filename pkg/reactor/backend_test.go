@@ -41,28 +41,28 @@ func init() {
 
 var shortSenderCallsCount int32
 
-func newTasksList(tasksCount int, serverURL string, randomizePaths bool) []*Task {
-	var Tasks []*Task
+func newTasksList(tasksCount int, serverURL string, randomizePaths bool) []interface{} {
+	var tasks []interface{}
 
 	if tasksCount > 0 {
-		Tasks = make([]*Task, tasksCount)
-		for i, c := 0, int('a'); i < len(Tasks); i++ {
+		tasks = make([]interface{}, tasksCount)
+		for i, c := 0, int('a'); i < len(tasks); i++ {
 			if randomizePaths {
 				c++
 				if c > 127 {
 					c = int('a')
 				}
 			}
-			Tasks[i] = &Task{
+			tasks[i] = &GitHubTask{
 				URL: fmt.Sprintf("%s/%s", serverURL, string(c)),
 			}
 		}
 	}
 
-	return Tasks
+	return tasks
 }
 
-func shortSender(ctx context.Context, task *Task) *WorkerError {
+func shortSender(ctx context.Context, task interface{}) *WorkerError {
 	time.Sleep(10 * time.Millisecond)
 	atomic.AddInt32(&shortSenderCallsCount, 1)
 	return nil
@@ -221,7 +221,7 @@ var expectedError = newerror(errors.New("test"), 123)
 var faultySenderCallsCount uint32
 var totalCallsCount uint32
 
-func faultySender(ctx context.Context, task *Task) *WorkerError {
+func faultySender(ctx context.Context, task interface{}) *WorkerError {
 	time.Sleep(50 * time.Millisecond)
 	atomic.AddUint32(&totalCallsCount, 1)
 	atomic.AddUint32(&faultySenderCallsCount, 1)
@@ -305,7 +305,7 @@ func TestClientMetering(t *testing.T) {
 	var job = &Job{
 		MinWorkers: minWorkers,
 		MaxWorkers: maxWorkers,
-		Worker: &BackendWorker{
+		Worker: &GitHubWorker{
 			MaxSizeResponseBody: units.MB,
 		},
 	}
@@ -351,7 +351,7 @@ func TestClientMetering(t *testing.T) {
 	}
 }
 
-// BackendWorker tests
+// GitHubWorker tests
 func TestWorker(t *testing.T) {
 	var (
 		actual               bool
@@ -369,11 +369,10 @@ func TestWorker(t *testing.T) {
 		w.Write([]byte("123"))
 	}))
 	defer backend.Close()
-	w := &BackendWorker{
-		URL:                 backend.URL,
+	w := &GitHubWorker{
 		MaxSizeResponseBody: units.KB,
 	}
-	input := &Task{
+	input := &GitHubTask{
 		URL: backend.URL,
 	}
 
@@ -390,17 +389,16 @@ func TestWorkerResponseTooLarge(t *testing.T) {
 		w.Write([]byte("123"))
 	}))
 	defer backend.Close()
-	w := &BackendWorker{
-		URL:                 backend.URL,
+	w := &GitHubWorker{
 		MaxSizeResponseBody: 0,
 	}
 
-	err := w.Work(context.Background(), &Task{
+	err := w.Work(context.Background(), &GitHubTask{
 		URL: backend.URL,
 	})
 
 	assert.NotNil(t, err)
-	assert.Equal(t, fmt.Sprintf("reading response from Task resource %s failed: response body too large", backend.URL), err.Error())
+	assert.Equal(t, fmt.Sprintf("reading response from task resource %s failed: response body too large", backend.URL), err.Error())
 }
 
 func TestWorkerResponseFault(t *testing.T) {
@@ -408,17 +406,16 @@ func TestWorkerResponseFault(t *testing.T) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	defer backend.Close()
-	w := &BackendWorker{
-		URL:                 backend.URL,
+	w := &GitHubWorker{
 		MaxSizeResponseBody: units.KB,
 	}
 
-	err := w.Work(context.Background(), &Task{
+	err := w.Work(context.Background(), &GitHubTask{
 		URL: backend.URL,
 	})
 
 	assert.NotNil(t, err)
-	assert.Equal(t, fmt.Sprintf("sending Task to resource %s failed with response code 500", backend.URL), err.Error())
+	assert.Equal(t, fmt.Sprintf("sending task to resource %s failed with response code 500", backend.URL), err.Error())
 }
 
 func TestWorkerCtxTimeout(t *testing.T) {
@@ -426,14 +423,13 @@ func TestWorkerCtxTimeout(t *testing.T) {
 		time.Sleep(250 * time.Millisecond)
 	}))
 	defer backend.Close()
-	w := &BackendWorker{
-		URL:                 backend.URL,
+	w := &GitHubWorker{
 		MaxSizeResponseBody: units.KB,
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 
-	err := w.Work(ctx, &Task{
+	err := w.Work(ctx, &GitHubTask{
 		URL: backend.URL,
 	})
 
@@ -446,8 +442,7 @@ func TestWorkerCtxCancel(t *testing.T) {
 		time.Sleep(250 * time.Millisecond)
 	}))
 	defer backend.Close()
-	w := &BackendWorker{
-		URL:                 backend.URL,
+	w := &GitHubWorker{
 		MaxSizeResponseBody: units.KB,
 	}
 	ctx, cancel := context.WithCancel(context.Background())
@@ -456,7 +451,7 @@ func TestWorkerCtxCancel(t *testing.T) {
 		cancel()
 	}()
 
-	err := w.Work(ctx, &Task{
+	err := w.Work(ctx, &GitHubTask{
 		URL: backend.URL,
 	})
 
