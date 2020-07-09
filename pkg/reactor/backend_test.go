@@ -218,14 +218,13 @@ func TestDispatchCtxCancel(t *testing.T) {
 
 var expectedError = newerror(errors.New("test"), 123)
 
-var faultySenderCallsCount uint32
-var totalCallsCount uint32
+type faultySender struct {
+	faultySenderCallsCount int32
+}
 
-func faultySender(ctx context.Context, task interface{}) *WorkerError {
+func (f *faultySender) Work(ctx context.Context, task interface{}) *WorkerError {
 	time.Sleep(50 * time.Millisecond)
-	atomic.AddUint32(&totalCallsCount, 1)
-	atomic.AddUint32(&faultySenderCallsCount, 1)
-	count := int(atomic.LoadUint32(&faultySenderCallsCount))
+	count := int(atomic.AddInt32(&f.faultySenderCallsCount, 1))
 	if count == 3 || count == 5 || count == 8 {
 		return expectedError
 	}
@@ -235,16 +234,17 @@ func faultySender(ctx context.Context, task interface{}) *WorkerError {
 func TestDispatchError(t *testing.T) {
 	tasksCount := 10
 	minWorkers := 0
-	maxWorkers := 2
+	maxWorkers := 5
 	timeout := 1 * time.Second
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
+	worker := &faultySender{}
 	job := &Job{
 		MinWorkers: minWorkers,
 		MaxWorkers: maxWorkers,
-		Worker:     WorkerFunc(faultySender),
+		Worker:     worker,
 		FailFast:   true,
 	}
 
@@ -252,40 +252,41 @@ func TestDispatchError(t *testing.T) {
 
 	assert.NotNil(t, actualError)
 	assert.Equal(t, expectedError, actualError)
-	//Did we fail fast
-	actualCallCount := int(atomic.LoadUint32(&totalCallsCount))
+	//Did we fail early?
+	actualCallCount := int(atomic.LoadInt32(&worker.faultySenderCallsCount))
 	assert.True(t, actualCallCount < tasksCount)
-	atomic.StoreUint32(&totalCallsCount, 0)
 }
 
 func TestDispatchFaultTolerantOnError(t *testing.T) {
 	tasksCount := 10
 	minWorkers := 0
-	maxWorkers := 4
+	maxWorkers := 5
 	timeout := 1 * time.Second
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
+	worker := &faultySender{}
 	job := &Job{
 		MinWorkers: minWorkers,
 		MaxWorkers: maxWorkers,
-		Worker:     WorkerFunc(faultySender),
+		Worker:     worker,
 		FailFast:   false,
 	}
-
-	actualError := job.Dispatch(ctx, newTasksList(tasksCount, "", false))
+	tasks := newTasksList(tasksCount, "", true)
+	actualError := job.Dispatch(ctx, tasks)
 
 	assert.NotNil(t, actualError)
 	if actualError != nil {
 		assert.NotNil(t, actualError.error)
-		if merr, ok := actualError.error.(*multierror.Error); ok {
+		if merr, ok := actualError.error.(*multierror.Error); !ok {
 			assert.True(t, merr.Len() == 1)
 			assert.Equal(t, merr.Errors[0], expectedError)
 		}
 	}
-	assert.True(t, int(atomic.LoadUint32(&totalCallsCount)) == tasksCount)
-	atomic.StoreUint32(&totalCallsCount, 0)
+	// Are we fault tolerant?
+	actualCallCount := int(atomic.LoadInt32(&worker.faultySenderCallsCount))
+	assert.True(t, actualCallCount == tasksCount)
 }
 
 func TestClientMetering(t *testing.T) {

@@ -21,8 +21,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-
-	// "net/url"
 	"sync"
 
 	"github.com/golang/glog"
@@ -117,11 +115,12 @@ func (j *Job) allocate(ctx context.Context, tasks []interface{}) (<-chan interfa
 
 // Processes asynchronously tasks from the tasks channel until channel is closed or context signals
 // termination. The processing delegates to the Worker.Work function implementation registered in this Job.
-// Context terminal signals are registered as errors to the error channel.
+// Context terminal signals are registered as errors and sent to the error channel.
 func (j *Job) process(ctx context.Context, taskCh <-chan interface{}) <-chan *WorkerError {
 	errCh := make(chan *WorkerError, 1)
 	go func() {
 		defer close(errCh)
+		var i int64
 		for {
 			select {
 			case task, ok := <-taskCh:
@@ -133,6 +132,7 @@ func (j *Job) process(ctx context.Context, taskCh <-chan interface{}) <-chan *Wo
 						errCh <- err
 						return
 					}
+					i++
 				}
 			case <-ctx.Done():
 				{
