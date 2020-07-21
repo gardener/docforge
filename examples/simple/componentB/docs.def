@@ -1,0 +1,10 @@
+[{
+    title: "Components",
+    nodes: [{
+        title: "Component C",
+        source: "componentC/**"
+    }, {
+        title: "external-link",
+        source: "https://sap.com"
+    }]
+}]

@@ -1,0 +1,54 @@
+{
+    concepts: {
+        title: "Concepts",
+        architecture: {
+            title: "Architecture",
+            source: "gardener-core:v1.5.0/docs/**/c.md", # resolved by Gardener component model resolver to the repo URL for gardener-core, release (tag) 1.5.0, path docs/<any-intermediate-path-segments>/c.md. In multiple matches, first one wins.
+            components: { # explicitly defined subnode
+                title: "Components",
+                source: ":v1.0.0/concepts/components/index.md" # a "local" source. Аnonymous component ("":) translates to local. In gardener component model that could be the "documentation" component
+            }
+        },
+        networking: {
+            title: "Networking",
+            # Path ending with ** means the whole file/folder structure as-is is replicated under node networking translating folders to non-navigable nodes with titles inferred from their names
+            source: "gardener-core:v1.5.0/docs/networking/**",
+        },
+        something: {
+            title: "Networking",
+            # no version implicitly defaults to master branch or however a resolver resolves that. 
+            source: "gardener-core:/docs/networking/**",
+            # Allows to apply optional properties for subnodes to this path spec (if any), e.g. content for folder nodes or titles, or override source.
+            # The rules apply to nodes by path spec defined with exact strings or regular expressions
+            nodes: {
+                "rule1" : {
+                    path: "/network/",
+                    title: "Network",
+                    source: "somewhere else"
+                }
+            }
+        },
+        external: {
+            title: "test",
+            source: "https://google.com", # node without content, linking to external source.
+        },
+        cross: {
+            # title name is inferred and capitalized as "Cross", ness specified explicitly
+            source: $networking.source # source by reference
+        }
+        cross: $networking # a whole node by reference (copy of all referenced properties)
+        example: {
+            title: "Networking",
+            # aggregate allows document produced from other document (parts). Either source or variant can be provider but not both.
+            aggregate: [
+                ":v1.5.0/docs/networking/a.md#section{head:1}", 
+                "-gardener-core:v1.5.0/docs/networking/**/c.md#section{head:2}", # all but this section
+                "gardener-core:v1.5.0/docs/networking/b/c/d.md#section{head:1}", # this section only
+                "+gardener-core:v1.5.0/docs/networking/b/c/d.md#section{head:1}", # same as above
+                "+$reoccuring-docment-pattern", # same as above but referencing a variable defined somewhere above. Usefull for snippets that are inserted often.
+                "gardener-core:v1.5.0/docs/networking/b/c/e.md", # a whole documet
+                ":v1.5.0/docs/networking/b.md#section{head:2}",
+            ]
+        },
+    }
+}

@@ -1,0 +1,33 @@
+[{
+    title: "Home",
+    source: "home/index.md",
+    nodes: [{
+        title: "Components List",
+        nodes: [{
+            title: "Component A",
+            source: "componentA/A-file-1.md"            
+        },{
+            title: "Component B",
+            source: ["componentB/**"]
+        },{
+            title: "Inline example with local file",
+            source: ["home/inline.md"]
+        }, {
+            title: "agregated",
+            source: [
+                "home/index.md#section{head:1}", 
+                "-componentA/A-file-1.md#section{head:2}", # all but this section
+                "componentB/B-file-1.md#section{head:3}", # this section only
+            ]
+        }]
+    }, {
+        title: "References",
+        nodes: [{
+            title: "Component C",
+            source: "componentC/**/C-file-2.md"
+        },{
+            title: "Help",
+            source: "https://help.sap.com"
+        }]
+    }]
+}]

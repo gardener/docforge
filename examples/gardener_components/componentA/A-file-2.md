@@ -1,0 +1,12 @@
+# Title for component A
+
+# Section 1 in component A
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Hendrerit gravida rutrum quisque non tellus orci ac. Odio aenean sed adipiscing diam donec adipiscing tristique risus nec. Nibh ipsum consequat nisl vel pretium. Massa vitae tortor condimentum lacinia quis vel eros. Interdum posuere lorem ipsum dolor sit amet consectetur adipiscing elit. Sed id semper risus in hendrerit. Eget magna fermentum iaculis eu non diam phasellus vestibulum lorem. Viverra tellus in hac habitasse platea dictumst vestibulum. Est pellentesque elit ullamcorper dignissim cras tincidunt. Phasellus faucibus scelerisque eleifend donec pretium. Ipsum faucibus vitae aliquet nec. Non enim praesent elementum facilisis leo vel fringilla. Risus ultricies tristique nulla aliquet enim tortor. In hac habitasse platea dictumst vestibulum rhoncus est pellentesque. Mauris commodo quis imperdiet massa tincidunt. Mi in nulla posuere sollicitudin aliquam ultrices sagittis orci a.
+
+# Section 2 in component A
+Id diam maecenas ultricies mi eget mauris pharetra. Risus nec feugiat in fermentum posuere urna. Turpis in eu mi bibendum. Mattis molestie a iaculis at erat. Eu volutpat odio facilisis mauris sit. Ac turpis egestas sed tempus urna. Risus sed vulputate odio ut. Parturient montes nascetur ridiculus mus mauris. Amet porttitor eget dolor morbi non arcu risus quis varius. Vulputate eu scelerisque felis imperdiet proin fermentum leo vel. Auctor elit sed vulputate mi.
+
+# Section 3 in component A
+Ac feugiat sed lectus vestibulum mattis ullamcorper velit sed ullamcorper. Leo vel fringilla est ullamcorper eget nulla facilisi. Aenean et tortor at risus viverra adipiscing at in tellus. Enim sed faucibus turpis in eu mi. Ultricies integer quis auctor elit sed vulputate. Dolor magna eget est lorem ipsum. In vitae turpis massa sed elementum tempus. Duis convallis convallis tellus id interdum velit laoreet id. Vestibulum lectus mauris ultrices eros in. Amet nulla facilisi morbi tempus iaculis urna id volutpat lacus. Dui id ornare arcu odio ut sem nulla. Massa tempor nec feugiat nisl pretium fusce id.
+
+[link-to-component-B-file](componentB/file2.md)

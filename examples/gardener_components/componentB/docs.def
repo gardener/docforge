@@ -1,0 +1,12 @@
+{
+    components: {
+        title: "Components",
+        c: {
+            title: "Component C",
+            source: "componentC/**"
+        },
+    }
+    "external-link": {
+        source: "https://sap.com"
+    }
+}

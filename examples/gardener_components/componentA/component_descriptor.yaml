@@ -1,0 +1,4 @@
+components:
+- dependencies:
+  name: componentA
+  version: v0.3.0
