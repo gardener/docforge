@@ -28,7 +28,6 @@ import (
 
 	"github.com/gardener/docode/pkg/metrics"
 	"github.com/gardener/docode/pkg/util/tests"
-	"github.com/gardener/docode/pkg/util/units"
 	"github.com/hashicorp/go-multierror"
 	"github.com/prometheus/client_golang/prometheus"
 	io_prometheus_client "github.com/prometheus/client_model/go"
@@ -53,9 +52,7 @@ func newTasksList(tasksCount int, serverURL string, randomizePaths bool) []inter
 					c = int('a')
 				}
 			}
-			tasks[i] = &GitHubTask{
-				URL: fmt.Sprintf("%s/%s", serverURL, string(c)),
-			}
+			tasks[i] = &GitHubTask{}
 		}
 	}
 
@@ -306,9 +303,7 @@ func TestClientMetering(t *testing.T) {
 	var job = &Job{
 		MinWorkers: minWorkers,
 		MaxWorkers: maxWorkers,
-		Worker: &GitHubWorker{
-			MaxSizeResponseBody: units.MB,
-		},
+		Worker:     &GitHubWorker{},
 	}
 
 	reg := prometheus.NewRegistry()
@@ -370,12 +365,8 @@ func TestWorker(t *testing.T) {
 		w.Write([]byte("123"))
 	}))
 	defer backend.Close()
-	w := &GitHubWorker{
-		MaxSizeResponseBody: units.KB,
-	}
-	input := &GitHubTask{
-		URL: backend.URL,
-	}
+	w := &GitHubWorker{}
+	input := &GitHubTask{}
 
 	workerError := w.Work(context.Background(), input)
 
@@ -390,13 +381,9 @@ func TestWorkerResponseTooLarge(t *testing.T) {
 		w.Write([]byte("123"))
 	}))
 	defer backend.Close()
-	w := &GitHubWorker{
-		MaxSizeResponseBody: 0,
-	}
+	w := &GitHubWorker{}
 
-	err := w.Work(context.Background(), &GitHubTask{
-		URL: backend.URL,
-	})
+	err := w.Work(context.Background(), &GitHubTask{})
 
 	assert.NotNil(t, err)
 	assert.Equal(t, fmt.Sprintf("reading response from task resource %s failed: response body too large", backend.URL), err.Error())
@@ -407,13 +394,9 @@ func TestWorkerResponseFault(t *testing.T) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	defer backend.Close()
-	w := &GitHubWorker{
-		MaxSizeResponseBody: units.KB,
-	}
+	w := &GitHubWorker{}
 
-	err := w.Work(context.Background(), &GitHubTask{
-		URL: backend.URL,
-	})
+	err := w.Work(context.Background(), &GitHubTask{})
 
 	assert.NotNil(t, err)
 	assert.Equal(t, fmt.Sprintf("sending task to resource %s failed with response code 500", backend.URL), err.Error())
@@ -424,15 +407,11 @@ func TestWorkerCtxTimeout(t *testing.T) {
 		time.Sleep(250 * time.Millisecond)
 	}))
 	defer backend.Close()
-	w := &GitHubWorker{
-		MaxSizeResponseBody: units.KB,
-	}
+	w := &GitHubWorker{}
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 
-	err := w.Work(ctx, &GitHubTask{
-		URL: backend.URL,
-	})
+	err := w.Work(ctx, &GitHubTask{})
 
 	assert.NotNil(t, err)
 	assert.Equal(t, fmt.Sprintf("Get %q: context deadline exceeded", backend.URL), err.Error())
@@ -443,18 +422,14 @@ func TestWorkerCtxCancel(t *testing.T) {
 		time.Sleep(250 * time.Millisecond)
 	}))
 	defer backend.Close()
-	w := &GitHubWorker{
-		MaxSizeResponseBody: units.KB,
-	}
+	w := &GitHubWorker{}
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
 		time.Sleep(100 * time.Millisecond)
 		cancel()
 	}()
 
-	err := w.Work(ctx, &GitHubTask{
-		URL: backend.URL,
-	})
+	err := w.Work(ctx, &GitHubTask{})
 
 	assert.NotNil(t, err)
 	assert.Equal(t, fmt.Sprintf("Get %q: context canceled", backend.URL), err.Error())

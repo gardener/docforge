@@ -4,6 +4,8 @@
 /tmp/*
 /dev
 
+target/
+
 *.coverprofile
 *.html
 .vscode
