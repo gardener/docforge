@@ -1,5 +1,5 @@
 // Copyright (c) 2018 SAP SE or an SAP affiliate company. All rights reserved.
-// This file is licensed under the Apache Software License, v. 2 except as noted otherwise in the LICENSE file
+// This file is licensed under the Apache Software License, v.2 except as noted otherwise in the LICENSE file
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,20 +15,57 @@
 
 package model
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+
+	"github.com/gardener/docode/pkg/api"
+)
+
+var b = []byte(`{
+	root: {
+	  title: "A Title",
+	  nodes: [{
+		  title: "node 1",
+		  source: ["path1/**"]
+	    }, {
+		  title: "path 2",
+		  source: ["https://a.com"],
+		  properties: {
+			"custom_key": "custom_value",
+		  },
+		  nodes: [{
+			title: "subnode",
+			source: ["path/a"],
+		  }]
+	  }]
+	}
+  }`)
+
+func traverse(node *api.Node) {
+	fmt.Printf("%++v \n", node)
+	if node.Nodes != nil {
+		for _, node := range node.Nodes {
+			traverse(node)
+		}
+	}
+}
 
 func TestMe(t *testing.T) {
-	// cases := []struct {
-	// 	in, want string
-	// }{
-	// 	{"Hello, world", "dlrow ,olleH"},
-	// 	{"Hello, 世界", "界世 ,olleH"},
-	// 	{"", ""},
-	// }
-	// for range cases {
-	Parse()
-	// if got != c.want {
-	// 	t.Errorf("Something(%q) == %q, want %q", c.in, got, c.want)
-	// }
-	// }
+	cases := []struct {
+		in, want []byte
+	}{
+		{b, []byte{}},
+	}
+	for _, c := range cases {
+		got, err := Parse(c.in)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		traverse(got.Root)
+		// if got != c.want {
+		// 	t.Errorf("Something(%q) == %q, want %q", c.in, got, c.want)
+		// }
+	}
 }
