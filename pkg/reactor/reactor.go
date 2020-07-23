@@ -19,11 +19,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
-	"net/http"
 	"sync"
 
-	"github.com/golang/glog"
 	"github.com/hashicorp/go-multierror"
 )
 
@@ -227,75 +224,4 @@ func waitForPipeline(failFast bool, errChs ...<-chan *WorkerError) *WorkerError 
 		}
 	}
 	return workerError
-}
-
-// GitHubWorker specializes in processing remote GitHub resources
-type GitHubWorker struct {
-	// MaxSizeResponseBody defines the maximum acceptable size of the body of a response from Github API service
-	MaxSizeResponseBody int64
-}
-
-// GitHubTask is a unit of work specification that is processed by Worker
-type GitHubTask struct {
-	// URL is the address of the Github API used by this Task
-	URL string
-	// Username is the user in the credentials used to authenticate to Github API
-	Username string
-	// Password is the password in the credentials used to authenticate to Github API
-	Password string
-	// Token is the perosnal token in the credentials used to authenticate to Github API
-	Token string
-}
-
-// Work implements Worker#Work function
-func (b *GitHubWorker) Work(ctx context.Context, task interface{}) *WorkerError {
-	if task, ok := task.(*GitHubTask); ok {
-		url := task.URL
-		//glog.V(6).Infof("marshalling task for transport to url %s", task.URL)
-
-		req, err := http.NewRequest("GET", url, nil)
-		req = req.WithContext(ctx)
-		if err != nil {
-			return newerror(fmt.Errorf("error in creating request to url `%v`", url), 0)
-		}
-		// req.Header.Set("Content-Type", "application/json")
-		// req.SetBasicAuth(b.Username, b.Password)
-
-		glog.V(6).Infof("sending task resource to %s", url)
-		// glog.V(16).Infof("Task with UUID %s in request task: %+v", task.UUID, string(marshaled))
-
-		client := InstrumentClient(http.DefaultClient)
-
-		resp, err := client.Do(req)
-		if err != nil {
-			return newerror(err, 0)
-		}
-
-		// check for errors returned from the backend service
-		if resp.StatusCode > 399 {
-			return newerror(fmt.Errorf("sending task to resource %s failed with response code %d", task.URL, resp.StatusCode), resp.StatusCode)
-		}
-
-		var body []byte
-		// Wrap the request body reader with MaxBytesReader to prevent clients
-		// from accidentally or maliciously sending a large request and wasting
-		// server resources. Returns a non-EOF error for a Read beyond the limit
-		// ("http: request body too large") or nil for empty body.
-		resp.Body = http.MaxBytesReader(nil, resp.Body, b.MaxSizeResponseBody)
-		if body, err = ioutil.ReadAll(resp.Body); err != nil {
-			// change error Task to be less misleading
-			if err.Error() == "http: request body too large" {
-				err = fmt.Errorf("response body too large")
-			}
-			return newerror(fmt.Errorf("reading response from task resource %s failed: %v", task.URL, err), 0)
-		}
-
-		if len(body) == 0 {
-			return newerror(fmt.Errorf("reading response from task resource %s failed: no response body task found", task.URL), 0)
-		}
-
-		glog.V(4).Infof("successfully saved task resource %s", task.URL)
-	}
-
-	return nil
 }
