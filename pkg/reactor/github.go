@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"os"
+	"path/filepath"
 
 	"github.com/google/go-github/v32/github"
 )
@@ -52,9 +54,27 @@ func createBlobFromTask(ctx context.Context, client *github.Client, t *GitHubTas
 	}
 
 	if response.StatusCode != 200 {
-		return fmt.Errorf("not 200 status code returned, but %d. Failed to get Gardener tree", response.StatusCode)
+		return fmt.Errorf("not 200 status code returned, but %d. Failed to get file tree", response.StatusCode)
 	}
 
-	filePath := fmt.Sprintf("%s/%s", t.parentDir, t.entryPath)
+	filePath := filepath.Join(t.parentDir, t.entryPath)
+	parents := filepath.Dir(filePath)
+	if _, err := os.Stat(parents); os.IsNotExist(err) {
+		if err = os.MkdirAll(parents, os.ModePerm); err != nil {
+			return err
+		}
+	}
+
 	return ioutil.WriteFile(filePath, blob, 0644)
+}
+
+func exists(path string) (bool, error) {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return true, err
 }
