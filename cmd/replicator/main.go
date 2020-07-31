@@ -37,7 +37,8 @@ func main() {
 		)
 	)
 
-	client := github.NewClient(oauth2.NewClient(ctx, ts))
+	// TODO: make the client metering instrumentaiton optional and controlled by config
+	client := github.NewClient(metrics.InstrumentClientRoundTripperDuration(oauth2.NewClient(ctx, ts)))
 
 	desc := &replicator.Description{
 		Path:    sourcePath,
