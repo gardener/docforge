@@ -1,4 +1,4 @@
-package reactor
+package github
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/gardener/docode/pkg/jobs"
 	"github.com/google/go-github/v32/github"
 )
 
@@ -36,12 +37,10 @@ func NewGitHubTask(parentDir, owner, repository, entrySHA, entryPath string) *Gi
 }
 
 // Work implements Worker#Work function
-func (b *GitHubWorker) Work(ctx context.Context, task interface{}) *WorkerError {
+func (b *GitHubWorker) Work(ctx context.Context, task interface{}) *jobs.WorkerError {
 	if task, ok := task.(*GitHubTask); ok {
 		if err := createBlobFromTask(ctx, b.Client, task); err != nil {
-			return &WorkerError{
-				error: err,
-			}
+			return jobs.NewWorkerError(err, 0)
 		}
 	}
 	return nil

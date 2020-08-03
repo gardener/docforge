@@ -1,227 +1,98 @@
-// Copyright (c) 2018 SAP SE or an SAP affiliate company. All rights reserved.
-// This file is licensed under the Apache Software License, v.2 except as noted otherwise in the LICENSE file
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://wwj.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 package reactor
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"sync"
 
-	"github.com/hashicorp/go-multierror"
+	"github.com/gardener/docode/pkg/api"
+	"github.com/gardener/docode/pkg/backend"
+	"github.com/gardener/docode/pkg/jobs"
 )
 
-// Job enques assignments for parallel processing and synchronous response
-type Job struct {
-	// MaxWorkers is the maximum number of workers processing a batch of tasks in parallel
-	MaxWorkers int
-	// MinWorkers is the minimum number of workers processing a batch of tasks in parallel
-	MinWorkers int
-	// Worker for processing tasks
-	Worker Worker
-	// FailFast controls the behavior of this Job upon errors. If set to true, it will quit
-	// further processing upon the first error that occurs. For fault tolerant applications
-	// use false.
-	FailFast bool
+// Reactor orchestrates the documentation build workflow
+type Reactor struct {
+	ResourceHandlers backend.ResourceHandlers
 }
 
-// WorkerError wraps an underlying error struct and adds optional code
-// to enrich the context of the error e.g. with HTTP status codes
-type WorkerError struct {
-	error
-	code int
-}
-
-// Is implements the contract for errors.Is (https://golang.org/pkg/errors/#Is)
-func (we WorkerError) Is(target error) bool {
-	var (
-		_target WorkerError
-		ok      bool
-	)
-	if _target, ok = target.(WorkerError); !ok {
-		return false
-	}
-	if we.code != _target.code {
-		return false
-	}
-	if !errors.Is(we.error, _target.error) {
-		return false
-	}
-	return true
-}
-
-func newerror(err error, code int) *WorkerError {
-	return &WorkerError{
-		err,
-		code,
-	}
-}
-
-// Worker declares workers functional interface
-type Worker interface {
-	// Work processes the task within the given context.
-	Work(ctx context.Context, task interface{}) *WorkerError
-}
-
-// The WorkerFunc type is an adapter to allow the use of
-// ordinary functions as Workers. If f is a function
-// with the appropriate signature, WorkerFunc(f) is a
-// Worker object that calls f.
-type WorkerFunc func(ctx context.Context, task interface{}) *WorkerError
-
-// Work calls f(ctx, Task).
-func (f WorkerFunc) Work(ctx context.Context, task interface{}) *WorkerError {
-	return f(ctx, task)
-}
-
-// Allocates worker tasks and error channels and asynchronously feeds tasks to the worker tasks channel
-// staying sensitive to termination signals from the provided context. Context terminal signals are registered
-// as errors to the error channel.
-func (j *Job) allocate(ctx context.Context, tasks []interface{}) (<-chan interface{}, <-chan *WorkerError) {
-	msgCh := make(chan interface{})
-	errCh := make(chan *WorkerError)
-	go func() {
-		defer close(msgCh)
-		defer close(errCh)
-		for _, task := range tasks {
-			select {
-			case msgCh <- task:
-			case <-ctx.Done():
-				{
-					errCh <- newerror(ctx.Err(), 0)
-					return
-				}
-			}
+// Resolve builds the subnode hierarchy of a node based on rules such as
+// those in NodeSelector.
+// The node hierarchy is resolved by an appropriate handler selected based
+// on the NodeSelector path URI
+// The resulting model is the actual flight plan for replicating resources.
+func (r *Reactor) Resolve(ctx context.Context, node *api.Node) error {
+	if &node.NodeSelector != nil {
+		var handler backend.ResourceHandler
+		if handler = r.ResourceHandlers.Get(node.NodeSelector.Path); handler == nil {
+			return fmt.Errorf("No suitable handler registered for path %s", node.NodeSelector.Path)
 		}
-	}()
-	return msgCh, errCh
-}
-
-// Processes asynchronously tasks from the tasks channel until channel is closed or context signals
-// termination. The processing delegates to the Worker.Work function implementation registered in this Job.
-// Context terminal signals are registered as errors and sent to the error channel.
-func (j *Job) process(ctx context.Context, taskCh <-chan interface{}) <-chan *WorkerError {
-	errCh := make(chan *WorkerError, 1)
-	go func() {
-		defer close(errCh)
-		var i int64
-		for {
-			select {
-			case task, ok := <-taskCh:
-				{
-					if !ok {
-						return
-					}
-					if err := j.Worker.Work(ctx, task); err != nil {
-						errCh <- err
-						return
-					}
-					i++
-				}
-			case <-ctx.Done():
-				{
-					errCh <- newerror(ctx.Err(), 0)
-					return
-				}
-			}
+		if err := handler.ResolveNodeSelector(ctx, node); err != nil {
+			return err
 		}
-	}()
-	return errCh
-}
-
-// Dispatch spawns a set of workers processing in parallel the supplied tasks.
-// If the context is cancelled or has timed out (if it's a timeout context), or if
-// any other error occurs during processing of tasks, a workerError error is
-// returned as soon as possible, processing halts and workers are disposed.
-func (j *Job) Dispatch(ctx context.Context, tasks []interface{}) *WorkerError {
-	if j.MaxWorkers < j.MinWorkers {
-		panic(fmt.Sprintf("Job maxWorkers < minWorkers: %d < %d", j.MaxWorkers, j.MinWorkers))
+		return nil
 	}
-	workersCount := len(tasks)
-	if workersCount > j.MaxWorkers {
-		workersCount = j.MaxWorkers
-	}
-	if workersCount < j.MinWorkers {
-		workersCount = j.MinWorkers
-	}
-
-	var errcList []<-chan *WorkerError
-
-	taskCh, errc := j.allocate(ctx, tasks)
-	errcList = append(errcList, errc)
-
-	for i := 0; i < workersCount; i++ {
-		errc = j.process(ctx, taskCh)
-		errcList = append(errcList, errc)
-	}
-
-	return waitForPipeline(j.FailFast, errcList...)
-}
-
-// merges asynchronously produced errors from multiple error channels into a single channel
-func mergeErrors(channels ...<-chan *WorkerError) <-chan *WorkerError {
-	var wg sync.WaitGroup
-	// We must ensure that the output channel has the capacity to hold as many errors
-	// as there are error channels. This will ensure that it never blocks, even
-	// if waitForPipeline returns early.
-	errCh := make(chan *WorkerError, len(channels))
-
-	// Start an outputF goroutine for each input channel in channels.  outputF
-	// copies values from ch to errCh until c is closed, then calls wg.Done.
-	outputF := func(ch <-chan *WorkerError) {
-		for err := range ch {
-			errCh <- err
-		}
-		wg.Done()
-	}
-	wg.Add(len(channels))
-	for _, ch := range channels {
-		go outputF(ch)
-	}
-
-	// Start a goroutine to close errCh once all the outputF goroutines are
-	// done. This must start after the wg.Add call.
-	go func() {
-		wg.Wait()
-		close(errCh)
-	}()
-	return errCh
-}
-
-// waitForPipeline waits for results from all error channels.
-// It returns early on the first error if failfast is true or
-// collects errors and returns an aggregated error at the end.
-func waitForPipeline(failFast bool, errChs ...<-chan *WorkerError) *WorkerError {
-	var (
-		errors      *multierror.Error
-		workerError *WorkerError
-	)
-	errCh := mergeErrors(errChs...)
-	for err := range errCh {
-		if err != nil {
-			if failFast {
+	if node.Nodes != nil {
+		for _, n := range node.Nodes {
+			if err := r.Resolve(ctx, n); err != nil {
 				return err
 			}
-			errors = multierror.Append(err)
 		}
 	}
-	if err := errors.ErrorOrNil(); err != nil {
-		workerError = &WorkerError{
-			error: errors,
+	return nil
+}
+
+func sources(node *api.Node, resourcePathsSet map[string]struct{}) {
+	if len(node.Source) > 0 {
+		for _, s := range node.Source {
+			resourcePathsSet[s] = struct{}{}
 		}
 	}
-	return workerError
+	if node.Nodes != nil {
+		for _, n := range node.Nodes {
+			sources(n, resourcePathsSet)
+		}
+	}
+}
+
+func tasks(node *api.Node, parent *api.Node, t []interface{}, handlers backend.ResourceHandlers) {
+	if node.Nodes != nil {
+		for _, n := range node.Nodes {
+			if len(n.Source) > 0 {
+				for _, s := range n.Source {
+					var path string
+					if handler := handlers.Get(s); handler != nil {
+						path = handler.Path(s)
+					}
+					t = append(t, &Task{
+						node:      n,
+						localPath: path,
+					})
+				}
+			}
+			tasks(n, node, t, handlers)
+		}
+	}
+}
+
+func (r *Reactor) Serialize(ctx context.Context, docs *api.Documentation) error {
+
+	rWorker := &Worker{
+		ResourceHandlers: r.ResourceHandlers,
+	}
+
+	job := &jobs.Job{
+		MaxWorkers: 50,
+		MinWorkers: 1,
+		FailFast:   false,
+		Worker:     rWorker,
+	}
+
+	t := make([]interface{}, 0)
+	tasks(docs.Root, nil, t, r.ResourceHandlers)
+
+	return job.Dispatch(ctx, t)
+}
+
+func (r *Reactor) Run(ctx context.Context, docs *api.Documentation) {
+	r.Resolve(ctx, docs.Root)
+	r.Serialize(ctx, docs)
 }

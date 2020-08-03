@@ -5,7 +5,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//      http://wwj.apache.org/licenses/LICENSE-2.0
+//      http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -71,15 +71,19 @@ type Node struct {
 	// child nodes to this node. This is an alternative to explicitly setting child
 	// nodes structure resource paths with `Nodes`.
 	// Note: WiP - proposed, not implemented yet.
-	NodesSelector NodesSelector `yaml:"nodesSelector,omitempty"`
+	NodeSelector *NodeSelector `yaml:"nodesSelector,omitempty"`
 	// Properties are a map of arbitary, key-value pairs to model custom,
 	// untyped node properties.
 	Properties map[string]interface{} `yaml:"properties,omitempty"`
+	// Name is the resource name used if file systme paths. If omited, the resource name
+	// from Source will be used. if this node is aggregte with multiple sources, a
+	// unique file-system-firendly name is assigned automatically.
+	Name string `yaml:"name,omitempty"`
 }
 
-// NodesSelector is an specification for selecting subnodes (children) for a node.
+// NodeSelector is an specification for selecting subnodes (children) for a node.
 // The order in which the documents are selected is not guaranteed. The interpreters
-// of Nodeselectors can make use of the resource metadata or other sources to construct
+// of NodeSelectors can make use of the resource metadata or other sources to construct
 // and populate child Nodes dynamically.
 //
 // Example:
@@ -97,15 +101,22 @@ type Node struct {
 //  ---
 //
 // Note: WiP - proposed, not implemented yet.
-type NodesSelector struct {
+type NodeSelector struct {
+	// Path is a resource locator to a set of files, i.e. to a resource container.
+	Path string `yaml:"path"`
+	// Recursive is a flag indicating whether the whole resource structure under path
+	// is selected, or only the first level.
+	Recursive bool `yaml:"recursive,omitempty"`
+	// Depth can be specified only with Recursive and defines a maximum depth of the recursion.
+	Depth int64 `yaml:"depth,omitempty"`
 	// Annotation is an optional expression filtering documents located at `Path`
 	// by their metadata properties. Markdown metadata is commonly provisioned as
 	// `front-matter` block at the head of the document delimited by comment
 	// tags (`---`).
 	Annotation string `yaml:"annotation,omitempty"`
-	// Path is a resource locator to a set of files.
-	Path string `yaml:"path"`
-	// Recursive is a flag indicating whether the whole resource structure under path
-	// is selected, or only the first level.
-	Recursive bool `yaml:"recursive,omitempty"`
 }
+
+// Replicator is ... TODO
+// type Replicator interface {
+// 	Replicate(context Context) error
+// }

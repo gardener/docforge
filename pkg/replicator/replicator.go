@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/gardener/docode/pkg/reactor"
+	githubadapter "github.com/gardener/docode/pkg/backend/github"
 	"github.com/google/go-github/v32/github"
 )
 
@@ -19,11 +19,11 @@ type Description struct {
 }
 
 func Replicate(ctx context.Context, client *github.Client, desc *Description) error {
-	ghWorker := &reactor.GitHubWorker{
+	ghWorker := &githubadapter.GitHubWorker{
 		Client: client,
 	}
 
-	job := &reactor.Job{
+	job := &jobs.Job{
 		MaxWorkers: 50,
 		MinWorkers: 1,
 		FailFast:   false,
@@ -75,7 +75,7 @@ func Replicate(ctx context.Context, client *github.Client, desc *Description) er
 	tasks := make([]interface{}, 0)
 	for _, entry := range sourceTree.Entries {
 		if entry.GetType() == "blob" {
-			tasks = append(tasks, reactor.NewGitHubTask(parentDir, owner, repo, entry.GetSHA(), entry.GetPath()))
+			tasks = append(tasks, githubadapter.NewGitHubTask(parentDir, owner, repo, entry.GetSHA(), entry.GetPath()))
 		}
 	}
 

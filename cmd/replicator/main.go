@@ -20,9 +20,9 @@ var (
 
 func main() {
 
-	flag.StringVar(&version, "sourceVersion", "", "sourceVersion is the version of the source, when using GitHub this is has to be the branch, from which documentation would be replicated.")
-	flag.StringVar(&targetDir, "targetDir", "target", "targetDir is the where replicated content will take place. Default to \"target\".")
-	flag.StringVar(&sourcePath, "sourcePath", "", "sourcePath is the path to the replicated content from the soruce.")
+	flag.StringVar(&version, "sourceVersion", "", "sourceVersion is the version of the source, when using GitHub this has to be the branch, from which documentation would be replicated.")
+	flag.StringVar(&targetDir, "targetDir", "target", "targetDir is where replicated content will take place. Default to \"target\".")
+	flag.StringVar(&sourcePath, "sourcePath", "", "sourcePath is the path to the replicated content from the source.")
 	flag.StringVar(&source, "sourceURL", "", "sourceURL is the URL to the source e.g github.com/gardener/gardener")
 	flag.StringVar(&token, "authToken", "", "the authentication token used for OAuth")
 

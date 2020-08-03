@@ -5,7 +5,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//      http://wwj.apache.org/licenses/LICENSE-2.0
+//      http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,16 +13,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package model
+package api
 
 import (
-	"github.com/gardener/docode/pkg/api"
 	"gopkg.in/yaml.v3"
 )
 
 // Parse is ...
-func Parse(b []byte) (*api.Documentation, error) {
-	var docs = &api.Documentation{}
+func Parse(b []byte) (*Documentation, error) {
+	var docs = &Documentation{}
 	if err := yaml.Unmarshal(b, docs); err != nil {
 		return nil, err
 	}
