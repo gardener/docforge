@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"regexp"
 	"strings"
 
 	"github.com/gardener/docode/pkg/api"
@@ -73,15 +74,15 @@ func (g *ResourceLocator) String() string {
 //	"sha": "91776959202ec10db883c5cfc05c51e78403f02c",
 //	"url": "https://api.github.com/repos/gardener/gardener/git/blobs/91776959202ec10db883c5cfc05c51e78403f02c"
 //}
-func TreeEntryToGitHubLocator(treeEntry *github.TreeEntry) *ResourceLocator {
+func TreeEntryToGitHubLocator(treeEntry *github.TreeEntry, shaAlias string) *ResourceLocator {
 	url, err := url.Parse(treeEntry.GetURL())
 	if err != nil {
 		panic(fmt.Sprintf("failed to parse url %v: %v", treeEntry.GetURL(), err))
 	}
-	host := url.Host
+	host := "github.com" //TODO convert api.domain to domain from url.Host
 	sourceURLSegments := strings.Split(url.Path, "/")
-	owner := sourceURLSegments[1]
-	repo := sourceURLSegments[2]
+	owner := sourceURLSegments[2]
+	repo := sourceURLSegments[3]
 	resourceType, err := NewResourceType(treeEntry.GetType())
 	if err != nil {
 		panic(fmt.Sprintf("unexpected resource type %v: %v", treeEntry.GetType(), err))
@@ -90,7 +91,7 @@ func TreeEntryToGitHubLocator(treeEntry *github.TreeEntry) *ResourceLocator {
 		host,
 		owner,
 		repo,
-		treeEntry.GetSHA(),
+		shaAlias,
 		resourceType,
 		treeEntry.GetPath(),
 		treeEntry.GetURL(),
@@ -98,20 +99,21 @@ func TreeEntryToGitHubLocator(treeEntry *github.TreeEntry) *ResourceLocator {
 }
 
 // Recursively adds or merges nodes built from tree entries to node.Nodes
-func buildNodes(ctx context.Context, node *api.Node, entries map[string]*github.TreeEntry) {
+func buildNodes(node *api.Node, childResourceLocators []*ResourceLocator, cache Cache) {
 	var nodePath string
 	if node.NodeSelector != nil {
 		nodePath = node.NodeSelector.Path
 	} else if node.Source != nil {
 		nodePath = node.Source[0]
 	}
-	baseSegmentsCount := len(strings.Split(nodePath, "/"))
-	for k, v := range entries {
-		keySegmentsCount := len(strings.Split(k, "/"))
-		// sublevel only
-		if ((keySegmentsCount - baseSegmentsCount) == 1) && strings.HasPrefix(k, nodePath) {
+	nodeResourceLocator := cache.Get(nodePath)
+	nodePathSegmentsCount := len(strings.Split(nodeResourceLocator.Path, "/"))
+	for _, childResourceLocator := range childResourceLocators {
+		childPathSegmentsCount := len(strings.Split(childResourceLocator.Path, "/"))
+		// 1 sublevel only
+		if (childPathSegmentsCount - nodePathSegmentsCount) == 1 {
 			n := &api.Node{
-				Source: []string{k},
+				Source: []string{childResourceLocator.String()},
 			}
 			if node.Nodes == nil {
 				node.Nodes = make([]*api.Node, 0)
@@ -128,10 +130,9 @@ func buildNodes(ctx context.Context, node *api.Node, entries map[string]*github.
 				node.Nodes = append(node.Nodes, n)
 			}
 			// recursively build subnodes if entry is sub-tree
-			if v.GetType() == "tree" {
-				buildNodes(ctx, n, entries)
+			if childResourceLocator.Type == Tree {
+				buildNodes(n, childResourceLocators, cache)
 			}
-			return
 		}
 	}
 }
@@ -142,6 +143,23 @@ type Cache map[string]*ResourceLocator
 
 func (c Cache) Get(path string) *ResourceLocator {
 	return c[path]
+}
+
+func (c Cache) GetSubset(pathPrefix string) []*ResourceLocator {
+	var entries = make([]*ResourceLocator, 0)
+	reStrBlob := regexp.MustCompile(fmt.Sprintf("^(.*?)%s(.*)$", "tree"))
+	repStr := "${1}blob$2"
+	for k, v := range c {
+		pathPrefixAsBlob := pathPrefix
+		pathPrefixAsBlob = reStrBlob.ReplaceAllString(pathPrefixAsBlob, repStr)
+		if k == pathPrefix {
+			continue
+		}
+		if strings.HasPrefix(k, pathPrefix) || strings.HasPrefix(k, pathPrefixAsBlob) {
+			entries = append(entries, v)
+		}
+	}
+	return entries
 }
 
 func (c Cache) Set(path string, entry *ResourceLocator) *ResourceLocator {
@@ -213,32 +231,13 @@ func (gh *GitHub) URLToGitHubLocator(ctx context.Context, urlString string, reso
 			}
 			// populate cache
 			for _, entry := range gitTree.Entries {
-				ghRL := TreeEntryToGitHubLocator(entry)
+				ghRL := TreeEntryToGitHubLocator(entry, sha)
 				gh.cache.Set(ghRL.String(), ghRL)
 			}
 			ghRL = gh.cache.Get(urlString)
 		}
 	}
 	return ghRL
-}
-
-// getTreeEntryIndex retrieves from GitHub the tree (hierarchy) identified by the url as a flat
-// index of hierarchy paths.
-// url format is: https://api.github.com/repos/{owner}/{repo}/git/trees/{sha}
-// sha must identify a commit or a tree.
-// The returned index is a set of entries mapping tree entries paths to the TreeEntry objects.
-func (gh *GitHub) getTreeEntryIndex(ctx context.Context, url string) (map[string]*github.TreeEntry, error) {
-	ghRL := gh.URLToGitHubLocator(ctx, url, false)
-	gitTree, response, err := gh.Client.Git.GetTree(ctx, ghRL.Owner, ghRL.Repo, ghRL.SHA, true)
-	if err != nil || response.StatusCode != 200 {
-		return nil, fmt.Errorf("not 200 status code returned, but %d. Failed to get file tree: %v ", response.StatusCode, err)
-	}
-	// filter and index git tree entries for blobs and subtrees in the given source path
-	entries := make(map[string]*github.TreeEntry)
-	for _, entry := range gitTree.Entries {
-		entries[entry.GetPath()] = entry
-	}
-	return entries, nil
 }
 
 // Accept implements backend.ResourceHandler#Accept
@@ -258,14 +257,11 @@ func (gh *GitHub) Accept(uri string) bool {
 
 // ResolveNodeSelector recursively adds nodes built from tree entries to node
 func (gh *GitHub) ResolveNodeSelector(ctx context.Context, node *api.Node) error {
-	var (
-		idx map[string]*github.TreeEntry
-		err error
-	)
-	if idx, err = gh.getTreeEntryIndex(ctx, node.NodeSelector.Path); err != nil {
-		return err
-	}
-	buildNodes(ctx, node, idx)
+	// trigger cache of this URL's repo tree nodes
+	ghRL := gh.URLToGitHubLocator(ctx, node.NodeSelector.Path, true)
+	// build node subnodes hierarchy from cache
+	childResourceLocators := gh.cache.GetSubset(ghRL.String())
+	buildNodes(node, childResourceLocators, gh.cache)
 	return nil
 }
 

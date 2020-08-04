@@ -6,11 +6,12 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"reflect"
 	"os"
+	"reflect"
 	"testing"
 	"time"
 
+	"github.com/gardener/docode/pkg/api"
 	"github.com/gardener/docode/pkg/util/tests"
 	"github.com/google/go-github/v32/github"
 )
@@ -60,88 +61,50 @@ func setup() (client *github.Client, mux *http.ServeMux, serverURL string, teard
 	return client, mux, server.URL, server.Close
 }
 
-/*
-func TestGetTreeEntryIndex(t *testing.T) {
-	cases := []struct {
-		inURL   string
-		want    map[string]*github.TreeEntry
-		wantErr error
-	}{
-		{
-			"https://api.github.com/repos/gardener/gardener/git/trees/master",
-			map[string]*github.TreeEntry{
-				".dockerignore": &github.TreeEntry{
-					SHA:  github.String("5e27a248f3a7a3f9442c98b7e5d3c4b45b097491"),
-					Path: github.String(".dockerignore"),
-					Mode: github.String("100644"),
-					Type: github.String("blob"),
-					Size: github.Int(199),
-					URL:  github.String("https://api.github.com/repos/gardener/gardener/git/blobs/5e27a248f3a7a3f9442c98b7e5d3c4b45b097491"),
-				},
-			},
-			nil,
-		},
-	}
-	for _, c := range cases {
-		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
-		defer cancel()
-		got, err := getTreeEntryIndex(ctx, c.inURL)
-		if err != c.wantErr {
-			fmt.Println(err)
-			//t.Errorf("Something(%q) == %q, want %q", c.in, got, c.want)
-			t.Fail()
-			return
-		}
-		fmt.Printf("%v \n", got)
-		if got != c.want {
-			t.Errorf("Something(%q) == %q, want %q", c.in, got, c.want)
-		}
-	}
-
-}
-*/
-
 func TestUrlToGitHubLocator(t *testing.T) {
 	ghrl1 := &ResourceLocator{
 		"github.com",
 		"gardener",
 		"gardener",
 		"master",
-		Tree,
+		Blob,
 		"docs/README.md",
 		"",
 	}
-	ghrl1 := &ResourceLocator{
+	ghrl2 := &ResourceLocator{
 		"github.com",
 		"gardener",
 		"gardener",
 		"master",
-		Tree,
+		Blob,
 		"docs/README.md",
 		"https://api.github.com/repos/gardener/gardener/git/blobs/91776959202ec10db883c5cfc05c51e78403f02c",
 	}
 	cases := []struct {
-		inURL string
-		inResolveAPI
-		cache Cache
-		mux  func() *http.Mux
-		want *ResourceLocator
+		description  string
+		inURL        string
+		inResolveAPI bool
+		cache        Cache
+		mux          func(mux *http.ServeMux)
+		want         *ResourceLocator
 	}{
 		{
-			"https://github.com/gardener/gardener/tree/master/docs/README.md",
+			"cached url should return valid GitHubResourceLocator",
+			"https://github.com/gardener/gardener/blob/master/docs/README.md",
 			false,
 			Cache{
-				"https://github.com/gardener/gardener/tree/master/docs/README.md": ghrl1,
+				"https://github.com/gardener/gardener/blob/master/docs/README.md": ghrl1,
 			},
 			nil,
 			ghrl1,
 		},
 		{
-			"https://github.com/gardener/gardener/tree/master/docs/README.md",
+			"non-cached url should resolve a valid GitHubResourceLocator from API",
+			"https://github.com/gardener/gardener/blob/master/docs/README.md",
 			true,
 			Cache{},
-			func(mux *http.Mux) {
-				return mux.HandleFunc("/gardener/gardener/tree/master/docs/README.md", func(w http.ResponseWriter, r *http.Request) {
+			func(mux *http.ServeMux) {
+				mux.HandleFunc("/repos/gardener/gardener/git/trees/master", func(w http.ResponseWriter, r *http.Request) {
 					w.Write([]byte(fmt.Sprintf(`
 						{
 							"sha": "0255b12f5b51f821e59cf5cf343cb0c36f1cb1f9",
@@ -156,22 +119,23 @@ func TestUrlToGitHubLocator(t *testing.T) {
 									"url": "https://api.github.com/repos/gardener/gardener/git/blobs/91776959202ec10db883c5cfc05c51e78403f02c"
 								}
 							]
-						}`))
+						}`)))
 				})
 			},
 			ghrl2,
 		},
 	}
 	for _, c := range cases {
+		fmt.Println(c.description)
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer cancel()
-		gh: &GitHub{
-			cache: inCache,
+		gh := &GitHub{
+			cache: c.cache,
 		}
 		if c.inResolveAPI {
 			client, mux, _, teardown := setup()
 			defer teardown()
-			if c.mux !=nil {
+			if c.mux != nil {
 				c.mux(mux)
 			}
 			gh.Client = client
@@ -179,6 +143,107 @@ func TestUrlToGitHubLocator(t *testing.T) {
 		got := gh.URLToGitHubLocator(ctx, c.inURL, c.inResolveAPI)
 		if !reflect.DeepEqual(got, c.want) {
 			t.Errorf("URLToGitHubLocator(%q) == %q, want %q", c.inURL, got, c.want)
+		}
+	}
+}
+
+func TestResolveNodeSelector(t *testing.T) {
+	n1 := &api.Node{
+		NodeSelector: &api.NodeSelector{
+			Path: "https://github.com/gardener/gardener/tree/master/docs",
+		},
+	}
+	cases := []struct {
+		description string
+		inNode      *api.Node
+		mux         func(mux *http.ServeMux)
+		want        *api.Node
+		wantError   error
+	}{
+		{
+			"resolve node selector",
+			n1,
+			func(mux *http.ServeMux) {
+				mux.HandleFunc("/repos/gardener/gardener/git/trees/master", func(w http.ResponseWriter, r *http.Request) {
+					w.Write([]byte(fmt.Sprintf(`
+						{
+							"sha": "0255b12f5b51f821e59cf5cf343cb0c36f1cb1f9",
+							"url": "http://api.github.com/repos/gardener/gardener/git/trees/0255b12f5b51f821e59cf5cf343cb0c36f1cb1f9",
+							"tree": [
+								{
+									"path": "docs",
+									"mode": "040000",
+									"type": "tree",
+									"sha": "5e11bda664b234920d85db5ca10055916c11e35d",
+									"url": "https://api.github.com/repos/gardener/gardener/git/trees/5e11bda664b234920d85db5ca10055916c11e35d"
+								},
+								{
+									"path": "docs/README.md",
+									"mode": "100644",
+									"type": "blob",
+									"sha": "91776959202ec10db883c5cfc05c51e78403f02c",
+									"size": 6260,
+									"url": "https://api.github.com/repos/gardener/gardener/git/blobs/91776959202ec10db883c5cfc05c51e78403f02c"
+								},
+								{
+									"path": "docs/concepts",
+									"mode": "040000",
+									"type": "tree",
+									"sha": "e3ac8f22d00ab4423b184687d3ecc7e03e7393eb",
+									"url": "https://api.github.com/repos/gardener/gardener/git/trees/e3ac8f22d00ab4423b184687d3ecc7e03e7393eb"
+								},
+								{
+									"path": "docs/concepts/apiserver.md",
+									"mode": "100644",
+									"type": "blob",
+									"sha": "30c4e21a53be25f9300f9cca8bd73309b1257d1f",
+									"size": 5209,
+									"url": "https://api.github.com/repos/gardener/gardener/git/blobs/30c4e21a53be25f9300f9cca8bd73309b1257d1f"
+								}
+							]
+						}`)))
+				})
+			},
+			&api.Node{
+				NodeSelector: &api.NodeSelector{
+					Path: "https://github.com/gardener/gardener/tree/master/docs",
+				},
+				Nodes: []*api.Node{
+					&api.Node{
+						Source: []string{"https://github.com/gardener/gardener/blob/master/docs/README.md"},
+					},
+					&api.Node{
+						Source: []string{"https://github.com/gardener/gardener/tree/master/docs/concepts"},
+						Nodes: []*api.Node{
+							&api.Node{
+								Source: []string{"https://github.com/gardener/gardener/blob/master/docs/concepts/apiserver.md"},
+							},
+						},
+					},
+				},
+			},
+			nil,
+		},
+	}
+	for _, c := range cases {
+		fmt.Println(c.description)
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		defer cancel()
+		gh := &GitHub{
+			cache: Cache{},
+		}
+		client, mux, _, teardown := setup()
+		defer teardown()
+		if c.mux != nil {
+			c.mux(mux)
+		}
+		gh.Client = client
+		gotError := gh.ResolveNodeSelector(ctx, c.inNode)
+		if gotError != nil {
+			t.Errorf("error == %q, want %q", gotError, c.wantError)
+		}
+		if !reflect.DeepEqual(c.inNode, c.want) {
+			t.Errorf("ResolveNodeSelector == %v, want %v", c.inNode, c.want)
 		}
 	}
 }
