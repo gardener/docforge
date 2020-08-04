@@ -27,3 +27,15 @@ func Parse(b []byte) (*Documentation, error) {
 	}
 	return docs, nil
 }
+
+// Serialize is ...
+func Serialize(docs *Documentation) (string, error) {
+	var (
+		err error
+		b   []byte
+	)
+	if b, err = yaml.Marshal(docs); err != nil {
+		return "", err
+	}
+	return string(b), nil
+}
