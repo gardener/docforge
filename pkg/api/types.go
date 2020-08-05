@@ -75,10 +75,12 @@ type Node struct {
 	// Properties are a map of arbitary, key-value pairs to model custom,
 	// untyped node properties.
 	Properties map[string]interface{} `yaml:"properties,omitempty"`
-	// Name is the resource name used if file systme paths. If omited, the resource name
-	// from Source will be used. If this node is aggregte with multiple sources, a
-	// unique file-system-firendly name is assigned automatically.
+	// Name is the name of this node. If omited, the name is the resource name from
+	// Source as reported by an eligible ResourceHandler's Name() method.
+	// Node with multiple Source entries require name.
 	Name string `yaml:"name,omitempty"`
+
+	parent *Node
 }
 
 // NodeSelector is an specification for selecting subnodes (children) for a node.
@@ -104,19 +106,38 @@ type Node struct {
 type NodeSelector struct {
 	// Path is a resource locator to a set of files, i.e. to a resource container.
 	Path string `yaml:"path"`
-	// Recursive is a flag indicating whether the whole resource structure under path
-	// is selected, or only the first level.
-	Recursive bool `yaml:"recursive,omitempty"`
-	// Depth can be specified only with Recursive and defines a maximum depth of the recursion.
+	// Depth a maximum depth of the recursion. If omitted or less than 0, the
+	// constraint is not considered
 	Depth int64 `yaml:"depth,omitempty"`
-	// Annotation is an optional expression filtering documents located at `Path`
+	// Annotation is an optional expression, filtering documents located at `Path`
 	// by their metadata properties. Markdown metadata is commonly provisioned as
 	// `front-matter` block at the head of the document delimited by comment
 	// tags (`---`).
 	Annotation string `yaml:"annotation,omitempty"`
 }
 
-// Replicator is ... TODO
-// type Replicator interface {
-// 	Replicate(context Context) error
-// }
+// Parent returns the parent node (if any) of this node n
+func (n *Node) Parent() *Node {
+	return n.parent
+}
+
+// Parents returns the path of nodes from this nodes parent to the root of the
+// hierarchy
+func (n *Node) Parents() []*Node {
+	var parent *Node
+	if parent = n.parent; parent == nil {
+		return nil
+	}
+	return append(parent.Parents(), parent)
+}
+
+// SetParentsDownwards walks recursively the hierarchy under this node to set the
+// parent property.
+func (n *Node) SetParentsDownwards(node *Node) {
+	if len(node.Nodes) > 0 {
+		for _, n := range node.Nodes {
+			n.parent = node
+			n.SetParentsDownwards(n)
+		}
+	}
+}

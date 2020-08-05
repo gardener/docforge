@@ -14,12 +14,13 @@ type Reactor struct {
 	ResourceHandlers backend.ResourceHandlers
 }
 
-// Resolve builds the subnode hierarchy of a node based on rules such as
-// those in NodeSelector.
+// Resolve builds the subnodes hierarchy of a node based on the natural nodes
+// hierarchy and on rules such as those in NodeSelector.
 // The node hierarchy is resolved by an appropriate handler selected based
 // on the NodeSelector path URI
 // The resulting model is the actual flight plan for replicating resources.
 func (r *Reactor) Resolve(ctx context.Context, node *api.Node) error {
+	node.SetParentsDownwards()
 	if &node.NodeSelector != nil {
 		var handler backend.ResourceHandler
 		if handler = r.ResourceHandlers.Get(node.NodeSelector.Path); handler == nil {

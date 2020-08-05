@@ -17,14 +17,10 @@ type ResourceHandler interface {
 	ResolveNodeSelector(ctx context.Context, node *api.Node) error
 	// Read a node content into a byte array ready for serialization
 	Read(ctx context.Context, node *api.Node) ([]byte, error)
-	// Path resolve file system friendly path from reosurce URI, that is `/` delimited
+	// Path resolves file system friendly path from resource URI, that is `/` delimited
 	// Example for GitHub resources:
 	// https://github.com/owner/repo/tree/master/a/b/c.md -> a/b/c.md
 	Path(uri string) string
-	// DownloadUrl parses an URI into a dereferencable form that can be used to
-	// read e.g from a remote location. For http resource that would be their URL.
-	// Usefull to list the actual donwload targets e.g. in a dry-run mode
-	DownloadUrl(uri string) string
 }
 
 // ResourceHandlers is a registry for ResourceHandler objects

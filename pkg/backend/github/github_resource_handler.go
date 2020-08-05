@@ -118,7 +118,6 @@ func buildNodes(node *api.Node, childResourceLocators []*ResourceLocator, cache 
 	nodeResourceLocator := cache.Get(nodePath)
 	nodePathSegmentsCount := len(strings.Split(nodeResourceLocator.Path, "/"))
 	for _, childResourceLocator := range childResourceLocators {
-		//fmt.Printf("%v\n", nodePath)
 		if !strings.HasPrefix(childResourceLocator.Path, nodeResourceLocator.Path) {
 			continue
 		}
@@ -131,6 +130,7 @@ func buildNodes(node *api.Node, childResourceLocators []*ResourceLocator, cache 
 				continue
 			}
 			n := &api.Node{
+				parent:= node
 				Source: []string{childResourceLocator.String()},
 				Name:   childName,
 			}
@@ -150,6 +150,7 @@ func buildNodes(node *api.Node, childResourceLocators []*ResourceLocator, cache 
 			}
 			// recursively build subnodes if entry is sub-tree
 			if childResourceLocator.Type == Tree {
+				childResourceLocators = cache.GetSubset(childResourceLocator.String())
 				buildNodes(n, childResourceLocators, cache)
 			}
 		}
@@ -285,7 +286,8 @@ func (gh *GitHub) Accept(uri string) bool {
 
 // ResolveNodeSelector recursively adds nodes built from tree entries to node
 func (gh *GitHub) ResolveNodeSelector(ctx context.Context, node *api.Node) error {
-	// trigger cache of this URL's repo tree nodes
+	// Get ResourceLocator for this node's NodeSelector path and cache its URL's repo
+	// tree entries
 	ghRL := gh.URLToGitHubLocator(ctx, node.NodeSelector.Path, true)
 	// build node subnodes hierarchy from cache
 	childResourceLocators := gh.cache.GetSubset(ghRL.String())
@@ -294,21 +296,13 @@ func (gh *GitHub) ResolveNodeSelector(ctx context.Context, node *api.Node) error
 }
 
 // Accept implements backend.ResourceHandler#Read
-func (gh *GitHub) Read(ctx context.Context, node *api.Node) []byte {
+func (gh *GitHub) Read(ctx context.Context, node *api.Node) ([]byte, error) {
 	ghRL := gh.URLToGitHubLocator(ctx, node.Source[0], false)
-	blob, _, _ := gh.Client.Git.GetBlobRaw(ctx, ghRL.Owner, ghRL.Repo, ghRL.SHA)
-
-	// if err != nil {
-	// 	return err
-	// }
-	return blob
+	blob, _, err := gh.Client.Git.GetBlobRaw(ctx, ghRL.Owner, ghRL.Repo, ghRL.SHA)
+	return blob, err
 }
 
 func (gh *GitHub) Path(uri string) string {
 	ghRL := gh.URLToGitHubLocator(nil, uri, false)
 	return ghRL.Path
-}
-
-func (gh *GitHub) DownloadUrl(uri string) string {
-	return gh.URLToGitHubLocator(nil, uri, false).String()
 }
