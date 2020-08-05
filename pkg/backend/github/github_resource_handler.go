@@ -130,10 +130,10 @@ func buildNodes(node *api.Node, childResourceLocators []*ResourceLocator, cache 
 				continue
 			}
 			n := &api.Node{
-				parent:= node
 				Source: []string{childResourceLocator.String()},
 				Name:   childName,
 			}
+			n.SetParent(node)
 			if node.Nodes == nil {
 				node.Nodes = make([]*api.Node, 0)
 			}
@@ -297,12 +297,13 @@ func (gh *GitHub) ResolveNodeSelector(ctx context.Context, node *api.Node) error
 
 // Accept implements backend.ResourceHandler#Read
 func (gh *GitHub) Read(ctx context.Context, node *api.Node) ([]byte, error) {
-	ghRL := gh.URLToGitHubLocator(ctx, node.Source[0], false)
+	ghRL := gh.URLToGitHubLocator(ctx, node.Source[0], true)
 	blob, _, err := gh.Client.Git.GetBlobRaw(ctx, ghRL.Owner, ghRL.Repo, ghRL.SHA)
 	return blob, err
 }
 
-func (gh *GitHub) Path(uri string) string {
-	ghRL := gh.URLToGitHubLocator(nil, uri, false)
-	return ghRL.Path
+// Name implements backend.ResourceHandler#Name
+func (gh *GitHub) Name(uri string) string {
+	ghRL := gh.URLToGitHubLocator(nil, uri, true)
+	return ghRL.GetName()
 }

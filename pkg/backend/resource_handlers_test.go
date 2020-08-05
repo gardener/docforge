@@ -27,10 +27,7 @@ func (rh *TestResourceHandler) ResolveNodeSelector(ctx context.Context, node *ap
 func (rh *TestResourceHandler) Read(ctx context.Context, node *api.Node) ([]byte, error) {
 	return nil, nil
 }
-func (rh *TestResourceHandler) Path(uri string) string {
-	return string("")
-}
-func (rh *TestResourceHandler) DownloadUrl(uri string) string {
+func (rh *TestResourceHandler) Name(uri string) string {
 	return string("")
 }
 

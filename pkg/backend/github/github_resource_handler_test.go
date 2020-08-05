@@ -247,3 +247,57 @@ func TestResolveNodeSelector(t *testing.T) {
 		}
 	}
 }
+
+func TestName(t *testing.T) {
+	ghrl1 := &ResourceLocator{
+		"github.com",
+		"gardener",
+		"gardener",
+		"master",
+		Blob,
+		"docs/README.md",
+		"",
+	}
+	ghrl2 := &ResourceLocator{
+		"github.com",
+		"gardener",
+		"gardener",
+		"master",
+		Tree,
+		"docs",
+		"",
+	}
+	cases := []struct {
+		description string
+		inURL       string
+		cache       Cache
+		want        string
+	}{
+		{
+			"return file name for url",
+			"https://github.com/gardener/gardener/blob/master/docs/README.md",
+			Cache{
+				"https://github.com/gardener/gardener/blob/master/docs/README.md": ghrl1,
+			},
+			"README.md",
+		},
+		{
+			"return folder name for url",
+			"https://github.com/gardener/gardener/tree/master/docs",
+			Cache{
+				"https://github.com/gardener/gardener/tree/master/docs": ghrl2,
+			},
+			"docs",
+		},
+	}
+	for _, c := range cases {
+		fmt.Println(c.description)
+		gh := &GitHub{
+			cache: c.cache,
+		}
+		got := gh.Name(c.inURL)
+		if !reflect.DeepEqual(got, c.want) {
+			t.Errorf("Name(%q) == %q, want %q", c.inURL, got, c.want)
+		}
+	}
+}

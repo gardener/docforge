@@ -121,6 +121,11 @@ func (n *Node) Parent() *Node {
 	return n.parent
 }
 
+// SetParent returns the parent node (if any) of this node n
+func (n *Node) SetParent(node *Node) {
+	n.parent = node
+}
+
 // Parents returns the path of nodes from this nodes parent to the root of the
 // hierarchy
 func (n *Node) Parents() []*Node {
