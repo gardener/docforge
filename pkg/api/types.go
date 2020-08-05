@@ -76,7 +76,7 @@ type Node struct {
 	// untyped node properties.
 	Properties map[string]interface{} `yaml:"properties,omitempty"`
 	// Name is the resource name used if file systme paths. If omited, the resource name
-	// from Source will be used. if this node is aggregte with multiple sources, a
+	// from Source will be used. If this node is aggregte with multiple sources, a
 	// unique file-system-firendly name is assigned automatically.
 	Name string `yaml:"name,omitempty"`
 }

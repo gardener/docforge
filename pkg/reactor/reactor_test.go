@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/gardener/docode/pkg/api"
-	"github.com/gardener/docode/pkg/backend/github"
 	"github.com/gardener/docode/pkg/util/tests"
 )
 

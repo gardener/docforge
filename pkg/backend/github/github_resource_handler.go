@@ -56,6 +56,15 @@ func (g *ResourceLocator) String() string {
 	return fmt.Sprintf("https://%s/%s/%s/%s/%s/%s", g.Host, g.Owner, g.Repo, g.Type, g.SHA, g.Path)
 }
 
+// GetName returns the Name segment of a resource URL path
+func (g *ResourceLocator) GetName() string {
+	if len(g.Path) == 0 {
+		return ""
+	}
+	p := strings.Split(g.Path, "/")
+	return p[len(p)-1]
+}
+
 //
 // Example tree:
 //{
@@ -98,7 +107,7 @@ func TreeEntryToGitHubLocator(treeEntry *github.TreeEntry, shaAlias string) *Res
 	}
 }
 
-// Recursively adds or merges nodes built from tree entries to node.Nodes
+// Recursively adds or merges nodes built from flat ResourceLocators list to node.Nodes
 func buildNodes(node *api.Node, childResourceLocators []*ResourceLocator, cache Cache) {
 	var nodePath string
 	if node.NodeSelector != nil {
@@ -109,11 +118,21 @@ func buildNodes(node *api.Node, childResourceLocators []*ResourceLocator, cache 
 	nodeResourceLocator := cache.Get(nodePath)
 	nodePathSegmentsCount := len(strings.Split(nodeResourceLocator.Path, "/"))
 	for _, childResourceLocator := range childResourceLocators {
+		//fmt.Printf("%v\n", nodePath)
+		if !strings.HasPrefix(childResourceLocator.Path, nodeResourceLocator.Path) {
+			continue
+		}
 		childPathSegmentsCount := len(strings.Split(childResourceLocator.Path, "/"))
+		childName := childResourceLocator.GetName()
 		// 1 sublevel only
 		if (childPathSegmentsCount - nodePathSegmentsCount) == 1 {
+			// .md files only
+			if childResourceLocator.Type == Blob && !strings.HasSuffix(strings.ToLower(childName), ".md") {
+				continue
+			}
 			n := &api.Node{
 				Source: []string{childResourceLocator.String()},
+				Name:   childName,
 			}
 			if node.Nodes == nil {
 				node.Nodes = make([]*api.Node, 0)
@@ -147,6 +166,8 @@ func (c Cache) Get(path string) *ResourceLocator {
 
 func (c Cache) GetSubset(pathPrefix string) []*ResourceLocator {
 	var entries = make([]*ResourceLocator, 0)
+	// The resource type in the URL prefix {tree|blob} changes according to the resource
+	// To keep the prefix valid it should alternate this path segment too.
 	reStrBlob := regexp.MustCompile(fmt.Sprintf("^(.*?)%s(.*)$", "tree"))
 	repStr := "${1}blob$2"
 	for k, v := range c {
@@ -172,7 +193,49 @@ type GitHub struct {
 	cache  Cache
 }
 
-// URLToGitHubLocator produces a ResourceLocator from a GitHub website URL
+// Parse a GitHub URL into an incomplete ResourceLocator, without
+// the APIUrl property.
+func parse(urlString string) *ResourceLocator {
+	// TODO: error on parse failure or panic
+	u, _ := url.Parse(urlString)
+	host := u.Host
+	sourceURLSegments := strings.Split(u.Path, "/")
+	if len(sourceURLSegments) < 5 {
+		// TODO: be consistent - throwing error or panic
+		panic(fmt.Sprintf("invalid GitHub URL format %q", u))
+	}
+	owner := sourceURLSegments[1]
+	repo := sourceURLSegments[2]
+	resourceTypeString := sourceURLSegments[3]
+	sha := sourceURLSegments[4]
+
+	// get the github url "path" part
+	s := strings.Join([]string{owner, repo, resourceTypeString, sha}, "/")
+	var (
+		resourceType ResourceType
+		path         string
+		err          error
+	)
+	if p := strings.Split(u.Path, s); len(p) > 0 {
+		path = strings.TrimLeft(p[1], "/")
+	}
+
+	if resourceType, err = NewResourceType(resourceTypeString); err != nil {
+		panic(fmt.Sprintf("unexpected resource type in url %s", resourceTypeString))
+	}
+	ghRL := &ResourceLocator{
+		host,
+		owner,
+		repo,
+		sha,
+		resourceType,
+		path,
+		"",
+	}
+	return ghRL
+}
+
+// URLToGitHubLocator produces a ResourceLocator from a GitHub website URL.
 // ResourceLocator is the internal format used to dereference GitHub website
 // links from documentation structure specification and documents.
 //
@@ -187,52 +250,17 @@ func (gh *GitHub) URLToGitHubLocator(ctx context.Context, urlString string, reso
 	var ghRL *ResourceLocator
 	// try cache first
 	if ghRL = gh.cache.Get(urlString); ghRL == nil {
-		// TODO: error on parse failure or panic
-		u, _ := url.Parse(urlString)
-		host := u.Host
-		sourceURLSegments := strings.Split(u.Path, "/")
-		if len(sourceURLSegments) < 5 {
-			// TOO: be consistent - throwing error or panic
-			panic(fmt.Sprintf("invalid GitHub URL format %q", u))
-		}
-		owner := sourceURLSegments[1]
-		repo := sourceURLSegments[2]
-		resourceTypeString := sourceURLSegments[3]
-		sha := sourceURLSegments[4]
-
-		// get the github url "path" part
-		s := strings.Join([]string{owner, repo, resourceTypeString, sha}, "/")
-		var (
-			resourceType ResourceType
-			path         string
-			err          error
-		)
-		if p := strings.Split(u.Path, s); len(p) > 0 {
-			path = strings.TrimLeft(p[1], "/")
-		}
-
-		if resourceType, err = NewResourceType(resourceTypeString); err != nil {
-			panic(fmt.Sprintf("unexpected resource type in url %s", resourceTypeString))
-		}
-		ghRL = &ResourceLocator{
-			host,
-			owner,
-			repo,
-			sha,
-			resourceType,
-			path,
-			"",
-		}
+		ghRL = parse(urlString)
 		if resolveAPIUrl {
 			// grab the index of this repo
 			gitTree, _, err := gh.Client.Git.GetTree(ctx, ghRL.Owner, ghRL.Repo, ghRL.SHA, true)
 			if err != nil {
 				return nil
 			}
-			// populate cache
+			// populate cache wth this tree entries
 			for _, entry := range gitTree.Entries {
-				ghRL := TreeEntryToGitHubLocator(entry, sha)
-				gh.cache.Set(ghRL.String(), ghRL)
+				rl := TreeEntryToGitHubLocator(entry, ghRL.SHA)
+				gh.cache.Set(rl.String(), rl)
 			}
 			ghRL = gh.cache.Get(urlString)
 		}
