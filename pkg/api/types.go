@@ -73,13 +73,17 @@ type Node struct {
 	// Note: WiP - proposed, not implemented yet.
 	NodeSelector *NodeSelector `yaml:"nodesSelector,omitempty"`
 	// Properties are a map of arbitary, key-value pairs to model custom,
-	// untyped node properties.
+	// untyped node properties. They could be used to instruct specific ResourceHandlers
+	// and the serialization of the Node. For example the properyies member could be
+	// used to set the front-matter to markdowns for front-matter aware builders such
+	// as Hugo.
 	Properties map[string]interface{} `yaml:"properties,omitempty"`
 	// Name is the name of this node. If omited, the name is the resource name from
 	// Source as reported by an eligible ResourceHandler's Name() method.
 	// Node with multiple Source entries require name.
 	Name string `yaml:"name,omitempty"`
-
+	// A reference to the parent of this node, unless it is the root. Unexported and
+	// assigned internally when the node structure is resolved. Not marshalled.
 	parent *Node
 }
 

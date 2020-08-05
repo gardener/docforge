@@ -15,8 +15,8 @@ type ResourceHandler interface {
 	// ResolveNodeSelector resolves the NodeSelector rules of a Node into subnodes
 	// hierarchy (Node.Nodes)
 	ResolveNodeSelector(ctx context.Context, node *api.Node) error
-	// Read a node content into a byte array ready for serialization
-	Read(ctx context.Context, node *api.Node) ([]byte, error)
+	// Read a resource content at uri into a byte array
+	Read(ctx context.Context, uri string) ([]byte, error)
 	// Name resolves the name of the resource from a URI
 	// Example: https://github.com/owner/repo/tree/master/a/b/c.md -> c.md
 	Name(uri string) string

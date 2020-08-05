@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -298,6 +299,67 @@ func TestName(t *testing.T) {
 		got := gh.Name(c.inURL)
 		if !reflect.DeepEqual(got, c.want) {
 			t.Errorf("Name(%q) == %q, want %q", c.inURL, got, c.want)
+		}
+	}
+}
+
+func TestRead(t *testing.T) {
+	var sampleContent = []byte("Sample content")
+	cases := []struct {
+		description string
+		inURI       string
+		mux         func(mux *http.ServeMux)
+		cache       Cache
+		want        []byte
+		wantError   error
+	}{
+		{
+			"read node source",
+			"https://github.com/gardener/gardener/blob/master/docs/README.md",
+			func(mux *http.ServeMux) {
+				mux.HandleFunc("/repos/gardener/gardener/git/blobs/master", func(w http.ResponseWriter, r *http.Request) {
+					w.Write(sampleContent)
+				})
+			},
+			Cache{
+				"https://github.com/gardener/gardener/blob/master/docs/README.md": &ResourceLocator{
+					"github.com",
+					"gardener",
+					"gardener",
+					"master",
+					Blob,
+					"docs/README.md",
+					"",
+				},
+			},
+			sampleContent,
+			nil,
+		},
+	}
+	for _, c := range cases {
+		fmt.Println(c.description)
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		defer cancel()
+		client, mux, serverUrl, teardown := setup()
+		defer teardown()
+		// rewrite cached url keys host to match the mock sevrer
+		for k, v := range c.cache {
+			c.cache[strings.Replace(k, "https://github.com", serverUrl, 1)] = v
+		}
+		gh := &GitHub{
+			cache: c.cache,
+		}
+		if c.mux != nil {
+			c.mux(mux)
+		}
+		gh.Client = client
+		inURI := strings.Replace(c.inURI, "https://github.com", serverUrl, 1)
+		got, gotError := gh.Read(ctx, c.inURI)
+		if gotError != nil {
+			t.Errorf("error == %q, want %q", gotError, c.wantError)
+		}
+		if !reflect.DeepEqual(got, c.want) {
+			t.Errorf("Read(ctx,%v) == %v, want %v", inURI, string(got), string(c.want))
 		}
 	}
 }

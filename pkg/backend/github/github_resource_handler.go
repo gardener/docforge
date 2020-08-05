@@ -288,22 +288,30 @@ func (gh *GitHub) Accept(uri string) bool {
 func (gh *GitHub) ResolveNodeSelector(ctx context.Context, node *api.Node) error {
 	// Get ResourceLocator for this node's NodeSelector path and cache its URL's repo
 	// tree entries
-	ghRL := gh.URLToGitHubLocator(ctx, node.NodeSelector.Path, true)
-	// build node subnodes hierarchy from cache
-	childResourceLocators := gh.cache.GetSubset(ghRL.String())
-	buildNodes(node, childResourceLocators, gh.cache)
+	if ghRL := gh.URLToGitHubLocator(ctx, node.NodeSelector.Path, true); ghRL != nil {
+		// build node subnodes hierarchy from cache
+		childResourceLocators := gh.cache.GetSubset(ghRL.String())
+		buildNodes(node, childResourceLocators, gh.cache)
+	}
 	return nil
 }
 
 // Accept implements backend.ResourceHandler#Read
-func (gh *GitHub) Read(ctx context.Context, node *api.Node) ([]byte, error) {
-	ghRL := gh.URLToGitHubLocator(ctx, node.Source[0], true)
-	blob, _, err := gh.Client.Git.GetBlobRaw(ctx, ghRL.Owner, ghRL.Repo, ghRL.SHA)
+func (gh *GitHub) Read(ctx context.Context, uri string) ([]byte, error) {
+	var (
+		blob []byte
+		err  error
+	)
+	if ghRL := gh.URLToGitHubLocator(ctx, uri, true); ghRL != nil {
+		blob, _, err = gh.Client.Git.GetBlobRaw(ctx, ghRL.Owner, ghRL.Repo, ghRL.SHA)
+	}
 	return blob, err
 }
 
 // Name implements backend.ResourceHandler#Name
 func (gh *GitHub) Name(uri string) string {
-	ghRL := gh.URLToGitHubLocator(nil, uri, true)
-	return ghRL.GetName()
+	if ghRL := gh.URLToGitHubLocator(nil, uri, true); ghRL != nil {
+		return ghRL.GetName()
+	}
+	return ""
 }
