@@ -142,11 +142,11 @@ func (n *Node) Parents() []*Node {
 
 // SetParentsDownwards walks recursively the hierarchy under this node to set the
 // parent property.
-func (n *Node) SetParentsDownwards(node *Node) {
-	if len(node.Nodes) > 0 {
-		for _, n := range node.Nodes {
-			n.parent = node
-			n.SetParentsDownwards(n)
+func (n *Node) SetParentsDownwards() {
+	if len(n.Nodes) > 0 {
+		for _, child := range n.Nodes {
+			child.parent = n
+			child.SetParentsDownwards()
 		}
 	}
 }

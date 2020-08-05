@@ -211,12 +211,15 @@ func TestResolveNodeSelector(t *testing.T) {
 				},
 				Nodes: []*api.Node{
 					&api.Node{
+						Name:   "README.md",
 						Source: []string{"https://github.com/gardener/gardener/blob/master/docs/README.md"},
 					},
 					&api.Node{
+						Name:   "concepts",
 						Source: []string{"https://github.com/gardener/gardener/tree/master/docs/concepts"},
 						Nodes: []*api.Node{
 							&api.Node{
+								Name:   "apiserver.md",
 								Source: []string{"https://github.com/gardener/gardener/blob/master/docs/concepts/apiserver.md"},
 							},
 						},
@@ -243,6 +246,7 @@ func TestResolveNodeSelector(t *testing.T) {
 		if gotError != nil {
 			t.Errorf("error == %q, want %q", gotError, c.wantError)
 		}
+		c.want.SetParentsDownwards()
 		if !reflect.DeepEqual(c.inNode, c.want) {
 			t.Errorf("ResolveNodeSelector == %v, want %v", c.inNode, c.want)
 		}
