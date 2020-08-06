@@ -5,7 +5,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//      http://wwj.apache.org/licenses/LICENSE-2.0
+//      http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -71,15 +71,25 @@ type Node struct {
 	// child nodes to this node. This is an alternative to explicitly setting child
 	// nodes structure resource paths with `Nodes`.
 	// Note: WiP - proposed, not implemented yet.
-	NodesSelector NodesSelector `yaml:"nodesSelector,omitempty"`
+	NodeSelector *NodeSelector `yaml:"nodesSelector,omitempty"`
 	// Properties are a map of arbitary, key-value pairs to model custom,
-	// untyped node properties.
+	// untyped node properties. They could be used to instruct specific ResourceHandlers
+	// and the serialization of the Node. For example the properyies member could be
+	// used to set the front-matter to markdowns for front-matter aware builders such
+	// as Hugo.
 	Properties map[string]interface{} `yaml:"properties,omitempty"`
+	// Name is the name of this node. If omited, the name is the resource name from
+	// Source as reported by an eligible ResourceHandler's Name() method.
+	// Node with multiple Source entries require name.
+	Name string `yaml:"name,omitempty"`
+	// A reference to the parent of this node, unless it is the root. Unexported and
+	// assigned internally when the node structure is resolved. Not marshalled.
+	parent *Node
 }
 
-// NodesSelector is an specification for selecting subnodes (children) for a node.
+// NodeSelector is an specification for selecting subnodes (children) for a node.
 // The order in which the documents are selected is not guaranteed. The interpreters
-// of Nodeselectors can make use of the resource metadata or other sources to construct
+// of NodeSelectors can make use of the resource metadata or other sources to construct
 // and populate child Nodes dynamically.
 //
 // Example:
@@ -97,15 +107,46 @@ type Node struct {
 //  ---
 //
 // Note: WiP - proposed, not implemented yet.
-type NodesSelector struct {
-	// Annotation is an optional expression filtering documents located at `Path`
+type NodeSelector struct {
+	// Path is a resource locator to a set of files, i.e. to a resource container.
+	Path string `yaml:"path"`
+	// Depth a maximum depth of the recursion. If omitted or less than 0, the
+	// constraint is not considered
+	Depth int64 `yaml:"depth,omitempty"`
+	// Annotation is an optional expression, filtering documents located at `Path`
 	// by their metadata properties. Markdown metadata is commonly provisioned as
 	// `front-matter` block at the head of the document delimited by comment
 	// tags (`---`).
 	Annotation string `yaml:"annotation,omitempty"`
-	// Path is a resource locator to a set of files.
-	Path string `yaml:"path"`
-	// Recursive is a flag indicating whether the whole resource structure under path
-	// is selected, or only the first level.
-	Recursive bool `yaml:"recursive,omitempty"`
+}
+
+// Parent returns the parent node (if any) of this node n
+func (n *Node) Parent() *Node {
+	return n.parent
+}
+
+// SetParent returns the parent node (if any) of this node n
+func (n *Node) SetParent(node *Node) {
+	n.parent = node
+}
+
+// Parents returns the path of nodes from this nodes parent to the root of the
+// hierarchy
+func (n *Node) Parents() []*Node {
+	var parent *Node
+	if parent = n.parent; parent == nil {
+		return nil
+	}
+	return append(parent.Parents(), parent)
+}
+
+// SetParentsDownwards walks recursively the hierarchy under this node to set the
+// parent property.
+func (n *Node) SetParentsDownwards() {
+	if len(n.Nodes) > 0 {
+		for _, child := range n.Nodes {
+			child.parent = n
+			child.SetParentsDownwards()
+		}
+	}
 }

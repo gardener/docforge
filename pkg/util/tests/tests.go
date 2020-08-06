@@ -22,8 +22,12 @@ func init() {
 // SetGlogV sets the logging flags when unit tests are run
 func SetGlogV(level int) {
 	l := strconv.Itoa(level)
-	flag.Lookup("v").Value.Set(l)
-	flag.Lookup("logtostderr").Value.Set("true")
+	if f := flag.Lookup("v"); f != nil {
+		f.Value.Set(l)
+	}
+	if f := flag.Lookup("logtostderr"); f != nil {
+		f.Value.Set("true")
+	}
 }
 
 // ReadBodyAndClose properly handles the reading of body and closing the reader

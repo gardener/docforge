@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package reactor
+package jobs
 
 import (
 	"net/http"
@@ -26,10 +26,9 @@ func ResetMetrics() {
 	metrics.ResetClientMetrics()
 }
 
-// RegisterMetrics registers the auditlog proxy metrics, optionally including
-// the "auditlog_events" metric as instructed by the `enableAuditEventsTracing` argument.
+// RegisterMetrics registers the http client metrics.
 // The second parameter `reg` can be used to provide a custom registry, e.g. for tests.
-func RegisterMetrics(enableAuditEventsTracing bool, reg prometheus.Registerer) {
+func RegisterMetrics(reg prometheus.Registerer) {
 	ResetMetrics()
 	metrics.RegisterClientMetrics(reg)
 }
