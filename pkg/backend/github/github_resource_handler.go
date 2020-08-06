@@ -46,14 +46,15 @@ type ResourceLocator struct {
 	SHA   string
 	Type  ResourceType
 	Path  string
-	API   string
+	// branch name (master), tag (v1.2.3), commit hash (1j4h4jh...)
+	SHAAlias string
 }
 
 // String produces a GitHub website link to a resource from a ResourceLocator.
-// That's the format used to link GitHub rsource in the documentatin structure and pages.
+// That's the format used to link а GitHub rеsource in the documentatiоn structure and pages.
 // Example: https://github.com/gardener/gardener/blob/master/docs/README.md
 func (g *ResourceLocator) String() string {
-	return fmt.Sprintf("https://%s/%s/%s/%s/%s/%s", g.Host, g.Owner, g.Repo, g.Type, g.SHA, g.Path)
+	return fmt.Sprintf("https://%s/%s/%s/%s/%s/%s", g.Host, g.Owner, g.Repo, g.Type, g.SHAAlias, g.Path)
 }
 
 // GetName returns the Name segment of a resource URL path
@@ -65,8 +66,11 @@ func (g *ResourceLocator) GetName() string {
 	return p[len(p)-1]
 }
 
+// TreeEntryToGitHubLocator creates a ResourceLocator from a github.TreeEntry and shaAlias.
+// The shaAlias is the name of e.g. a branch or a tag that should resolve to this resource
+// in the git database. It binds the formats of a GitHub website URLs to the GitHub API URLs.
 //
-// Example tree:
+// Example tree entries:
 //{
 //	"path": "docs",
 //	"mode": "040000",
@@ -100,10 +104,10 @@ func TreeEntryToGitHubLocator(treeEntry *github.TreeEntry, shaAlias string) *Res
 		host,
 		owner,
 		repo,
-		shaAlias,
+		treeEntry.GetSHA(),
 		resourceType,
 		treeEntry.GetPath(),
-		treeEntry.GetURL(),
+		shaAlias,
 	}
 }
 
@@ -157,14 +161,18 @@ func buildNodes(node *api.Node, childResourceLocators []*ResourceLocator, cache 
 	}
 }
 
-// Cache is a hierarchical cache for GitHub TreeEntries indexed by base url and path
-// TODO: implement me
+// Cache is indexes GitHub TreeEntries by website resource URLs as keys,
+// mapping ResourceLocator objects to them.
+// TODO: implement me efficently and for parallel use
 type Cache map[string]*ResourceLocator
 
+// Get returns a ResourceLocator object mapped to the path (URL)
 func (c Cache) Get(path string) *ResourceLocator {
 	return c[path]
 }
 
+// GetSubset returns a subset of the ResourceLocator objects mapped to keys
+// with this pathPrefix
 func (c Cache) GetSubset(pathPrefix string) []*ResourceLocator {
 	var entries = make([]*ResourceLocator, 0)
 	// The resource type in the URL prefix {tree|blob} changes according to the resource
@@ -184,6 +192,7 @@ func (c Cache) GetSubset(pathPrefix string) []*ResourceLocator {
 	return entries
 }
 
+// Set adds a mapping between a path (URL) and a ResourceLocator to the cache
 func (c Cache) Set(path string, entry *ResourceLocator) *ResourceLocator {
 	c[path] = entry
 	return entry
@@ -208,10 +217,10 @@ func parse(urlString string) *ResourceLocator {
 	owner := sourceURLSegments[1]
 	repo := sourceURLSegments[2]
 	resourceTypeString := sourceURLSegments[3]
-	sha := sourceURLSegments[4]
+	shaAlias := sourceURLSegments[4]
 
 	// get the github url "path" part
-	s := strings.Join([]string{owner, repo, resourceTypeString, sha}, "/")
+	s := strings.Join([]string{owner, repo, resourceTypeString, shaAlias}, "/")
 	var (
 		resourceType ResourceType
 		path         string
@@ -228,10 +237,10 @@ func parse(urlString string) *ResourceLocator {
 		host,
 		owner,
 		repo,
-		sha,
+		"",
 		resourceType,
 		path,
-		"",
+		shaAlias,
 	}
 	return ghRL
 }
@@ -254,13 +263,13 @@ func (gh *GitHub) URLToGitHubLocator(ctx context.Context, urlString string, reso
 		ghRL = parse(urlString)
 		if resolveAPIUrl {
 			// grab the index of this repo
-			gitTree, _, err := gh.Client.Git.GetTree(ctx, ghRL.Owner, ghRL.Repo, ghRL.SHA, true)
+			gitTree, _, err := gh.Client.Git.GetTree(ctx, ghRL.Owner, ghRL.Repo, ghRL.SHAAlias, true)
 			if err != nil {
 				return nil
 			}
 			// populate cache wth this tree entries
 			for _, entry := range gitTree.Entries {
-				rl := TreeEntryToGitHubLocator(entry, ghRL.SHA)
+				rl := TreeEntryToGitHubLocator(entry, ghRL.SHAAlias)
 				gh.cache.Set(rl.String(), rl)
 			}
 			ghRL = gh.cache.Get(urlString)
@@ -286,10 +295,8 @@ func (gh *GitHub) Accept(uri string) bool {
 
 // ResolveNodeSelector recursively adds nodes built from tree entries to node
 func (gh *GitHub) ResolveNodeSelector(ctx context.Context, node *api.Node) error {
-	// Get ResourceLocator for this node's NodeSelector path and cache its URL's repo
-	// tree entries
 	if ghRL := gh.URLToGitHubLocator(ctx, node.NodeSelector.Path, true); ghRL != nil {
-		// build node subnodes hierarchy from cache
+		// build node subnodes hierarchy from cache (URLToGitHubLocator populates the cache)
 		childResourceLocators := gh.cache.GetSubset(ghRL.String())
 		buildNodes(node, childResourceLocators, gh.cache)
 	}

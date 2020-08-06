@@ -67,19 +67,19 @@ func TestUrlToGitHubLocator(t *testing.T) {
 		"github.com",
 		"gardener",
 		"gardener",
-		"master",
+		"",
 		Blob,
 		"docs/README.md",
-		"",
+		"master",
 	}
 	ghrl2 := &ResourceLocator{
 		"github.com",
 		"gardener",
 		"gardener",
-		"master",
+		"91776959202ec10db883c5cfc05c51e78403f02c",
 		Blob,
 		"docs/README.md",
-		"https://api.github.com/repos/gardener/gardener/git/blobs/91776959202ec10db883c5cfc05c51e78403f02c",
+		"master",
 	}
 	cases := []struct {
 		description  string
