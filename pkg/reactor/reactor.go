@@ -7,11 +7,13 @@ import (
 	"github.com/gardener/docode/pkg/api"
 	"github.com/gardener/docode/pkg/backend"
 	"github.com/gardener/docode/pkg/jobs"
+	"github.com/gardener/docode/pkg/jobs/worker"
 )
 
 // Reactor orchestrates the documentation build workflow
 type Reactor struct {
-	ResourceHandlers backend.ResourceHandlers
+	ResourceHandlers backend.ResourceHandlers //TODO: think of global registry
+	Job              *jobs.Job
 }
 
 // Resolve builds the subnodes hierarchy of a node based on the natural nodes
@@ -54,46 +56,26 @@ func sources(node *api.Node, resourcePathsSet map[string]struct{}) {
 	}
 }
 
-func tasks(node *api.Node, parent *api.Node, t []interface{}, handlers backend.ResourceHandlers) {
+// Serialize resolves and serializes
+func (r *Reactor) Serialize(ctx context.Context, docs *api.Documentation) error {
+	r.Resolve(ctx, docs.Root)
+	t := make([]interface{}, 0)
+	tasks(docs.Root, &t, r.ResourceHandlers)
+	return r.Job.Dispatch(ctx, t)
+}
+
+func tasks(node *api.Node, t *[]interface{}, handlers backend.ResourceHandlers) {
+	n := node
+	if len(n.Source) > 0 {
+		*t = append(*t, &worker.Task{
+			Node:     n,
+			Handlers: handlers,
+		})
+
+	}
 	if node.Nodes != nil {
 		for _, n := range node.Nodes {
-			if len(n.Source) > 0 {
-				for _, s := range n.Source {
-					var path string
-					if handler := handlers.Get(s); handler != nil {
-						path = handler.Path(s)
-					}
-					t = append(t, &Task{
-						node:      n,
-						localPath: path,
-					})
-				}
-			}
-			tasks(n, node, t, handlers)
+			tasks(n, t, handlers)
 		}
 	}
-}
-
-func (r *Reactor) Serialize(ctx context.Context, docs *api.Documentation) error {
-
-	rWorker := &Worker{
-		ResourceHandlers: r.ResourceHandlers,
-	}
-
-	job := &jobs.Job{
-		MaxWorkers: 50,
-		MinWorkers: 1,
-		FailFast:   false,
-		Worker:     rWorker,
-	}
-
-	t := make([]interface{}, 0)
-	tasks(docs.Root, nil, t, r.ResourceHandlers)
-
-	return job.Dispatch(ctx, t)
-}
-
-func (r *Reactor) Run(ctx context.Context, docs *api.Documentation) {
-	r.Resolve(ctx, docs.Root)
-	r.Serialize(ctx, docs)
 }

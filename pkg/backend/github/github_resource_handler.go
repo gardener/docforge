@@ -26,7 +26,7 @@ func NewResourceType(resourceTypeString string) (ResourceType, error) {
 	case "blob":
 		return Blob, nil
 	}
-	return 0, fmt.Errorf("Unknonw resource type string %s. Must be one of %v", resourceTypeString, []string{"tree", "blob"})
+	return 0, fmt.Errorf("Unknown resource type string %s. Must be one of %v", resourceTypeString, []string{"tree", "blob"})
 }
 
 const (
@@ -259,6 +259,7 @@ func parse(urlString string) *ResourceLocator {
 func (gh *GitHub) URLToGitHubLocator(ctx context.Context, urlString string, resolveAPIUrl bool) *ResourceLocator {
 	var ghRL *ResourceLocator
 	// try cache first
+	//TODO: we probably need lock before getting from the map
 	if ghRL = gh.cache.Get(urlString); ghRL == nil {
 		ghRL = parse(urlString)
 		if resolveAPIUrl {
@@ -310,7 +311,12 @@ func (gh *GitHub) Read(ctx context.Context, uri string) ([]byte, error) {
 		err  error
 	)
 	if ghRL := gh.URLToGitHubLocator(ctx, uri, true); ghRL != nil {
-		blob, _, err = gh.Client.Git.GetBlobRaw(ctx, ghRL.Owner, ghRL.Repo, ghRL.SHA)
+		if ghRL.Type != 0 {
+			blob, _, err = gh.Client.Git.GetBlobRaw(ctx, ghRL.Owner, ghRL.Repo, ghRL.SHA)
+			if err != nil {
+				panic(err)
+			}
+		}
 	}
 	return blob, err
 }
