@@ -1,5 +1,3 @@
-// +build integration
-
 package github
 
 import (
@@ -45,25 +43,38 @@ func TestResolveNodeSelectorLive(t *testing.T) {
 	}
 	b, _ := yaml.Marshal(node)
 	fmt.Println(string(b))
-
-	params := worker.Params(map[string]interface{}{
-		worker.FSWorkerRootParam: "target",
-	})
-
+	rh := backend.ResourceHandlers{
+		gh,
+	}
 	reactor := reactor.Reactor{
-		ResourceHandlers: backend.ResourceHandlers{
-			gh,
-		},
-		Job: &jobs.Job{
+		ResourceHandlers: rh,
+		ReplicateDocumentation: &jobs.Job{
 			MaxWorkers: 50,
 			MinWorkers: 1,
 			FailFast:   false,
-			Worker:     worker.New(worker.FileSystemWorker, params),
+			Worker: &worker.DocWorker{
+				Writer: &worker.FSWriter{
+					Root: "target",
+				},
+				RdCh: make(chan *worker.ResourceData),
+				Reader: &worker.GenericReader{
+					Handlers: rh,
+				},
+				Processor: &worker.EmptyProcessor{},
+			},
+		},
+		ReplicateDocResources: &jobs.Job{
+			MaxWorkers: 50,
+			MinWorkers: 1,
+			FailFast:   false,
+			Worker: &worker.ResourceWorker{
+				Reader: &worker.GenericReader{Handlers: rh},
+			},
 		},
 	}
 
 	docs := &api.Documentation{Root: node}
 	if err := reactor.Serialize(ctx, docs); err != nil {
-
+		t.Errorf("failed with: %v", err)
 	}
 }

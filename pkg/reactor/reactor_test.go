@@ -94,27 +94,27 @@ func Test_tasks(t *testing.T) {
 				tasks:    []interface{}{},
 			},
 			expectedTasks: []interface{}{
-				&worker.Task{
+				&worker.DocumentationTask{
 					Node:     documentation.Root,
 					Handlers: backend.ResourceHandlers{&FakeResourceHandler{}},
 				},
-				&worker.Task{
+				&worker.DocumentationTask{
 					Node:     archNode,
 					Handlers: backend.ResourceHandlers{&FakeResourceHandler{}},
 				},
-				&worker.Task{
+				&worker.DocumentationTask{
 					Node:     apiRefNode,
 					Handlers: backend.ResourceHandlers{&FakeResourceHandler{}},
 				},
-				&worker.Task{
+				&worker.DocumentationTask{
 					Node:     blogNode,
 					Handlers: backend.ResourceHandlers{&FakeResourceHandler{}},
 				},
-				&worker.Task{
+				&worker.DocumentationTask{
 					Node:     blogNode,
 					Handlers: backend.ResourceHandlers{&FakeResourceHandler{}},
 				},
-				&worker.Task{
+				&worker.DocumentationTask{
 					Node:     tasksNode,
 					Handlers: backend.ResourceHandlers{&FakeResourceHandler{}},
 				},

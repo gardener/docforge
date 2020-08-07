@@ -3,6 +3,7 @@ package reactor
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/gardener/docode/pkg/api"
 	"github.com/gardener/docode/pkg/backend"
@@ -12,8 +13,9 @@ import (
 
 // Reactor orchestrates the documentation build workflow
 type Reactor struct {
-	ResourceHandlers backend.ResourceHandlers //TODO: think of global registry
-	Job              *jobs.Job
+	ResourceHandlers       backend.ResourceHandlers //TODO: think of global registry
+	ReplicateDocumentation *jobs.Job
+	ReplicateDocResources  *jobs.Job
 }
 
 // Resolve builds the subnodes hierarchy of a node based on the natural nodes
@@ -58,20 +60,48 @@ func sources(node *api.Node, resourcePathsSet map[string]struct{}) {
 
 // Serialize resolves and serializes
 func (r *Reactor) Serialize(ctx context.Context, docs *api.Documentation) error {
-	r.Resolve(ctx, docs.Root)
-	t := make([]interface{}, 0)
-	tasks(docs.Root, &t, r.ResourceHandlers)
-	return r.Job.Dispatch(ctx, t)
+	if err := r.Resolve(ctx, docs.Root); err != nil {
+		return err
+	}
+
+	documentationTasks := make([]interface{}, 0)
+	tasks(docs.Root, &documentationTasks, r.ResourceHandlers)
+	log.Println(len(documentationTasks))
+	if err := r.ReplicateDocumentation.Dispatch(ctx, documentationTasks); err != nil {
+		log.Println("ReplicatedDocumnetation")
+		return err
+	}
+
+	// w, ok := r.ReplicateDocResources.Worker.(*worker.DocWorker)
+	// if !ok {
+	// 	panic("cast failed")
+	// }
+
+	// resourcesDataMap := make(map[string]string)
+	// for resourceData := range w.RdCh {
+	// 	resourcesDataMap[resourceData.Source] = resourceData.Target
+	// }
+
+	resoucesData := make([]interface{}, 0)
+	// for s, t := range resourcesDataMap {
+	// 	resoucesData = append(resoucesData, &worker.ResourceData{Source: s, Target: t})
+	// }
+
+	if err := r.ReplicateDocResources.Dispatch(ctx, resoucesData); err != nil {
+		log.Println("ReplicatedDocumnetation")
+		return err
+	}
+
+	return nil
 }
 
 func tasks(node *api.Node, t *[]interface{}, handlers backend.ResourceHandlers) {
 	n := node
 	if len(n.Source) > 0 {
-		*t = append(*t, &worker.Task{
+		*t = append(*t, &worker.DocumentationTask{
 			Node:     n,
 			Handlers: handlers,
 		})
-
 	}
 	if node.Nodes != nil {
 		for _, n := range node.Nodes {
