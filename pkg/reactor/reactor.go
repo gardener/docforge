@@ -3,6 +3,7 @@ package reactor
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/gardener/docode/pkg/api"
 	"github.com/gardener/docode/pkg/backend"
@@ -58,16 +59,18 @@ func tasks(node *api.Node, parent *api.Node, t []interface{}, handlers backend.R
 	if node.Nodes != nil {
 		for _, n := range node.Nodes {
 			if len(n.Source) > 0 {
-				for _, s := range n.Source {
-					var path string
-					if handler := handlers.Get(s); handler != nil {
-						path = handler.Path(s)
-					}
-					t = append(t, &Task{
-						node:      n,
-						localPath: path,
-					})
+				// for _, s := range n.Source {
+				parents := node.Parents()
+				pathSegments := make([]string, len(parents))
+				for _, p := range parents {
+					pathSegments = append(pathSegments, p.Name)
 				}
+				path := strings.Join(pathSegments, "/")
+				t = append(t, &Task{
+					node:      n,
+					localPath: path,
+				})
+				// }
 			}
 			tasks(n, node, t, handlers)
 		}

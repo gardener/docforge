@@ -1,7 +1,6 @@
 package reactor
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/gardener/docode/pkg/api"
@@ -39,10 +38,10 @@ var nodes = &api.Node{
 }
 
 func TestSource(t *testing.T) {
-	resourcePathsSet := make(map[string]struct{})
-	sources(nodes, resourcePathsSet)
-	for k := range resourcePathsSet {
-		gh := &github.GitHub{}
-		fmt.Println(gh.DownloadUrl(k))
-	}
+	// resourcePathsSet := make(map[string]struct{})
+	// sources(nodes, resourcePathsSet)
+	// for k := range resourcePathsSet {
+	// 	gh := &github.GitHub{}
+	// 	fmt.Println(gh.DownloadUrl(k))
+	// }
 }

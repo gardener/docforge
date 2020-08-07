@@ -31,7 +31,7 @@ func (w *Worker) Work(ctx context.Context, task interface{}) *jobs.WorkerError {
 			blobs := make([]byte, 0)
 			for _, s := range task.node.Source {
 				if handler := w.ResourceHandlers.Get(s); handler != nil {
-					blob, err := handler.Read(ctx, task.node)
+					blob, err := handler.Read(ctx, s)
 					if err != nil {
 						return jobs.NewWorkerError(err, 0)
 					}
