@@ -24,7 +24,7 @@ func (rh *TestResourceHandler) Accept(uri string) bool {
 func (rh *TestResourceHandler) ResolveNodeSelector(ctx context.Context, node *api.Node) error {
 	return nil
 }
-func (rh *TestResourceHandler) Read(ctx context.Context, node *api.Node) ([]byte, error) {
+func (rh *TestResourceHandler) Read(ctx context.Context, uri string) ([]byte, error) {
 	return nil, nil
 }
 func (rh *TestResourceHandler) Name(uri string) string {

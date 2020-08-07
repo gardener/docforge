@@ -52,7 +52,7 @@ func newTasksList(tasksCount int, serverURL string, randomizePaths bool) []inter
 					c = int('a')
 				}
 			}
-			tasks[i] = &GitHubTask{}
+			tasks[i] = &struct{}{}
 		}
 	}
 
@@ -303,11 +303,11 @@ func TestClientMetering(t *testing.T) {
 	var job = &Job{
 		MinWorkers: minWorkers,
 		MaxWorkers: maxWorkers,
-		Worker:     &GitHubWorker{},
+		Worker:     &struct{}{},
 	}
 
 	reg := prometheus.NewRegistry()
-	RegisterMetrics(true, reg)
+	RegisterMetrics(reg)
 	inputs := newTasksList(tasksCount, backendService.URL, true)
 	if err := job.Dispatch(ctx, inputs); err != nil {
 		t.Errorf("%v", err)
@@ -365,8 +365,8 @@ func TestWorker(t *testing.T) {
 		w.Write([]byte("123"))
 	}))
 	defer backend.Close()
-	w := &GitHubWorker{}
-	input := &GitHubTask{}
+	w := &struct{}{}
+	input := &struct{}{}
 
 	workerError := w.Work(context.Background(), input)
 

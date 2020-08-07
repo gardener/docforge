@@ -55,5 +55,10 @@ func TestParents(t *testing.T) {
 		if !reflect.DeepEqual(got, c.want) {
 			t.Errorf("parents(%v) == %v, want %v", n31, got, c.want)
 		}
+
+		fmt.Println(len(n31.Parents()))
+		for _, p := range n31.Parents() {
+			fmt.Println(p.Source)
+		}
 	}
 }

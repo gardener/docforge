@@ -4,15 +4,19 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"log"
 
 	"github.com/gardener/docode/pkg/api"
 	"github.com/gardener/docode/pkg/backend"
 	"github.com/gardener/docode/pkg/jobs"
+	"github.com/gardener/docode/pkg/jobs/worker"
 )
 
 // Reactor orchestrates the documentation build workflow
 type Reactor struct {
-	ResourceHandlers backend.ResourceHandlers
+	ResourceHandlers       backend.ResourceHandlers //TODO: think of global registry
+	ReplicateDocumentation *jobs.Job
+	ReplicateDocResources  *jobs.Job
 }
 
 // Resolve builds the subnodes hierarchy of a node based on the natural nodes
@@ -57,46 +61,51 @@ func sources(node *api.Node, resourcePathsSet map[string]struct{}) {
 
 func tasks(node *api.Node, parent *api.Node, t []interface{}, handlers backend.ResourceHandlers) {
 	if node.Nodes != nil {
+	if err := r.Resolve(ctx, docs.Root); err != nil {
+	}
+
+	documentationTasks := make([]interface{}, 0)
+	tasks(docs.Root, &documentationTasks, r.ResourceHandlers)
+	log.Println(len(documentationTasks))
+	if err := r.ReplicateDocumentation.Dispatch(ctx, documentationTasks); err != nil {
+		log.Println("ReplicatedDocumnetation")
+		return err
+	}
+
+	// w, ok := r.ReplicateDocResources.Worker.(*worker.DocWorker)
+	// if !ok {
+	// 	panic("cast failed")
+	// }
+
+	// resourcesDataMap := make(map[string]string)
+	// for resourceData := range w.RdCh {
+	// 	resourcesDataMap[resourceData.Source] = resourceData.Target
+	// }
+
+	resoucesData := make([]interface{}, 0)
+	// for s, t := range resourcesDataMap {
+	// 	resoucesData = append(resoucesData, &worker.ResourceData{Source: s, Target: t})
+	// }
+
+	if err := r.ReplicateDocResources.Dispatch(ctx, resoucesData); err != nil {
+		log.Println("ReplicatedDocumnetation")
+		return err
+	}
+
+	return nil
+}
+
+func tasks(node *api.Node, t *[]interface{}, handlers backend.ResourceHandlers) {
+	n := node
+	if len(n.Source) > 0 {
+		*t = append(*t, &worker.DocumentationTask{
+			Node:     n,
+			Handlers: handlers,
+		})
+	}
+	if node.Nodes != nil {
 		for _, n := range node.Nodes {
-			if len(n.Source) > 0 {
-				// for _, s := range n.Source {
-				parents := node.Parents()
-				pathSegments := make([]string, len(parents))
-				for _, p := range parents {
-					pathSegments = append(pathSegments, p.Name)
-				}
-				path := strings.Join(pathSegments, "/")
-				t = append(t, &Task{
-					node:      n,
-					localPath: path,
-				})
-				// }
-			}
-			tasks(n, node, t, handlers)
+			tasks(n, t, handlers)
 		}
 	}
-}
-
-func (r *Reactor) Serialize(ctx context.Context, docs *api.Documentation) error {
-
-	rWorker := &Worker{
-		ResourceHandlers: r.ResourceHandlers,
-	}
-
-	job := &jobs.Job{
-		MaxWorkers: 50,
-		MinWorkers: 1,
-		FailFast:   false,
-		Worker:     rWorker,
-	}
-
-	t := make([]interface{}, 0)
-	tasks(docs.Root, nil, t, r.ResourceHandlers)
-
-	return job.Dispatch(ctx, t)
-}
-
-func (r *Reactor) Run(ctx context.Context, docs *api.Documentation) {
-	r.Resolve(ctx, docs.Root)
-	r.Serialize(ctx, docs)
 }

@@ -1,9 +1,5 @@
 package files
 
-import (
-	"context"
-)
-
 // FileWorker specializes in processing File resources
 type FileWorker struct {
 }
@@ -28,14 +24,14 @@ func NewFileTask(parentDir, owner, repository, entrySHA, entryPath string) *File
 	}
 }
 
-// Work implements Worker#Work function
-func (b *FileWorker) Work(ctx context.Context, task interface{}) *WorkerError {
-	// if task, ok := task.(*FileTask); ok {
-	// 	if err := createBlobFromTask(ctx, b.Client, task); err != nil {
-	// 		return &WorkerError{
-	// 			error: err,
-	// 		}
-	// 	}
-	// }
-	return nil
-}
+// // Work implements Worker#Work function
+// func (b *FileWorker) Work(ctx context.Context, task interface{}) *WorkerError {
+// 	// if task, ok := task.(*FileTask); ok {
+// 	// 	if err := createBlobFromTask(ctx, b.Client, task); err != nil {
+// 	// 		return &WorkerError{
+// 	// 			error: err,
+// 	// 		}
+// 	// 	}
+// 	// }
+// 	return nil
+// }
