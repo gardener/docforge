@@ -7,7 +7,6 @@ import (
 
 	"github.com/gardener/docode/pkg/api"
 	"github.com/gardener/docode/pkg/backend"
-	"github.com/gardener/docode/pkg/jobs/worker"
 	"github.com/gardener/docode/pkg/util/tests"
 )
 
@@ -17,61 +16,48 @@ func init() {
 
 var (
 	apiRefNode = &api.Node{
-		Name:  "apiRef",
-		Title: "API Reference",
-		Source: []string{
-			"https://github.com/org/repo/tree/master/docs/architecture/apireference.md",
-		},
+		Name:   "apiRef",
+		Title:  "API Reference",
+		Source: "https://github.com/org/repo/tree/master/docs/architecture/apireference.md",
 	}
 
 	archNode = &api.Node{
-		Name: "arch",
-		Source: []string{
-			"https://github.com/org/repo/tree/master/docs/architecture",
-		},
-		Title: "Architecture",
+		Name:   "arch",
+		Source: "https://github.com/org/repo/tree/master/docs/architecture",
+		Title:  "Architecture",
 		Nodes: []*api.Node{
 			apiRefNode,
 		},
 	}
 
-	blogNode = &api.Node{
-		Name: "blog",
-		Source: []string{
-			"https://github.com/org/repo/tree/master/docs/blog/blog-part1.md",
-			"https://github.com/org/repo/tree/master/docs/blog/blog-part2.md",
-		},
-		Title: "Blog",
-	}
+	// blogNode = &api.Node{
+	// 	Name: "blog",
+	// 	Source:
+	// 		"https://github.com/org/repo/tree/master/docs/blog/blog-part1.md",
+	// 		"https://github.com/org/repo/tree/master/docs/blog/blog-part2.md",
+	// 	},
+	// 	Title: "Blog",
+	// }
 
 	tasksNode = &api.Node{
-		Name:  "tasks",
-		Title: "Tasks",
-		Source: []string{
-			"https://github.com/org/repo/tree/master/docs/tasks",
-		},
+		Name:   "tasks",
+		Title:  "Tasks",
+		Source: "https://github.com/org/repo/tree/master/docs/tasks",
 	}
 
 	documentation = &api.Documentation{
 		Root: &api.Node{
-			Name:  "rootNode",
-			Title: "Root node!",
-			Source: []string{
-				"https://github.com/org/repo/tree/master/docs",
-			},
+			Name:   "rootNode",
+			Title:  "Root node!",
+			Source: "https://github.com/org/repo/tree/master/docs",
 			Nodes: []*api.Node{
 				archNode,
-				blogNode,
+				// blogNode,
 				tasksNode,
 			},
 		},
 	}
 )
-
-func TestSource(t *testing.T) {
-<<<<<<< HEAD
-	// resourcePathsSet := make(map[string]struct{})
-	// sources(nodes, resourcePathsSet)
 
 func Test_tasks(t *testing.T) {
 	type args struct {
@@ -94,27 +80,27 @@ func Test_tasks(t *testing.T) {
 				tasks:    []interface{}{},
 			},
 			expectedTasks: []interface{}{
-				&worker.DocumentationTask{
+				&DocumentWorkTask{
 					Node:     documentation.Root,
 					Handlers: backend.ResourceHandlers{&FakeResourceHandler{}},
 				},
-				&worker.DocumentationTask{
+				&DocumentWorkTask{
 					Node:     archNode,
 					Handlers: backend.ResourceHandlers{&FakeResourceHandler{}},
 				},
-				&worker.DocumentationTask{
+				&DocumentWorkTask{
 					Node:     apiRefNode,
 					Handlers: backend.ResourceHandlers{&FakeResourceHandler{}},
 				},
-				&worker.DocumentationTask{
-					Node:     blogNode,
-					Handlers: backend.ResourceHandlers{&FakeResourceHandler{}},
-				},
-				&worker.DocumentationTask{
-					Node:     blogNode,
-					Handlers: backend.ResourceHandlers{&FakeResourceHandler{}},
-				},
-				&worker.DocumentationTask{
+				// &DocumentWorkTask{
+				// 	Node:     blogNode,
+				// 	Handlers: backend.ResourceHandlers{&FakeResourceHandler{}},
+				// },
+				// &DocumentWorkTask{
+				// 	Node:     blogNode,
+				// 	Handlers: backend.ResourceHandlers{&FakeResourceHandler{}},
+				// },
+				&DocumentWorkTask{
 					Node:     tasksNode,
 					Handlers: backend.ResourceHandlers{&FakeResourceHandler{}},
 				},
@@ -147,5 +133,4 @@ func (f *FakeResourceHandler) Read(ctx context.Context, uri string) ([]byte, err
 
 func (f *FakeResourceHandler) Name(uri string) string {
 	return uri
->>>>>>> cc9d9ad75a6ce895b5537165001eff6b46fb4730
 }

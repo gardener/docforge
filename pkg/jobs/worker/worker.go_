@@ -14,13 +14,13 @@ import (
 	"github.com/gardener/docode/pkg/jobs"
 )
 
-// DocumentationTask is the task that DocWorker works on
-type DocumentationTask struct {
+// DocumentWorkTask is the task that DocWorker works on
+type DocumentWorkTask struct {
 	Node     *api.Node
 	Handlers backend.ResourceHandlers
 }
 
-// DocWorker is a worker that process #DocumentationTask
+// DocWorker is a worker that process #DocumentWorkTask
 type DocWorker struct {
 	Writer
 	Reader
@@ -99,8 +99,8 @@ func (f *FSWriter) Write(name, s string, docBlob []byte) error {
 
 // Work implements Worker#Work function
 func (f *DocWorker) Work(ctx context.Context, task interface{}) *jobs.WorkerError {
-	var t *DocumentationTask
-	t, ok := task.(*DocumentationTask)
+	var t *DocumentWorkTask
+	t, ok := task.(*DocumentWorkTask)
 	if !ok {
 		return jobs.NewWorkerError(fmt.Errorf("cast failed: %v", task), 0)
 	}

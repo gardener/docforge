@@ -34,7 +34,8 @@ type Documentation struct {
 // Node is a recursive, tree data structure representing documentation model.
 type Node struct {
 	// Title is the title for a node displayed to human users
-	Title string `yaml:"title,omitempty"`
+	Title  string `yaml:"title,omitempty"`
+	Source string `yaml:"source,omitempty"`
 	// Source is a sequence of path specifications to locate the resources
 	// that represent this document node. There must be at minimum one. When
 	// they are multiple, the resulting document is an aggregation of the
@@ -60,7 +61,7 @@ type Node struct {
 	//   Note: WiP - proposed, not implemented yet.
 	//   `source: ["path1/a/b/c/file1.md",
 	//             "path2/e/f/g/file2.md#{h1:first-of-type}"]`
-	Source []string `yaml:"source,omitempty"`
+	ContentSelectors []ContentSelector `yaml:"contentSelectors,omitempty"`
 	// Nodes is an array of nodes that are subnodes (children) of this node
 	//
 	// Note: For a non-strict alternative for specifying child nodes, refer to
@@ -118,6 +119,14 @@ type NodeSelector struct {
 	// `front-matter` block at the head of the document delimited by comment
 	// tags (`---`).
 	Annotation string `yaml:"annotation,omitempty"`
+}
+
+type ContentSelector struct {
+	// URI of a document
+	Source string
+	// Optional filtering expression that selects content from the document content
+	// Omiting this file will select the whole document content.
+	Selector string
 }
 
 // Parent returns the parent node (if any) of this node n

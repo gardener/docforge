@@ -212,15 +212,15 @@ func TestResolveNodeSelector(t *testing.T) {
 				Nodes: []*api.Node{
 					&api.Node{
 						Name:   "README.md",
-						Source: []string{"https://github.com/gardener/gardener/blob/master/docs/README.md"},
+						Source: "https://github.com/gardener/gardener/blob/master/docs/README.md",
 					},
 					&api.Node{
 						Name:   "concepts",
-						Source: []string{"https://github.com/gardener/gardener/tree/master/docs/concepts"},
+						Source: "https://github.com/gardener/gardener/tree/master/docs/concepts",
 						Nodes: []*api.Node{
 							&api.Node{
 								Name:   "apiserver.md",
-								Source: []string{"https://github.com/gardener/gardener/blob/master/docs/concepts/apiserver.md"},
+								Source: "https://github.com/gardener/gardener/blob/master/docs/concepts/apiserver.md",
 							},
 						},
 					},

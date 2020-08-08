@@ -3,13 +3,10 @@ package reactor
 import (
 	"context"
 	"fmt"
-	"strings"
-	"log"
 
 	"github.com/gardener/docode/pkg/api"
 	"github.com/gardener/docode/pkg/backend"
 	"github.com/gardener/docode/pkg/jobs"
-	"github.com/gardener/docode/pkg/jobs/worker"
 )
 
 // Reactor orchestrates the documentation build workflow
@@ -36,7 +33,7 @@ func (r *Reactor) Resolve(ctx context.Context, node *api.Node) error {
 		}
 		return nil
 	}
-	if node.Nodes != nil {
+	if len(node.Nodes) > 0 {
 		for _, n := range node.Nodes {
 			if err := r.Resolve(ctx, n); err != nil {
 				return err
@@ -46,59 +43,23 @@ func (r *Reactor) Resolve(ctx context.Context, node *api.Node) error {
 	return nil
 }
 
-func sources(node *api.Node, resourcePathsSet map[string]struct{}) {
-	if len(node.Source) > 0 {
-		for _, s := range node.Source {
-			resourcePathsSet[s] = struct{}{}
-		}
-	}
-	if node.Nodes != nil {
-		for _, n := range node.Nodes {
-			sources(n, resourcePathsSet)
-		}
-	}
-}
-
-func tasks(node *api.Node, parent *api.Node, t []interface{}, handlers backend.ResourceHandlers) {
-	if node.Nodes != nil {
-	if err := r.Resolve(ctx, docs.Root); err != nil {
-	}
-
-	documentationTasks := make([]interface{}, 0)
-	tasks(docs.Root, &documentationTasks, r.ResourceHandlers)
-	log.Println(len(documentationTasks))
-	if err := r.ReplicateDocumentation.Dispatch(ctx, documentationTasks); err != nil {
-		log.Println("ReplicatedDocumnetation")
-		return err
-	}
-
-	// w, ok := r.ReplicateDocResources.Worker.(*worker.DocWorker)
-	// if !ok {
-	// 	panic("cast failed")
-	// }
-
-	// resourcesDataMap := make(map[string]string)
-	// for resourceData := range w.RdCh {
-	// 	resourcesDataMap[resourceData.Source] = resourceData.Target
-	// }
-
-	resoucesData := make([]interface{}, 0)
-	// for s, t := range resourcesDataMap {
-	// 	resoucesData = append(resoucesData, &worker.ResourceData{Source: s, Target: t})
-	// }
-
-	if err := r.ReplicateDocResources.Dispatch(ctx, resoucesData); err != nil {
-		log.Println("ReplicatedDocumnetation")
-		return err
-	}
-
-	return nil
-}
+// func sources(node *api.Node, resourcePathsSet map[string]struct{}) {
+// 	if len(node.Source) > 0 {
+// 		for _, s := range node.Source {
+// 			resourcePathsSet[s] = struct{}{}
+// 		}
+// 	}
+// 	if node.Nodes != nil {
+// 		for _, n := range node.Nodes {
+// 			sources(n, resourcePathsSet)
+// 		}
+// 	}
+// }
 
 func tasks(node *api.Node, t *[]interface{}, handlers backend.ResourceHandlers) {
 	n := node
 	if len(n.Source) > 0 {
-		*t = append(*t, &worker.DocumentationTask{
+		*t = append(*t, &DocumentWorkTask{
 			Node:     n,
 			Handlers: handlers,
 		})
@@ -108,4 +69,29 @@ func tasks(node *api.Node, t *[]interface{}, handlers backend.ResourceHandlers) 
 			tasks(n, t, handlers)
 		}
 	}
+}
+
+func (r *Reactor) Run(ctx context.Context, docStruct *api.Documentation) error {
+	if err := r.Resolve(ctx, docStruct.Root); err != nil {
+		return err
+	}
+
+	documentPullTasks := make([]interface{}, 0)
+	tasks(docStruct.Root, &documentPullTasks, r.ResourceHandlers)
+	if err := r.ReplicateDocumentation.Dispatch(ctx, documentPullTasks); err != nil {
+		return err
+	}
+
+	// resoucesData := make([]interface{}, 0)
+	// docWorker := r.ReplicateDocumentation.Worker.(*DocumentWorker)
+
+	// for rd := range docWorker.RdCh {
+	// 	resoucesData = append(resoucesData, rd)
+	// }
+
+	// if err := r.ReplicateDocResources.Dispatch(ctx, resoucesData); err != nil {
+	// 	return err
+	// }
+
+	return nil
 }

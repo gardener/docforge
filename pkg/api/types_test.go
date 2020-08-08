@@ -23,13 +23,13 @@ import (
 
 func TestParents(t *testing.T) {
 	n11 := &Node{
-		Source: []string{"https://github.com/gardener/gardener/blob/master/docs/README.md"},
+		Source: "https://github.com/gardener/gardener/blob/master/docs/README.md",
 	}
 	n31 := &Node{
-		Source: []string{"https://github.com/gardener/gardener/blob/master/docs/concepts/apiserver.md"},
+		Source: "https://github.com/gardener/gardener/blob/master/docs/concepts/apiserver.md",
 	}
 	n12 := &Node{
-		Source: []string{"https://github.com/gardener/gardener/tree/master/docs/concepts"},
+		Source: "https://github.com/gardener/gardener/tree/master/docs/concepts",
 		Nodes:  []*Node{n31},
 	}
 	n0 := &Node{

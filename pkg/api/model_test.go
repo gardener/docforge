@@ -25,16 +25,16 @@ var b = []byte(`{
 	  title: "A Title",
 	  nodes: [{
 		  title: "node 1",
-		  source: ["path1/**"]
+		  source: "path1/**"
 	    }, {
 		  title: "path 2",
-		  source: ["https://a.com"],
+		  source: "https://a.com",
 		  properties: {
 			"custom_key": "custom_value",
 		  },
 		  nodes: [{
 			title: "subnode",
-			source: ["path/a"],
+			source: "path/a",
 		  }]
 	  }]
 	}
@@ -80,18 +80,18 @@ func TestSerialize(t *testing.T) {
 					Nodes: []*Node{
 						&Node{
 							Title:  "node 1",
-							Source: []string{"path1/**"},
+							Source: "path1/**",
 						},
 						&Node{
 							Title:  "path 2",
-							Source: []string{"https://a.com"},
+							Source: "https://a.com",
 							Properties: map[string]interface{}{
 								"custom_key": "custom_value",
 							},
 							Nodes: []*Node{
 								&Node{
 									Title:  "subnode",
-									Source: []string{"path/a"},
+									Source: "path/a",
 								},
 							},
 						},

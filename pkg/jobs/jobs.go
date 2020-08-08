@@ -170,7 +170,6 @@ func (j *Job) Dispatch(ctx context.Context, tasks []interface{}) *WorkerError {
 
 	taskCh, errc := j.allocate(ctx, tasks)
 	errcList = append(errcList, errc)
-
 	for i := 0; i < workersCount; i++ {
 		errc = j.process(ctx, taskCh)
 		errcList = append(errcList, errc)

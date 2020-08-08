@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/gardener/docode/pkg/api"
+	"github.com/gardener/docode/pkg/backend"
 	"github.com/google/go-github/v32/github"
 )
 
@@ -113,13 +114,18 @@ func TreeEntryToGitHubLocator(treeEntry *github.TreeEntry, shaAlias string) *Res
 
 // Recursively adds or merges nodes built from flat ResourceLocators list to node.Nodes
 func buildNodes(node *api.Node, childResourceLocators []*ResourceLocator, cache Cache) {
-	var nodePath string
+	var (
+		nodePath            string
+		nodeResourceLocator *ResourceLocator
+	)
 	if node.NodeSelector != nil {
 		nodePath = node.NodeSelector.Path
-	} else if node.Source != nil {
-		nodePath = node.Source[0]
+	} else if len(node.Source) > 0 {
+		nodePath = node.Source
 	}
-	nodeResourceLocator := cache.Get(nodePath)
+	if nodeResourceLocator = cache.Get(nodePath); nodeResourceLocator == nil {
+		panic(fmt.Sprintf("Node is not available as ResourceLocator %v", nodePath))
+	}
 	nodePathSegmentsCount := len(strings.Split(nodeResourceLocator.Path, "/"))
 	for _, childResourceLocator := range childResourceLocators {
 		if !strings.HasPrefix(childResourceLocator.Path, nodeResourceLocator.Path) {
@@ -129,12 +135,12 @@ func buildNodes(node *api.Node, childResourceLocators []*ResourceLocator, cache 
 		childName := childResourceLocator.GetName()
 		// 1 sublevel only
 		if (childPathSegmentsCount - nodePathSegmentsCount) == 1 {
-			// .md files only
+			// folders and .md files only
 			if childResourceLocator.Type == Blob && !strings.HasSuffix(strings.ToLower(childName), ".md") {
 				continue
 			}
 			n := &api.Node{
-				Source: []string{childResourceLocator.String()},
+				Source: childResourceLocator.String(),
 				Name:   childName,
 			}
 			n.SetParent(node)
@@ -171,21 +177,28 @@ func (c Cache) Get(path string) *ResourceLocator {
 	return c[path]
 }
 
+// HasUrlPrefix returns true if pathPrefix tests true as prefix for path,
+// either with tree or blob in its resource type segment
+// The resource type in the URL prefix {tree|blob} changes according to the resource
+// To keep the prefix valid it should alternate this path segment too.
+func HasUrlPrefix(path, pathPrefix string) bool {
+	// TODO: make me global
+	reStrBlob := regexp.MustCompile(fmt.Sprintf("^(.*?)%s(.*)$", "tree"))
+	repStr := "${1}blob$2"
+	pathPrefixAsBlob := pathPrefix
+	pathPrefixAsBlob = reStrBlob.ReplaceAllString(pathPrefixAsBlob, repStr)
+	return strings.HasPrefix(path, pathPrefix) || strings.HasPrefix(path, pathPrefixAsBlob)
+}
+
 // GetSubset returns a subset of the ResourceLocator objects mapped to keys
 // with this pathPrefix
 func (c Cache) GetSubset(pathPrefix string) []*ResourceLocator {
 	var entries = make([]*ResourceLocator, 0)
-	// The resource type in the URL prefix {tree|blob} changes according to the resource
-	// To keep the prefix valid it should alternate this path segment too.
-	reStrBlob := regexp.MustCompile(fmt.Sprintf("^(.*?)%s(.*)$", "tree"))
-	repStr := "${1}blob$2"
 	for k, v := range c {
-		pathPrefixAsBlob := pathPrefix
-		pathPrefixAsBlob = reStrBlob.ReplaceAllString(pathPrefixAsBlob, repStr)
 		if k == pathPrefix {
 			continue
 		}
-		if strings.HasPrefix(k, pathPrefix) || strings.HasPrefix(k, pathPrefixAsBlob) {
+		if HasUrlPrefix(k, pathPrefix) {
 			entries = append(entries, v)
 		}
 	}
@@ -201,6 +214,13 @@ func (c Cache) Set(path string, entry *ResourceLocator) *ResourceLocator {
 type GitHub struct {
 	Client *github.Client
 	cache  Cache
+}
+
+func NewResourceHandler(client *github.Client) backend.ResourceHandler {
+	return &GitHub{
+		client,
+		Cache{},
+	}
 }
 
 // Parse a GitHub URL into an incomplete ResourceLocator, without
@@ -271,7 +291,9 @@ func (gh *GitHub) URLToGitHubLocator(ctx context.Context, urlString string, reso
 			// populate cache wth this tree entries
 			for _, entry := range gitTree.Entries {
 				rl := TreeEntryToGitHubLocator(entry, ghRL.SHAAlias)
-				gh.cache.Set(rl.String(), rl)
+				if HasUrlPrefix(rl.String(), urlString) {
+					gh.cache.Set(rl.String(), rl)
+				}
 			}
 			ghRL = gh.cache.Get(urlString)
 		}
