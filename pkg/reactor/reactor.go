@@ -49,22 +49,35 @@ func (r *Reactor) Run(ctx context.Context, docStruct *api.Documentation) error {
 		return err
 	}
 
+	docCtx, cancelF := context.WithCancel(ctx)
 	documentPullTasks := make([]interface{}, 0)
-	tasks(docStruct.Root, &documentPullTasks, r.ResourceHandlers)
-	if err := r.ReplicateDocumentation.Dispatch(ctx, documentPullTasks); err != nil {
-		return err
+	errCh := make(chan error)
+	go func(errCh chan error) {
+		defer cancelF()
+		tasks(docStruct.Root, &documentPullTasks, r.ResourceHandlers)
+		if err := r.ReplicateDocumentation.Dispatch(ctx, documentPullTasks); err != nil {
+			errCh <- err
+		}
+	}(errCh)
+
+	resoucesData := make([]interface{}, 0)
+	docWorker := r.ReplicateDocumentation.Worker.(*DocumentWorker)
+
+	var working bool = true
+	for working {
+		select {
+		case x := <-docWorker.RdCh:
+			resoucesData = append(resoucesData, x)
+		case <-docCtx.Done():
+			working = false
+		case err := <-errCh:
+			return err
+		}
 	}
 
-	// resoucesData := make([]interface{}, 0)
-	// docWorker := r.ReplicateDocumentation.Worker.(*DocumentWorker)
-
-	// for rd := range docWorker.RdCh {
-	// 	resoucesData = append(resoucesData, rd)
-	// }
-
-	// if err := r.ReplicateDocResources.Dispatch(ctx, resoucesData); err != nil {
-	// 	return err
-	// }
+	if err := r.ReplicateDocResources.Dispatch(ctx, resoucesData); err != nil {
+		return err
+	}
 
 	return nil
 }
