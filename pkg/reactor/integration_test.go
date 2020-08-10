@@ -3,6 +3,7 @@ package reactor
 import (
 	"context"
 	"flag"
+	"fmt"
 	"testing"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/gardener/docode/pkg/processors"
 	"github.com/gardener/docode/pkg/util/tests"
 	"github.com/gardener/docode/pkg/writers"
+	"gopkg.in/yaml.v2"
 
 	githubapi "github.com/google/go-github/v32/github"
 	"golang.org/x/oauth2"
@@ -67,6 +69,9 @@ func TestReactorWithGitHub(t *testing.T) {
 			},
 		},
 	}
+
+	b, _ := yaml.Marshal(node)
+	fmt.Println(string(b))
 
 	docs := &api.Documentation{Root: node}
 	if err := reactor.Run(ctx, docs); err != nil {

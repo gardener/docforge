@@ -86,6 +86,8 @@ type Node struct {
 	// A reference to the parent of this node, unless it is the root. Unexported and
 	// assigned internally when the node structure is resolved. Not marshalled.
 	parent *Node
+	// isEdge is true if the node is an edge element
+	isEdge bool
 }
 
 // NodeSelector is an specification for selecting subnodes (children) for a node.

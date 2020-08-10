@@ -11,6 +11,7 @@ import (
 	"github.com/yuin/goldmark/text"
 )
 
+// PreProcess TODO:
 func (r *Reactor) PreProcess(contentBytes []byte, source string, node *api.Node) error {
 	contentSelectors := node.ContentSelectors
 	if len(contentSelectors) > 0 {
@@ -23,7 +24,7 @@ func (r *Reactor) PreProcess(contentBytes []byte, source string, node *api.Node)
 	return fmt.Errorf("No ResourceHandler found for URI %s", source)
 }
 
-// SelectContent ...
+// SelectContent TODO:
 func SelectContent(contentBytes []byte, selectorExpression string) ([]byte, error) {
 	// TODO: select content sections from contentBytes if source has a content selector and then filter the rest of it.
 	// TODO: define selector expression language. Do CSS/SaaS selectors or alike apply/ can be adapted?
@@ -31,7 +32,7 @@ func SelectContent(contentBytes []byte, selectorExpression string) ([]byte, erro
 	return contentBytes, nil
 }
 
-// HarvestLinks ...
+// HarvestLinks TODO:
 func HarvestLinks(contentBytes []byte) ([]string, error) {
 	// TODO: harvest links from this contentBytes
 	// and resolve them to downloadable addresses and serialization targets

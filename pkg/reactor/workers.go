@@ -43,6 +43,7 @@ type GenericReader struct {
 	Handlers backend.ResourceHandlers
 }
 
+// Read TODO:
 func (g *GenericReader) Read(ctx context.Context, source string) ([]byte, error) {
 	if handler := g.Handlers.Get(source); handler != nil {
 		return handler.Read(ctx, source)
@@ -60,63 +61,61 @@ func (w *DocumentWorker) Work(ctx context.Context, task interface{}) *jobs.Worke
 		return jobs.NewWorkerError(fmt.Errorf("cast failed: %v", task), 0)
 	}
 
-	if len(t.Node.Source) > 0 {
-		var docBlob []byte
-		// for _, source := range t.Node.Source {
-		source := t.Node.Source
-		sourceBlob, err := w.Reader.Read(ctx, source)
-		if err != nil {
-			return jobs.NewWorkerError(err, 0)
+	if len(t.Node.Source) <= 0 {
+		return nil
+	}
+
+	sourceBlob, err := w.Reader.Read(ctx, t.Node.Source)
+	if err != nil {
+		return jobs.NewWorkerError(err, 0)
+	}
+
+	if len(sourceBlob) <= 0 {
+		return nil
+	}
+	// process document blob
+	// if h := w.ResourceHandlers.Get(source); h != nil {
+	// 	// filter document content if there is content selector
+	// 	if expr := h.GetContentSelector(source); len(expr) > 0 {
+	// 		var err error
+	// 		sourceBlob, err = SelectContent(sourceBlob, expr)
+	// 		if err != nil {
+	// 			return jobs.NewWorkerError(err, 0)
+	// 		}
+	// 	}
+	// }
+	// harvest document links
+	// TODO: rewrite links as appropriate on this step too.
+	links, err := HarvestLinks(sourceBlob)
+	// TODO: would it be a good idea if we set the channel as argument to HarvestLinks and let
+	// it send the links
+	if err != nil {
+		return jobs.NewWorkerError(err, 0)
+	}
+
+	fmt.Println("Harvest links:", links)
+	// //record document links for postprocessing
+	// for _, l := range links {
+	// 	// Resolve relative addresses beforehand, to ensure identity and avoid multiple processing of same link
+	// 	// TODO: implement me
+	// 	w.RdCh <- &ResourceData{
+	// 		l,
+	// 		"",
+	// 	}
+	// }
+
+	// pass docBlob to plugin processors
+	var pathSegments []string
+	for _, parent := range t.Node.Parents() {
+		if parent.Name != "" {
+			pathSegments = append(pathSegments, parent.Name)
 		}
+	}
 
-		// process document blob
-		// if h := w.ResourceHandlers.Get(source); h != nil {
-		// 	// filter document content if there is content selector
-		// 	if expr := h.GetContentSelector(source); len(expr) > 0 {
-		// 		var err error
-		// 		sourceBlob, err = SelectContent(sourceBlob, expr)
-		// 		if err != nil {
-		// 			return jobs.NewWorkerError(err, 0)
-		// 		}
-		// 	}
-		// }
-		// harvest document links
-		// TODO: rewrite links as appropriate on this step too.
-		links, err := HarvestLinks(sourceBlob)
-		if err != nil {
-			return jobs.NewWorkerError(err, 0)
-		}
-		//record document links for postprocessing
-		for _, l := range links {
-			// Resolve relative addresses beforehand, to ensure identity and avoid multiple processing of same link
-			// TODO: implement me
-			w.RdCh <- &ResourceData{
-				l,
-				"",
-			}
-		}
-
-		// merge document content parts into a single document
-		docBlob = append(docBlob, sourceBlob...)
-		// }
-
-		if len(docBlob) > 0 {
-			// pass docBlob to plugin processors
-
-			var pathSegments []string
-			for _, parent := range t.Node.Parents() {
-				if parent.Name != "" {
-					pathSegments = append(pathSegments, parent.Name)
-				}
-			}
-
-			// Write the document content
-			path := strings.Join(pathSegments, "/")
-			if err := w.Writer.Write(t.Node.Name, path, docBlob); err != nil {
-				return jobs.NewWorkerError(err, 0)
-			}
-		}
-
+	// Write the document content
+	path := strings.Join(pathSegments, "/")
+	if err := w.Writer.Write(t.Node.Name, path, sourceBlob); err != nil {
+		return jobs.NewWorkerError(err, 0)
 	}
 
 	return nil

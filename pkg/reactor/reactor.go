@@ -43,34 +43,7 @@ func (r *Reactor) Resolve(ctx context.Context, node *api.Node) error {
 	return nil
 }
 
-// func sources(node *api.Node, resourcePathsSet map[string]struct{}) {
-// 	if len(node.Source) > 0 {
-// 		for _, s := range node.Source {
-// 			resourcePathsSet[s] = struct{}{}
-// 		}
-// 	}
-// 	if node.Nodes != nil {
-// 		for _, n := range node.Nodes {
-// 			sources(n, resourcePathsSet)
-// 		}
-// 	}
-// }
-
-func tasks(node *api.Node, t *[]interface{}, handlers backend.ResourceHandlers) {
-	n := node
-	if len(n.Source) > 0 {
-		*t = append(*t, &DocumentWorkTask{
-			Node:     n,
-			Handlers: handlers,
-		})
-	}
-	if node.Nodes != nil {
-		for _, n := range node.Nodes {
-			tasks(n, t, handlers)
-		}
-	}
-}
-
+// Run TODO:
 func (r *Reactor) Run(ctx context.Context, docStruct *api.Documentation) error {
 	if err := r.Resolve(ctx, docStruct.Root); err != nil {
 		return err
@@ -94,4 +67,19 @@ func (r *Reactor) Run(ctx context.Context, docStruct *api.Documentation) error {
 	// }
 
 	return nil
+}
+
+func tasks(node *api.Node, t *[]interface{}, handlers backend.ResourceHandlers) {
+	n := node
+	if len(n.Source) > 0 {
+		*t = append(*t, &DocumentWorkTask{
+			Node:     n,
+			Handlers: handlers,
+		})
+	}
+	if node.Nodes != nil {
+		for _, n := range node.Nodes {
+			tasks(n, t, handlers)
+		}
+	}
 }

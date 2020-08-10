@@ -5,7 +5,7 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/gardener/docode/pkg/replicator"
+	"github.com/gardener/docode/pkg/metrics"
 	"github.com/google/go-github/v32/github"
 	"golang.org/x/oauth2"
 )
@@ -38,16 +38,7 @@ func main() {
 	)
 
 	// TODO: make the client metering instrumentaiton optional and controlled by config
-	client := github.NewClient(metrics.InstrumentClientRoundTripperDuration(oauth2.NewClient(ctx, ts)))
-
-	desc := &replicator.Description{
-		Path:    sourcePath,
-		Version: version,
-		Source:  source,
-		Target:  targetDir,
-	}
-
-	replicator.Replicate(ctx, client, desc)
+	github.NewClient(metrics.InstrumentClientRoundTripperDuration(oauth2.NewClient(ctx, ts)))
 }
 
 func validateFlags() {
