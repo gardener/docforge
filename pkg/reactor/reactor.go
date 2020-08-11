@@ -22,7 +22,7 @@ type Reactor struct {
 // The resulting model is the actual flight plan for replicating resources.
 func (r *Reactor) Resolve(ctx context.Context, node *api.Node) error {
 	node.SetParentsDownwards()
-	if &node.NodeSelector != nil {
+	if node.NodeSelector != nil {
 		var handler resourcehandlers.ResourceHandler
 		if handler = resourcehandlers.Get(node.NodeSelector.Path); handler == nil {
 			return fmt.Errorf("No suitable handler registered for path %s", node.NodeSelector.Path)
@@ -30,7 +30,6 @@ func (r *Reactor) Resolve(ctx context.Context, node *api.Node) error {
 		if err := handler.ResolveNodeSelector(ctx, node); err != nil {
 			return err
 		}
-		return nil
 	}
 	if len(node.Nodes) > 0 {
 		for _, n := range node.Nodes {

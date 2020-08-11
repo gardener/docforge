@@ -147,17 +147,9 @@ func buildNodes(node *api.Node, childResourceLocators []*ResourceLocator, cache 
 			if node.Nodes == nil {
 				node.Nodes = make([]*api.Node, 0)
 			}
-			// merge (equality based on source[0]) or append
-			merged := false
-			for _, subnode := range node.Nodes {
-				if len(n.Source) == 0 {
-					subnode.Source = n.Source
-					merged = true
-				}
-			}
-			if merged == false {
-				node.Nodes = append(node.Nodes, n)
-			}
+
+			node.Nodes = append(node.Nodes, n)
+
 			// recursively build subnodes if entry is sub-tree
 			if childResourceLocator.Type == Tree {
 				childResourceLocators = cache.GetSubset(childResourceLocator.String())
@@ -286,7 +278,7 @@ func (gh *GitHub) URLToGitHubLocator(ctx context.Context, urlString string, reso
 			// grab the index of this repo
 			gitTree, _, err := gh.Client.Git.GetTree(ctx, ghRL.Owner, ghRL.Repo, ghRL.SHAAlias, true)
 			if err != nil {
-				return nil
+				panic(err)
 			}
 			// populate cache wth this tree entries
 			for _, entry := range gitTree.Entries {

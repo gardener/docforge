@@ -39,7 +39,22 @@ func TestReactorWithGitHub(t *testing.T) {
 		NodeSelector: &api.NodeSelector{
 			Path: "https://github.com/gardener/gardener/tree/master/docs",
 		},
+		Nodes: []*api.Node{
+			{
+				Name: "calico",
+				NodeSelector: &api.NodeSelector{
+					Path: "https://github.com/gardener/gardener-extension-networking-calico/tree/master/docs",
+				},
+			},
+			{
+				Name: "aws",
+				NodeSelector: &api.NodeSelector{
+					Path: "https://github.com/gardener/gardener-extension-provider-aws/tree/master/docs",
+				},
+			},
+		},
 	}
+
 	// init gh resource handler
 	resourcehandlers.Load(gh)
 
