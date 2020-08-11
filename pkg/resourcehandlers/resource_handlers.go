@@ -1,4 +1,4 @@
-package backend
+package resourcehandlers
 
 import (
 	"context"
@@ -23,15 +23,20 @@ type ResourceHandler interface {
 }
 
 // ResourceHandlers is a registry for ResourceHandler objects
-type ResourceHandlers []ResourceHandler
+var resourceHandlers []ResourceHandler
 
 // Get returns an appropriate handler for this type of URIs if any
 // one those registered accepts it (its Accepts method returns true).
-func (r ResourceHandlers) Get(uri string) ResourceHandler {
-	for _, h := range r {
+func Get(uri string) ResourceHandler {
+	for _, h := range resourceHandlers {
 		if h.Accept(uri) {
 			return h
 		}
 	}
 	return nil
+}
+
+// Load loads a ResourceHandler into the registry
+func Load(r ...ResourceHandler) {
+	resourceHandlers = append(resourceHandlers, r...)
 }

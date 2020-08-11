@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/gardener/docode/pkg/api"
-	"github.com/gardener/docode/pkg/backend"
+	"github.com/gardener/docode/pkg/resourcehandlers"
 	"github.com/gardener/docode/pkg/util/tests"
 )
 
@@ -30,14 +30,11 @@ var (
 		},
 	}
 
-	// blogNode = &api.Node{
-	// 	Name: "blog",
-	// 	Source:
-	// 		"https://github.com/org/repo/tree/master/docs/blog/blog-part1.md",
-	// 		"https://github.com/org/repo/tree/master/docs/blog/blog-part2.md",
-	// 	},
-	// 	Title: "Blog",
-	// }
+	blogNode = &api.Node{
+		Name:   "blog",
+		Source: "https://github.com/org/repo/tree/master/docs/blog/blog-part1.md",
+		Title:  "Blog",
+	}
 
 	tasksNode = &api.Node{
 		Name:   "tasks",
@@ -52,7 +49,7 @@ var (
 			Source: "https://github.com/org/repo/tree/master/docs",
 			Nodes: []*api.Node{
 				archNode,
-				// blogNode,
+				blogNode,
 				tasksNode,
 			},
 		},
@@ -61,10 +58,9 @@ var (
 
 func Test_tasks(t *testing.T) {
 	type args struct {
-		node     *api.Node
-		parent   *api.Node
-		tasks    []interface{}
-		handlers backend.ResourceHandlers
+		node   *api.Node
+		parent *api.Node
+		tasks  []interface{}
 	}
 	tests := []struct {
 		name          string
@@ -74,44 +70,35 @@ func Test_tasks(t *testing.T) {
 		{
 			name: "it creates tasks based on the provided doc",
 			args: args{
-				node:     documentation.Root,
-				parent:   nil,
-				handlers: backend.ResourceHandlers{&FakeResourceHandler{}},
-				tasks:    []interface{}{},
+				node:   documentation.Root,
+				parent: nil,
+				tasks:  []interface{}{},
 			},
 			expectedTasks: []interface{}{
 				&DocumentWorkTask{
-					Node:     documentation.Root,
-					Handlers: backend.ResourceHandlers{&FakeResourceHandler{}},
+					Node: documentation.Root,
 				},
 				&DocumentWorkTask{
-					Node:     archNode,
-					Handlers: backend.ResourceHandlers{&FakeResourceHandler{}},
+					Node: archNode,
 				},
 				&DocumentWorkTask{
-					Node:     apiRefNode,
-					Handlers: backend.ResourceHandlers{&FakeResourceHandler{}},
+					Node: apiRefNode,
 				},
-				// &DocumentWorkTask{
-				// 	Node:     blogNode,
-				// 	Handlers: backend.ResourceHandlers{&FakeResourceHandler{}},
-				// },
-				// &DocumentWorkTask{
-				// 	Node:     blogNode,
-				// 	Handlers: backend.ResourceHandlers{&FakeResourceHandler{}},
-				// },
 				&DocumentWorkTask{
-					Node:     tasksNode,
-					Handlers: backend.ResourceHandlers{&FakeResourceHandler{}},
+					Node: blogNode,
+				},
+				&DocumentWorkTask{
+					Node: tasksNode,
 				},
 			},
 		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			tasks(tc.args.node, &tc.args.tasks, tc.args.handlers)
+			resourcehandlers.Load(&FakeResourceHandler{})
+			tasks(tc.args.node, &tc.args.tasks)
 			if !reflect.DeepEqual(tc.args.tasks, tc.expectedTasks) {
-				t.Error("expected tasks are not equal to actual")
+				t.Errorf("expected tasks %v !=  %v", tc.expectedTasks, tc.args.tasks)
 			}
 		})
 	}

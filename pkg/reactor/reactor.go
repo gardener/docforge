@@ -5,13 +5,12 @@ import (
 	"fmt"
 
 	"github.com/gardener/docode/pkg/api"
-	"github.com/gardener/docode/pkg/backend"
 	"github.com/gardener/docode/pkg/jobs"
+	"github.com/gardener/docode/pkg/resourcehandlers"
 )
 
 // Reactor orchestrates the documentation build workflow
 type Reactor struct {
-	ResourceHandlers       backend.ResourceHandlers //TODO: think of global registry
 	ReplicateDocumentation *jobs.Job
 	ReplicateDocResources  *jobs.Job
 }
@@ -24,8 +23,8 @@ type Reactor struct {
 func (r *Reactor) Resolve(ctx context.Context, node *api.Node) error {
 	node.SetParentsDownwards()
 	if &node.NodeSelector != nil {
-		var handler backend.ResourceHandler
-		if handler = r.ResourceHandlers.Get(node.NodeSelector.Path); handler == nil {
+		var handler resourcehandlers.ResourceHandler
+		if handler = resourcehandlers.Get(node.NodeSelector.Path); handler == nil {
 			return fmt.Errorf("No suitable handler registered for path %s", node.NodeSelector.Path)
 		}
 		if err := handler.ResolveNodeSelector(ctx, node); err != nil {
@@ -50,15 +49,18 @@ func (r *Reactor) Run(ctx context.Context, docStruct *api.Documentation) error {
 	}
 
 	docCtx, cancelF := context.WithCancel(ctx)
-	documentPullTasks := make([]interface{}, 0)
 	errCh := make(chan error)
-	go func(errCh chan error) {
+	go func(ctx context.Context, errCh chan error) {
 		defer cancelF()
-		tasks(docStruct.Root, &documentPullTasks, r.ResourceHandlers)
+		documentPullTasks := make([]interface{}, 0)
+		tasks(docStruct.Root, &documentPullTasks)
 		if err := r.ReplicateDocumentation.Dispatch(ctx, documentPullTasks); err != nil {
 			errCh <- err
 		}
-	}(errCh)
+		docWorker := r.ReplicateDocumentation.Worker.(*DocumentWorker)
+		close(docWorker.RdCh)
+		close(errCh)
+	}(docCtx, errCh)
 
 	resoucesData := make([]interface{}, 0)
 	docWorker := r.ReplicateDocumentation.Worker.(*DocumentWorker)
@@ -82,17 +84,16 @@ func (r *Reactor) Run(ctx context.Context, docStruct *api.Documentation) error {
 	return nil
 }
 
-func tasks(node *api.Node, t *[]interface{}, handlers backend.ResourceHandlers) {
+func tasks(node *api.Node, t *[]interface{}) {
 	n := node
 	if len(n.Source) > 0 {
 		*t = append(*t, &DocumentWorkTask{
-			Node:     n,
-			Handlers: handlers,
+			Node: n,
 		})
 	}
 	if node.Nodes != nil {
 		for _, n := range node.Nodes {
-			tasks(n, t, handlers)
+			tasks(n, t)
 		}
 	}
 }

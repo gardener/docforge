@@ -1,4 +1,4 @@
-package backend
+package resourcehandlers
 
 import (
 	"context"
@@ -41,12 +41,12 @@ func TestGet(t *testing.T) {
 
 	cases := []struct {
 		description string
-		handlers    *ResourceHandlers
+		handlers    []ResourceHandler
 		want        ResourceHandler
 	}{
 		{
 			"should return handler",
-			&ResourceHandlers{
+			[]ResourceHandler{
 				nonAcceptingHandler,
 				acceptingHandler,
 			},
@@ -54,7 +54,7 @@ func TestGet(t *testing.T) {
 		},
 		{
 			"should not return handler",
-			&ResourceHandlers{
+			[]ResourceHandler{
 				nonAcceptingHandler,
 			},
 			nil,
@@ -62,9 +62,15 @@ func TestGet(t *testing.T) {
 	}
 	for _, c := range cases {
 		fmt.Println(c.description)
-		got := c.handlers.Get("")
+		Load(c.handlers...)
+		got := Get("")
 		if !reflect.DeepEqual(got, c.want) {
 			t.Errorf("Get(\"\") == %q, want %q", got, c.want)
 		}
+		clear()
 	}
+}
+
+func clear() {
+	resourceHandlers = make([]ResourceHandler, 0)
 }

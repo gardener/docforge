@@ -6,9 +6,9 @@ import (
 	"strings"
 
 	"github.com/gardener/docode/pkg/api"
-	"github.com/gardener/docode/pkg/backend"
 	"github.com/gardener/docode/pkg/jobs"
 	"github.com/gardener/docode/pkg/processors"
+	"github.com/gardener/docode/pkg/resourcehandlers"
 	"github.com/gardener/docode/pkg/writers"
 )
 
@@ -28,24 +28,21 @@ type DocumentWorker struct {
 	writers.Writer
 	Reader
 	processors.Processor
-	RdCh             chan *ResourceData
-	ResourceHandlers backend.ResourceHandlers
+	RdCh chan *ResourceData
 }
 
 // DocumentWorkTask implements jobs#Task
 type DocumentWorkTask struct {
-	Node     *api.Node
-	Handlers backend.ResourceHandlers
+	Node *api.Node
 }
 
 // GenericReader is generic implementation for Reader interface
 type GenericReader struct {
-	Handlers backend.ResourceHandlers
 }
 
 // Read TODO:
 func (g *GenericReader) Read(ctx context.Context, source string) ([]byte, error) {
-	if handler := g.Handlers.Get(source); handler != nil {
+	if handler := resourcehandlers.Get(source); handler != nil {
 		return handler.Read(ctx, source)
 	}
 	return nil, fmt.Errorf("failed to get handler")
@@ -84,6 +81,7 @@ func (w *DocumentWorker) Work(ctx context.Context, task interface{}) *jobs.Worke
 	// 		}
 	// 	}
 	// }
+
 	// harvest document links
 	// TODO: rewrite links as appropriate on this step too.
 	links, err := HarvestLinks(sourceBlob)
@@ -93,16 +91,23 @@ func (w *DocumentWorker) Work(ctx context.Context, task interface{}) *jobs.Worke
 		return jobs.NewWorkerError(err, 0)
 	}
 
-	fmt.Println("Harvest links:", links)
-	// //record document links for postprocessing
-	// for _, l := range links {
-	// 	// Resolve relative addresses beforehand, to ensure identity and avoid multiple processing of same link
-	// 	// TODO: implement me
-	// 	w.RdCh <- &ResourceData{
-	// 		l,
-	// 		"",
-	// 	}
-	// }
+	//record document links for postprocessing
+	for _, l := range links {
+		// Resolve relative addresses beforehand, to ensure identity and avoid multiple processing of same link
+		// TODO: implement me
+		w.RdCh <- &ResourceData{
+			l,
+			"",
+		}
+	}
+
+	// set hardcode prop
+	t.Node.Properties = map[string]interface{}{
+		"name": t.Node.Name,
+	}
+	if sourceBlob, err = w.Processor.Process(sourceBlob, t.Node); err != nil {
+		return jobs.NewWorkerError(err, 0)
+	}
 
 	// pass docBlob to plugin processors
 	var pathSegments []string
@@ -125,20 +130,21 @@ func (w *DocumentWorker) Work(ctx context.Context, task interface{}) *jobs.Worke
 type LinkedResourceWorker struct {
 	writers.Writer
 	Reader
-	ResourceHandlers backend.ResourceHandlers
 }
 
 // Work reads a single source and writes it to its target
 func (r *LinkedResourceWorker) Work(ctx context.Context, task interface{}) *jobs.WorkerError {
-	// if t, ok := task.(*ResourceData); ok {
-	// 	blob, err := r.Reader.Read(ctx, t.Source)
-	// 	if err != nil {
-	// 		return jobs.NewWorkerError(err, 0)
-	// 	}
-	// 	if err = r.Writer.Write("", "", blob); err != nil {
-	// 		return jobs.NewWorkerError(err, 0)
-	// 	}
-	// }
+	if t, ok := task.(*ResourceData); ok {
+		// blob, err := r.Reader.Read(ctx, t.Source)
+		// if err != nil {
+		// 	return jobs.NewWorkerError(err, 0)
+		// }
+
+		// if err = r.Writer.Write("", "", blob); err != nil {
+		// 	return jobs.NewWorkerError(err, 0)
+		// }
+		fmt.Println("ResouceData: ", t)
+	}
 
 	return nil
 }

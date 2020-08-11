@@ -3,18 +3,16 @@ package reactor
 import (
 	"context"
 	"flag"
-	"fmt"
 	"testing"
 	"time"
 
 	"github.com/gardener/docode/pkg/api"
-	"github.com/gardener/docode/pkg/backend"
-	"github.com/gardener/docode/pkg/backend/github"
 	"github.com/gardener/docode/pkg/jobs"
 	"github.com/gardener/docode/pkg/processors"
+	"github.com/gardener/docode/pkg/resourcehandlers"
+	"github.com/gardener/docode/pkg/resourcehandlers/github"
 	"github.com/gardener/docode/pkg/util/tests"
 	"github.com/gardener/docode/pkg/writers"
-	"gopkg.in/yaml.v2"
 
 	githubapi "github.com/google/go-github/v32/github"
 	"golang.org/x/oauth2"
@@ -42,11 +40,10 @@ func TestReactorWithGitHub(t *testing.T) {
 			Path: "https://github.com/gardener/gardener/tree/master/docs",
 		},
 	}
-	rh := backend.ResourceHandlers{
-		gh,
-	}
+	// init gh resource handler
+	resourcehandlers.Load(gh)
+
 	reactor := Reactor{
-		ResourceHandlers: rh,
 		ReplicateDocumentation: &jobs.Job{
 			MaxWorkers: 50,
 			FailFast:   false,
@@ -54,10 +51,8 @@ func TestReactorWithGitHub(t *testing.T) {
 				Writer: &writers.FSWriter{
 					Root: "target",
 				},
-				RdCh: make(chan *ResourceData),
-				Reader: &GenericReader{
-					Handlers: rh,
-				},
+				RdCh:      make(chan *ResourceData),
+				Reader:    &GenericReader{},
 				Processor: &processors.FrontMatter{},
 			},
 		},
@@ -65,13 +60,10 @@ func TestReactorWithGitHub(t *testing.T) {
 			MaxWorkers: 50,
 			FailFast:   false,
 			Worker: &LinkedResourceWorker{
-				Reader: &GenericReader{Handlers: rh},
+				Reader: &GenericReader{},
 			},
 		},
 	}
-
-	b, _ := yaml.Marshal(node)
-	fmt.Println(string(b))
 
 	docs := &api.Documentation{Root: node}
 	if err := reactor.Run(ctx, docs); err != nil {

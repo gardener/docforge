@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/gardener/docode/pkg/api"
-	"github.com/gardener/docode/pkg/backend"
+	"github.com/gardener/docode/pkg/resourcehandlers"
 	"github.com/google/go-github/v32/github"
 )
 
@@ -216,7 +216,7 @@ type GitHub struct {
 	cache  Cache
 }
 
-func NewResourceHandler(client *github.Client) backend.ResourceHandler {
+func NewResourceHandler(client *github.Client) resourcehandlers.ResourceHandler {
 	return &GitHub{
 		client,
 		Cache{},
@@ -301,7 +301,7 @@ func (gh *GitHub) URLToGitHubLocator(ctx context.Context, urlString string, reso
 	return ghRL
 }
 
-// Accept implements backend.ResourceHandler#Accept
+// Accept implements resourcehandlers.ResourceHandler#Accept
 func (gh *GitHub) Accept(uri string) bool {
 	var (
 		url *url.URL
@@ -326,7 +326,7 @@ func (gh *GitHub) ResolveNodeSelector(ctx context.Context, node *api.Node) error
 	return nil
 }
 
-// Accept implements backend.ResourceHandler#Read
+// Accept implements resourcehandlers.ResourceHandler#Read
 func (gh *GitHub) Read(ctx context.Context, uri string) ([]byte, error) {
 	var (
 		blob []byte
@@ -343,7 +343,7 @@ func (gh *GitHub) Read(ctx context.Context, uri string) ([]byte, error) {
 	return blob, err
 }
 
-// Name implements backend.ResourceHandler#Name
+// Name implements resourcehandlers.ResourceHandler#Name
 func (gh *GitHub) Name(uri string) string {
 	if ghRL := gh.URLToGitHubLocator(nil, uri, true); ghRL != nil {
 		return ghRL.GetName()
