@@ -32,7 +32,7 @@ func TestReactorWithGitHub(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: "97c4b9600449d854abe087dbff2c9754d1b9a54c"})
+	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: *ghToken})
 	gh := github.NewResourceHandler(githubapi.NewClient(oauth2.NewClient(ctx, ts)))
 	node := &api.Node{
 		Name: "docs",
