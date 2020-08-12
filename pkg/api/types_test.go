@@ -16,21 +16,15 @@
 package api
 
 import (
-	"fmt"
 	"reflect"
 	"testing"
 )
 
 func TestParents(t *testing.T) {
-	n11 := &Node{
-		Source: "https://github.com/gardener/gardener/blob/master/docs/README.md",
-	}
-	n31 := &Node{
-		Source: "https://github.com/gardener/gardener/blob/master/docs/concepts/apiserver.md",
-	}
+	n11 := &Node{}
+	n31 := &Node{}
 	n12 := &Node{
-		Source: "https://github.com/gardener/gardener/tree/master/docs/concepts",
-		Nodes:  []*Node{n31},
+		Nodes: []*Node{n31},
 	}
 	n0 := &Node{
 		Nodes: []*Node{n11, n12},
@@ -50,15 +44,11 @@ func TestParents(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		fmt.Println(c.description)
-		got := n31.Parents()
-		if !reflect.DeepEqual(got, c.want) {
-			t.Errorf("parents(%v) == %v, want %v", n31, got, c.want)
-		}
-
-		fmt.Println(len(n31.Parents()))
-		for _, p := range n31.Parents() {
-			fmt.Println(p.Source)
-		}
+		t.Run(c.description, func(t *testing.T) {
+			got := n31.Parents()
+			if !reflect.DeepEqual(got, c.want) {
+				t.Errorf("parents(%v) == %v, want %v", n31, got, c.want)
+			}
+		})
 	}
 }

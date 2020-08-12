@@ -31,6 +31,10 @@ func (rh *TestResourceHandler) Name(uri string) string {
 	return string("")
 }
 
+func (rh *TestResourceHandler) ResolveRelLink(source, relLink string) string {
+	return relLink
+}
+
 func TestGet(t *testing.T) {
 	nonAcceptingHandler := &TestResourceHandler{
 		accept: false,

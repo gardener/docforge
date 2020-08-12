@@ -16,37 +16,37 @@ func init() {
 
 var (
 	apiRefNode = &api.Node{
-		Name:   "apiRef",
-		Title:  "API Reference",
-		Source: "https://github.com/org/repo/tree/master/docs/architecture/apireference.md",
+		Name:             "apiRef",
+		Title:            "API Reference",
+		ContentSelectors: []api.ContentSelector{{Source: "https://github.com/org/repo/tree/master/docs/architecture/apireference.md"}},
 	}
 
 	archNode = &api.Node{
-		Name:   "arch",
-		Source: "https://github.com/org/repo/tree/master/docs/architecture",
-		Title:  "Architecture",
+		Name:             "arch",
+		ContentSelectors: []api.ContentSelector{{Source: "https://github.com/org/repo/tree/master/docs/architecture"}},
+		Title:            "Architecture",
 		Nodes: []*api.Node{
 			apiRefNode,
 		},
 	}
 
 	blogNode = &api.Node{
-		Name:   "blog",
-		Source: "https://github.com/org/repo/tree/master/docs/blog/blog-part1.md",
-		Title:  "Blog",
+		Name:             "blog",
+		ContentSelectors: []api.ContentSelector{{Source: "https://github.com/org/repo/tree/master/docs/blog/blog-part1.md"}},
+		Title:            "Blog",
 	}
 
 	tasksNode = &api.Node{
-		Name:   "tasks",
-		Title:  "Tasks",
-		Source: "https://github.com/org/repo/tree/master/docs/tasks",
+		Name:             "tasks",
+		Title:            "Tasks",
+		ContentSelectors: []api.ContentSelector{{Source: "https://github.com/org/repo/tree/master/docs/tasks"}},
 	}
 
 	documentation = &api.Documentation{
 		Root: &api.Node{
-			Name:   "rootNode",
-			Title:  "Root node!",
-			Source: "https://github.com/org/repo/tree/master/docs",
+			Name:             "rootNode",
+			Title:            "Root node!",
+			ContentSelectors: []api.ContentSelector{{Source: "https://github.com/org/repo/tree/master/docs"}},
 			Nodes: []*api.Node{
 				archNode,
 				blogNode,
@@ -120,4 +120,8 @@ func (f *FakeResourceHandler) Read(ctx context.Context, uri string) ([]byte, err
 
 func (f *FakeResourceHandler) Name(uri string) string {
 	return uri
+}
+
+func (f *FakeResourceHandler) ResolveRelLink(source, relLink string) string {
+	return relLink
 }

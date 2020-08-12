@@ -68,8 +68,8 @@ func TestDocumentWorkerWork(t *testing.T) {
 			"it reads source, processes and writes it",
 			&DocumentWorkTask{
 				&api.Node{
-					Name:   "sourcemd",
-					Source: "testsource",
+					Name:             "sourcemd",
+					ContentSelectors: []api.ContentSelector{{Source: "testsource"}},
 				},
 			},
 			map[string][]byte{

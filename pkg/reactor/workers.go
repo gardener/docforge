@@ -19,8 +19,8 @@ type Reader interface {
 
 // ResourceData holds information for source and target of inlined documentation resources
 type ResourceData struct {
+	Node   *api.Node
 	Source string
-	Target string
 }
 
 // DocumentWorker implements jobs#Worker
@@ -58,18 +58,32 @@ func (w *DocumentWorker) Work(ctx context.Context, task interface{}) *jobs.Worke
 		return jobs.NewWorkerError(fmt.Errorf("cast failed: %v", task), 0)
 	}
 
-	if len(t.Node.Source) <= 0 {
+	if len(t.Node.ContentSelectors) <= 0 {
 		return nil
 	}
 
-	sourceBlob, err := w.Reader.Read(ctx, t.Node.Source)
-	if err != nil {
-		return jobs.NewWorkerError(err, 0)
+	blobs := make(map[string][]byte)
+	links := make([]string, 0)
+	for _, content := range t.Node.ContentSelectors {
+		sourceBlob, err := w.Reader.Read(ctx, content.Source)
+		if len(sourceBlob) == 0 {
+			continue
+		}
+		if err != nil {
+			return jobs.NewWorkerError(err, 0)
+		}
+		blobs[content.Source] = sourceBlob
+		blobLinks, err := HarvestLinks(content.Source, sourceBlob)
+		if err != nil {
+			return jobs.NewWorkerError(err, 0)
+		}
+		links = append(links, blobLinks...)
 	}
 
-	if len(sourceBlob) <= 0 {
+	if len(blobs) == 0 {
 		return nil
 	}
+
 	// process document blob
 	// if h := w.ResourceHandlers.Get(source); h != nil {
 	// 	// filter document content if there is content selector
@@ -82,29 +96,30 @@ func (w *DocumentWorker) Work(ctx context.Context, task interface{}) *jobs.Worke
 	// 	}
 	// }
 
-	// harvest document links
-	// TODO: rewrite links as appropriate on this step too.
-	links, err := HarvestLinks(sourceBlob)
 	// TODO: would it be a good idea if we set the channel as argument to HarvestLinks and let
 	// it send the links
-	if err != nil {
-		return jobs.NewWorkerError(err, 0)
-	}
+	// if err != nil {
+	// 	return jobs.NewWorkerError(err, 0)
+	// }
 
 	//record document links for postprocessing
 	for _, l := range links {
 		// Resolve relative addresses beforehand, to ensure identity and avoid multiple processing of same link
 		// TODO: implement me
 		w.RdCh <- &ResourceData{
-			l,
-			"",
+			Source: l,
 		}
 	}
 
+	var sourceBlob []byte
+	for _, blob := range blobs {
+		sourceBlob = append(sourceBlob, blob...)
+	}
 	// set hardcode prop
 	t.Node.Properties = map[string]interface{}{
 		"name": t.Node.Name,
 	}
+	var err error
 	if sourceBlob, err = w.Processor.Process(sourceBlob, t.Node); err != nil {
 		return jobs.NewWorkerError(err, 0)
 	}
@@ -122,7 +137,6 @@ func (w *DocumentWorker) Work(ctx context.Context, task interface{}) *jobs.Worke
 	if err := w.Writer.Write(t.Node.Name, path, sourceBlob); err != nil {
 		return jobs.NewWorkerError(err, 0)
 	}
-
 	return nil
 }
 
@@ -135,16 +149,7 @@ type LinkedResourceWorker struct {
 // Work reads a single source and writes it to its target
 func (r *LinkedResourceWorker) Work(ctx context.Context, task interface{}) *jobs.WorkerError {
 	if t, ok := task.(*ResourceData); ok {
-		// blob, err := r.Reader.Read(ctx, t.Source)
-		// if err != nil {
-		// 	return jobs.NewWorkerError(err, 0)
-		// }
-
-		// if err = r.Writer.Write("", "", blob); err != nil {
-		// 	return jobs.NewWorkerError(err, 0)
-		// }
-		fmt.Println("ResouceData: ", t)
+		fmt.Println("ResouceData: ", t.Source)
 	}
-
 	return nil
 }

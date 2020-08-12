@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/gardener/docode/pkg/api"
+	"github.com/gardener/docode/pkg/resourcehandlers"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/parser"
 	"github.com/yuin/goldmark/text"
@@ -17,10 +18,10 @@ func (r *Reactor) PreProcess(contentBytes []byte, source string, node *api.Node)
 	if len(contentSelectors) > 0 {
 		//TODO: fixme
 		for _, cs := range contentSelectors {
-			SelectContent(contentBytes, cs.Selector)
+			SelectContent(contentBytes, *cs.Selector)
+			HarvestLinks(cs.Source, contentBytes)
 		}
 	}
-	HarvestLinks(contentBytes)
 	return fmt.Errorf("No ResourceHandler found for URI %s", source)
 }
 
@@ -33,7 +34,7 @@ func SelectContent(contentBytes []byte, selectorExpression string) ([]byte, erro
 }
 
 // HarvestLinks TODO:
-func HarvestLinks(contentBytes []byte) ([]string, error) {
+func HarvestLinks(contentSource string, contentBytes []byte) ([]string, error) {
 	// TODO: harvest links from this contentBytes
 	// and resolve them to downloadable addresses and serialization targets
 	p := parser.NewParser(parser.WithBlockParsers(parser.DefaultBlockParsers()...),
@@ -49,7 +50,11 @@ func HarvestLinks(contentBytes []byte) ([]string, error) {
 		if entering {
 			if node.Kind() == ast.KindLink {
 				n := node.(*ast.Link)
-				links = append(links, string(n.Destination))
+				handler := resourcehandlers.Get(contentSource)
+				absLink := handler.ResolveRelLink(contentSource, string(n.Destination))
+				if absLink != "" {
+					links = append(links, absLink)
+				}
 			}
 			if node.Kind() == ast.KindImage {
 				n := node.(*ast.Image)

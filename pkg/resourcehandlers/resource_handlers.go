@@ -20,6 +20,9 @@ type ResourceHandler interface {
 	// Name resolves the name of the resource from a URI
 	// Example: https://github.com/owner/repo/tree/master/a/b/c.md -> c.md
 	Name(uri string) string
+	// ResolveRelLink should return an absolute path of a relative link in regards of the provided
+	// source
+	ResolveRelLink(source, link string) string
 }
 
 // ResourceHandlers is a registry for ResourceHandler objects

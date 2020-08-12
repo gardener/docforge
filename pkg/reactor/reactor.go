@@ -3,6 +3,7 @@ package reactor
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/gardener/docode/pkg/api"
 	"github.com/gardener/docode/pkg/jobs"
@@ -47,25 +48,15 @@ func (r *Reactor) Run(ctx context.Context, docStruct *api.Documentation) error {
 		return err
 	}
 
+	// doc, _ := yaml.Marshal(docStruct.Root)
 	docCtx, cancelF := context.WithCancel(ctx)
 	errCh := make(chan error)
-	go func(ctx context.Context, errCh chan error) {
-		defer cancelF()
-		documentPullTasks := make([]interface{}, 0)
-		tasks(docStruct.Root, &documentPullTasks)
-		if err := r.ReplicateDocumentation.Dispatch(ctx, documentPullTasks); err != nil {
-			errCh <- err
-		}
-		docWorker := r.ReplicateDocumentation.Worker.(*DocumentWorker)
-		close(docWorker.RdCh)
-		close(errCh)
-	}(docCtx, errCh)
+	go r.replicateDocumentation(docCtx, cancelF, docStruct.Root, errCh)
 
 	resoucesData := make([]interface{}, 0)
 	docWorker := r.ReplicateDocumentation.Worker.(*DocumentWorker)
 
-	var working bool = true
-	for working {
+	for working := true; working; {
 		select {
 		case x := <-docWorker.RdCh:
 			resoucesData = append(resoucesData, x)
@@ -85,7 +76,7 @@ func (r *Reactor) Run(ctx context.Context, docStruct *api.Documentation) error {
 
 func tasks(node *api.Node, t *[]interface{}) {
 	n := node
-	if len(n.Source) > 0 {
+	if len(n.ContentSelectors) > 0 {
 		*t = append(*t, &DocumentWorkTask{
 			Node: n,
 		})
@@ -95,4 +86,21 @@ func tasks(node *api.Node, t *[]interface{}) {
 			tasks(n, t)
 		}
 	}
+}
+
+func (r *Reactor) replicateDocumentation(ctx context.Context, cancelF context.CancelFunc, documentation *api.Node, errCh chan error) {
+	defer cancelF()
+	documentPullTasks := make([]interface{}, 0)
+	tasks(documentation, &documentPullTasks)
+	if err := r.ReplicateDocumentation.Dispatch(ctx, documentPullTasks); err != nil {
+		errCh <- err
+	}
+	docWorker := r.ReplicateDocumentation.Worker.(*DocumentWorker)
+	close(docWorker.RdCh)
+	close(errCh)
+}
+
+type DownloadedResources struct {
+	resources map[string]struct{}
+	mutex     sync.RWMutex
 }

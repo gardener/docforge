@@ -78,20 +78,20 @@ func TestSerialize(t *testing.T) {
 				Root: &Node{
 					Title: "A Title",
 					Nodes: []*Node{
-						&Node{
-							Title:  "node 1",
-							Source: "path1/**",
+						{
+							Title:            "node 1",
+							ContentSelectors: []ContentSelector{{Source: "path1/**"}},
 						},
-						&Node{
-							Title:  "path 2",
-							Source: "https://a.com",
+						{
+							Title:            "path 2",
+							ContentSelectors: []ContentSelector{{Source: "https://a.com"}},
 							Properties: map[string]interface{}{
 								"custom_key": "custom_value",
 							},
 							Nodes: []*Node{
-								&Node{
-									Title:  "subnode",
-									Source: "path/a",
+								{
+									Title:            "subnode",
+									ContentSelectors: []ContentSelector{{Source: "path/a"}},
 								},
 							},
 						},

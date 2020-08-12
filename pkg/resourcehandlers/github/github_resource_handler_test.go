@@ -210,17 +210,17 @@ func TestResolveNodeSelector(t *testing.T) {
 					Path: "https://github.com/gardener/gardener/tree/master/docs",
 				},
 				Nodes: []*api.Node{
-					&api.Node{
-						Name:   "README.md",
-						Source: "https://github.com/gardener/gardener/blob/master/docs/README.md",
+					{
+						Name:             "README.md",
+						ContentSelectors: []api.ContentSelector{{Source: "https://github.com/gardener/gardener/blob/master/docs/README.md"}},
 					},
-					&api.Node{
-						Name:   "concepts",
-						Source: "https://github.com/gardener/gardener/tree/master/docs/concepts",
+					{
+						Name:             "concepts",
+						ContentSelectors: []api.ContentSelector{{Source: "https://github.com/gardener/gardener/tree/master/docs/concepts"}},
 						Nodes: []*api.Node{
-							&api.Node{
-								Name:   "apiserver.md",
-								Source: "https://github.com/gardener/gardener/blob/master/docs/concepts/apiserver.md",
+							{
+								Name:             "apiserver.md",
+								ContentSelectors: []api.ContentSelector{{Source: "https://github.com/gardener/gardener/blob/master/docs/concepts/apiserver.md"}},
 							},
 						},
 					},
@@ -365,5 +365,43 @@ func TestRead(t *testing.T) {
 		if !reflect.DeepEqual(got, c.want) {
 			t.Errorf("Read(ctx,%v) == %v, want %v", inURI, string(got), string(c.want))
 		}
+	}
+}
+
+func TestGitHub_ResolveRelLink(t *testing.T) {
+
+	type args struct {
+		source string
+		link   string
+	}
+	tests := []struct {
+		name        string
+		args        args
+		wantRelLink string
+	}{
+		{
+			name: "test nested relative link",
+			args: args{
+				source: "https://github.com/gardener/gardener/master/tree/readme.md",
+				link:   "jjbj.md",
+			},
+			wantRelLink: "https://github.com/gardener/gardener/master/tree/jjbj.md",
+		},
+		{
+			name: "test outside link",
+			args: args{
+				source: "https://github.com/gardener/gardener/master/tree/docs/extensions/readme.md",
+				link:   "../../images/jjbj.png",
+			},
+			wantRelLink: "https://github.com/gardener/gardener/master/tree/images/jjbj.png",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gh := &GitHub{}
+			if gotRelLink := gh.ResolveRelLink(tt.args.source, tt.args.link); gotRelLink != tt.wantRelLink {
+				t.Errorf("GitHub.ResolveRelLink() = %v, want %v", gotRelLink, tt.wantRelLink)
+			}
+		})
 	}
 }

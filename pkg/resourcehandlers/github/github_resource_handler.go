@@ -120,8 +120,8 @@ func buildNodes(node *api.Node, childResourceLocators []*ResourceLocator, cache 
 	)
 	if node.NodeSelector != nil {
 		nodePath = node.NodeSelector.Path
-	} else if len(node.Source) > 0 {
-		nodePath = node.Source
+	} else if len(node.ContentSelectors) > 0 {
+		nodePath = node.ContentSelectors[0].Source
 	}
 	if nodeResourceLocator = cache.Get(nodePath); nodeResourceLocator == nil {
 		panic(fmt.Sprintf("Node is not available as ResourceLocator %v", nodePath))
@@ -140,8 +140,8 @@ func buildNodes(node *api.Node, childResourceLocators []*ResourceLocator, cache 
 				continue
 			}
 			n := &api.Node{
-				Source: childResourceLocator.String(),
-				Name:   childName,
+				ContentSelectors: []api.ContentSelector{{Source: childResourceLocator.String()}},
+				Name:             childName,
 			}
 			n.SetParent(node)
 			if node.Nodes == nil {
@@ -341,4 +341,25 @@ func (gh *GitHub) Name(uri string) string {
 		return ghRL.GetName()
 	}
 	return ""
+}
+
+// ResolveRelLink
+func (gh *GitHub) ResolveRelLink(source, link string) (relLink string) {
+	if strings.HasPrefix(link, "#") || strings.HasPrefix(link, "https://") || strings.HasPrefix(link, "http://") {
+		return
+	}
+	lastSepIndex := strings.LastIndex(source, "/")
+	source = source[:lastSepIndex]
+
+	upLevels := strings.Count(link, "../")
+	for ; upLevels > 0; upLevels-- {
+		link = strings.TrimLeft(link, "../")
+		sourceLastSep := strings.LastIndex(source, "/")
+		sunes := []rune(source)
+		source = string(sunes[:sourceLastSep])
+	}
+
+	relLink = source + "/" + link
+	return
+
 }
