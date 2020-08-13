@@ -3,7 +3,6 @@ package reactor
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	"github.com/gardener/docode/pkg/api"
 	"github.com/gardener/docode/pkg/jobs"
@@ -53,13 +52,12 @@ func (r *Reactor) Run(ctx context.Context, docStruct *api.Documentation) error {
 	errCh := make(chan error)
 	go r.replicateDocumentation(docCtx, cancelF, docStruct.Root, errCh)
 
-	resoucesData := make([]interface{}, 0)
+	resoucesData := make(map[string]*ResourceData)
 	docWorker := r.ReplicateDocumentation.Worker.(*DocumentWorker)
-
 	for working := true; working; {
 		select {
-		case x := <-docWorker.RdCh:
-			resoucesData = append(resoucesData, x)
+		case rd := <-docWorker.RdCh:
+			resoucesData[rd.Source] = rd
 		case <-docCtx.Done():
 			working = false
 		case err := <-errCh:
@@ -67,7 +65,12 @@ func (r *Reactor) Run(ctx context.Context, docStruct *api.Documentation) error {
 		}
 	}
 
-	if err := r.ReplicateDocResources.Dispatch(ctx, resoucesData); err != nil {
+	tasks := make([]interface{}, 0, len(resoucesData))
+	for _, t := range resoucesData {
+		tasks = append(tasks, t)
+	}
+
+	if err := r.ReplicateDocResources.Dispatch(ctx, tasks); err != nil {
 		return err
 	}
 
@@ -95,12 +98,4 @@ func (r *Reactor) replicateDocumentation(ctx context.Context, cancelF context.Ca
 	if err := r.ReplicateDocumentation.Dispatch(ctx, documentPullTasks); err != nil {
 		errCh <- err
 	}
-	docWorker := r.ReplicateDocumentation.Worker.(*DocumentWorker)
-	close(docWorker.RdCh)
-	close(errCh)
-}
-
-type DownloadedResources struct {
-	resources map[string]struct{}
-	mutex     sync.RWMutex
 }

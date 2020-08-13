@@ -344,7 +344,7 @@ func (gh *GitHub) Name(uri string) string {
 }
 
 // ResolveRelLink
-func (gh *GitHub) ResolveRelLink(source, link string) (relLink string) {
+func (gh *GitHub) ResolveRelLink(source, link string) (relLink string, rewrite bool) {
 	if strings.HasPrefix(link, "#") || strings.HasPrefix(link, "https://") || strings.HasPrefix(link, "http://") {
 		return
 	}
@@ -352,6 +352,7 @@ func (gh *GitHub) ResolveRelLink(source, link string) (relLink string) {
 	source = source[:lastSepIndex]
 
 	upLevels := strings.Count(link, "../")
+	rewrite = upLevels > 0
 	for ; upLevels > 0; upLevels-- {
 		link = strings.TrimLeft(link, "../")
 		sourceLastSep := strings.LastIndex(source, "/")
@@ -361,5 +362,4 @@ func (gh *GitHub) ResolveRelLink(source, link string) (relLink string) {
 
 	relLink = source + "/" + link
 	return
-
 }

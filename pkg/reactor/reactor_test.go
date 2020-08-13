@@ -122,6 +122,6 @@ func (f *FakeResourceHandler) Name(uri string) string {
 	return uri
 }
 
-func (f *FakeResourceHandler) ResolveRelLink(source, relLink string) string {
-	return relLink
+func (f *FakeResourceHandler) ResolveRelLink(source, relLink string) (string, bool) {
+	return relLink, false
 }

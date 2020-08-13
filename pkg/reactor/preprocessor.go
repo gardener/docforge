@@ -1,9 +1,13 @@
 package reactor
 
 import (
+	"bytes"
 	"fmt"
+	"io/ioutil"
 	"regexp"
 	"strings"
+
+	"github.com/Kunde21/markdownfmt/v2/markdown"
 
 	"github.com/gardener/docode/pkg/api"
 	"github.com/gardener/docode/pkg/resourcehandlers"
@@ -19,7 +23,7 @@ func (r *Reactor) PreProcess(contentBytes []byte, source string, node *api.Node)
 		//TODO: fixme
 		for _, cs := range contentSelectors {
 			SelectContent(contentBytes, *cs.Selector)
-			HarvestLinks(cs.Source, contentBytes)
+			// HarvestLinks(cs.Source, contentBytes, nil)
 		}
 	}
 	return fmt.Errorf("No ResourceHandler found for URI %s", source)
@@ -34,9 +38,10 @@ func SelectContent(contentBytes []byte, selectorExpression string) ([]byte, erro
 }
 
 // HarvestLinks TODO:
-func HarvestLinks(contentSource string, contentBytes []byte) ([]string, error) {
+func HarvestLinks(contentSourcePath string, nodeTargetPath string, contentBytes []byte, rdCh chan *ResourceData) ([]byte, error) {
 	// TODO: harvest links from this contentBytes
 	// and resolve them to downloadable addresses and serialization targets
+	var b bytes.Buffer
 	p := parser.NewParser(parser.WithBlockParsers(parser.DefaultBlockParsers()...),
 		parser.WithInlineParsers(parser.DefaultInlineParsers()...),
 		parser.WithParagraphTransformers(parser.DefaultParagraphTransformers()...),
@@ -45,20 +50,35 @@ func HarvestLinks(contentSource string, contentBytes []byte) ([]string, error) {
 	srcAttrMatchRegex := regexp.MustCompile(`src=["\']?([^"\'>]+)["\']?`)
 	reader := text.NewReader(contentBytes)
 	doc := p.Parse(reader)
-	var links []string
 	if err := ast.Walk(doc, func(node ast.Node, entering bool) (ast.WalkStatus, error) {
 		if entering {
 			if node.Kind() == ast.KindLink {
 				n := node.(*ast.Link)
-				handler := resourcehandlers.Get(contentSource)
-				absLink := handler.ResolveRelLink(contentSource, string(n.Destination))
-				if absLink != "" {
-					links = append(links, absLink)
+				handler := resourcehandlers.Get(contentSourcePath)
+				absLink, rewrite := handler.ResolveRelLink(contentSourcePath, string(n.Destination))
+				if absLink != "" && !rewrite {
+					rdCh <- &ResourceData{
+						OriginalPath:   string(n.Destination),
+						Source:         absLink,
+						NodeTargetPath: nodeTargetPath,
+					}
+					return ast.WalkContinue, nil
 				}
+				n.Destination = []byte(absLink)
 			}
 			if node.Kind() == ast.KindImage {
 				n := node.(*ast.Image)
-				links = append(links, string(n.Destination))
+				handler := resourcehandlers.Get(contentSourcePath)
+				absLink, rewrite := handler.ResolveRelLink(contentSourcePath, string(n.Destination))
+				if absLink != "" && !rewrite {
+					rdCh <- &ResourceData{
+						NodeTargetPath: nodeTargetPath,
+						OriginalPath:   string(n.Destination),
+						Source:         absLink,
+					}
+					return ast.WalkContinue, nil
+				}
+				n.Destination = []byte(absLink)
 			}
 			if node.Kind() == ast.KindRawHTML {
 				n := node.(*ast.RawHTML)
@@ -69,13 +89,21 @@ func HarvestLinks(contentSource string, contentBytes []byte) ([]string, error) {
 					match := hrefAttrMatchRegex.Find([]byte(segmentStr))
 					if len(match) > 0 {
 						url := strings.Split(string(match), "=")[1]
-						links = append(links, url)
+						rdCh <- &ResourceData{
+							Source:         url,
+							NodeTargetPath: nodeTargetPath,
+							OriginalPath:   url,
+						}
 						continue
 					}
 					match = srcAttrMatchRegex.Find([]byte(segmentStr))
 					if len(match) > 0 {
 						url := strings.Split(string(match), "=")[1]
-						links = append(links, url)
+						rdCh <- &ResourceData{
+							Source:         url,
+							NodeTargetPath: nodeTargetPath,
+							OriginalPath:   url,
+						}
 						continue
 					}
 				}
@@ -87,5 +115,10 @@ func HarvestLinks(contentSource string, contentBytes []byte) ([]string, error) {
 		fmt.Printf("%v", err)
 	}
 
-	return links, nil
+	renderer := markdown.NewRenderer()
+	if err := renderer.Render(&b, contentBytes, doc); err != nil {
+		return nil, err
+	}
+
+	return ioutil.ReadAll(&b)
 }

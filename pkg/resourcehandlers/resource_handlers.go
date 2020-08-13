@@ -22,7 +22,7 @@ type ResourceHandler interface {
 	Name(uri string) string
 	// ResolveRelLink should return an absolute path of a relative link in regards of the provided
 	// source
-	ResolveRelLink(source, link string) string
+	ResolveRelLink(source, link string) (string, bool)
 }
 
 // ResourceHandlers is a registry for ResourceHandler objects

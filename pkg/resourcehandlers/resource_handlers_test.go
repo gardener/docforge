@@ -31,8 +31,8 @@ func (rh *TestResourceHandler) Name(uri string) string {
 	return string("")
 }
 
-func (rh *TestResourceHandler) ResolveRelLink(source, relLink string) string {
-	return relLink
+func (rh *TestResourceHandler) ResolveRelLink(source, relLink string) (string, bool) {
+	return relLink, false
 }
 
 func TestGet(t *testing.T) {

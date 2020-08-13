@@ -19,8 +19,10 @@ type Reader interface {
 
 // ResourceData holds information for source and target of inlined documentation resources
 type ResourceData struct {
-	Node   *api.Node
-	Source string
+	Source         string
+	NodeTargetPath string
+	OriginalPath   string
+	FileName       string
 }
 
 // DocumentWorker implements jobs#Worker
@@ -61,69 +63,6 @@ func (w *DocumentWorker) Work(ctx context.Context, task interface{}) *jobs.Worke
 	if len(t.Node.ContentSelectors) <= 0 {
 		return nil
 	}
-
-	blobs := make(map[string][]byte)
-	links := make([]string, 0)
-	for _, content := range t.Node.ContentSelectors {
-		sourceBlob, err := w.Reader.Read(ctx, content.Source)
-		if len(sourceBlob) == 0 {
-			continue
-		}
-		if err != nil {
-			return jobs.NewWorkerError(err, 0)
-		}
-		blobs[content.Source] = sourceBlob
-		blobLinks, err := HarvestLinks(content.Source, sourceBlob)
-		if err != nil {
-			return jobs.NewWorkerError(err, 0)
-		}
-		links = append(links, blobLinks...)
-	}
-
-	if len(blobs) == 0 {
-		return nil
-	}
-
-	// process document blob
-	// if h := w.ResourceHandlers.Get(source); h != nil {
-	// 	// filter document content if there is content selector
-	// 	if expr := h.GetContentSelector(source); len(expr) > 0 {
-	// 		var err error
-	// 		sourceBlob, err = SelectContent(sourceBlob, expr)
-	// 		if err != nil {
-	// 			return jobs.NewWorkerError(err, 0)
-	// 		}
-	// 	}
-	// }
-
-	// TODO: would it be a good idea if we set the channel as argument to HarvestLinks and let
-	// it send the links
-	// if err != nil {
-	// 	return jobs.NewWorkerError(err, 0)
-	// }
-
-	//record document links for postprocessing
-	for _, l := range links {
-		// Resolve relative addresses beforehand, to ensure identity and avoid multiple processing of same link
-		// TODO: implement me
-		w.RdCh <- &ResourceData{
-			Source: l,
-		}
-	}
-
-	var sourceBlob []byte
-	for _, blob := range blobs {
-		sourceBlob = append(sourceBlob, blob...)
-	}
-	// set hardcode prop
-	t.Node.Properties = map[string]interface{}{
-		"name": t.Node.Name,
-	}
-	var err error
-	if sourceBlob, err = w.Processor.Process(sourceBlob, t.Node); err != nil {
-		return jobs.NewWorkerError(err, 0)
-	}
-
 	// pass docBlob to plugin processors
 	var pathSegments []string
 	for _, parent := range t.Node.Parents() {
@@ -134,6 +73,42 @@ func (w *DocumentWorker) Work(ctx context.Context, task interface{}) *jobs.Worke
 
 	// Write the document content
 	path := strings.Join(pathSegments, "/")
+	blobs := make(map[string][]byte)
+	for _, content := range t.Node.ContentSelectors {
+		sourceBlob, err := w.Reader.Read(ctx, content.Source)
+		if len(sourceBlob) == 0 {
+			continue
+		}
+		if err != nil {
+			return jobs.NewWorkerError(err, 0)
+		}
+
+		sourceBlob, err = HarvestLinks(content.Source, path, sourceBlob, w.RdCh)
+		if err != nil {
+			return jobs.NewWorkerError(err, 0)
+		}
+		blobs[content.Source] = sourceBlob
+	}
+
+	if len(blobs) == 0 {
+		return nil
+	}
+
+	var sourceBlob []byte
+	for _, blob := range blobs {
+		sourceBlob = append(sourceBlob, blob...)
+	}
+
+	// TODO: delete
+	t.Node.Properties = map[string]interface{}{
+		"name": t.Node.Name,
+	}
+
+	var err error
+	if sourceBlob, err = w.Processor.Process(sourceBlob, t.Node); err != nil {
+		return jobs.NewWorkerError(err, 0)
+	}
+
 	if err := w.Writer.Write(t.Node.Name, path, sourceBlob); err != nil {
 		return jobs.NewWorkerError(err, 0)
 	}
@@ -149,7 +124,18 @@ type LinkedResourceWorker struct {
 // Work reads a single source and writes it to its target
 func (r *LinkedResourceWorker) Work(ctx context.Context, task interface{}) *jobs.WorkerError {
 	if t, ok := task.(*ResourceData); ok {
-		fmt.Println("ResouceData: ", t.Source)
+		blob, err := r.Reader.Read(ctx, t.Source)
+		if err != nil {
+			return jobs.NewWorkerError(err, 1)
+		}
+
+		p := strings.Split(t.OriginalPath, "/")
+		fileName := p[len(p)-1]
+		filepath := strings.Join(p[:len(p)-1], "/")
+		filepath = t.NodeTargetPath + "/" + filepath
+		if err := r.Writer.Write(fileName, filepath, blob); err != nil {
+			return jobs.NewWorkerError(err, 1)
+		}
 	}
 	return nil
 }

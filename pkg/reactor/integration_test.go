@@ -28,7 +28,7 @@ func init() {
 }
 
 func TestReactorWithGitHub(t *testing.T) {
-	timeout := 10 * time.Second
+	timeout := 30 * time.Second
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
@@ -76,6 +76,9 @@ func TestReactorWithGitHub(t *testing.T) {
 			FailFast:   false,
 			Worker: &LinkedResourceWorker{
 				Reader: &GenericReader{},
+				Writer: &writers.FSWriter{
+					Root: "target",
+				},
 			},
 		},
 	}
