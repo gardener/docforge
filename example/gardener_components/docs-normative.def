@@ -16,7 +16,7 @@
         },
         something: {
             title: "Networking",
-            # no version implicitly defaults to master branch or however a resolver resolves that. 
+            # no version implicitly defaults to master branch or however a resolver resolves that.
             source: "gardener-core:/docs/networking/**",
             # Allows to apply optional properties for subnodes to this path spec (if any), e.g. content for folder nodes or titles, or override source.
             # The rules apply to nodes by path spec defined with exact strings or regular expressions
@@ -41,7 +41,7 @@
             title: "Networking",
             # aggregate allows document produced from other document (parts). Either source or variant can be provider but not both.
             aggregate: [
-                ":v1.5.0/docs/networking/a.md#section{head:1}", 
+                ":v1.5.0/docs/networking/a.md#section{head:1}",
                 "-gardener-core:v1.5.0/docs/networking/**/c.md#section{head:2}", # all but this section
                 "gardener-core:v1.5.0/docs/networking/b/c/d.md#section{head:1}", # this section only
                 "+gardener-core:v1.5.0/docs/networking/b/c/d.md#section{head:1}", # same as above

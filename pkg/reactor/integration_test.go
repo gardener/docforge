@@ -77,7 +77,7 @@ func TestReactorWithGitHub(t *testing.T) {
 			Worker: &LinkedResourceWorker{
 				Reader: &GenericReader{},
 				Writer: &writers.FSWriter{
-					Root: "target",
+					Root: "../../example/hugo/content",
 				},
 			},
 		},

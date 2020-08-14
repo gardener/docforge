@@ -1,0 +1,14 @@
+baseURL = "http://localhost/"
+title = "Test"
+metaDataFormat = "yaml"
+contentDir="content"
+
+[markup]
+  [markup.goldmark]
+    [markup.goldmark.renderer]
+      unsafe = true
+  [markup.highlight]
+    guessSyntax = true
+    noClasses = false
+    style = "vs"
+    tabWidth = 4
