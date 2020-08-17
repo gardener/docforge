@@ -7,7 +7,6 @@
 target/
 
 *.coverprofile
-*.html
 .vscode
 .vscode.code-workspace
 .idea
