@@ -3,6 +3,8 @@ package reactor
 import (
 	"context"
 	"fmt"
+	// "reflect"
+	"strings"
 
 	"github.com/gardener/docode/pkg/api"
 	"github.com/gardener/docode/pkg/jobs"
@@ -98,4 +100,64 @@ func (r *Reactor) replicateDocumentation(ctx context.Context, cancelF context.Ca
 	if err := r.ReplicateDocumentation.Dispatch(ctx, documentPullTasks); err != nil {
 		errCh <- err
 	}
+}
+
+// Returns the relative path between two nodes on the same tree, formatted
+// with `..` for ancestors path if any and `.` for current node in relative
+// path to descendant. The funciton can also calculate path to a node on another
+// branch
+func relativePath(from, to *api.Node) string {
+	if from == to {
+		return ""
+	}
+	fromPathToRoot := append(from.Parents(), from)
+	toPathToRoot := append(to.Parents(), to)
+	if intersection := intersect(fromPathToRoot, toPathToRoot); len(intersection) > 0 {
+		// to is descendant
+		if intersection[len(intersection)-1] == from {
+			toPathToRoot = toPathToRoot[(len(intersection)-1):]
+			s:= []string{}
+			for _, n := range toPathToRoot {
+				s = append(s, n.Name)
+			}
+			s[0] = "."
+			return strings.Join(s, "/")
+		}
+		// to is ancestor
+		if intersection[len(intersection)-1] == to {
+			fromPathToRoot = fromPathToRoot[(len(intersection)-1):]
+			s:= []string{}
+			for _ = range toPathToRoot {
+				s = append(s, "..")
+			}
+			s[len(s)-1] = fromPathToRoot[0].Name
+			return strings.Join(s, "/")
+		}
+		fromPathToRoot = fromPathToRoot[(len(intersection)-1):]
+		s:= []string{}
+		for _ = range toPathToRoot {
+			s = append(s, "..")
+		}
+		// to is on another branch
+		toPathToRoot = toPathToRoot[len(intersection):]
+		for _, n := range toPathToRoot {
+			s = append(s, n.Name)
+		}
+		return strings.Join(s, "/")
+	}
+	return ""
+}
+
+func intersect(a, b []*api.Node) []*api.Node {
+	intersection := make([]*api.Node, 0)
+	hash := make(map[*api.Node]struct{})
+	for _, v := range a {
+		hash[v] = struct{}{}
+	}
+	for _, v := range b {
+		if _, found := hash[v]; found {
+			intersection = append(intersection, v)
+		}
+	}
+	return intersection
 }

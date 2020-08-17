@@ -19,3 +19,6 @@ TODO
 config.ign.merged
 config.img
 config.vmdk
+
+example/hugo/content
+example/hugo/public
