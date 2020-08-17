@@ -64,7 +64,7 @@ func TestReactorWithGitHub(t *testing.T) {
 			FailFast:   false,
 			Worker: &DocumentWorker{
 				Writer: &writers.FSWriter{
-					Root: "target",
+					Root: "../../example/hugo/content",
 				},
 				RdCh:      make(chan *ResourceData),
 				Reader:    &GenericReader{},

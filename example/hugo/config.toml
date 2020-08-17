@@ -7,8 +7,3 @@ contentDir="content"
   [markup.goldmark]
     [markup.goldmark.renderer]
       unsafe = true
-  [markup.highlight]
-    guessSyntax = true
-    noClasses = false
-    style = "vs"
-    tabWidth = 4
