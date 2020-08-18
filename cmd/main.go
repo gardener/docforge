@@ -5,10 +5,11 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"time"
 
 	"github.com/gardener/docode/pkg/api"
 	"github.com/gardener/docode/pkg/jobs"
-	"github.com/gardener/docode/pkg/metrics"
+	//"github.com/gardener/docode/pkg/metrics"
 	"github.com/gardener/docode/pkg/processors"
 	"github.com/gardener/docode/pkg/reactor"
 	"github.com/gardener/docode/pkg/resourcehandlers"
@@ -33,17 +34,17 @@ func main() {
 	flag.Parse()
 
 	validateFlags()
-
-	var (
-		ctx = context.Background()
-		ts  = oauth2.StaticTokenSource(
-			&oauth2.Token{AccessToken: token},
-		)
-	)
+	
+	ts:= oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
+	timeout := 30 * time.Second
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
 
 	// TODO: make the client metering instrumentation optional and controlled by config
-	client := github.NewClient(metrics.InstrumentClientRoundTripperDuration(oauth2.NewClient(ctx, ts)))
-	resourcehandlers.Load(ghrs.NewResourceHandler(client))
+	// client := github.NewClient(metrics.InstrumentClientRoundTripperDuration(oauth2.NewClient(ctx, ts)))
+	client := github.NewClient(oauth2.NewClient(ctx, ts))
+	gh := ghrs.NewResourceHandler(client)
+	resourcehandlers.Load(gh)
 
 	reactor := reactor.Reactor{
 		ReplicateDocumentation: &jobs.Job{
@@ -51,7 +52,7 @@ func main() {
 			FailFast:   false,
 			Worker: &reactor.DocumentWorker{
 				Writer: &writers.FSWriter{
-					Root: "target",
+					Root: destination,
 				},
 				RdCh:      make(chan *reactor.ResourceData),
 				Reader:    &reactor.GenericReader{},
