@@ -56,7 +56,14 @@ func main() {
 				},
 				RdCh:      make(chan *reactor.ResourceData),
 				Reader:    &reactor.GenericReader{},
-				Processor: &processors.FrontMatter{},
+				Processor: &processors.ProcessorChain{
+							Processors: []processors.Processor{
+								&processors.FrontMatter{},
+								&processors.HugoProcessor{
+									PrettyUrls: true,
+								},
+							},
+				},
 			},
 		},
 		ReplicateDocResources: &jobs.Job{
