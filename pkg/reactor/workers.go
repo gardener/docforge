@@ -3,6 +3,7 @@ package reactor
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/gardener/docode/pkg/api"
@@ -32,7 +33,7 @@ type DocumentWorker struct {
 	writers.Writer
 	Reader
 	processors.Processor
-	contentProcessor *ContentProcessor
+	ContentProcessor *ContentProcessor
 	RdCh             chan *ResourceData
 }
 
@@ -81,7 +82,7 @@ func (w *DocumentWorker) Work(ctx context.Context, task interface{}) *jobs.Worke
 			return jobs.NewWorkerError(err, 0)
 		}
 
-		newBlob, err := HarvestLinks(t.Node, content.Source, path, sourceBlob, w.RdCh, w.contentProcessor)
+		newBlob, err := HarvestLinks(t.Node, content.Source, path, sourceBlob, w.RdCh, w.ContentProcessor)
 		if err != nil {
 			return jobs.NewWorkerError(err, 0)
 		}
@@ -99,7 +100,7 @@ func (w *DocumentWorker) Work(ctx context.Context, task interface{}) *jobs.Worke
 
 	// TODO: delete
 	t.Node.Properties = map[string]interface{}{
-		"name": t.Node.Name,
+		"Title": strings.Title(strings.TrimRight(t.Node.Name, ".md")),
 	}
 
 	var err error

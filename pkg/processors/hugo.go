@@ -1,14 +1,15 @@
 package processors
 
 import (
-	"fmt"
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"regexp"
 	"strings"
 
-	"github.com/gardener/docode/pkg/api"
 	"github.com/Kunde21/markdownfmt/v2/markdown"
+	"github.com/gardener/docode/pkg/api"
+
 	// "github.com/gardener/docode/pkg/resourcehandlers"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/parser"
@@ -23,7 +24,7 @@ var (
 // on document that use source format (<path>/<name>.md) to destination format
 // (<path>/<name> for sites configured for pretty URLs and <path>/<name>.html
 // for sites configured for ugly URLs)
-type HugoProcessor struct{
+type HugoProcessor struct {
 	PrettyUrls bool
 }
 
@@ -31,7 +32,7 @@ type HugoProcessor struct{
 func (f *HugoProcessor) Process(documentBlob []byte, node *api.Node) ([]byte, error) {
 	var (
 		err error
-		b bytes.Buffer
+		b   bytes.Buffer
 	)
 	p := parser.NewParser(parser.WithBlockParsers(parser.DefaultBlockParsers()...),
 		parser.WithInlineParsers(parser.DefaultInlineParsers()...),
@@ -46,6 +47,12 @@ func (f *HugoProcessor) Process(documentBlob []byte, node *api.Node) ([]byte, er
 				n.Destination = rewriteDestination(n.Destination, node)
 				return ast.WalkContinue, nil
 			}
+
+			if _node.Kind() == ast.KindImage {
+				n := _node.(*ast.Image)
+				n.Destination = rewriteDestination(n.Destination, node)
+				return ast.WalkContinue, nil
+			}
 			if _node.Kind() == ast.KindRawHTML {
 				// ?
 				n := _node.(*ast.RawHTML)
@@ -57,14 +64,14 @@ func (f *HugoProcessor) Process(documentBlob []byte, node *api.Node) ([]byte, er
 					if len(match) > 0 {
 						link := strings.Split(string(match), "=")[1]
 						// TODO: handle anchors to md files - <a href="./a/b.md">cross link</a>
-						fmt.Printf("%v\n",link)
+						fmt.Printf("%v\n", link)
 						continue
 					}
 				}
 			}
 		}
 		return ast.WalkContinue, nil
-	}); err!=nil {
+	}); err != nil {
 		return nil, err
 	}
 
@@ -72,13 +79,13 @@ func (f *HugoProcessor) Process(documentBlob []byte, node *api.Node) ([]byte, er
 	if err := renderer.Render(&b, documentBlob, doc); err != nil {
 		return nil, err
 	}
-	if documentBlob, err = ioutil.ReadAll(&b); err!=nil {
+	if documentBlob, err = ioutil.ReadAll(&b); err != nil {
 		return nil, err
 	}
 	return documentBlob, nil
 }
 
-func rewriteDestination(destination []byte, node *api.Node) []byte{
+func rewriteDestination(destination []byte, node *api.Node) []byte {
 	if len(destination) == 0 {
 		return destination
 	}
@@ -89,7 +96,7 @@ func rewriteDestination(destination []byte, node *api.Node) []byte{
 	if !strings.HasPrefix(link, "https") {
 		link = strings.TrimRight(link, ".md")
 		fmt.Printf("%s rewriting link: %s  ->  %s\n", node.Name, string(destination), link)
-		return []byte(fmt.Sprintf("%s", link))
+		return []byte(fmt.Sprintf("../%s", link))
 	}
 	return destination
 }

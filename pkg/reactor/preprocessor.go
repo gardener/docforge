@@ -42,7 +42,7 @@ func SelectContent(contentBytes []byte, selectorExpression string) ([]byte, erro
 
 // ContentProcessor ...
 type ContentProcessor struct {
-	resourceAbsLink map[string]string
+	ResourceAbsLink map[string]string
 	rwlock          sync.RWMutex
 }
 
@@ -54,12 +54,12 @@ func (c *ContentProcessor) GenerateResourceName(path string) string {
 
 	c.rwlock.Lock()
 	defer c.rwlock.Unlock()
-	if resourceName, ok = c.resourceAbsLink[path]; !ok {
+	if resourceName, ok = c.ResourceAbsLink[path]; !ok {
 		separatedSource := strings.Split(path, "/")
 		resource := separatedSource[len(separatedSource)-1]
 		resourceFileExtension := filepath.Ext(resource)
 		resourceName = uuid.New().String() + resourceFileExtension
-		c.resourceAbsLink[path] = resourceName
+		c.ResourceAbsLink[path] = resourceName
 	}
 	return resourceName
 }
@@ -80,14 +80,13 @@ func HarvestLinks(docNode *api.Node, contentSourcePath string, nodeTargetPath st
 		if entering {
 			if node.Kind() == ast.KindLink {
 				n := node.(*ast.Link)
-
 				var destination string
 				handler := resourcehandlers.Get(contentSourcePath)
 				absLink, err := handler.BuildAbsLink(contentSourcePath, string(n.Destination))
 				if err != nil {
 					return ast.WalkStop, err
 				}
-				// fmt.Println(absLink)
+
 				existingNode := tryFindNode(absLink, docNode)
 				if existingNode != nil {
 					relPathBetweenNodes := relativePath(docNode, existingNode)

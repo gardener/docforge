@@ -32,7 +32,7 @@ func TestReactorWithGitHub(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: "76262afc3723033f1f07f47425d89f93d6798f03"})
+	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: *ghToken})
 	gh := github.NewResourceHandler(githubapi.NewClient(oauth2.NewClient(ctx, ts)))
 	node := &api.Node{
 		Name: "docs",
@@ -69,13 +69,13 @@ func TestReactorWithGitHub(t *testing.T) {
 				RdCh:             make(chan *ResourceData),
 				Reader:           &GenericReader{},
 				Processor:        &processors.FrontMatter{},
-				contentProcessor: &ContentProcessor{resourceAbsLink: make(map[string]string)},
+				ContentProcessor: &ContentProcessor{ResourceAbsLink: make(map[string]string)},
 			},
 		},
 		LinkedResourceWorker: &LinkedResourceWorker{
 			Reader: &GenericReader{},
 			Writer: &writers.FSWriter{
-				Root: "target/__resources",
+				Root: "../../example/hugo/content/__resources",
 			},
 		},
 	}

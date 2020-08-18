@@ -9,6 +9,7 @@ import (
 
 	"github.com/gardener/docode/pkg/api"
 	"github.com/gardener/docode/pkg/jobs"
+
 	//"github.com/gardener/docode/pkg/metrics"
 	"github.com/gardener/docode/pkg/processors"
 	"github.com/gardener/docode/pkg/reactor"
@@ -34,8 +35,8 @@ func main() {
 	flag.Parse()
 
 	validateFlags()
-	
-	ts:= oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
+
+	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
 	timeout := 30 * time.Second
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
@@ -54,29 +55,28 @@ func main() {
 				Writer: &writers.FSWriter{
 					Root: destination,
 				},
-				RdCh:      make(chan *reactor.ResourceData),
-				Reader:    &reactor.GenericReader{},
+				RdCh:   make(chan *reactor.ResourceData),
+				Reader: &reactor.GenericReader{},
 				Processor: &processors.ProcessorChain{
-							Processors: []processors.Processor{
-								&processors.FrontMatter{},
-								&processors.HugoProcessor{
-									PrettyUrls: true,
-								},
-							},
+					Processors: []processors.Processor{
+						&processors.FrontMatter{},
+						&processors.HugoProcessor{
+							PrettyUrls: true,
+						},
+					},
 				},
+				ContentProcessor: &reactor.ContentProcessor{ResourceAbsLink: make(map[string]string)},
 			},
 		},
-		ReplicateDocResources: &jobs.Job{
-			MaxWorkers: 50,
-			FailFast:   false,
-			Worker: &reactor.LinkedResourceWorker{
-				Reader: &reactor.GenericReader{},
-				Writer: &writers.FSWriter{
-					Root: destination,
-				},
+		LinkedResourceWorker: &reactor.LinkedResourceWorker{
+			Reader: &reactor.GenericReader{},
+			Writer: &writers.FSWriter{
+				Root: destination + "/__resources",
 			},
 		},
 	}
+
+	//go run cmd/main.go -config=dev/docs.config -authToken=76262afc3723033f1f07f47425d89f93d6798f03 -destination=example/hugo/content/content
 
 	var (
 		docs *api.Documentation
