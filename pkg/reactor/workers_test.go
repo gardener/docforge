@@ -53,6 +53,9 @@ func TestDocumentWorkerWork(t *testing.T) {
 				return documentBlob, nil
 			},
 		},
+		&ContentProcessor{
+			resourceAbsLink: make(map[string]string),
+		},
 		make(chan *ResourceData),
 	}
 

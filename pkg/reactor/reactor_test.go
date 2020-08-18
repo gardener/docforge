@@ -123,8 +123,8 @@ func (f *FakeResourceHandler) Name(uri string) string {
 	return uri
 }
 
-func (f *FakeResourceHandler) ResolveRelLink(source, relLink string) (string, bool) {
-	return relLink, false
+func (f *FakeResourceHandler) BuildAbsLink(source, relLink string) (string, error) {
+	return relLink, nil
 }
 
 //       A
@@ -132,10 +132,10 @@ func (f *FakeResourceHandler) ResolveRelLink(source, relLink string) (string, bo
 //   B	     C
 //  / \	   /  \
 // D   E  F    G
-//   \
-//    I
-// 	   \
-// 	    J
+//      \
+//       I
+// 	      \
+// 	       J
 func TestPath(t *testing.T) {
 	jNode := &api.Node{
 		Name: "J",
@@ -218,8 +218,8 @@ func TestPath(t *testing.T) {
 func TestIntersect(t *testing.T) {
 	tests := []struct {
 		name     string
-		a       []*api.Node
-		b       []*api.Node
+		a        []*api.Node
+		b        []*api.Node
 		expected []*api.Node
 	}{
 		{

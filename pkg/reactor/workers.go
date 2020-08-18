@@ -3,13 +3,15 @@ package reactor
 import (
 	"context"
 	"fmt"
-	"strings"
+	"sync"
 
 	"github.com/gardener/docode/pkg/api"
 	"github.com/gardener/docode/pkg/jobs"
 	"github.com/gardener/docode/pkg/processors"
 	"github.com/gardener/docode/pkg/resourcehandlers"
+	utilnode "github.com/gardener/docode/pkg/util/node"
 	"github.com/gardener/docode/pkg/writers"
+	"github.com/prometheus/common/log"
 )
 
 // Reader reads the bytes data from a given source URI
@@ -30,7 +32,8 @@ type DocumentWorker struct {
 	writers.Writer
 	Reader
 	processors.Processor
-	RdCh chan *ResourceData
+	contentProcessor *ContentProcessor
+	RdCh             chan *ResourceData
 }
 
 // DocumentWorkTask implements jobs#Task
@@ -63,16 +66,11 @@ func (w *DocumentWorker) Work(ctx context.Context, task interface{}) *jobs.Worke
 	if len(t.Node.ContentSelectors) <= 0 {
 		return nil
 	}
+
 	// pass docBlob to plugin processors
-	var pathSegments []string
-	for _, parent := range t.Node.Parents() {
-		if parent.Name != "" {
-			pathSegments = append(pathSegments, parent.Name)
-		}
-	}
+	path := utilnode.NodePath(t.Node, "/")
 
 	// Write the document content
-	path := strings.Join(pathSegments, "/")
 	blobs := make(map[string][]byte)
 	for _, content := range t.Node.ContentSelectors {
 		sourceBlob, err := w.Reader.Read(ctx, content.Source)
@@ -83,11 +81,11 @@ func (w *DocumentWorker) Work(ctx context.Context, task interface{}) *jobs.Worke
 			return jobs.NewWorkerError(err, 0)
 		}
 
-		sourceBlob, err = HarvestLinks(content.Source, path, sourceBlob, w.RdCh)
+		newBlob, err := HarvestLinks(t.Node, content.Source, path, sourceBlob, w.RdCh, w.contentProcessor)
 		if err != nil {
 			return jobs.NewWorkerError(err, 0)
 		}
-		blobs[content.Source] = sourceBlob
+		blobs[content.Source] = newBlob
 	}
 
 	if len(blobs) == 0 {
@@ -119,23 +117,44 @@ func (w *DocumentWorker) Work(ctx context.Context, task interface{}) *jobs.Worke
 type LinkedResourceWorker struct {
 	writers.Writer
 	Reader
+
+	downloadedResources map[string]struct{}
+	rwlock              sync.RWMutex
 }
 
 // Work reads a single source and writes it to its target
-func (r *LinkedResourceWorker) Work(ctx context.Context, task interface{}) *jobs.WorkerError {
-	if t, ok := task.(*ResourceData); ok {
-		blob, err := r.Reader.Read(ctx, t.Source)
-		if err != nil {
-			return jobs.NewWorkerError(err, 1)
-		}
-
-		p := strings.Split(t.OriginalPath, "/")
-		fileName := p[len(p)-1]
-		filepath := strings.Join(p[:len(p)-1], "/")
-		filepath = t.NodeTargetPath + "/" + filepath
-		if err := r.Writer.Write(fileName, filepath, blob); err != nil {
-			return jobs.NewWorkerError(err, 1)
-		}
+func (r *LinkedResourceWorker) Work(ctx context.Context, rd *ResourceData) *jobs.WorkerError {
+	if r.downloaded(rd) {
+		return nil
 	}
+
+	blob, err := r.Reader.Read(ctx, rd.Source)
+	if err != nil {
+		log.Error(err)
+		return jobs.NewWorkerError(err, 1)
+	}
+
+	// p := strings.Split(rd.OriginalPath, "/")
+	// fileName := p[len(p)-1]
+	// filepath := strings.Join(p[:len(p)-1], "/")
+	// filepath = rd.NodeTargetPath + "/" + filepath
+	if err := r.Writer.Write(rd.NodeTargetPath, "", blob); err != nil {
+		log.Error(err)
+		return jobs.NewWorkerError(err, 1)
+	}
+
+	r.rwlock.Lock()
+	defer r.rwlock.Unlock()
+	if r.downloadedResources == nil {
+		r.downloadedResources = make(map[string]struct{})
+	}
+	r.downloadedResources[rd.Source] = struct{}{}
 	return nil
+}
+
+func (r *LinkedResourceWorker) downloaded(rd *ResourceData) bool {
+	r.rwlock.Lock()
+	defer r.rwlock.Unlock()
+	_, ok := r.downloadedResources[rd.Source]
+	return ok
 }

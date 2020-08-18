@@ -4,10 +4,13 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/Kunde21/markdownfmt/v2/markdown"
+	"github.com/google/uuid"
 
 	"github.com/gardener/docode/pkg/api"
 	"github.com/gardener/docode/pkg/resourcehandlers"
@@ -37,11 +40,34 @@ func SelectContent(contentBytes []byte, selectorExpression string) ([]byte, erro
 	return contentBytes, nil
 }
 
+// ContentProcessor ...
+type ContentProcessor struct {
+	resourceAbsLink map[string]string
+	rwlock          sync.RWMutex
+}
+
+func (c *ContentProcessor) GenerateResourceName(path string) string {
+	var (
+		ok           bool
+		resourceName string
+	)
+
+	c.rwlock.Lock()
+	defer c.rwlock.Unlock()
+	if resourceName, ok = c.resourceAbsLink[path]; !ok {
+		separatedSource := strings.Split(path, "/")
+		resource := separatedSource[len(separatedSource)-1]
+		resourceFileExtension := filepath.Ext(resource)
+		resourceName = uuid.New().String() + resourceFileExtension
+		c.resourceAbsLink[path] = resourceName
+	}
+	return resourceName
+}
+
 // HarvestLinks TODO:
-func HarvestLinks(contentSourcePath string, nodeTargetPath string, contentBytes []byte, rdCh chan *ResourceData) ([]byte, error) {
+func HarvestLinks(docNode *api.Node, contentSourcePath string, nodeTargetPath string, contentBytes []byte, rdCh chan *ResourceData, c *ContentProcessor) ([]byte, error) {
 	// TODO: harvest links from this contentBytes
 	// and resolve them to downloadable addresses and serialization targets
-	var b bytes.Buffer
 	p := parser.NewParser(parser.WithBlockParsers(parser.DefaultBlockParsers()...),
 		parser.WithInlineParsers(parser.DefaultInlineParsers()...),
 		parser.WithParagraphTransformers(parser.DefaultParagraphTransformers()...),
@@ -54,31 +80,61 @@ func HarvestLinks(contentSourcePath string, nodeTargetPath string, contentBytes 
 		if entering {
 			if node.Kind() == ast.KindLink {
 				n := node.(*ast.Link)
+
+				var destination string
 				handler := resourcehandlers.Get(contentSourcePath)
-				absLink, rewrite := handler.ResolveRelLink(contentSourcePath, string(n.Destination))
-				if absLink != "" && !rewrite {
+				absLink, err := handler.BuildAbsLink(contentSourcePath, string(n.Destination))
+				if err != nil {
+					return ast.WalkStop, err
+				}
+				// fmt.Println(absLink)
+				existingNode := tryFindNode(absLink, docNode)
+				if existingNode != nil {
+					relPathBetweenNodes := relativePath(docNode, existingNode)
+					n.Destination = []byte(relPathBetweenNodes)
+					return ast.WalkContinue, nil
+				}
+
+				destination = absLink
+				if absLink != "" && downloadLinkedResource(contentSourcePath, absLink) {
+					resourceName := c.GenerateResourceName(absLink)
+					destination = buildDestination(docNode, resourceName)
 					rdCh <- &ResourceData{
 						OriginalPath:   string(n.Destination),
 						Source:         absLink,
-						NodeTargetPath: nodeTargetPath,
+						NodeTargetPath: resourceName,
 					}
-					return ast.WalkContinue, nil
 				}
-				n.Destination = []byte(absLink)
+				n.Destination = []byte(destination)
+				return ast.WalkContinue, nil
 			}
 			if node.Kind() == ast.KindImage {
 				n := node.(*ast.Image)
-				handler := resourcehandlers.Get(contentSourcePath)
-				absLink, rewrite := handler.ResolveRelLink(contentSourcePath, string(n.Destination))
-				if absLink != "" && !rewrite {
-					rdCh <- &ResourceData{
-						NodeTargetPath: nodeTargetPath,
-						OriginalPath:   string(n.Destination),
-						Source:         absLink,
-					}
+				existingNode := tryFindNode(string(n.Destination), docNode)
+				if existingNode != nil {
+					relPathBetweenNodes := relativePath(docNode, existingNode)
+					n.Destination = []byte(relPathBetweenNodes)
 					return ast.WalkContinue, nil
 				}
-				n.Destination = []byte(absLink)
+				var destination string
+				handler := resourcehandlers.Get(contentSourcePath)
+				absLink, err := handler.BuildAbsLink(contentSourcePath, string(n.Destination))
+				if err != nil {
+					return ast.WalkStop, err
+				}
+
+				destination = absLink
+				if absLink != "" && downloadLinkedResource(contentSourcePath, absLink) {
+					resourceName := c.GenerateResourceName(absLink)
+					destination = buildDestination(docNode, resourceName)
+					rdCh <- &ResourceData{
+						OriginalPath:   string(n.Destination),
+						Source:         absLink,
+						NodeTargetPath: resourceName,
+					}
+				}
+				n.Destination = []byte(destination)
+				return ast.WalkContinue, nil
 			}
 			if node.Kind() == ast.KindRawHTML {
 				n := node.(*ast.RawHTML)
@@ -115,10 +171,80 @@ func HarvestLinks(contentSourcePath string, nodeTargetPath string, contentBytes 
 		fmt.Printf("%v", err)
 	}
 
+	var b bytes.Buffer
 	renderer := markdown.NewRenderer()
 	if err := renderer.Render(&b, contentBytes, doc); err != nil {
 		return nil, err
 	}
 
-	return ioutil.ReadAll(&b)
+	content, err := ioutil.ReadAll(&b)
+	if err != nil {
+		return nil, err
+	}
+
+	return content, nil
+}
+
+func downloadLinkedResource(contentSourceLink, absLink string) bool {
+	separatedContentSourceLink := strings.Split(contentSourceLink, "/")
+	var docsPostion int
+	for i, path := range separatedContentSourceLink {
+		if path == "docs" {
+			docsPostion = i
+			break
+		}
+	}
+
+	separatedAbsLink := strings.Split(absLink, "/")
+
+	return len(separatedAbsLink) >= docsPostion+1 && separatedAbsLink[docsPostion] == "docs"
+}
+
+func buildDestination(docNode *api.Node, resourceName string) string {
+	resourceRelPath := "__resources/" + resourceName
+	parentsSize := len(docNode.Parents())
+	for ; parentsSize > 0; parentsSize-- {
+		resourceRelPath = "../" + resourceRelPath
+	}
+	return resourceRelPath
+}
+
+func tryFindNode(nodeContentSource string, node *api.Node) *api.Node {
+	if node == nil {
+		return nil
+	}
+
+	for _, contentSelector := range node.ContentSelectors {
+		if contentSelector.Source == nodeContentSource {
+			return node
+		}
+	}
+
+	return withMatchinContentSelectorSource(nodeContentSource, getRootNode(node))
+}
+
+func withMatchinContentSelectorSource(nodeContentSource string, node *api.Node) *api.Node {
+	for _, contentSelector := range node.ContentSelectors {
+		if contentSelector.Source == nodeContentSource {
+			return node
+		}
+	}
+
+	for i := range node.Nodes {
+		foundNode := withMatchinContentSelectorSource(nodeContentSource, node.Nodes[i])
+		if foundNode != nil {
+			return foundNode
+		}
+	}
+
+	return nil
+}
+
+func getRootNode(node *api.Node) *api.Node {
+	if node == nil {
+		return nil
+	}
+
+	parentNodes := node.Parents()
+	return parentNodes[0]
 }

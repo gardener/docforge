@@ -3,8 +3,10 @@ package reactor
 import (
 	"context"
 	"fmt"
+
 	// "reflect"
 	"strings"
+	"sync"
 
 	"github.com/gardener/docode/pkg/api"
 	"github.com/gardener/docode/pkg/jobs"
@@ -14,7 +16,7 @@ import (
 // Reactor orchestrates the documentation build workflow
 type Reactor struct {
 	ReplicateDocumentation *jobs.Job
-	ReplicateDocResources  *jobs.Job
+	LinkedResourceWorker   *LinkedResourceWorker
 }
 
 // Resolve builds the subnodes hierarchy of a node based on the natural nodes
@@ -49,17 +51,20 @@ func (r *Reactor) Run(ctx context.Context, docStruct *api.Documentation) error {
 		return err
 	}
 
-	// doc, _ := yaml.Marshal(docStruct.Root)
 	docCtx, cancelF := context.WithCancel(ctx)
 	errCh := make(chan error)
 	go r.replicateDocumentation(docCtx, cancelF, docStruct.Root, errCh)
 
-	resoucesData := make(map[string]*ResourceData)
+	var wg sync.WaitGroup
 	docWorker := r.ReplicateDocumentation.Worker.(*DocumentWorker)
 	for working := true; working; {
 		select {
 		case rd := <-docWorker.RdCh:
-			resoucesData[rd.Source] = rd
+			go func(ctx context.Context, wg *sync.WaitGroup) {
+				wg.Add(1)
+				r.LinkedResourceWorker.Work(ctx, rd)
+				defer wg.Done()
+			}(ctx, &wg)
 		case <-docCtx.Done():
 			working = false
 		case err := <-errCh:
@@ -67,15 +72,7 @@ func (r *Reactor) Run(ctx context.Context, docStruct *api.Documentation) error {
 		}
 	}
 
-	tasks := make([]interface{}, 0, len(resoucesData))
-	for _, t := range resoucesData {
-		tasks = append(tasks, t)
-	}
-
-	if err := r.ReplicateDocResources.Dispatch(ctx, tasks); err != nil {
-		return err
-	}
-
+	wg.Wait()
 	return nil
 }
 
@@ -115,8 +112,8 @@ func relativePath(from, to *api.Node) string {
 	if intersection := intersect(fromPathToRoot, toPathToRoot); len(intersection) > 0 {
 		// to is descendant
 		if intersection[len(intersection)-1] == from {
-			toPathToRoot = toPathToRoot[(len(intersection)-1):]
-			s:= []string{}
+			toPathToRoot = toPathToRoot[(len(intersection) - 1):]
+			s := []string{}
 			for _, n := range toPathToRoot {
 				s = append(s, n.Name)
 			}
@@ -125,19 +122,21 @@ func relativePath(from, to *api.Node) string {
 		}
 		// to is ancestor
 		if intersection[len(intersection)-1] == to {
-			fromPathToRoot = fromPathToRoot[(len(intersection)-1):]
-			s:= []string{}
-			for _ = range toPathToRoot {
+			fromPathToRoot = fromPathToRoot[(len(intersection) - 1):]
+			s := []string{}
+			for range toPathToRoot {
 				s = append(s, "..")
 			}
 			s[len(s)-1] = fromPathToRoot[0].Name
 			return strings.Join(s, "/")
 		}
-		fromPathToRoot = fromPathToRoot[(len(intersection)-1):]
-		s:= []string{}
-		for _ = range toPathToRoot {
+
+		fromPathToRoot = fromPathToRoot[(len(intersection) - 1):]
+		s := []string{}
+		for i := 0; i <= len(fromPathToRoot)-len(toPathToRoot); i++ {
 			s = append(s, "..")
 		}
+
 		// to is on another branch
 		toPathToRoot = toPathToRoot[len(intersection):]
 		for _, n := range toPathToRoot {

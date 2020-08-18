@@ -6,6 +6,7 @@ require (
 	github.com/Kunde21/markdownfmt/v2 v2.0.2
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/google/go-github/v32 v32.1.0
+	github.com/google/uuid v1.1.1
 	github.com/hashicorp/go-multierror v1.1.0
 	github.com/howeyc/fsnotify v0.9.0
 	github.com/kr/text v0.2.0 // indirect
@@ -13,6 +14,8 @@ require (
 	github.com/onsi/ginkgo v1.14.0
 	github.com/onsi/gomega v1.10.1
 	github.com/prometheus/client_golang v1.7.1
+	github.com/prometheus/common v0.10.0
+	github.com/shurcooL/sanitized_anchor_name v1.0.0 // indirect
 	github.com/stretchr/testify v1.4.0
 	github.com/yuin/goldmark v1.2.1
 	golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550 // indirect

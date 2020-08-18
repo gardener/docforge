@@ -343,23 +343,23 @@ func (gh *GitHub) Name(uri string) string {
 	return ""
 }
 
-// ResolveRelLink
-func (gh *GitHub) ResolveRelLink(source, link string) (relLink string, rewrite bool) {
-	if strings.HasPrefix(link, "#") || strings.HasPrefix(link, "https://") || strings.HasPrefix(link, "http://") {
-		return
+// BuildAbsLink builds the abs link from the source and the relative path
+func (gh *GitHub) BuildAbsLink(source, relPath string) (absLink string, err error) {
+	if strings.HasPrefix(relPath, "#") || strings.HasPrefix(relPath, "https://") || strings.HasPrefix(relPath, "http://") {
+		return relPath, nil
 	}
+
 	lastSepIndex := strings.LastIndex(source, "/")
 	source = source[:lastSepIndex]
 
-	upLevels := strings.Count(link, "../")
-	rewrite = upLevels > 0
+	upLevels := strings.Count(relPath, "../")
 	for ; upLevels > 0; upLevels-- {
-		link = strings.TrimLeft(link, "../")
+		relPath = strings.TrimLeft(relPath, "../")
 		sourceLastSep := strings.LastIndex(source, "/")
 		sunes := []rune(source)
 		source = string(sunes[:sourceLastSep])
 	}
 
-	relLink = source + "/" + link
+	absLink = source + "/" + relPath
 	return
 }

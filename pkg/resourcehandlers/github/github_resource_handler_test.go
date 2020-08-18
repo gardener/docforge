@@ -399,7 +399,7 @@ func TestGitHub_ResolveRelLink(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			gh := &GitHub{}
-			if gotRelLink, _ := gh.ResolveRelLink(tt.args.source, tt.args.link); gotRelLink != tt.wantRelLink {
+			if gotRelLink, _ := gh.BuildAbsLink(tt.args.source, tt.args.link); gotRelLink != tt.wantRelLink {
 				t.Errorf("GitHub.ResolveRelLink() = %v, want %v", gotRelLink, tt.wantRelLink)
 			}
 		})
