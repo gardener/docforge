@@ -176,12 +176,7 @@ func HarvestLinks(docNode *api.Node, contentSourcePath string, nodeTargetPath st
 		return nil, err
 	}
 
-	content, err := ioutil.ReadAll(&b)
-	if err != nil {
-		return nil, err
-	}
-
-	return content, nil
+	return ioutil.ReadAll(&b)
 }
 
 func downloadLinkedResource(contentSourceLink, absLink string) bool {

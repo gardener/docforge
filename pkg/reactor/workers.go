@@ -135,10 +135,6 @@ func (r *LinkedResourceWorker) Work(ctx context.Context, rd *ResourceData) *jobs
 		return jobs.NewWorkerError(err, 1)
 	}
 
-	// p := strings.Split(rd.OriginalPath, "/")
-	// fileName := p[len(p)-1]
-	// filepath := strings.Join(p[:len(p)-1], "/")
-	// filepath = rd.NodeTargetPath + "/" + filepath
 	if err := r.Writer.Write(rd.NodeTargetPath, "", blob); err != nil {
 		log.Error(err)
 		return jobs.NewWorkerError(err, 1)
