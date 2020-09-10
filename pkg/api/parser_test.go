@@ -113,3 +113,34 @@ func TestSerialize(t *testing.T) {
 		// }
 	}
 }
+
+func TestMe(t *testing.T) {
+	d:=	&Documentation {
+		Root: &Node{
+			Name: "docs",
+			NodeSelector: &NodeSelector{
+				Path: "https://github.com/gardener/gardener/tree/master/docs",
+			},
+			Nodes: []*Node{
+				{
+					Name: "calico",
+					NodeSelector: &NodeSelector{
+						Path: "https://github.com/gardener/gardener-extension-networking-calico/tree/master/docs",
+					},
+				},
+				{
+					Name: "aws",
+					NodeSelector: &NodeSelector{
+						Path: "https://github.com/gardener/gardener-extension-provider-aws/tree/master/docs",
+					},
+				},
+			},
+		},
+	}
+	got, err := Serialize(d)
+	fmt.Printf("%v\n", got)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+}
