@@ -11,12 +11,14 @@ import (
 	"github.com/gardener/docode/pkg/api"
 	"github.com/gardener/docode/pkg/jobs"
 	"github.com/gardener/docode/pkg/resourcehandlers"
+	"gopkg.in/yaml.v3"
 )
 
 // Reactor orchestrates the documentation build workflow
 type Reactor struct {
 	ReplicateDocumentation *jobs.Job
 	LinkedResourceWorker   *LinkedResourceWorker
+	localityDomain         LocalityDomain
 }
 
 // Resolve builds the subnodes hierarchy of a node based on the natural nodes
@@ -47,7 +49,21 @@ func (r *Reactor) Resolve(ctx context.Context, node *api.Node) error {
 
 // Run TODO:
 func (r *Reactor) Run(ctx context.Context, docStruct *api.Documentation) error {
+	var err error
 	if err := r.Resolve(ctx, docStruct.Root); err != nil {
+		return err
+	}
+
+	r.localityDomain = docStruct.LocalityDomain
+	if r.localityDomain == nil || len(r.localityDomain) == 0 {
+		if r.localityDomain, err = defineLocalityDomains(docStruct.Root); err != nil {
+			return err
+		}
+		docStruct.LocalityDomain = r.localityDomain
+	}
+
+	docResult, err := yaml.Marshal(docStruct)
+	if err != nil {
 		return err
 	}
 
@@ -57,6 +73,7 @@ func (r *Reactor) Run(ctx context.Context, docStruct *api.Documentation) error {
 
 	var wg sync.WaitGroup
 	docWorker := r.ReplicateDocumentation.Worker.(*DocumentWorker)
+	docWorker.Writer.Write("docResult.yaml", "", docResult)
 	for working := true; working; {
 		select {
 		case rd := <-docWorker.RdCh:
@@ -76,16 +93,17 @@ func (r *Reactor) Run(ctx context.Context, docStruct *api.Documentation) error {
 	return nil
 }
 
-func tasks(node *api.Node, t *[]interface{}) {
+func tasks(node *api.Node, t *[]interface{}, ld LocalityDomain) {
 	n := node
 	if len(n.ContentSelectors) > 0 {
 		*t = append(*t, &DocumentWorkTask{
-			Node: n,
+			Node:           n,
+			LocalityDomain: ld,
 		})
 	}
 	if node.Nodes != nil {
 		for _, n := range node.Nodes {
-			tasks(n, t)
+			tasks(n, t, ld)
 		}
 	}
 }
@@ -93,7 +111,7 @@ func tasks(node *api.Node, t *[]interface{}) {
 func (r *Reactor) replicateDocumentation(ctx context.Context, cancelF context.CancelFunc, documentation *api.Node, errCh chan error) {
 	defer cancelF()
 	documentPullTasks := make([]interface{}, 0)
-	tasks(documentation, &documentPullTasks)
+	tasks(documentation, &documentPullTasks, r.localityDomain)
 	if err := r.ReplicateDocumentation.Dispatch(ctx, documentPullTasks); err != nil {
 		errCh <- err
 	}

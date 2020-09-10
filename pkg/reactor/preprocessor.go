@@ -65,7 +65,7 @@ func (c *ContentProcessor) GenerateResourceName(path string) string {
 }
 
 // HarvestLinks TODO:
-func HarvestLinks(docNode *api.Node, contentSourcePath string, nodeTargetPath string, contentBytes []byte, rdCh chan *ResourceData, c *ContentProcessor) ([]byte, error) {
+func HarvestLinks(docNode *api.Node, contentSourcePath string, nodeTargetPath string, contentBytes []byte, rdCh chan *ResourceData, c *ContentProcessor, localityDomain LocalityDomain) ([]byte, error) {
 	// TODO: harvest links from this contentBytes
 	// and resolve them to downloadable addresses and serialization targets
 	p := parser.NewParser(parser.WithBlockParsers(parser.DefaultBlockParsers()...),
@@ -80,22 +80,37 @@ func HarvestLinks(docNode *api.Node, contentSourcePath string, nodeTargetPath st
 		if entering {
 			if node.Kind() == ast.KindLink {
 				n := node.(*ast.Link)
-				var destination string
-				handler := resourcehandlers.Get(contentSourcePath)
-				absLink, err := handler.BuildAbsLink(contentSourcePath, string(n.Destination))
-				if err != nil {
-					return ast.WalkStop, err
-				}
-
-				existingNode := tryFindNode(absLink, docNode)
-				if existingNode != nil {
-					relPathBetweenNodes := relativePath(docNode, existingNode)
-					n.Destination = []byte(relPathBetweenNodes)
+				if strings.HasPrefix(contentSourcePath, "#") {
 					return ast.WalkContinue, nil
 				}
 
-				destination = absLink
-				if absLink != "" && downloadLinkedResource(contentSourcePath, absLink) {
+				handler := resourcehandlers.Get(contentSourcePath)
+				absLink, err := handler.BuildAbsLink(contentSourcePath, string(n.Destination))
+				if err != nil {
+					return ast.WalkContinue, err
+				}
+
+				if strings.HasSuffix(absLink, ".md") {
+					existingNode := tryFindNode(absLink, docNode)
+					if existingNode != nil {
+						relPathBetweenNodes := relativePath(docNode, existingNode)
+						n.Destination = []byte(relPathBetweenNodes)
+					}
+					return ast.WalkContinue, nil
+				}
+
+				destination := absLink
+				ldHandler := resourcehandlers.Get(absLink)
+				if ldHandler == nil {
+					return ast.WalkContinue, nil
+				}
+
+				key, path, err := ldHandler.GetLocalityDomainCandidate(absLink)
+				if err != nil {
+					return ast.WalkContinue, err
+				}
+
+				if absLink != "" && localityDomain.PathInLocality(key, path) {
 					resourceName := c.GenerateResourceName(absLink)
 					destination = buildDestination(docNode, resourceName)
 					rdCh <- &ResourceData{
@@ -109,12 +124,6 @@ func HarvestLinks(docNode *api.Node, contentSourcePath string, nodeTargetPath st
 			}
 			if node.Kind() == ast.KindImage {
 				n := node.(*ast.Image)
-				existingNode := tryFindNode(string(n.Destination), docNode)
-				if existingNode != nil {
-					relPathBetweenNodes := relativePath(docNode, existingNode)
-					n.Destination = []byte(relPathBetweenNodes)
-					return ast.WalkContinue, nil
-				}
 				var destination string
 				handler := resourcehandlers.Get(contentSourcePath)
 				absLink, err := handler.BuildAbsLink(contentSourcePath, string(n.Destination))
@@ -123,7 +132,13 @@ func HarvestLinks(docNode *api.Node, contentSourcePath string, nodeTargetPath st
 				}
 
 				destination = absLink
-				if absLink != "" && downloadLinkedResource(contentSourcePath, absLink) {
+				key, path, err := handler.GetLocalityDomainCandidate(absLink)
+				if err != nil {
+					// TODO: Should we actually stop if there is an error
+					return ast.WalkStop, err
+				}
+
+				if absLink != "" && localityDomain.PathInLocality(key, path) {
 					resourceName := c.GenerateResourceName(absLink)
 					destination = buildDestination(docNode, resourceName)
 					rdCh <- &ResourceData{
@@ -179,21 +194,6 @@ func HarvestLinks(docNode *api.Node, contentSourcePath string, nodeTargetPath st
 	return ioutil.ReadAll(&b)
 }
 
-func downloadLinkedResource(contentSourceLink, absLink string) bool {
-	separatedContentSourceLink := strings.Split(contentSourceLink, "/")
-	var docsPostion int
-	for i, path := range separatedContentSourceLink {
-		if path == "docs" {
-			docsPostion = i
-			break
-		}
-	}
-
-	separatedAbsLink := strings.Split(absLink, "/")
-
-	return len(separatedAbsLink) >= docsPostion+1 && separatedAbsLink[docsPostion] == "docs"
-}
-
 func buildDestination(docNode *api.Node, resourceName string) string {
 	resourceRelPath := "__resources/" + resourceName
 	parentsSize := len(docNode.Parents())
@@ -218,6 +218,9 @@ func tryFindNode(nodeContentSource string, node *api.Node) *api.Node {
 }
 
 func withMatchinContentSelectorSource(nodeContentSource string, node *api.Node) *api.Node {
+	if node == nil {
+		return nil
+	}
 	for _, contentSelector := range node.ContentSelectors {
 		if contentSelector.Source == nodeContentSource {
 			return node
@@ -240,5 +243,8 @@ func getRootNode(node *api.Node) *api.Node {
 	}
 
 	parentNodes := node.Parents()
+	if len(parentNodes) <= 0 {
+		return nil
+	}
 	return parentNodes[0]
 }

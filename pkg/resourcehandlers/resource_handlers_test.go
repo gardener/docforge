@@ -34,6 +34,9 @@ func (rh *TestResourceHandler) Name(uri string) string {
 func (rh *TestResourceHandler) BuildAbsLink(source, relLink string) (string, error) {
 	return relLink, nil
 }
+func (rh *TestResourceHandler) GetLocalityDomainCandidate(source string) (string, string, error) {
+	return source, source, nil
+}
 
 func TestGet(t *testing.T) {
 	nonAcceptingHandler := &TestResourceHandler{

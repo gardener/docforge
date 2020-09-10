@@ -41,6 +41,8 @@ func (p *TestProcessor) Process(documentBlob []byte, node *api.Node) ([]byte, er
 }
 
 func TestDocumentWorkerWork(t *testing.T) {
+	testOutput := "#Heading 1"
+
 	testworker := &DocumentWorker{
 		&TestWriter{
 			make(map[string][]byte),
@@ -68,21 +70,22 @@ func TestDocumentWorkerWork(t *testing.T) {
 		expectederror        *jobs.WorkerError
 	}{
 		{
-			"it reads source, processes and writes it",
-			&DocumentWorkTask{
+			name: "it reads source, processes and writes it",
+			tasks: &DocumentWorkTask{
 				&api.Node{
 					Name:             "sourcemd",
 					ContentSelectors: []api.ContentSelector{{Source: "testsource"}},
 				},
+				LocalityDomain{},
 			},
-			map[string][]byte{
-				"testsource": []byte("#Heading 1"),
+			readerInput: map[string][]byte{
+				"testsource": []byte(testOutput),
 			},
-			nil,
-			map[string][]byte{
-				"/sourcemd": []byte("#Heading 1"),
+			processorCb: nil,
+			expectedWriterOutput: map[string][]byte{
+				"/sourcemd": []byte(testOutput),
 			},
-			nil,
+			expectederror: nil,
 		},
 	}
 	for _, tc := range testCases {

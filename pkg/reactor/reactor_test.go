@@ -59,9 +59,9 @@ var (
 
 func Test_tasks(t *testing.T) {
 	type args struct {
-		node   *api.Node
-		parent *api.Node
-		tasks  []interface{}
+		node  *api.Node
+		tasks []interface{}
+		lds   LocalityDomain
 	}
 	tests := []struct {
 		name          string
@@ -71,9 +71,8 @@ func Test_tasks(t *testing.T) {
 		{
 			name: "it creates tasks based on the provided doc",
 			args: args{
-				node:   documentation.Root,
-				parent: nil,
-				tasks:  []interface{}{},
+				node:  documentation.Root,
+				tasks: []interface{}{},
 			},
 			expectedTasks: []interface{}{
 				&DocumentWorkTask{
@@ -97,7 +96,7 @@ func Test_tasks(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			resourcehandlers.Load(&FakeResourceHandler{})
-			tasks(tc.args.node, &tc.args.tasks)
+			tasks(tc.args.node, &tc.args.tasks, LocalityDomain{})
 			if !reflect.DeepEqual(tc.args.tasks, tc.expectedTasks) {
 				t.Errorf("expected tasks %v !=  %v", tc.expectedTasks, tc.args.tasks)
 			}
@@ -125,6 +124,10 @@ func (f *FakeResourceHandler) Name(uri string) string {
 
 func (f *FakeResourceHandler) BuildAbsLink(source, relLink string) (string, error) {
 	return relLink, nil
+}
+
+func (f *FakeResourceHandler) GetLocalityDomainCandidate(source string) (string, string, error) {
+	return source, source, nil
 }
 
 //       A

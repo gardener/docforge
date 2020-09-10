@@ -405,3 +405,84 @@ func TestGitHub_ResolveRelLink(t *testing.T) {
 		})
 	}
 }
+
+func Test_LocalityDomainKeyFromGitHubURL(t *testing.T) {
+	type args struct {
+		url *url.URL
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "Should return key as expected when path begins with /",
+			args: args{
+				&url.URL{
+					Host: "github.com",
+					Path: "/org/repo/tree/master/docs/",
+				},
+			},
+			want: "github.com/org/repo",
+		},
+		{
+			name: "Should return key as expected",
+			args: args{
+				&url.URL{
+					Host: "github.com",
+					Path: "org/repo/tree/master/docs/",
+				},
+			},
+			want: "github.com/org/repo",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := localityDomainKeyFromGitHubURL(tt.args.url); got != tt.want {
+				t.Errorf("localityDomainKey() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_clearTreeOrBlobFromPath(t *testing.T) {
+
+	tests := []struct {
+		name string
+		path string
+		want string
+	}{
+		{
+			name: "without_prefix",
+			path: "gardener/gardener/tree/master/tree/blob.md",
+			want: "gardener/gardener/master/tree/blob.md",
+		},
+		{
+			name: "prefix",
+			path: "/gardener/gardener/tree/master/tree/blob.md",
+			want: "/gardener/gardener/master/tree/blob.md",
+		},
+		{
+			name: "short",
+			path: "gardener/gardener",
+			want: "gardener/gardener",
+		},
+		{
+			name: "",
+			path: "/gardener/gardener/tree/master",
+			want: "/gardener/gardener/master",
+		},
+		{
+			name: "one_element",
+			path: "/gardener",
+			want: "/gardener",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := clearTreeOrBlobFromPath(tt.path); got != tt.want {
+				t.Errorf("clearTreeOrBlobFromPath() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

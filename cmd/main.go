@@ -24,6 +24,7 @@ var (
 	configPath  string
 	token       string
 	destination string
+	timeout     int
 )
 
 func main() {
@@ -31,14 +32,15 @@ func main() {
 	flag.StringVar(&configPath, "config", "", "path to configuration file")
 	flag.StringVar(&destination, "destination", "", "path to write documentaiton bundle to")
 	flag.StringVar(&token, "authToken", "", "the authentication token used for GitHub OAuth")
+	flag.IntVar(&timeout, "timeout", 50, "timeout for replicating")
 
 	flag.Parse()
 
 	validateFlags()
 
 	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
-	timeout := 30 * time.Second
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	t := time.Duration(timeout) * time.Second
+	ctx, cancel := context.WithTimeout(context.Background(), t)
 	defer cancel()
 
 	// TODO: make the client metering instrumentation optional and controlled by config
@@ -49,7 +51,7 @@ func main() {
 
 	reactor := reactor.Reactor{
 		ReplicateDocumentation: &jobs.Job{
-			MaxWorkers: 50,
+			MaxWorkers: 75,
 			FailFast:   false,
 			Worker: &reactor.DocumentWorker{
 				Writer: &writers.FSWriter{
@@ -75,8 +77,6 @@ func main() {
 			},
 		},
 	}
-
-	//go run cmd/main.go -config=dev/docs.config -authToken=76262afc3723033f1f07f47425d89f93d6798f03 -destination=example/hugo/content/content
 
 	var (
 		docs *api.Documentation

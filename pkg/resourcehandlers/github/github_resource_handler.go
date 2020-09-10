@@ -345,7 +345,7 @@ func (gh *GitHub) Name(uri string) string {
 
 // BuildAbsLink builds the abs link from the source and the relative path
 func (gh *GitHub) BuildAbsLink(source, relPath string) (absLink string, err error) {
-	if strings.HasPrefix(relPath, "#") || strings.HasPrefix(relPath, "https://") || strings.HasPrefix(relPath, "http://") {
+	if strings.HasPrefix(relPath, "https://") || strings.HasPrefix(relPath, "http://") {
 		return relPath, nil
 	}
 
@@ -362,4 +362,63 @@ func (gh *GitHub) BuildAbsLink(source, relPath string) (absLink string, err erro
 
 	absLink = source + "/" + relPath
 	return
+}
+
+// GetLocalityDomainCandidate returns the provided source as locality domain candidate
+func (gh *GitHub) GetLocalityDomainCandidate(source string) (key, path string, err error) {
+	fmt.Println("get locality domain for", source)
+	u, err := url.Parse(source)
+	if err != nil {
+		return
+	}
+
+	key = localityDomainKeyFromGitHubURL(u)
+	path = clearTreeOrBlobFromPath(u.Path)
+	return
+}
+
+func localityDomainKeyFromGitHubURL(url *url.URL) string {
+	var path = url.Path
+	if len(path) <= 0 {
+		return ""
+	}
+
+	if strings.HasPrefix(path, "/") {
+		path = strings.TrimLeft(path, "/")
+	}
+
+	urlPathSegments := strings.Split(path, "/")
+	if len(urlPathSegments) < 3 {
+		return ""
+	}
+
+	urlPathSegments = urlPathSegments[:2]
+	urlPathSegments = append([]string{url.Host}, urlPathSegments...)
+	return strings.Join(urlPathSegments, "/")
+}
+
+func clearTreeOrBlobFromPath(path string) string {
+	hasSepPrefix := path[0] == '/'
+
+	if !hasSepPrefix {
+		path = "/" + path
+	}
+
+	pathSegments := strings.Split(path, "/")
+	if len(pathSegments) < 3 {
+		return path
+	}
+
+	if len(pathSegments) == 3 {
+		return strings.Join(pathSegments[:3], "/")
+	}
+
+	var p []string
+	p = append(p, pathSegments[:3]...)
+	p = append(p, pathSegments[4:]...)
+	result := strings.Join(p, "/")
+	if !hasSepPrefix {
+		return result[1:]
+	}
+	return result
 }

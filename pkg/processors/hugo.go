@@ -62,9 +62,9 @@ func (f *HugoProcessor) Process(documentBlob []byte, node *api.Node) ([]byte, er
 					segmentStr := segment.Value(documentBlob)
 					match := hrefAttrMatchRegex.Find([]byte(segmentStr))
 					if len(match) > 0 {
-						link := strings.Split(string(match), "=")[1]
+						// link := strings.Split(string(match), "=")[1]
 						// TODO: handle anchors to md files - <a href="./a/b.md">cross link</a>
-						fmt.Printf("%v\n", link)
+						// fmt.Printf("%v\n", link)
 						continue
 					}
 				}
@@ -95,7 +95,7 @@ func rewriteDestination(destination []byte, node *api.Node) []byte {
 	link = strings.TrimRight(strings.TrimLeft(link, "\""), "\"")
 	if !strings.HasPrefix(link, "https") {
 		link = strings.TrimRight(link, ".md")
-		fmt.Printf("%s rewriting link: %s  ->  %s\n", node.Name, string(destination), link)
+		// fmt.Printf("%s rewriting link: %s  ->  %s\n", node.Name, string(destination), link)
 		return []byte(fmt.Sprintf("../%s", link))
 	}
 	return destination

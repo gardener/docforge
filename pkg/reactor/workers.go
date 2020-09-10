@@ -39,7 +39,8 @@ type DocumentWorker struct {
 
 // DocumentWorkTask implements jobs#Task
 type DocumentWorkTask struct {
-	Node *api.Node
+	Node           *api.Node
+	LocalityDomain LocalityDomain
 }
 
 // GenericReader is generic implementation for Reader interface
@@ -82,7 +83,7 @@ func (w *DocumentWorker) Work(ctx context.Context, task interface{}) *jobs.Worke
 			return jobs.NewWorkerError(err, 0)
 		}
 
-		newBlob, err := HarvestLinks(t.Node, content.Source, path, sourceBlob, w.RdCh, w.ContentProcessor)
+		newBlob, err := HarvestLinks(t.Node, content.Source, path, sourceBlob, w.RdCh, w.ContentProcessor, t.LocalityDomain)
 		if err != nil {
 			return jobs.NewWorkerError(err, 0)
 		}

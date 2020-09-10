@@ -29,6 +29,8 @@ type Documentation struct {
 	//
 	// Note: WiP - proposed, not implemented yet.
 	Variables map[string]*Node `yaml:"variables,omitempty"`
+	// LocalityDomain is the range
+	LocalityDomain map[string]string `yaml:"localityDomain,omitempty"`
 }
 
 // Node is a recursive, tree data structure representing documentation model.
