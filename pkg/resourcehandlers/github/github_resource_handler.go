@@ -344,29 +344,28 @@ func (gh *GitHub) Name(uri string) string {
 }
 
 // BuildAbsLink builds the abs link from the source and the relative path
-func (gh *GitHub) BuildAbsLink(source, relPath string) (absLink string, err error) {
-	if strings.HasPrefix(relPath, "https://") || strings.HasPrefix(relPath, "http://") {
+func (gh *GitHub) BuildAbsLink(source, relPath string) (string, error) {
+	u, err := url.Parse(relPath)
+	if err != nil {
+		return "", err
+	}
+	if u.IsAbs() {
 		return relPath, nil
 	}
 
-	lastSepIndex := strings.LastIndex(source, "/")
-	source = source[:lastSepIndex]
-
-	upLevels := strings.Count(relPath, "../")
-	for ; upLevels > 0; upLevels-- {
-		relPath = strings.TrimLeft(relPath, "../")
-		sourceLastSep := strings.LastIndex(source, "/")
-		sunes := []rune(source)
-		source = string(sunes[:sourceLastSep])
+	u, err = url.Parse(source)
+	if err != nil {
+		return "", err
 	}
-
-	absLink = source + "/" + relPath
-	return
+	u, err = u.Parse(relPath)
+	if err != nil {
+		return "", err
+	}
+	return u.String(), err
 }
 
 // GetLocalityDomainCandidate returns the provided source as locality domain candidate
 func (gh *GitHub) GetLocalityDomainCandidate(source string) (key, path string, err error) {
-	fmt.Println("get locality domain for", source)
 	u, err := url.Parse(source)
 	if err != nil {
 		return

@@ -129,34 +129,3 @@ type ContentSelector struct {
 	// Omiting this file will select the whole document content.
 	Selector *string `yaml:"selector,omitempty"`
 }
-
-// Parent returns the parent node (if any) of this node n
-func (n *Node) Parent() *Node {
-	return n.parent
-}
-
-// SetParent returns the parent node (if any) of this node n
-func (n *Node) SetParent(node *Node) {
-	n.parent = node
-}
-
-// Parents returns the path of nodes from this nodes parent to the root of the
-// hierarchy
-func (n *Node) Parents() []*Node {
-	var parent *Node
-	if parent = n.parent; parent == nil {
-		return nil
-	}
-	return append(parent.Parents(), parent)
-}
-
-// SetParentsDownwards walks recursively the hierarchy under this node to set the
-// parent property.
-func (n *Node) SetParentsDownwards() {
-	if len(n.Nodes) > 0 {
-		for _, child := range n.Nodes {
-			child.parent = n
-			child.SetParentsDownwards()
-		}
-	}
-}

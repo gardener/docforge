@@ -20,11 +20,10 @@ type Reader interface {
 	Read(ctx context.Context, source string) ([]byte, error)
 }
 
-// ResourceData holds information for source and target of inlined documentation resources
+// ResourceData holds information for source and target of linked documentat resources
 type ResourceData struct {
 	Source         string
 	NodeTargetPath string
-	OriginalPath   string
 	FileName       string
 }
 
@@ -40,7 +39,7 @@ type DocumentWorker struct {
 // DocumentWorkTask implements jobs#Task
 type DocumentWorkTask struct {
 	Node           *api.Node
-	LocalityDomain LocalityDomain
+	// LocalityDomain LocalityDomain
 }
 
 // GenericReader is generic implementation for Reader interface
@@ -83,7 +82,7 @@ func (w *DocumentWorker) Work(ctx context.Context, task interface{}) *jobs.Worke
 			return jobs.NewWorkerError(err, 0)
 		}
 
-		newBlob, err := HarvestLinks(t.Node, content.Source, path, sourceBlob, w.RdCh, w.ContentProcessor, t.LocalityDomain)
+		newBlob, err := ReconcileLinks(t.Node, content.Source, sourceBlob, w.ContentProcessor, w.RdCh, true)
 		if err != nil {
 			return jobs.NewWorkerError(err, 0)
 		}
@@ -126,7 +125,7 @@ type LinkedResourceWorker struct {
 
 // Work reads a single source and writes it to its target
 func (r *LinkedResourceWorker) Work(ctx context.Context, rd *ResourceData) *jobs.WorkerError {
-	if r.downloaded(rd) {
+	if r.isDownloaded(rd) {
 		return nil
 	}
 
@@ -150,7 +149,7 @@ func (r *LinkedResourceWorker) Work(ctx context.Context, rd *ResourceData) *jobs
 	return nil
 }
 
-func (r *LinkedResourceWorker) downloaded(rd *ResourceData) bool {
+func (r *LinkedResourceWorker) isDownloaded(rd *ResourceData) bool {
 	r.rwlock.Lock()
 	defer r.rwlock.Unlock()
 	_, ok := r.downloadedResources[rd.Source]

@@ -3,6 +3,7 @@ package reactor
 import (
 	"context"
 	"flag"
+	"paths/filepath"
 	"testing"
 	"time"
 
@@ -58,6 +59,7 @@ func TestReactorWithGitHub(t *testing.T) {
 	// init gh resource handler
 	resourcehandlers.Load(gh)
 
+	resourcesRoot:= "__resources"
 	reactor := Reactor{
 		ReplicateDocumentation: &jobs.Job{
 			MaxWorkers: 50,
@@ -68,20 +70,29 @@ func TestReactorWithGitHub(t *testing.T) {
 				},
 				RdCh:             make(chan *ResourceData),
 				Reader:           &GenericReader{},
-				Processor:        &processors.FrontMatter{},
-				ContentProcessor: &ContentProcessor{ResourceAbsLink: make(map[string]string)},
+				Processor:        Processors: []processors.Processor{
+						&processors.FrontMatter{},
+						&processors.HugoProcessor{
+							PrettyUrls: true,
+						},
+				},
+				ContentProcessor: &reactor.ContentProcessor{
+					ResourceAbsLinks: make(map[string]string),
+					LocalityDomain: reactor.LocalityDomain{},
+					ResourcesRoot: "/" + resourcesRoot,
+				},
 			},
 		},
 		LinkedResourceWorker: &LinkedResourceWorker{
 			Reader: &GenericReader{},
 			Writer: &writers.FSWriter{
-				Root: "../../example/hugo/content/__resources",
+				Root: filepath.Join("../../example/hugo/content/", resourcesRoot),
 			},
 		},
 	}
 
 	docs := &api.Documentation{Root: node}
-	if err := reactor.Run(ctx, docs); err != nil {
+	if err := reactor.Run(ctx, docs, false); err != nil {
 		t.Errorf("failed with: %v", err)
 	}
 

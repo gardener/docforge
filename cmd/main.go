@@ -25,6 +25,7 @@ var (
 	token       string
 	destination string
 	timeout     int
+	dryRun	    bool
 )
 
 func main() {
@@ -33,6 +34,7 @@ func main() {
 	flag.StringVar(&destination, "destination", "", "path to write documentaiton bundle to")
 	flag.StringVar(&token, "authToken", "", "the authentication token used for GitHub OAuth")
 	flag.IntVar(&timeout, "timeout", 50, "timeout for replicating")
+	flag.BoolVar(&dryRun, "dry-run", false, "simulates documentation structure resolution and download, printing the donwload sources and destinations")
 
 	flag.Parse()
 
@@ -67,7 +69,10 @@ func main() {
 						},
 					},
 				},
-				ContentProcessor: &reactor.ContentProcessor{ResourceAbsLink: make(map[string]string)},
+				ContentProcessor: &reactor.ContentProcessor{
+					ResourceAbsLink: make(map[string]string),
+					LocalityDomain: reactor.LocalityDomain{},
+				},
 			},
 		},
 		LinkedResourceWorker: &reactor.LinkedResourceWorker{
@@ -88,7 +93,7 @@ func main() {
 	if docs, err = api.Parse(configBytes); err != nil {
 		panic(fmt.Sprintf("failed with: %v", err))
 	}
-	if err = reactor.Run(ctx, docs); err != nil {
+	if err = reactor.Run(ctx, docs, dryRun); err != nil {
 		panic(fmt.Sprintf("failed with: %v", err))
 	}
 
