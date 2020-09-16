@@ -18,11 +18,14 @@ type worker interface {
 	download(ctx context.Context, dt *DownloadTask) error
 }
 
+// DownloadJob encapsulates activities for asyncronous
+// and parallel scheduling and download of resources
 type DownloadJob interface {
 	Start(ctx context.Context, errCh chan error, shutdownCh chan struct{}, wg *sync.WaitGroup)
 	Schedule(ctx context.Context, link, resourceName string)
 }
 
+// ResourceDownloadJob implements reactor#DownloadJob
 type ResourceDownloadJob struct {
 	worker
 	downloadCh          chan *DownloadTask
@@ -37,6 +40,7 @@ type downloadWorker struct {
 	Reader
 }
 
+// NewResourceDownloadJob creates DownloadJob object
 func NewResourceDownloadJob(reader Reader, writer writers.Writer, workersCount int, failFast bool) DownloadJob {
 	if reader == nil {
 		reader = &GenericReader{}
@@ -58,7 +62,7 @@ func NewResourceDownloadJob(reader Reader, writer writers.Writer, workersCount i
 	}
 }
 
-// Starts the job with multiple workers, each waiting for download tasks or context termination
+// Start the job with multiple workers, each waiting for download tasks or context termination
 func (l *ResourceDownloadJob) Start(ctx context.Context, errCh chan error, shutdownCh chan struct{}, jobWg *sync.WaitGroup) {
 	if l.workersCount < 1 {
 		panic(fmt.Sprintf("Invalid argument: expected workersCount > 1, was %d", l.workersCount))
@@ -155,6 +159,7 @@ func (l *ResourceDownloadJob) setDownloaded(dt *DownloadTask) {
 	l.downloadedResources[dt.Source] = struct{}{}
 }
 
+// Schedule enqeues and resource link for download
 func (l *ResourceDownloadJob) Schedule(ctx context.Context, link, resourceName string) {
 	go func() {
 		task := &DownloadTask{

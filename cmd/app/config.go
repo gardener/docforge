@@ -7,6 +7,7 @@ import (
 	"github.com/gardener/docode/pkg/api"
 )
 
+// Manifest creates documentation model from configration file
 func Manifest(filePath string) *api.Documentation {
 	var (
 		docs *api.Documentation

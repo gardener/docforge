@@ -122,6 +122,7 @@ type NodeSelector struct {
 	Annotation string `yaml:"annotation,omitempty"`
 }
 
+// ContentSelector specifies a content target
 type ContentSelector struct {
 	// URI of a document
 	Source string

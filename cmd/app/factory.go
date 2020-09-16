@@ -16,6 +16,8 @@ import (
 	"golang.org/x/oauth2"
 )
 
+// Options is the set of parameters for creating
+// reactor objects
 type Options struct {
 	MaxWorkersCount              int
 	MinWorkersCount              int
@@ -26,10 +28,13 @@ type Options struct {
 	*Hugo
 }
 
+// Hugo is a set of parameters for creating
+// reactor objects for Hugo builds
 type Hugo struct {
 	PrettyUrls bool
 }
 
+// NewReactor creates a Reactor from Options
 func NewReactor(o *Options) *reactor.Reactor {
 
 	downloadJob := reactor.NewResourceDownloadJob(nil, &writers.FSWriter{
@@ -70,6 +75,8 @@ func NewReactor(o *Options) *reactor.Reactor {
 	return r
 }
 
+// InitResourceHanlders initializes the resource handler
+// objects used by reactors
 func InitResourceHanlders(ctx context.Context, githubToken string) {
 	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: githubToken})
 	// TODO: make the client metering instrumentation optional and controlled by config

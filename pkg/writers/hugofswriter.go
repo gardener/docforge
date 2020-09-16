@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-// FSWriter is implementation of Writer interface for writing blobs to the file system
+// HugoFSWriter is implementation of Writer interface for writing blobs to the file system
 type HugoFSWriter struct {
 	Writer *FSWriter
 }

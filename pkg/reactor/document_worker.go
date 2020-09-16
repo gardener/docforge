@@ -92,7 +92,7 @@ func (w *DocumentWorker) Work(ctx context.Context, task interface{}) *jobs.Worke
 		}
 	}
 
-	path := utilnode.NodePath(t.Node, "/")
+	path := utilnode.Path(t.Node, "/")
 	if err := w.Writer.Write(t.Node.Name, path, sourceBlob); err != nil {
 		return jobs.NewWorkerError(err, 0)
 	}

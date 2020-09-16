@@ -17,7 +17,7 @@ type Reactor struct {
 	ReplicateDocumentation *jobs.Job
 }
 
-// Run
+// Run starts build operation on docStruct
 func (r *Reactor) Run(ctx context.Context, docStruct *api.Documentation, dryRun bool) error {
 	var err error
 	if err := r.Resolve(ctx, docStruct.Root); err != nil {
@@ -92,6 +92,8 @@ func tasks(node *api.Node, t *[]interface{}) {
 	}
 }
 
+// Build starts the build operation for a document structure root
+// in a locality domain
 func (r *Reactor) Build(ctx context.Context, documentationRoot *api.Node, localityDomain LocalityDomain) error {
 	var (
 		errors    *multierror.Error

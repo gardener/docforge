@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+
+set -e
+export GO111MODULE=on
+
+# For the check step concourse will set the following environment variables:
+# SOURCE_PATH - path to component repository root directory.
+
+if [[ -z "${SOURCE_PATH}" ]]; then
+  export SOURCE_PATH="$(readlink -f "$(dirname ${0})/..")"
+else
+  export SOURCE_PATH="$(readlink -f ${SOURCE_PATH})"
+fi
+
+cd ${SOURCE_PATH}
+
+# Build Golint.
+go get -u golang.org/x/lint/golint
+
+###############################################################################
+PACKAGES="$(go list -e ./...)"
+PACKAGES_DIRS="$(echo ${PACKAGES} | sed "s|github.com/gardener/docode|.|g")"
+
+# Execute static code checks.
+go vet ${PACKAGES}
+
+# Execute automatic code formatting directive.
+gofmt -l -w ${PACKAGES_DIRS}
+
+# Execute lint checks.
+for package in ${PACKAGES_DIRS}; do
+  golint -set_exit_status $(find $package -maxdepth 1 -name "*.go | grep -vE '_test.go'")
+done

@@ -344,11 +344,11 @@ func TestRead(t *testing.T) {
 		fmt.Println(c.description)
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer cancel()
-		client, mux, serverUrl, teardown := setup()
+		client, mux, serverURL, teardown := setup()
 		defer teardown()
 		// rewrite cached url keys host to match the mock sevrer
 		for k, v := range c.cache {
-			c.cache[strings.Replace(k, "https://github.com", serverUrl, 1)] = v
+			c.cache[strings.Replace(k, "https://github.com", serverURL, 1)] = v
 		}
 		gh := &GitHub{
 			cache: c.cache,
@@ -357,7 +357,7 @@ func TestRead(t *testing.T) {
 			c.mux(mux)
 		}
 		gh.Client = client
-		inURI := strings.Replace(c.inURI, "https://github.com", serverUrl, 1)
+		inURI := strings.Replace(c.inURI, "https://github.com", serverURL, 1)
 		got, gotError := gh.Read(ctx, c.inURI)
 		if gotError != nil {
 			t.Errorf("error == %q, want %q", gotError, c.wantError)
