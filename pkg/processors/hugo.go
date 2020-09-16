@@ -45,12 +45,18 @@ func (f *HugoProcessor) Process(documentBlob []byte, node *api.Node) ([]byte, er
 		if entering {
 			if _node.Kind() == ast.KindLink {
 				n := _node.(*ast.Link)
-				n.Destination = rewriteDestination(n.Destination, node)
+				// Non-relative links are not rewritten
+				if !strings.HasPrefix(string(n.Destination), "/") {
+					n.Destination = rewriteDestination(n.Destination, node)
+				}				
 				return ast.WalkContinue, nil
 			}
 			if _node.Kind() == ast.KindImage {
 				n := _node.(*ast.Image)
-				n.Destination = rewriteDestination(n.Destination, node)
+				// Non-relative links to images are not rewritten
+				if !strings.HasPrefix(string(n.Destination), "/") {
+					n.Destination = rewriteDestination(n.Destination, node)
+				}
 				return ast.WalkContinue, nil
 			}
 			if _node.Kind() == ast.KindRawHTML {

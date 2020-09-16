@@ -125,7 +125,6 @@ func (j *Job) process(ctx context.Context, taskCh <-chan interface{}) <-chan *Wo
 	errCh := make(chan *WorkerError, 1)
 	go func() {
 		defer close(errCh)
-		var i int64
 		for {
 			select {
 			case task, ok := <-taskCh:
@@ -137,7 +136,6 @@ func (j *Job) process(ctx context.Context, taskCh <-chan interface{}) <-chan *Wo
 						errCh <- err
 						return
 					}
-					i++
 				}
 			case <-ctx.Done():
 				{

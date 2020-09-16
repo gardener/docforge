@@ -11,9 +11,12 @@ import (
 // FSWriter is implementation of Writer interface for writing blobs to the file system
 type FSWriter struct {
 	Root string
+	//FIXME: this is very temporary
+	Hugo bool
 }
 
 func (f *FSWriter) Write(name, path string, docBlob []byte) error {
+	fmt.Printf("Writing %s \n", filepath.Join(f.Root, path, name))
 	if len(docBlob) <= 0 {
 		return nil
 	}
@@ -22,7 +25,7 @@ func (f *FSWriter) Write(name, path string, docBlob []byte) error {
 		if err = os.MkdirAll(p, os.ModePerm); err != nil {
 			return err
 		}
-		if strings.HasSuffix(name, ".md") {
+		if f.Hugo && strings.HasSuffix(name, ".md") {
 			if err:= writeHugoSectionIndex(path, f.Root); err!=nil {
 				return err
 			}

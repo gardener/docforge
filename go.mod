@@ -14,11 +14,12 @@ require (
 	github.com/onsi/ginkgo v1.14.0
 	github.com/onsi/gomega v1.10.1
 	github.com/prometheus/client_golang v1.7.1
-	github.com/prometheus/common v0.10.0
+	github.com/prometheus/common v0.10.0 // indirect
 	github.com/stretchr/testify v1.4.0
 	github.com/yuin/goldmark v1.2.1
+	go.uber.org/multierr v1.6.0 // indirect
+	go.uber.org/zap v1.16.0 // indirect
 	golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550 // indirect
 	golang.org/x/oauth2 v0.0.0-20180821212333-d2e6202438be
 	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776
-
 )

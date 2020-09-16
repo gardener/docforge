@@ -60,15 +60,18 @@ func TestReactorWithGitHub(t *testing.T) {
 	resourcehandlers.Load(gh)
 
 	resourcesRoot:= "__resources"
+	downloadJob:= reactor.NewResourceDownloadJob(nil, &writers.FSWriter{
+		Root: filepath.Join("../../example/hugo/content/", resourcesRoot)
+	}, 5, failFast)
+	failFast:= false
 	reactor := Reactor{
 		ReplicateDocumentation: &jobs.Job{
 			MaxWorkers: 50,
-			FailFast:   false,
+			FailFast:   failFast,
 			Worker: &DocumentWorker{
 				Writer: &writers.FSWriter{
 					Root: "../../example/hugo/content",
 				},
-				RdCh:             make(chan *ResourceData),
 				Reader:           &GenericReader{},
 				Processor:        Processors: []processors.Processor{
 						&processors.FrontMatter{},
@@ -76,17 +79,7 @@ func TestReactorWithGitHub(t *testing.T) {
 							PrettyUrls: true,
 						},
 				},
-				ContentProcessor: &reactor.ContentProcessor{
-					ResourceAbsLinks: make(map[string]string),
-					LocalityDomain: reactor.LocalityDomain{},
-					ResourcesRoot: "/" + resourcesRoot,
-				},
-			},
-		},
-		LinkedResourceWorker: &LinkedResourceWorker{
-			Reader: &GenericReader{},
-			Writer: &writers.FSWriter{
-				Root: filepath.Join("../../example/hugo/content/", resourcesRoot),
+				NodeContentProcessor: reactor.NewNodeContentProcessor("/" + resourcesRoot, nil, downloadJob, failFast),
 			},
 		},
 	}

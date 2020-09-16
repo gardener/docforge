@@ -55,10 +55,10 @@ func TestDocumentWorkerWork(t *testing.T) {
 				return documentBlob, nil
 			},
 		},
-		&ContentProcessor{
-			ResourceAbsLink: make(map[string]string),
+		&NodeContentProcessor{
+			ResourceAbsLinks: make(map[string]string),
 		},
-		make(chan *ResourceData),
+		make(chan *DownloadTask),
 	}
 
 	testCases := []struct {

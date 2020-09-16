@@ -103,3 +103,45 @@ func intersect(a, b []*Node) []*Node {
 	}
 	return intersection
 }
+
+func (n *Node) GetRootNode() *Node {
+	parentNodes := n.Parents()
+	if len(parentNodes) > 0 {
+		return parentNodes[0]
+	}
+	return nil
+}
+
+func FindNodeByContentSource(nodeContentSource string, node *Node) *Node {
+	if node == nil {
+		return nil
+	}
+
+	for _, contentSelector := range node.ContentSelectors {
+		if contentSelector.Source == nodeContentSource {
+			return node
+		}
+	}
+
+	return withMatchinContentSelectorSource(nodeContentSource, node.GetRootNode())
+}
+
+func withMatchinContentSelectorSource(nodeContentSource string, node *Node) *Node {
+	if node == nil {
+		return nil
+	}
+	for _, contentSelector := range node.ContentSelectors {
+		if contentSelector.Source == nodeContentSource {
+			return node
+		}
+	}
+
+	for i := range node.Nodes {
+		foundNode := withMatchinContentSelectorSource(nodeContentSource, node.Nodes[i])
+		if foundNode != nil {
+			return foundNode
+		}
+	}
+
+	return nil
+}
