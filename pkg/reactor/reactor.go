@@ -17,7 +17,7 @@ type Reactor struct {
 	ReplicateDocumentation *jobs.Job
 }
 
-// Run 
+// Run
 func (r *Reactor) Run(ctx context.Context, docStruct *api.Documentation, dryRun bool) error {
 	var err error
 	if err := r.Resolve(ctx, docStruct.Root); err != nil {
@@ -33,8 +33,8 @@ func (r *Reactor) Run(ctx context.Context, docStruct *api.Documentation, dryRun 
 	}
 
 	if dryRun {
-		s, err:= api.Serialize(docStruct)
-		if err!=nil {
+		s, err := api.Serialize(docStruct)
+		if err != nil {
 			return err
 		}
 		fmt.Println(s)
@@ -43,15 +43,14 @@ func (r *Reactor) Run(ctx context.Context, docStruct *api.Documentation, dryRun 
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	
+
 	fmt.Printf("Building documentation structure\n\n")
-	if err = r.Build(ctx, docStruct.Root, localityDomain); err!=nil {
+	if err = r.Build(ctx, docStruct.Root, localityDomain); err != nil {
 		return err
 	}
-	
+
 	return nil
 }
-
 
 // Resolve builds the subnodes hierarchy of a node based on the natural nodes
 // hierarchy and on rules such as those in NodeSelector.
@@ -95,52 +94,53 @@ func tasks(node *api.Node, t *[]interface{}) {
 
 func (r *Reactor) Build(ctx context.Context, documentationRoot *api.Node, localityDomain LocalityDomain) error {
 	var (
-		errors *multierror.Error
+		errors    *multierror.Error
 		docWorker = r.ReplicateDocumentation.Worker.(*DocumentWorker)
-		wg sync.WaitGroup
+		wg        sync.WaitGroup
 	)
 
 	errCh := make(chan error)
 	doneCh := make(chan struct{})
 	shutdownCh := make(chan struct{})
-	defer func(){
+	defer func() {
 		close(errCh)
 		close(doneCh)
 		close(shutdownCh)
 		wg.Wait()
-	
+
 		fmt.Println("Build finished")
 	}()
 
 	go docWorker.NodeContentProcessor.DownloadJob.Start(ctx, errCh, shutdownCh, &wg)
 
-	go func(){
+	go func() {
 		docWorker.NodeContentProcessor.LocalityDomain = localityDomain
 		documentPullTasks := make([]interface{}, 0)
 		tasks(documentationRoot, &documentPullTasks)
-		if err := r.ReplicateDocumentation.Dispatch(ctx, documentPullTasks); err!=nil {
-			errCh<-err
+		if err := r.ReplicateDocumentation.Dispatch(ctx, documentPullTasks); err != nil {
+			errCh <- err
 		}
 		doneCh <- struct{}{}
 	}()
-	
+
 	for {
-		select{
-		case <-doneCh: {
-			shutdownCh <- struct{}{}
-			return nil
-		}
+		select {
+		case <-doneCh:
+			{
+				shutdownCh <- struct{}{}
+				return nil
+			}
 		case err, ok := <-errCh:
 			{
 				if !ok {
 					return nil
 				}
-				fmt.Println("Error received %v\n", err)
+				fmt.Printf("Error received %v\n", err)
 				// TODO: fault tolerant vs failfast
 				errors = multierror.Append(err)
 				return errors.ErrorOrNil()
 			}
-		case <-ctx.Done(): 
+		case <-ctx.Done():
 			{
 				fmt.Println("Context cancelled")
 				return nil
@@ -148,5 +148,4 @@ func (r *Reactor) Build(ctx context.Context, documentationRoot *api.Node, locali
 		}
 	}
 
-	return nil
 }

@@ -37,8 +37,8 @@ func (w *HugoFSWriter) Write(name, path string, docBlob []byte) error {
 			return nil
 		}
 
-		fPath:= filepath.Join(w.Writer.Root, path, f.Name())
-		indexPath:= filepath.Join(w.Writer.Root, path, "_index.md")
+		fPath := filepath.Join(w.Writer.Root, path, f.Name())
+		indexPath := filepath.Join(w.Writer.Root, path, "_index.md")
 		fmt.Printf("Renaming %s to %s", fPath, indexPath)
 		return os.Rename(fPath, indexPath)
 	}
@@ -67,24 +67,24 @@ func writeHugoSectionIndexFile(path, root string) error {
 
 func getIndexFile(folderPath string) (os.FileInfo, error) {
 	files, err := ioutil.ReadDir(folderPath)
-    if err != nil {
-        return nil, err
-    }
-    for _, f := range files {
-		name:= strings.ToLower(f.Name())
+	if err != nil {
+		return nil, err
+	}
+	for _, f := range files {
+		name := strings.ToLower(f.Name())
 		if strings.HasPrefix(name, "_index.") {
 			return f, nil
 		}
 		if strings.HasPrefix(name, "index.") {
 			return f, nil
 		}
-		if strings.HasPrefix(name, "read.") { 
+		if strings.HasPrefix(name, "read.") {
 			return f, nil
 		}
-		if strings.HasPrefix(name, "readme."){
+		if strings.HasPrefix(name, "readme.") {
 			return f, nil
 		}
-		if strings.HasPrefix(name, "overview."){
+		if strings.HasPrefix(name, "overview.") {
 			return f, nil
 		}
 	}

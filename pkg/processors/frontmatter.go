@@ -15,7 +15,7 @@ type FrontMatter struct{}
 // Process implements Processor#Process
 func (f *FrontMatter) Process(documentBlob []byte, node *api.Node) ([]byte, error) {
 	if node.Properties == nil {
-		title:= strings.Title(strings.TrimRight(node.Name, ".md"))
+		title := strings.Title(strings.TrimRight(node.Name, ".md"))
 		node.Properties = map[string]interface{}{
 			"Title": title,
 		}

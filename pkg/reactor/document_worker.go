@@ -23,12 +23,12 @@ type DocumentWorker struct {
 	Reader
 	processors.Processor
 	NodeContentProcessor *NodeContentProcessor
-	LocalityDomain   	 LocalityDomain
+	LocalityDomain       LocalityDomain
 }
 
 // DocumentWorkTask implements jobs#Task
 type DocumentWorkTask struct {
-	Node           *api.Node
+	Node *api.Node
 	// LocalityDomain LocalityDomain
 }
 
@@ -86,7 +86,7 @@ func (w *DocumentWorker) Work(ctx context.Context, task interface{}) *jobs.Worke
 	}
 
 	var err error
-	if w.Processor!=nil {
+	if w.Processor != nil {
 		if sourceBlob, err = w.Processor.Process(sourceBlob, t.Node); err != nil {
 			return jobs.NewWorkerError(err, 0)
 		}

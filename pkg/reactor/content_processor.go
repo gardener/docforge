@@ -24,7 +24,7 @@ import (
 
 var (
 	htmlLinksRegexList = []*regexp.Regexp{
-		regexp.MustCompile(`href=["\']?([^"\'>]+)["\']?`), 
+		regexp.MustCompile(`href=["\']?([^"\'>]+)["\']?`),
 		regexp.MustCompile(`src=["\']?([^"\'>]+)["\']?`),
 	}
 	mdParser = parser.NewParser(parser.WithBlockParsers(parser.DefaultBlockParsers()...),
@@ -34,49 +34,49 @@ var (
 )
 
 type NodeContentProcessor struct {
-	resourceAbsLinks 		map[string]string
-	rwlock           		sync.RWMutex
-	LocalityDomain   		LocalityDomain
-	// ResourcesRoot specifies the root location for downloaded resource. 
+	resourceAbsLinks map[string]string
+	rwlock           sync.RWMutex
+	LocalityDomain   LocalityDomain
+	// ResourcesRoot specifies the root location for downloaded resource.
 	// It is used to rewrite resource links in documents to relative paths.
-	resourcesRoot 	 		string
-	DownloadJob  			DownloadJob
-	failFast 		 		bool
+	resourcesRoot string
+	DownloadJob   DownloadJob
+	failFast      bool
 }
 
-func NewNodeContentProcessor(resourcesRoot string, localityDomain LocalityDomain, downloadJob DownloadJob, failFast bool) *NodeContentProcessor { 
+func NewNodeContentProcessor(resourcesRoot string, localityDomain LocalityDomain, downloadJob DownloadJob, failFast bool) *NodeContentProcessor {
 	if localityDomain == nil {
 		localityDomain = LocalityDomain{}
 	}
-	c:= &NodeContentProcessor{
+	c := &NodeContentProcessor{
 		resourceAbsLinks: make(map[string]string),
-		LocalityDomain: localityDomain,
-		resourcesRoot: resourcesRoot,
-		DownloadJob: downloadJob,
-		failFast: failFast,
+		LocalityDomain:   localityDomain,
+		resourcesRoot:    resourcesRoot,
+		DownloadJob:      downloadJob,
+		failFast:         failFast,
 	}
 	return c
 }
 
-//convenience wrapper adding logging 
-func (c *NodeContentProcessor) schedule(ctx context.Context, link, resourceName, from string){
+//convenience wrapper adding logging
+func (c *NodeContentProcessor) schedule(ctx context.Context, link, resourceName, from string) {
 	fmt.Printf("[%s] Linked resource scheduled for download: %s\n", from, link)
 	c.DownloadJob.Schedule(ctx, link, resourceName)
 }
 
 // ReconcileLinks analyzes a document referenced by a node's contentSourcePath
 // and processes its links to other resources to resolve their inconsistencies.
-// The processing might involve rewriting links to relative and having new 
+// The processing might involve rewriting links to relative and having new
 // destinations, or rewriting them to absolute, as well as downloading some of
 // the linked resources.
 // The function returns the processed document or error.
 func (c *NodeContentProcessor) ReconcileLinks(ctx context.Context, node *api.Node, contentSourcePath string, contentBytes []byte) ([]byte, error) {
 	fmt.Printf("[%s] Reconciling links for %s\n", node.Name, contentSourcePath)
-	documentBytes, err:= c.reconcileMDLinks(ctx, node, contentBytes, contentSourcePath)
+	documentBytes, err := c.reconcileMDLinks(ctx, node, contentBytes, contentSourcePath)
 	if err != nil {
 		return nil, err
 	}
-	if _, err:= c.reconcileHTMLLinks(ctx, node, documentBytes, contentSourcePath); err!=nil {
+	if _, err := c.reconcileHTMLLinks(ctx, node, documentBytes, contentSourcePath); err != nil {
 		return nil, err
 	}
 	return documentBytes, err
@@ -85,24 +85,26 @@ func (c *NodeContentProcessor) ReconcileLinks(ctx context.Context, node *api.Nod
 func (c *NodeContentProcessor) reconcileMDLinks(ctx context.Context, docNode *api.Node, contentBytes []byte, contentSourcePath string) ([]byte, error) {
 	reader := text.NewReader(contentBytes)
 	doc := mdParser.Parse(reader)
-	var errors  *multierror.Error
+	var errors *multierror.Error
 	if err := ast.Walk(doc, func(node ast.Node, entering bool) (ast.WalkStatus, error) {
 		if entering {
 			var (
-				destination string
+				destination  string
 				downloadLink string
 				resourceName string
-				err error
+				err          error
 			)
 			switch node.Kind() {
-				case ast.KindLink: {
+			case ast.KindLink:
+				{
 					n := node.(*ast.Link)
 					if destination, downloadLink, resourceName, err = c.processLink(ctx, docNode, string(n.Destination), contentSourcePath); err != nil {
 						return ast.WalkContinue, err
 					}
 					n.Destination = []byte(destination)
 				}
-				case ast.KindImage: {
+			case ast.KindImage:
+				{
 					n := node.(*ast.Image)
 					if destination, downloadLink, resourceName, err = c.processLink(ctx, docNode, string(n.Destination), contentSourcePath); err != nil {
 						return ast.WalkContinue, err
@@ -159,7 +161,7 @@ func (c *NodeContentProcessor) reconcileMDLinks(ctx context.Context, docNode *ap
 	}
 
 	documentBytes, err := ioutil.ReadAll(&b)
-	if err!=nil{
+	if err != nil {
 		return nil, multierror.Append(err)
 	}
 
@@ -168,21 +170,21 @@ func (c *NodeContentProcessor) reconcileMDLinks(ctx context.Context, docNode *ap
 
 // replace html raw links of any sorts.
 func (c *NodeContentProcessor) reconcileHTMLLinks(ctx context.Context, docNode *api.Node, documentBytes []byte, contentSourcePath string) ([]byte, error) {
-	var errors  *multierror.Error
-	for _, regex:= range htmlLinksRegexList {
+	var errors *multierror.Error
+	for _, regex := range htmlLinksRegexList {
 		documentBytes = regex.ReplaceAllFunc(documentBytes, func(match []byte) []byte {
 			attr := strings.Split(string(match), "=")
-			name:= attr[0]
+			name := attr[0]
 			url := attr[1]
 			destination, downloadUrl, resourceName, err := c.processLink(ctx, docNode, url, contentSourcePath)
 			fmt.Printf("[%s] %s -> %s\n", contentSourcePath, url, destination)
 			c.schedule(ctx, downloadUrl, resourceName, contentSourcePath)
-			if err!=nil {
+			if err != nil {
 				errors = multierror.Append(err)
 				return match
 			}
 			return []byte(fmt.Sprintf("%s=%s", name, destination))
-		}) 	
+		})
 	}
 	return documentBytes, errors.ErrorOrNil()
 }
@@ -199,7 +201,7 @@ func (c *NodeContentProcessor) processLink(ctx context.Context, node *api.Node, 
 	}
 
 	u, err := url.Parse(absLink)
-	if err!=nil {
+	if err != nil {
 		return "", "", "", err
 	}
 	if strings.HasSuffix(u.Path, ".md") {
@@ -209,19 +211,19 @@ func (c *NodeContentProcessor) processLink(ctx context.Context, node *api.Node, 
 		existingNode := api.FindNodeByContentSource(l, node)
 		if existingNode != nil {
 			relPathBetweenNodes := node.RelativePath(existingNode)
-			if destination!=relPathBetweenNodes{
+			if destination != relPathBetweenNodes {
 				fmt.Printf("[%s] %s -> %s\n", contentSourcePath, destination, relPathBetweenNodes)
 			}
 			destination = relPathBetweenNodes
 			return destination, "", "", nil
 		}
-		if destination!=absLink{
+		if destination != absLink {
 			fmt.Printf("[%s] %s -> %s\n", contentSourcePath, destination, absLink)
 		}
 		return absLink, "", "", nil
 	}
 
-	rh := resourcehandlers.Get(absLink) 
+	rh := resourcehandlers.Get(absLink)
 	if rh == nil {
 		if absLink != destination {
 			fmt.Printf("[%s] No resource hanlder for %s found. No changes to %s\n", contentSourcePath, absLink, destination)
@@ -237,25 +239,25 @@ func (c *NodeContentProcessor) processLink(ctx context.Context, node *api.Node, 
 		resourceName := c.generateResourceName(absLink)
 		_d := destination
 		destination = buildDestination(node, resourceName, c.resourcesRoot)
-		if _d != destination{
-			fmt.Printf("[%s] %s -> %s\n",contentSourcePath, _d, destination)
+		if _d != destination {
+			fmt.Printf("[%s] %s -> %s\n", contentSourcePath, _d, destination)
 		}
 		return destination, absLink, resourceName, nil
 	}
-	if destination!=absLink {
+	if destination != absLink {
 		fmt.Printf("[%s] %s -> %s\n", contentSourcePath, destination, absLink)
 	}
 	return absLink, "", "", nil
 }
 
 // Builds destination path for links from node to resource in root path
-// If root is not specified as document root (with leading "/"), the 
-// returned destinations are relative paths from the node to the resource 
+// If root is not specified as document root (with leading "/"), the
+// returned destinations are relative paths from the node to the resource
 // in root, e.g. "../../__resources/image.png", where root is "__resources".
-// If root is document root path, destinations are paths from the root, 
+// If root is document root path, destinations are paths from the root,
 // e.g. "/__resources/image.png", where root is "/__resources".
 func buildDestination(node *api.Node, resourceName, root string) string {
-	if strings.HasPrefix(root, "/"){
+	if strings.HasPrefix(root, "/") {
 		return root + "/" + resourceName
 	}
 	resourceRelPath := fmt.Sprintf("%s/%s", root, resourceName)

@@ -1,4 +1,4 @@
-// Copyright (c) 2018 SAP SE or an SAP affiliate company. All rights reserved. 
+// Copyright (c) 2018 SAP SE or an SAP affiliate company. All rights reserved.
 // This file is licensed under the Apache Software License, v. 2 except as noted otherwise in the LICENSE file
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,9 +18,9 @@ package files
 import (
 	"context"
 	"fmt"
+	"github.com/gardener/docode/pkg/util/tests"
 	"github.com/howeyc/fsnotify"
 	"github.com/stretchr/testify/assert"
-	"github.com/gardener/docode/pkg/util/tests"
 	"math/rand"
 	"os"
 	"path/filepath"

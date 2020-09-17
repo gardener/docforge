@@ -49,7 +49,7 @@ func defineLocalityDomains(node *api.Node) (LocalityDomain, error) {
 	if node.Nodes != nil {
 		if err := fromNodes(node.Nodes, localityDomains); err != nil {
 			return nil, err
-		}	
+		}
 	}
 	return localityDomains, nil
 }

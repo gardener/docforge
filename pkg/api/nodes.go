@@ -1,6 +1,6 @@
 package api
 
-import(
+import (
 	"strings"
 )
 
@@ -76,7 +76,7 @@ func relativePath(from, to *Node) string {
 		if len(fromPathToRoot) > 1 {
 			for range fromPathToRoot[1:] {
 				s = append(s, "..")
-			}	
+			}
 		} else {
 			// sibling
 			s = append(s, ".")

@@ -115,7 +115,7 @@ func TestSerialize(t *testing.T) {
 }
 
 func TestMe(t *testing.T) {
-	d:=	&Documentation {
+	d := &Documentation{
 		Root: &Node{
 			Name: "docs",
 			NodeSelector: &NodeSelector{

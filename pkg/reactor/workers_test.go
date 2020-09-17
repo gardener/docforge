@@ -56,9 +56,14 @@ func TestDocumentWorkerWork(t *testing.T) {
 			},
 		},
 		&NodeContentProcessor{
-			ResourceAbsLinks: make(map[string]string),
+			DownloadJob: NewResourceDownloadJob(&TestReader{
+				make(map[string][]byte),
+			}, &TestWriter{
+				make(map[string][]byte),
+			}, 1, false),
+			LocalityDomain: LocalityDomain{},
 		},
-		make(chan *DownloadTask),
+		LocalityDomain{},
 	}
 
 	testCases := []struct {

@@ -48,7 +48,7 @@ func (f *HugoProcessor) Process(documentBlob []byte, node *api.Node) ([]byte, er
 				// Non-relative links are not rewritten
 				if !strings.HasPrefix(string(n.Destination), "/") {
 					n.Destination = rewriteDestination(n.Destination, node)
-				}				
+				}
 				return ast.WalkContinue, nil
 			}
 			if _node.Kind() == ast.KindImage {
@@ -98,7 +98,7 @@ func rewriteDestination(destination []byte, node *api.Node) []byte {
 	link = strings.TrimSpace(link)
 	// trim leading and trailing quotes
 	link = strings.TrimRight(strings.TrimLeft(link, "\""), "\"")
-	u, err:= url.Parse(link)
+	u, err := url.Parse(link)
 	if err != nil {
 		fmt.Printf("Invalid link: %s", link)
 		return destination

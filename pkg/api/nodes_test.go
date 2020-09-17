@@ -90,15 +90,15 @@ func initTestStructure() (*Node, map[string]*Node) {
 }
 
 func arrayOfNodes(names ...string) []*Node {
-	n:= make([]*Node, len(names))
-	for _, name:= range names {
+	n := make([]*Node, len(names))
+	for _, name := range names {
 		n = append(n, &Node{Name: name})
 	}
 	return n
 }
 
 func TestParents(t *testing.T) {
-	_,idx := initTestStructure()
+	_, idx := initTestStructure()
 	cases := []struct {
 		description string
 		inNode      *Node
@@ -126,7 +126,7 @@ func TestParents(t *testing.T) {
 }
 
 func TestPath(t *testing.T) {
-	_,idx := initTestStructure()
+	_, idx := initTestStructure()
 	tests := []struct {
 		name     string
 		from     *Node
