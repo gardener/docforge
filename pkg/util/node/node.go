@@ -6,7 +6,10 @@ import (
 	"github.com/gardener/docode/pkg/api"
 )
 
-func NodePath(node *api.Node, separator string) string {
+// Path serializes the node parents path to root
+// as string of segments that are the parents names and
+// and delimited by separator
+func Path(node *api.Node, separator string) string {
 	var pathSegments []string
 	for _, parent := range node.Parents() {
 		if parent.Name != "" {
@@ -17,6 +20,8 @@ func NodePath(node *api.Node, separator string) string {
 	return strings.Join(pathSegments, separator)
 }
 
+// GetRootNode returns the root node in the parents path
+// for a node object n
 func GetRootNode(node *api.Node) *api.Node {
 	if node == nil {
 		return nil

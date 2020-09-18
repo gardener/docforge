@@ -33,6 +33,8 @@ var (
 	)
 )
 
+// NodeContentProcessor operates on documents content to reconcile links and
+// schedule linked resources downloads
 type NodeContentProcessor struct {
 	resourceAbsLinks map[string]string
 	rwlock           sync.RWMutex
@@ -44,6 +46,7 @@ type NodeContentProcessor struct {
 	failFast      bool
 }
 
+// NewNodeContentProcessor creates NodeContentProcessor objects
 func NewNodeContentProcessor(resourcesRoot string, localityDomain LocalityDomain, downloadJob DownloadJob, failFast bool) *NodeContentProcessor {
 	if localityDomain == nil {
 		localityDomain = LocalityDomain{}
@@ -112,36 +115,6 @@ func (c *NodeContentProcessor) reconcileMDLinks(ctx context.Context, docNode *ap
 					n.Destination = []byte(destination)
 				}
 			}
-			// Note, AutoLinks are always absolute. No rewrite is necessary
-			// There's really no good way to rewrite HTML in ast tree model
-			// if node.Kind() == ast.KindBlockHTML {
-			// }
-			// if node.Kind() == ast.KindRawHTML {
-			// 	n := node.(*ast.RawHTML)
-			// 	l := n.Segments.Len()
-			// 	for i := 0; i < l; i++ {
-			// 		segment := n.Segments.At(i)
-			// 		segmentStr := segment.Value(contentBytes)
-			// 		match := hrefAttrMatchRegex.Find([]byte(segmentStr))
-			// 		if len(match) > 0 {
-			// 			url := strings.Split(string(match), "=")[1]
-			// 			if destination, err = processLink(docNode, url, contentSourcePath, downloadCh); err!=nil {
-			// 				return ast.WalkContinue, err
-			// 			}
-
-			// 			continue
-			// 		}
-			// 		match = srcAttrMatchRegex.Find([]byte(segmentStr))
-			// 		if len(match) > 0 {
-			// 			url := strings.Split(string(match), "=")[1]
-			// 			if destination, err = processLink(docNode, url, contentSourcePath, downloadCh); err!=nil {
-			// 				return ast.WalkContinue, err
-			// 			}
-			// 			continue
-			// 		}
-			// 	}
-			// 	// return ast.WalkSkipChildren, nil
-			// }
 			if len(downloadLink) > 0 {
 				c.schedule(ctx, downloadLink, resourceName, contentSourcePath)
 			}
@@ -176,9 +149,15 @@ func (c *NodeContentProcessor) reconcileHTMLLinks(ctx context.Context, docNode *
 			attr := strings.Split(string(match), "=")
 			name := attr[0]
 			url := attr[1]
-			destination, downloadUrl, resourceName, err := c.processLink(ctx, docNode, url, contentSourcePath)
+			if len(url) > 0 {
+				url = strings.TrimPrefix(url, "\"")
+				url = strings.TrimSuffix(url, "\"")
+			}
+			destination, downloadURL, resourceName, err := c.processLink(ctx, docNode, url, contentSourcePath)
 			fmt.Printf("[%s] %s -> %s\n", contentSourcePath, url, destination)
-			c.schedule(ctx, downloadUrl, resourceName, contentSourcePath)
+			if len(downloadURL) > 0 {
+				c.schedule(ctx, downloadURL, resourceName, contentSourcePath)
+			}
 			if err != nil {
 				errors = multierror.Append(err)
 				return match
@@ -195,6 +174,9 @@ func (c *NodeContentProcessor) processLink(ctx context.Context, node *api.Node, 
 	}
 
 	handler := resourcehandlers.Get(contentSourcePath)
+	if handler == nil {
+		return destination, "", "", nil
+	}
 	absLink, err := handler.BuildAbsLink(contentSourcePath, destination)
 	if err != nil {
 		return "", "", "", err

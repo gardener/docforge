@@ -35,8 +35,8 @@ func (n *Node) SetParentsDownwards() {
 	}
 }
 
-// Returns the relative path between two nodes on the same tree, formatted
-// with `..` for ancestors path if any and `.` for current node in relative
+// RelativePath returns the relative path between two nodes on the same tree,
+// formatted with `..` for ancestors path if any and `.` for current node in relative
 // path to descendant. The function can also calculate path to a node on another
 // branch
 func (n *Node) RelativePath(to *Node) string {
@@ -104,6 +104,8 @@ func intersect(a, b []*Node) []*Node {
 	return intersection
 }
 
+// GetRootNode returns the root node in the parents path
+// for a node object n
 func (n *Node) GetRootNode() *Node {
 	parentNodes := n.Parents()
 	if len(parentNodes) > 0 {
@@ -112,6 +114,9 @@ func (n *Node) GetRootNode() *Node {
 	return nil
 }
 
+// FindNodeByContentSource traverses up and then all around the
+// tree paths in the node's documentation strcuture, looking for
+// a node that has contentSource path nodeContentSource
 func FindNodeByContentSource(nodeContentSource string, node *Node) *Node {
 	if node == nil {
 		return nil

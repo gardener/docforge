@@ -21,6 +21,8 @@ type cmdFlags struct {
 	prettyUrls                   bool
 }
 
+// NewCommand creates a new root command and propagates
+// the context and cancel function to its Run callback closure
 func NewCommand(ctx context.Context, cancel context.CancelFunc) *cobra.Command {
 	flags := &cmdFlags{}
 	cmd := &cobra.Command{
@@ -47,6 +49,7 @@ func NewCommand(ctx context.Context, cancel context.CancelFunc) *cobra.Command {
 	return cmd
 }
 
+// Configure configures flags for command
 func (flags *cmdFlags) Configure(command *cobra.Command) {
 	command.Flags().StringVarP(&flags.destinationPath, "destination", "d", "",
 		"Destination path.")
@@ -75,6 +78,7 @@ func (flags *cmdFlags) Configure(command *cobra.Command) {
 		"Build documentation bundle for hugo with pretty URLs (./sample.md -> ../sample).")
 }
 
+// NewOptions creates an options object from flags
 func NewOptions(f *cmdFlags) *Options {
 	var hugoOptions *Hugo
 	if f.hugo {
@@ -93,6 +97,7 @@ func NewOptions(f *cmdFlags) *Options {
 	}
 }
 
+// AddFlags adds go flags to rootCmd
 func AddFlags(rootCmd *cobra.Command) {
 	flag.CommandLine.VisitAll(func(gf *flag.Flag) {
 		rootCmd.Flags().AddGoFlag(gf)

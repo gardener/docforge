@@ -20,6 +20,7 @@ func (s ResourceType) String() string {
 	return [...]string{"tree", "blob"}[s]
 }
 
+// NewResourceType creates a ResourceType enum from string
 func NewResourceType(resourceTypeString string) (ResourceType, error) {
 	switch resourceTypeString {
 	case "tree":
@@ -31,7 +32,9 @@ func NewResourceType(resourceTypeString string) (ResourceType, error) {
 }
 
 const (
+	// Tree is GitHub tree objects resource type
 	Tree ResourceType = iota
+	// Blob is GitHub blob objects resource type
 	Blob
 )
 
@@ -169,11 +172,11 @@ func (c Cache) Get(path string) *ResourceLocator {
 	return c[path]
 }
 
-// HasUrlPrefix returns true if pathPrefix tests true as prefix for path,
+// HasURLPrefix returns true if pathPrefix tests true as prefix for path,
 // either with tree or blob in its resource type segment
 // The resource type in the URL prefix {tree|blob} changes according to the resource
 // To keep the prefix valid it should alternate this path segment too.
-func HasUrlPrefix(path, pathPrefix string) bool {
+func HasURLPrefix(path, pathPrefix string) bool {
 	// TODO: make me global
 	reStrBlob := regexp.MustCompile(fmt.Sprintf("^(.*?)%s(.*)$", "tree"))
 	repStr := "${1}blob$2"
@@ -190,7 +193,7 @@ func (c Cache) GetSubset(pathPrefix string) []*ResourceLocator {
 		if k == pathPrefix {
 			continue
 		}
-		if HasUrlPrefix(k, pathPrefix) {
+		if HasURLPrefix(k, pathPrefix) {
 			entries = append(entries, v)
 		}
 	}
@@ -203,11 +206,13 @@ func (c Cache) Set(path string, entry *ResourceLocator) *ResourceLocator {
 	return entry
 }
 
+// GitHub implements resourcehanlders#ResourceHandler
 type GitHub struct {
 	Client *github.Client
 	cache  Cache
 }
 
+// NewResourceHandler creates new GitHub ResourceHandler objects
 func NewResourceHandler(client *github.Client) resourcehandlers.ResourceHandler {
 	return &GitHub{
 		client,
@@ -283,7 +288,7 @@ func (gh *GitHub) URLToGitHubLocator(ctx context.Context, urlString string, reso
 			// populate cache wth this tree entries
 			for _, entry := range gitTree.Entries {
 				rl := TreeEntryToGitHubLocator(entry, ghRL.SHAAlias)
-				if HasUrlPrefix(rl.String(), urlString) {
+				if HasURLPrefix(rl.String(), urlString) {
 					gh.cache.Set(rl.String(), rl)
 				}
 			}

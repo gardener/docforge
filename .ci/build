@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+
+set -e
+export GO111MODULE=on
+
+# For the build step concourse will set the following environment variables:
+# SOURCE_PATH - path to component repository root directory.
+# BINARY_PATH - path to an existing (empty) directory to place build results into.
+
+if [[ $(uname) == 'Darwin' ]]; then
+  READLINK_BIN="greadlink"
+else
+  READLINK_BIN="readlink"
+fi
+
+if [[ -z "${SOURCE_PATH}" ]]; then
+  export SOURCE_PATH="$(${READLINK_BIN} -f $(dirname ${0})/..)"
+else
+  export SOURCE_PATH="$(${READLINK_BIN} -f "${SOURCE_PATH}")"
+fi
+
+if [[ -z "${BINARY_PATH}" ]]; then
+  export BINARY_PATH="${SOURCE_PATH}/bin"
+else
+  export BINARY_PATH="$(${READLINK_BIN} -f "${BINARY_PATH}")/bin"
+fi
+
+cd ${SOURCE_PATH}
+
+###############################################################################
+
+EFFECTIVE_VERSION_FILE="${VERSION_PATH}/version"
+if [[ -f ${EFFECTIVE_VERSION_FILE} ]]
+then
+  VERSION_FILE="${EFFECTIVE_VERSION_FILE}"
+else
+  VERSION_FILE="$(${READLINK_BIN} -f "${SOURCE_PATH}/VERSION")"
+fi
+VERSION="$(cat "${VERSION_FILE}")"
+
+# If no LOCAL_BUILD environment variable is set, we configure the `go build` command
+# to build for linux/amd64, windows/386 and darwin/amd64 architectures and without CGO enablement.
+if [[ -z "$LOCAL_BUILD" ]]; then
+  echo "Building docode ${BINARY_PATH}/rel/docode-linux-amd64"
+  CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    -a \
+    -v \
+    -o ${BINARY_PATH}/rel/docode-linux-amd64 \
+    -ldflags "-w -X github.com/gardener/docode/pkg/version.Version=${VERSION}" \
+    cmd/*.go
+
+  echo "Building docode ${BINARY_PATH}/rel/docode-darwin-amd64"
+  CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build \
+    -a \
+    -v \
+    -o ${BINARY_PATH}/rel/docode-darwin-amd64 \
+    -ldflags "-w -X github.com/gardener/docode/pkg/version.Version=${VERSION}" \
+    cmd/*.go
+
+  echo "Building docode ${BINARY_PATH}/rel/docode-windows-386.exe"
+  CGO_ENABLED=0 GOOS=windows GOARCH=386 go build \
+    -a \
+    -v \
+    -o ${BINARY_PATH}/rel/docode-windows-386.exe \
+    -ldflags "-w -X github.com/gardener/docode/pkg/version.Version=${VERSION}" \
+    cmd/*.go
+
+# If the LOCAL_BUILD environment variable is set, we simply run `go build`.
+else
+  go build \
+    -v \
+    -o ${BINARY_PATH}/docode \
+    cmd/*.go
+fi
