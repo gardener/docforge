@@ -15,6 +15,7 @@ type cmdFlags struct {
 	documentationManifestPath    string
 	resourcesPath                string
 	resourceDownloadWorkersCount int
+	markdownFmt                  bool
 	ghOAuthToken                 string
 	dryRun                       bool
 	hugo                         bool
@@ -63,6 +64,8 @@ func (flags *cmdFlags) Configure(command *cobra.Command) {
 		"GitHub personal token authorizing reading from GitHub repos.")
 	command.Flags().BoolVar(&flags.failFast, "fail-fast", false,
 		"Fail-fast vs fault tolerant operation.")
+	command.Flags().BoolVar(&flags.markdownFmt, "markdownfmt", false,
+		"Applies formatting rules to source markdown.")
 	command.Flags().BoolVar(&flags.dryRun, "dry-run", false,
 		"Resolves and prints the resolved documentation structure without downloading anything.")
 	command.Flags().IntVar(&flags.minWorkersCount, "min-workers", 10,
@@ -93,6 +96,7 @@ func NewOptions(f *cmdFlags) *Options {
 		MinWorkersCount:              f.minWorkersCount,
 		ResourceDownloadWorkersCount: f.resourceDownloadWorkersCount,
 		ResourcesPath:                f.resourcesPath,
+		MarkdownFmt:                  f.markdownFmt,
 		Hugo:                         hugoOptions,
 	}
 }

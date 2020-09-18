@@ -25,6 +25,7 @@ type Options struct {
 	DestinationPath              string
 	ResourcesPath                string
 	ResourceDownloadWorkersCount int
+	MarkdownFmt                  bool
 	*Hugo
 }
 
@@ -53,7 +54,7 @@ func NewReactor(o *Options) *reactor.Reactor {
 					Root: o.DestinationPath,
 				},
 				Reader:               &reactor.GenericReader{},
-				NodeContentProcessor: reactor.NewNodeContentProcessor("/"+o.ResourcesPath, nil, downloadJob, o.FailFast),
+				NodeContentProcessor: reactor.NewNodeContentProcessor("/"+o.ResourcesPath, nil, downloadJob, o.FailFast, o.MarkdownFmt),
 			},
 		},
 	}
