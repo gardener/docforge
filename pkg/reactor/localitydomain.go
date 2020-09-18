@@ -1,7 +1,6 @@
 package reactor
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/gardener/docode/pkg/api"
@@ -38,21 +37,20 @@ func (ld LocalityDomain) PathInLocality(key, path string) bool {
 	if !ok {
 		return false
 	}
-
-	fmt.Printf("Is path: %s in locality: %v \n", path, localityDomain)
 	// TODO: locality domain to be constructed from key for comparison
 	return strings.HasPrefix(path, localityDomain)
 }
 
-func defineLocalityDomains(docStruct *api.Node) (LocalityDomain, error) {
+func defineLocalityDomains(node *api.Node) (LocalityDomain, error) {
 	var localityDomains = make(LocalityDomain, 0)
-	if err := csHandle(docStruct.ContentSelectors, localityDomains); err != nil {
+	if err := csHandle(node.ContentSelectors, localityDomains); err != nil {
 		return nil, err
 	}
-	if err := fromNodes(docStruct.Nodes, localityDomains); err != nil {
-		return nil, err
+	if node.Nodes != nil {
+		if err := fromNodes(node.Nodes, localityDomains); err != nil {
+			return nil, err
+		}
 	}
-
 	return localityDomains, nil
 }
 

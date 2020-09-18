@@ -2,6 +2,7 @@ package processors
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/gardener/docode/pkg/api"
 	"gopkg.in/yaml.v3"
@@ -13,13 +14,16 @@ type FrontMatter struct{}
 
 // Process implements Processor#Process
 func (f *FrontMatter) Process(documentBlob []byte, node *api.Node) ([]byte, error) {
-	if node.Properties != nil {
-		b, err := yaml.Marshal(node.Properties)
-		if err != nil {
-			return nil, err
+	if node.Properties == nil {
+		title := strings.Title(strings.TrimRight(node.Name, ".md"))
+		node.Properties = map[string]interface{}{
+			"Title": title,
 		}
-		annotatedDocument := fmt.Sprintf("---\n%s\n---\n%s", b, documentBlob)
-		return []byte(annotatedDocument), nil
 	}
-	return documentBlob, nil
+	b, err := yaml.Marshal(node.Properties)
+	if err != nil {
+		return nil, err
+	}
+	annotatedDocument := fmt.Sprintf("---%s---\n%s", b, documentBlob)
+	return []byte(annotatedDocument), nil
 }

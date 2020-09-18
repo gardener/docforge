@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"net/url"
 	"regexp"
 	"strings"
 
@@ -44,17 +45,21 @@ func (f *HugoProcessor) Process(documentBlob []byte, node *api.Node) ([]byte, er
 		if entering {
 			if _node.Kind() == ast.KindLink {
 				n := _node.(*ast.Link)
-				n.Destination = rewriteDestination(n.Destination, node)
+				// Non-relative links are not rewritten
+				if !strings.HasPrefix(string(n.Destination), "/") {
+					n.Destination = rewriteDestination(n.Destination, node)
+				}
 				return ast.WalkContinue, nil
 			}
-
 			if _node.Kind() == ast.KindImage {
 				n := _node.(*ast.Image)
-				n.Destination = rewriteDestination(n.Destination, node)
+				// Non-relative links to images are not rewritten
+				if !strings.HasPrefix(string(n.Destination), "/") {
+					n.Destination = rewriteDestination(n.Destination, node)
+				}
 				return ast.WalkContinue, nil
 			}
 			if _node.Kind() == ast.KindRawHTML {
-				// ?
 				n := _node.(*ast.RawHTML)
 				l := n.Segments.Len()
 				for i := 0; i < l; i++ {
@@ -93,9 +98,14 @@ func rewriteDestination(destination []byte, node *api.Node) []byte {
 	link = strings.TrimSpace(link)
 	// trim leading and trailing quotes
 	link = strings.TrimRight(strings.TrimLeft(link, "\""), "\"")
-	if !strings.HasPrefix(link, "https") {
+	u, err := url.Parse(link)
+	if err != nil {
+		fmt.Printf("Invalid link: %s", link)
+		return destination
+	}
+	if !u.IsAbs() && !strings.HasPrefix(link, "#") {
 		link = strings.TrimRight(link, ".md")
-		// fmt.Printf("%s rewriting link: %s  ->  %s\n", node.Name, string(destination), link)
+		link = strings.TrimPrefix(link, "./")
 		return []byte(fmt.Sprintf("../%s", link))
 	}
 	return destination

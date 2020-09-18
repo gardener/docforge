@@ -3,12 +3,12 @@ package reactor
 import (
 	"context"
 	"flag"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/gardener/docode/pkg/api"
 	"github.com/gardener/docode/pkg/jobs"
-	"github.com/gardener/docode/pkg/processors"
 	"github.com/gardener/docode/pkg/resourcehandlers"
 	"github.com/gardener/docode/pkg/resourcehandlers/github"
 	"github.com/gardener/docode/pkg/util/tests"
@@ -58,30 +58,73 @@ func TestReactorWithGitHub(t *testing.T) {
 	// init gh resource handler
 	resourcehandlers.Load(gh)
 
-	reactor := Reactor{
+	destination := "../../example/hugo/content"
+	resourcesRoot := "__resources"
+	failFast := false
+	downloadJob := NewResourceDownloadJob(nil, &writers.FSWriter{
+		Root: filepath.Join(destination, resourcesRoot),
+		//TMP
+		// Hugo: (o.Hugo != nil),
+	}, 10, failFast)
+
+	r := &Reactor{
 		ReplicateDocumentation: &jobs.Job{
-			MaxWorkers: 50,
-			FailFast:   false,
+			MinWorkers: 25,
+			MaxWorkers: 75,
+			FailFast:   failFast,
 			Worker: &DocumentWorker{
 				Writer: &writers.FSWriter{
-					Root: "../../example/hugo/content",
+					Root: destination,
 				},
-				RdCh:             make(chan *ResourceData),
-				Reader:           &GenericReader{},
-				Processor:        &processors.FrontMatter{},
-				ContentProcessor: &ContentProcessor{ResourceAbsLink: make(map[string]string)},
-			},
-		},
-		LinkedResourceWorker: &LinkedResourceWorker{
-			Reader: &GenericReader{},
-			Writer: &writers.FSWriter{
-				Root: "../../example/hugo/content/__resources",
+				Reader:               &GenericReader{},
+				NodeContentProcessor: NewNodeContentProcessor("/"+resourcesRoot, nil, downloadJob, failFast),
 			},
 		},
 	}
 
+	// if o.Hugo != nil {
+	// 	if worker, ok := r.ReplicateDocumentation.Worker.(*DocumentWorker); ok {
+	// 		worker.Processor = &processors.ProcessorChain{
+	// 			Processors: []processors.Processor{
+	// 				&processors.FrontMatter{},
+	// 				&processors.HugoProcessor{
+	// 					PrettyUrls: true,
+	// 				},
+	// 			},
+	// 		}
+	// 	}
+
+	// }
+
+	// resourcesRoot := "__resources"
+	// downloadJob := reactor.NewResourceDownloadJob(nil, &writers.FSWriter{
+	// 	Root: filepath.Join("../../example/hugo/content/", resourcesRoot),
+	// }, 5, failFast)
+	// failFast := false
+	// reactor := Reactor{
+	// 	ReplicateDocumentation: &jobs.Job{
+	// 		MaxWorkers: 50,
+	// 		FailFast:   failFast,
+	// 		Worker: &DocumentWorker{
+	// 			Writer: &writers.FSWriter{
+	// 				Root: "../../example/hugo/content",
+	// 			},
+	// 			Reader: &GenericReader{},
+	// 			Processor: &processors.ProcessorChain{
+	// 				Processors: []processors.Processor{
+	// 					&processors.FrontMatter{},
+	// 					&processors.HugoProcessor{
+	// 						PrettyUrls: true,
+	// 					},
+	// 				},
+	// 				NodeContentProcessor: NewNodeContentProcessor("/"+resourcesRoot, nil, downloadJob, failFast),
+	// 			},
+	// 		},
+	// 	},
+	// }
+
 	docs := &api.Documentation{Root: node}
-	if err := reactor.Run(ctx, docs); err != nil {
+	if err := r.Run(ctx, docs, false); err != nil {
 		t.Errorf("failed with: %v", err)
 	}
 

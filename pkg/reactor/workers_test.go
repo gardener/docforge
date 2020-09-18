@@ -55,10 +55,15 @@ func TestDocumentWorkerWork(t *testing.T) {
 				return documentBlob, nil
 			},
 		},
-		&ContentProcessor{
-			ResourceAbsLink: make(map[string]string),
+		&NodeContentProcessor{
+			DownloadJob: NewResourceDownloadJob(&TestReader{
+				make(map[string][]byte),
+			}, &TestWriter{
+				make(map[string][]byte),
+			}, 1, false),
+			LocalityDomain: LocalityDomain{},
 		},
-		make(chan *ResourceData),
+		LocalityDomain{},
 	}
 
 	testCases := []struct {
@@ -76,7 +81,6 @@ func TestDocumentWorkerWork(t *testing.T) {
 					Name:             "sourcemd",
 					ContentSelectors: []api.ContentSelector{{Source: "testsource"}},
 				},
-				LocalityDomain{},
 			},
 			readerInput: map[string][]byte{
 				"testsource": []byte(testOutput),
