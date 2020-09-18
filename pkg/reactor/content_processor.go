@@ -27,7 +27,8 @@ var (
 		regexp.MustCompile(`href=["\']?([^"\'>]+)["\']?`),
 		regexp.MustCompile(`src=["\']?([^"\'>]+)["\']?`),
 	}
-	mdParser = parser.NewParser(parser.WithBlockParsers(parser.DefaultBlockParsers()...),
+	mdLinksRegex = regexp.MustCompile(`\[(?P<text>.+)\]\((?P<url>[^ ]+)(?: "(?P<title>.+)")?\)`)
+	mdParser     = parser.NewParser(parser.WithBlockParsers(parser.DefaultBlockParsers()...),
 		parser.WithInlineParsers(parser.DefaultInlineParsers()...),
 		parser.WithParagraphTransformers(parser.DefaultParagraphTransformers()...),
 	)
@@ -44,10 +45,11 @@ type NodeContentProcessor struct {
 	resourcesRoot string
 	DownloadJob   DownloadJob
 	failFast      bool
+	markdownFmt   bool
 }
 
 // NewNodeContentProcessor creates NodeContentProcessor objects
-func NewNodeContentProcessor(resourcesRoot string, localityDomain LocalityDomain, downloadJob DownloadJob, failFast bool) *NodeContentProcessor {
+func NewNodeContentProcessor(resourcesRoot string, localityDomain LocalityDomain, downloadJob DownloadJob, failFast bool, markdownFmt bool) *NodeContentProcessor {
 	if localityDomain == nil {
 		localityDomain = LocalityDomain{}
 	}
@@ -57,6 +59,7 @@ func NewNodeContentProcessor(resourcesRoot string, localityDomain LocalityDomain
 		resourcesRoot:    resourcesRoot,
 		DownloadJob:      downloadJob,
 		failFast:         failFast,
+		markdownFmt:      markdownFmt,
 	}
 	return c
 }
@@ -86,6 +89,37 @@ func (c *NodeContentProcessor) ReconcileLinks(ctx context.Context, node *api.Nod
 }
 
 func (c *NodeContentProcessor) reconcileMDLinks(ctx context.Context, docNode *api.Node, contentBytes []byte, contentSourcePath string) ([]byte, error) {
+	if !c.markdownFmt {
+		var errors *multierror.Error
+		contentBytes = mdLinksRegex.ReplaceAllFunc(contentBytes, func(match []byte) []byte {
+			var title string
+			link := strings.Split(string(match), "](")
+			text := link[0] + "]"          // [text]
+			d := link[1]                   // url title)
+			d = strings.TrimSuffix(d, ")") // url title
+			_d := strings.Split(d, "\"")
+			_u := _d[0] // url
+			if len(_d) > 1 {
+				title = "\"%s" + _d[1] //title
+			}
+
+			destination, downloadURL, resourceName, err := c.processLink(ctx, docNode, _u, contentSourcePath)
+			fmt.Printf("[%s] %s -> %s\n", contentSourcePath, _u, destination)
+			if len(downloadURL) > 0 {
+				c.schedule(ctx, downloadURL, resourceName, contentSourcePath)
+			}
+			if err != nil {
+				errors = multierror.Append(err)
+				return match
+			}
+			if len(title) > 0 {
+				return []byte(fmt.Sprintf("%s(%s %s)", text, destination, title))
+			}
+			return []byte(fmt.Sprintf("%s(%s)", text, destination))
+		})
+		return contentBytes, errors.ErrorOrNil()
+	}
+
 	reader := text.NewReader(contentBytes)
 	doc := mdParser.Parse(reader)
 	var errors *multierror.Error
