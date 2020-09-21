@@ -12,64 +12,6 @@ import (
 	"github.com/google/go-github/v32/github"
 )
 
-// ResourceType is an enumeration for GitHub resource types
-// Supported types are "tree" and "blob"
-type ResourceType int
-
-func (s ResourceType) String() string {
-	return [...]string{"tree", "blob"}[s]
-}
-
-// NewResourceType creates a ResourceType enum from string
-func NewResourceType(resourceTypeString string) (ResourceType, error) {
-	switch resourceTypeString {
-	case "tree":
-		return Tree, nil
-	case "blob":
-		return Blob, nil
-	}
-	return 0, fmt.Errorf("Unknown resource type string %s. Must be one of %v", resourceTypeString, []string{"tree", "blob"})
-}
-
-const (
-	// Tree is GitHub tree objects resource type
-	Tree ResourceType = iota
-	// Blob is GitHub blob objects resource type
-	Blob
-)
-
-// ResourceLocator is an abstraction for GitHub specific Universal Resource Locators (URLs)
-// It is an internal structure breaking down the GitHub URLs into more segment types such as
-// Repo, Owner or SHA.
-// ResourceLocator is a common denominator used to translate between GitHub user-oriented urls
-// and API urls
-type ResourceLocator struct {
-	Host  string
-	Owner string
-	Repo  string
-	SHA   string
-	Type  ResourceType
-	Path  string
-	// branch name (master), tag (v1.2.3), commit hash (1j4h4jh...)
-	SHAAlias string
-}
-
-// String produces a GitHub website link to a resource from a ResourceLocator.
-// That's the format used to link а GitHub rеsource in the documentatiоn structure and pages.
-// Example: https://github.com/gardener/gardener/blob/master/docs/README.md
-func (g *ResourceLocator) String() string {
-	return fmt.Sprintf("https://%s/%s/%s/%s/%s/%s", g.Host, g.Owner, g.Repo, g.Type, g.SHAAlias, g.Path)
-}
-
-// GetName returns the Name segment of a resource URL path
-func (g *ResourceLocator) GetName() string {
-	if len(g.Path) == 0 {
-		return ""
-	}
-	p := strings.Split(g.Path, "/")
-	return p[len(p)-1]
-}
-
 // TreeEntryToGitHubLocator creates a ResourceLocator from a github.TreeEntry and shaAlias.
 // The shaAlias is the name of e.g. a branch or a tag that should resolve to this resource
 // in the git database. It binds the formats of a GitHub website URLs to the GitHub API URLs.
@@ -220,48 +162,6 @@ func NewResourceHandler(client *github.Client) resourcehandlers.ResourceHandler 
 	}
 }
 
-// Parse a GitHub URL into an incomplete ResourceLocator, without
-// the APIUrl property.
-func parse(urlString string) *ResourceLocator {
-	// TODO: error on parse failure or panic
-	u, _ := url.Parse(urlString)
-	host := u.Host
-	sourceURLSegments := strings.Split(u.Path, "/")
-	if len(sourceURLSegments) < 5 {
-		// TODO: be consistent - throwing error or panic
-		panic(fmt.Sprintf("invalid GitHub URL format %q", u))
-	}
-	owner := sourceURLSegments[1]
-	repo := sourceURLSegments[2]
-	resourceTypeString := sourceURLSegments[3]
-	shaAlias := sourceURLSegments[4]
-
-	// get the github url "path" part
-	s := strings.Join([]string{owner, repo, resourceTypeString, shaAlias}, "/")
-	var (
-		resourceType ResourceType
-		path         string
-		err          error
-	)
-	if p := strings.Split(u.Path, s); len(p) > 0 {
-		path = strings.TrimLeft(p[1], "/")
-	}
-
-	if resourceType, err = NewResourceType(resourceTypeString); err != nil {
-		panic(fmt.Sprintf("unexpected resource type in url %s", resourceTypeString))
-	}
-	ghRL := &ResourceLocator{
-		host,
-		owner,
-		repo,
-		"",
-		resourceType,
-		path,
-		shaAlias,
-	}
-	return ghRL
-}
-
 // URLToGitHubLocator produces a ResourceLocator from a GitHub website URL.
 // ResourceLocator is the internal format used to dereference GitHub website
 // links from documentation structure specification and documents.
@@ -273,17 +173,26 @@ func parse(urlString string) *ResourceLocator {
 // If resolveAPIUrl is true, GitHub API will be queried to populate the API URL for
 // that resource (its SHA cannot be inferred from the url). If it's false the APIUrl
 // property will be nil. In this case ctx can be omited too.
-func (gh *GitHub) URLToGitHubLocator(ctx context.Context, urlString string, resolveAPIUrl bool) *ResourceLocator {
-	var ghRL *ResourceLocator
+func (gh *GitHub) URLToGitHubLocator(ctx context.Context, urlString string, resolveAPIUrl bool) (*ResourceLocator, error) {
+	var (
+		ghRL *ResourceLocator
+		err  error
+	)
 	// try cache first
 	//TODO: we probably need lock before getting from the map
 	if ghRL = gh.cache.Get(urlString); ghRL == nil {
-		ghRL = parse(urlString)
+		if ghRL, err = parse(urlString); err != nil {
+			return nil, err
+		}
 		if resolveAPIUrl {
+			_p := strings.Split(ghRL.Path, "/")[0]
+			if _, found := nonSHAPathPrefixes[_p]; found {
+				return ghRL, nil
+			}
 			// grab the index of this repo
 			gitTree, _, err := gh.Client.Git.GetTree(ctx, ghRL.Owner, ghRL.Repo, ghRL.SHAAlias, true)
 			if err != nil {
-				panic(err)
+				return nil, err
 			}
 			// populate cache wth this tree entries
 			for _, entry := range gitTree.Entries {
@@ -295,7 +204,7 @@ func (gh *GitHub) URLToGitHubLocator(ctx context.Context, urlString string, reso
 			ghRL = gh.cache.Get(urlString)
 		}
 	}
-	return ghRL
+	return ghRL, nil
 }
 
 // Accept implements resourcehandlers.ResourceHandler#Accept
@@ -315,9 +224,16 @@ func (gh *GitHub) Accept(uri string) bool {
 
 // ResolveNodeSelector recursively adds nodes built from tree entries to node
 func (gh *GitHub) ResolveNodeSelector(ctx context.Context, node *api.Node) error {
-	if ghRL := gh.URLToGitHubLocator(ctx, node.NodeSelector.Path, true); ghRL != nil {
+	var (
+		rl  *ResourceLocator
+		err error
+	)
+	if rl, err = gh.URLToGitHubLocator(ctx, node.NodeSelector.Path, true); err != nil {
+		return err
+	}
+	if rl != nil {
 		// build node subnodes hierarchy from cache (URLToGitHubLocator populates the cache)
-		childResourceLocators := gh.cache.GetSubset(ghRL.String())
+		childResourceLocators := gh.cache.GetSubset(rl.String())
 		buildNodes(node, childResourceLocators, gh.cache)
 	}
 	return nil
@@ -327,14 +243,16 @@ func (gh *GitHub) ResolveNodeSelector(ctx context.Context, node *api.Node) error
 func (gh *GitHub) Read(ctx context.Context, uri string) ([]byte, error) {
 	var (
 		blob []byte
+		rl   *ResourceLocator
 		err  error
 	)
-	if ghRL := gh.URLToGitHubLocator(ctx, uri, true); ghRL != nil {
-		if ghRL.Type != 0 {
-			blob, _, err = gh.Client.Git.GetBlobRaw(ctx, ghRL.Owner, ghRL.Repo, ghRL.SHA)
-			if err != nil {
-				panic(err)
-			}
+	if rl, err = gh.URLToGitHubLocator(ctx, uri, true); err != nil {
+		return nil, err
+	}
+	if rl != nil && rl.Type != Tree {
+		blob, _, err = gh.Client.Git.GetBlobRaw(ctx, rl.Owner, rl.Repo, rl.SHA)
+		if err != nil {
+			return nil, err
 		}
 	}
 	return blob, err
@@ -342,8 +260,15 @@ func (gh *GitHub) Read(ctx context.Context, uri string) ([]byte, error) {
 
 // Name implements resourcehandlers.ResourceHandler#Name
 func (gh *GitHub) Name(uri string) string {
-	if ghRL := gh.URLToGitHubLocator(nil, uri, true); ghRL != nil {
-		return ghRL.GetName()
+	var (
+		rl  *ResourceLocator
+		err error
+	)
+	if rl, err = gh.URLToGitHubLocator(nil, uri, true); err != nil {
+		panic(err)
+	}
+	if gh != nil {
+		return rl.GetName()
 	}
 	return ""
 }
@@ -370,59 +295,40 @@ func (gh *GitHub) BuildAbsLink(source, relPath string) (string, error) {
 }
 
 // GetLocalityDomainCandidate returns the provided source as locality domain candidate
-func (gh *GitHub) GetLocalityDomainCandidate(source string) (key, path string, err error) {
-	u, err := url.Parse(source)
-	if err != nil {
-		return
+// parameters suitable for quering reactor/LocalityDomain#PathInLocality
+func (gh *GitHub) GetLocalityDomainCandidate(source string) (key, path, version string, err error) {
+	var rl *ResourceLocator
+	if rl, err = parse(source); rl != nil {
+		version = rl.SHAAlias
+		if len(rl.Host) > 0 && len(rl.Owner) > 0 && len(rl.Repo) > 0 {
+			key = fmt.Sprintf("%s/%s/%s", rl.Host, rl.Owner, rl.Repo)
+		}
+		if len(rl.Owner) > 0 && len(rl.Repo) > 0 && len(rl.SHAAlias) > 0 {
+			path = fmt.Sprintf("%s/%s/%s/%s", rl.Owner, rl.Repo, rl.SHAAlias, rl.Path)
+		}
 	}
-
-	key = localityDomainKeyFromGitHubURL(u)
-	path = clearTreeOrBlobFromPath(u.Path)
 	return
 }
 
-func localityDomainKeyFromGitHubURL(url *url.URL) string {
-	var path = url.Path
-	if len(path) <= 0 {
-		return ""
+// SetVersion replaces the version segment in the path of GitHub URLs if
+// applicable or returns the original URL unchanged if not.
+func (gh *GitHub) SetVersion(absLink, version string) (string, error) {
+	var (
+		rl  *ResourceLocator
+		err error
+	)
+	if rl, err = parse(absLink); err != nil {
+		return "", err
 	}
 
-	if strings.HasPrefix(path, "/") {
-		path = strings.TrimLeft(path, "/")
+	if len(rl.Path) > 0 {
+		pathSegments := strings.Split(rl.Path, "/")
+		if _, found := nonSHAPathPrefixes[pathSegments[0]]; found {
+			return absLink, nil
+		}
+		rl.SHAAlias = version
+		return rl.String(), nil
 	}
 
-	urlPathSegments := strings.Split(path, "/")
-	if len(urlPathSegments) < 3 {
-		return ""
-	}
-
-	urlPathSegments = urlPathSegments[:2]
-	urlPathSegments = append([]string{url.Host}, urlPathSegments...)
-	return strings.Join(urlPathSegments, "/")
-}
-
-func clearTreeOrBlobFromPath(path string) string {
-	hasSepPrefix := path[0] == '/'
-
-	if !hasSepPrefix {
-		path = "/" + path
-	}
-
-	pathSegments := strings.Split(path, "/")
-	if len(pathSegments) < 3 {
-		return path
-	}
-
-	if len(pathSegments) == 3 {
-		return strings.Join(pathSegments[:3], "/")
-	}
-
-	var p []string
-	p = append(p, pathSegments[:3]...)
-	p = append(p, pathSegments[4:]...)
-	result := strings.Join(p, "/")
-	if !hasSepPrefix {
-		return result[1:]
-	}
-	return result
+	return absLink, nil
 }

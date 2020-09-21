@@ -57,6 +57,7 @@ func NewReactor(o *Options) *reactor.Reactor {
 				NodeContentProcessor: reactor.NewNodeContentProcessor("/"+o.ResourcesPath, nil, downloadJob, o.FailFast, o.MarkdownFmt),
 			},
 		},
+		FailFast: o.FailFast,
 	}
 
 	if o.Hugo != nil {

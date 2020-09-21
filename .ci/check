@@ -29,5 +29,5 @@ gofmt -l -w ${PACKAGES_DIRS}
 
 # Execute lint checks.
 for package in ${PACKAGES_DIRS}; do
-  golint -set_exit_status $(find $package -maxdepth 1 -name "*.go | grep -vE '_test.go'")
+  $GOPATH/bin/golint -set_exit_status $(find $package -maxdepth 1 -name "*.go | grep -vE '_test.go'")
 done

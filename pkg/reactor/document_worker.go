@@ -23,13 +23,13 @@ type DocumentWorker struct {
 	Reader
 	processors.Processor
 	NodeContentProcessor *NodeContentProcessor
-	LocalityDomain       LocalityDomain
+	localityDomain       localityDomain
 }
 
 // DocumentWorkTask implements jobs#Task
 type DocumentWorkTask struct {
 	Node *api.Node
-	// LocalityDomain LocalityDomain
+	// localityDomain localityDomain
 }
 
 // GenericReader is generic implementation for Reader interface

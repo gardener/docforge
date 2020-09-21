@@ -127,8 +127,11 @@ func FindNodeByContentSource(nodeContentSource string, node *Node) *Node {
 			return node
 		}
 	}
-
-	return withMatchinContentSelectorSource(nodeContentSource, node.GetRootNode())
+	root := node.GetRootNode()
+	if root == nil {
+		root = node
+	}
+	return withMatchinContentSelectorSource(nodeContentSource, root)
 }
 
 func withMatchinContentSelectorSource(nodeContentSource string, node *Node) *Node {

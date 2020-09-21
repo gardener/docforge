@@ -61,7 +61,7 @@ func Test_tasks(t *testing.T) {
 	type args struct {
 		node  *api.Node
 		tasks []interface{}
-		lds   LocalityDomain
+		lds   localityDomain
 	}
 	tests := []struct {
 		name          string
@@ -126,6 +126,10 @@ func (f *FakeResourceHandler) BuildAbsLink(source, relLink string) (string, erro
 	return relLink, nil
 }
 
-func (f *FakeResourceHandler) GetLocalityDomainCandidate(source string) (string, string, error) {
-	return source, source, nil
+func (f *FakeResourceHandler) GetLocalityDomainCandidate(source string) (string, string, string, error) {
+	return source, source, "", nil
+}
+
+func (f *FakeResourceHandler) SetVersion(link, version string) (string, error) {
+	return link, nil
 }

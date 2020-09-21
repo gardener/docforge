@@ -61,9 +61,9 @@ func TestDocumentWorkerWork(t *testing.T) {
 			}, &TestWriter{
 				make(map[string][]byte),
 			}, 1, false),
-			LocalityDomain: LocalityDomain{},
+			localityDomain: localityDomain{},
 		},
-		LocalityDomain{},
+		localityDomain{},
 	}
 
 	testCases := []struct {
