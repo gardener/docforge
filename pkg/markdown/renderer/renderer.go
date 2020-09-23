@@ -274,7 +274,7 @@ func (r *Renderer) list(w io.Writer, list *ast.List, entering bool) {
 
 func (r *Renderer) codeBlock(w io.Writer, codeBlock *ast.CodeBlock, entering bool) {
 	r.outPrefix(w)
-	r.outs(w, "~~~")
+	r.outs(w, "```")
 	if codeBlock.Info != nil {
 		r.outs(w, " ")
 		r.out(w, codeBlock.Info)
@@ -284,7 +284,7 @@ func (r *Renderer) codeBlock(w io.Writer, codeBlock *ast.CodeBlock, entering boo
 	indented := r.indentText(codeBlock.Literal, r.prefix.flatten())
 	r.out(w, indented)
 	r.outPrefix(w)
-	r.outs(w, "~~~\n")
+	r.outs(w, "```\n")
 
 	if _, ok := ast.GetNextNode(codeBlock).(*ast.Caption); !ok {
 		r.newline(w)

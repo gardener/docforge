@@ -117,7 +117,7 @@ func InsertFrontMatter(fm []byte, content []byte) ([]byte, error) {
 	}
 	buf := bytes.NewBuffer([]byte("---\n"))
 	buf.Write(fm)
-	buf.WriteString("---\n")
+	buf.WriteString("---\n\n")
 	buf.Write(content)
 	if data, err = ioutil.ReadAll(buf); err != nil {
 		return nil, err
