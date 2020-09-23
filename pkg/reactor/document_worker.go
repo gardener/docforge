@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/gardener/docode/pkg/api"
-	"github.com/gardener/docode/pkg/jobs"
-	"github.com/gardener/docode/pkg/processors"
-	"github.com/gardener/docode/pkg/resourcehandlers"
-	utilnode "github.com/gardener/docode/pkg/util/node"
-	"github.com/gardener/docode/pkg/writers"
+	"github.com/gardener/docforge/pkg/api"
+	"github.com/gardener/docforge/pkg/jobs"
+	"github.com/gardener/docforge/pkg/processors"
+	"github.com/gardener/docforge/pkg/resourcehandlers"
+	utilnode "github.com/gardener/docforge/pkg/util/node"
+	"github.com/gardener/docforge/pkg/writers"
 )
 
 // Reader reads the bytes data from a given source URI

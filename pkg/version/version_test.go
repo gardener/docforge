@@ -15,7 +15,7 @@
 package version_test
 
 import (
-	. "github.com/gardener/docode/pkg/version"
+	. "github.com/gardener/docforge/pkg/version"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

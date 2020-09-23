@@ -3,7 +3,7 @@ package node
 import (
 	"strings"
 
-	"github.com/gardener/docode/pkg/api"
+	"github.com/gardener/docforge/pkg/api"
 )
 
 // Path serializes the node parents path to root

@@ -16,5 +16,5 @@ package metrics
 
 const (
 	//Namespace defines common namespace name for all metrics exposed by components in this project
-	Namespace = "docode"
+	Namespace = "docforge"
 )

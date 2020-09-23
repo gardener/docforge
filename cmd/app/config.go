@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/gardener/docode/pkg/api"
+	"github.com/gardener/docforge/pkg/api"
 )
 
 // Manifest creates documentation model from configration file

@@ -19,7 +19,7 @@ go get -u golang.org/x/lint/golint
 
 ###############################################################################
 PACKAGES="$(go list -e ./...)"
-PACKAGES_DIRS="$(echo ${PACKAGES} | sed "s|github.com/gardener/docode|.|g")"
+PACKAGES_DIRS="$(echo ${PACKAGES} | sed "s|github.com/gardener/docforge|.|g")"
 
 # Execute static code checks.
 go vet ${PACKAGES}

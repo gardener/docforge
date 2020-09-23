@@ -3,7 +3,7 @@ package resourcehandlers
 import (
 	"context"
 
-	"github.com/gardener/docode/pkg/api"
+	"github.com/gardener/docforge/pkg/api"
 )
 
 // ResourceHandler does resource specific operations on a type of objects

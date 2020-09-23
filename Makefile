@@ -13,7 +13,7 @@
 # limitations under the License.
 
 REGISTRY                                                 := eu.gcr.io/gardener-project
-DOCODE_IMAGE_REPOSITORY                          		 := $(REGISTRY)/docode
+DOCODE_IMAGE_REPOSITORY                          		 := $(REGISTRY)/docforge
 IMAGE_TAG                                                := $(shell cat VERSION)
 
 #################################################################
@@ -41,8 +41,8 @@ release: build build-local docker-images docker-login docker-push
 
 .PHONY: docker-images
 docker-images:
-	@if ! test -f bin/rel/docode; then \
-		echo "No docode binary found in bin/rel. Please run 'make build'"; false;\
+	@if ! test -f bin/rel/docforge; then \
+		echo "No docforge binary found in bin/rel. Please run 'make build'"; false;\
 	fi
 	@docker build -t $(DOCODE_IMAGE_REPOSITORY):$(IMAGE_TAG) -t $(DOCODE_IMAGE_REPOSITORY):latest -f Dockerfile --rm .
 
@@ -86,11 +86,11 @@ test:
 .PHONY: test-cov
 test-cov:
 	@env COVERAGE=1 .ci/test
-	@echo "mode: set" > docode.coverprofile && find . -name "*.coverprofile" -type f | xargs cat | grep -v mode: | sort -r | awk '{if($$1 != last) {print $$0;last=$$1}}' >> docode.coverprofile
-	@go tool cover -html=docode.coverprofile -o=docode.coverage.html
-	@rm docode.coverprofile
+	@echo "mode: set" > docforge.coverprofile && find . -name "*.coverprofile" -type f | xargs cat | grep -v mode: | sort -r | awk '{if($$1 != last) {print $$0;last=$$1}}' >> docforge.coverprofile
+	@go tool cover -html=docforge.coverprofile -o=docforge.coverage.html
+	@rm docforge.coverprofile
 
 .PHONY: test-clean
 test-clean:
 	@find . -name "*.coverprofile" -type f -delete
-	@rm -f docode.coverage.html
+	@rm -f docforge.coverage.html

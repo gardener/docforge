@@ -18,7 +18,7 @@ package files
 import (
 	"context"
 	"fmt"
-	"github.com/gardener/docode/pkg/util/tests"
+	"github.com/gardener/docforge/pkg/util/tests"
 	"github.com/howeyc/fsnotify"
 	"github.com/stretchr/testify/assert"
 	"math/rand"

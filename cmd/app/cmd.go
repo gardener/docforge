@@ -27,7 +27,7 @@ type cmdFlags struct {
 func NewCommand(ctx context.Context, cancel context.CancelFunc) *cobra.Command {
 	flags := &cmdFlags{}
 	cmd := &cobra.Command{
-		Use:   "docode",
+		Use:   "docforge",
 		Short: "Build documentation bundle",
 		Run: func(cmd *cobra.Command, args []string) {
 			options := NewOptions(flags)

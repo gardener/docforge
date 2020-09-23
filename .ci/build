@@ -41,34 +41,34 @@ VERSION="$(cat "${VERSION_FILE}")"
 # If no LOCAL_BUILD environment variable is set, we configure the `go build` command
 # to build for linux/amd64, windows/386 and darwin/amd64 architectures and without CGO enablement.
 if [[ -z "$LOCAL_BUILD" ]]; then
-  echo "Building docode ${BINARY_PATH}/rel/docode-linux-amd64"
+  echo "Building docforge ${BINARY_PATH}/rel/docforge-linux-amd64"
   CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -a \
     -v \
-    -o ${BINARY_PATH}/rel/docode-linux-amd64 \
-    -ldflags "-w -X github.com/gardener/docode/pkg/version.Version=${VERSION}" \
+    -o ${BINARY_PATH}/rel/docforge-linux-amd64 \
+    -ldflags "-w -X github.com/gardener/docforge/pkg/version.Version=${VERSION}" \
     cmd/*.go
 
-  echo "Building docode ${BINARY_PATH}/rel/docode-darwin-amd64"
+  echo "Building docforge ${BINARY_PATH}/rel/docforge-darwin-amd64"
   CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build \
     -a \
     -v \
-    -o ${BINARY_PATH}/rel/docode-darwin-amd64 \
-    -ldflags "-w -X github.com/gardener/docode/pkg/version.Version=${VERSION}" \
+    -o ${BINARY_PATH}/rel/docforge-darwin-amd64 \
+    -ldflags "-w -X github.com/gardener/docforge/pkg/version.Version=${VERSION}" \
     cmd/*.go
 
-  echo "Building docode ${BINARY_PATH}/rel/docode-windows-386.exe"
+  echo "Building docforge ${BINARY_PATH}/rel/docforge-windows-386.exe"
   CGO_ENABLED=0 GOOS=windows GOARCH=386 go build \
     -a \
     -v \
-    -o ${BINARY_PATH}/rel/docode-windows-386.exe \
-    -ldflags "-w -X github.com/gardener/docode/pkg/version.Version=${VERSION}" \
+    -o ${BINARY_PATH}/rel/docforge-windows-386.exe \
+    -ldflags "-w -X github.com/gardener/docforge/pkg/version.Version=${VERSION}" \
     cmd/*.go
 
 # If the LOCAL_BUILD environment variable is set, we simply run `go build`.
 else
   go build \
     -v \
-    -o ${BINARY_PATH}/docode \
+    -o ${BINARY_PATH}/docforge \
     cmd/*.go
 fi

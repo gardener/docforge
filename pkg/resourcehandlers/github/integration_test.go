@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/gardener/docode/pkg/api"
-	"github.com/gardener/docode/pkg/util/tests"
+	"github.com/gardener/docforge/pkg/api"
+	"github.com/gardener/docforge/pkg/util/tests"
 
 	"github.com/google/go-github/v32/github"
 	"golang.org/x/oauth2"
