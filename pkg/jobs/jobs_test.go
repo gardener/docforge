@@ -22,7 +22,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gardener/docode/pkg/util/tests"
+	"github.com/gardener/docforge/pkg/util/tests"
 	"github.com/hashicorp/go-multierror"
 	"github.com/stretchr/testify/assert"
 )

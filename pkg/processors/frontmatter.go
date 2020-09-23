@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/gardener/docode/pkg/api"
+	"github.com/gardener/docforge/pkg/api"
 	"gopkg.in/yaml.v3"
 )
 

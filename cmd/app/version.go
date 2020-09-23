@@ -3,7 +3,7 @@ package app
 import (
 	"fmt"
 
-	"github.com/gardener/docode/pkg/version"
+	"github.com/gardener/docforge/pkg/version"
 	"github.com/spf13/cobra"
 )
 

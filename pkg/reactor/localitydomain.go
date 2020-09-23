@@ -5,8 +5,8 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/gardener/docode/pkg/api"
-	"github.com/gardener/docode/pkg/resourcehandlers"
+	"github.com/gardener/docforge/pkg/api"
+	"github.com/gardener/docforge/pkg/resourcehandlers"
 )
 
 // localityDomain contains the entries defining a

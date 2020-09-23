@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/gardener/docode/pkg/writers"
+	"github.com/gardener/docforge/pkg/writers"
 )
 
 // DownloadTask holds information for source and target of linked document resources

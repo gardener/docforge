@@ -17,7 +17,7 @@ package reactor
 import (
 	"net/http"
 
-	"github.com/gardener/docode/pkg/metrics"
+	"github.com/gardener/docforge/pkg/metrics"
 	"github.com/prometheus/client_golang/prometheus"
 )
 

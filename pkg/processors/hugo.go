@@ -9,9 +9,9 @@ import (
 	"strings"
 
 	"github.com/Kunde21/markdownfmt/v2/markdown"
-	"github.com/gardener/docode/pkg/api"
+	"github.com/gardener/docforge/pkg/api"
 
-	// "github.com/gardener/docode/pkg/resourcehandlers"
+	// "github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/parser"
 	"github.com/yuin/goldmark/text"

@@ -1,7 +1,7 @@
 package processors
 
 import (
-	"github.com/gardener/docode/pkg/api"
+	"github.com/gardener/docforge/pkg/api"
 )
 
 // Processor is used by extensions to transform a document

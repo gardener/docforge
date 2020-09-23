@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gardener/docode/pkg/api"
-	"github.com/gardener/docode/pkg/jobs"
-	"github.com/gardener/docode/pkg/resourcehandlers"
+	"github.com/gardener/docforge/pkg/api"
+	"github.com/gardener/docforge/pkg/jobs"
+	"github.com/gardener/docforge/pkg/resourcehandlers"
 )
 
 type TestWriter struct {

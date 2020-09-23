@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/gardener/docode/pkg/util/tests"
+	"github.com/gardener/docforge/pkg/util/tests"
 )
 
 func init() {

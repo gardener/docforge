@@ -6,9 +6,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/gardener/docode/pkg/api"
-	"github.com/gardener/docode/pkg/resourcehandlers"
-	"github.com/gardener/docode/pkg/util/tests"
+	"github.com/gardener/docforge/pkg/api"
+	"github.com/gardener/docforge/pkg/resourcehandlers"
+	"github.com/gardener/docforge/pkg/util/tests"
 )
 
 func init() {

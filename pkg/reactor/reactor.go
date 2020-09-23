@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/gardener/docode/pkg/api"
-	"github.com/gardener/docode/pkg/jobs"
-	"github.com/gardener/docode/pkg/resourcehandlers"
+	"github.com/gardener/docforge/pkg/api"
+	"github.com/gardener/docforge/pkg/jobs"
+	"github.com/gardener/docforge/pkg/resourcehandlers"
 
 	"github.com/hashicorp/go-multierror"
 )

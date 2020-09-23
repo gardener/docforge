@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gardener/docode/pkg/api"
-	"github.com/gardener/docode/pkg/resourcehandlers"
-	ghrs "github.com/gardener/docode/pkg/resourcehandlers/github"
+	"github.com/gardener/docforge/pkg/api"
+	"github.com/gardener/docforge/pkg/resourcehandlers"
+	ghrs "github.com/gardener/docforge/pkg/resourcehandlers/github"
 )
 
 func init() {

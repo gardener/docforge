@@ -7,12 +7,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gardener/docode/pkg/api"
-	"github.com/gardener/docode/pkg/jobs"
-	"github.com/gardener/docode/pkg/resourcehandlers"
-	"github.com/gardener/docode/pkg/resourcehandlers/github"
-	"github.com/gardener/docode/pkg/util/tests"
-	"github.com/gardener/docode/pkg/writers"
+	"github.com/gardener/docforge/pkg/api"
+	"github.com/gardener/docforge/pkg/jobs"
+	"github.com/gardener/docforge/pkg/resourcehandlers"
+	"github.com/gardener/docforge/pkg/resourcehandlers/github"
+	"github.com/gardener/docforge/pkg/util/tests"
+	"github.com/gardener/docforge/pkg/writers"
 
 	githubapi "github.com/google/go-github/v32/github"
 	"golang.org/x/oauth2"

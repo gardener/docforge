@@ -1,4 +1,4 @@
-module github.com/gardener/docode
+module github.com/gardener/docforge
 
 go 1.14
 

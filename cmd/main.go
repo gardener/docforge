@@ -8,7 +8,7 @@ import (
 	"runtime"
 	"syscall"
 
-	"github.com/gardener/docode/cmd/app"
+	"github.com/gardener/docforge/cmd/app"
 )
 
 func main() {
