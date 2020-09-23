@@ -68,13 +68,24 @@ func (c *NodeContentProcessor) schedule(ctx context.Context, link, resourceName,
 // destinations, or rewriting them to absolute, as well as downloading some of
 // the linked resources.
 // The function returns the processed document or error.
-func (c *NodeContentProcessor) ReconcileLinks(ctx context.Context, node *api.Node, contentSourcePath string, contentBytes []byte) ([]byte, error) {
+func (c *NodeContentProcessor) ReconcileLinks(ctx context.Context, node *api.Node, contentSourcePath string, documentBlob []byte) ([]byte, error) {
 	fmt.Printf("[%s] Reconciling links for %s\n", node.Name, contentSourcePath)
+
+	fm, contentBytes, err := markdown.StripFrontMatter(documentBlob)
+	if err != nil {
+		return nil, err
+	}
+
 	documentBytes, err := c.reconcileMDLinks(ctx, node, contentBytes, contentSourcePath)
 	if err != nil {
 		return nil, err
 	}
 	if _, err := c.reconcileHTMLLinks(ctx, node, documentBytes, contentSourcePath); err != nil {
+		return nil, err
+	}
+
+	documentBytes, err = markdown.InsertFrontMatter(fm, documentBytes)
+	if err != nil {
 		return nil, err
 	}
 	return documentBytes, err
