@@ -1,25 +1,21 @@
 package reactor
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net/url"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
 
-	"github.com/Kunde21/markdownfmt/v2/markdown"
 	"github.com/google/uuid"
 
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/hashicorp/go-multierror"
-	"github.com/yuin/goldmark/ast"
-	"github.com/yuin/goldmark/parser"
-	"github.com/yuin/goldmark/text"
+
+	"github.com/gardener/docforge/pkg/markdown"
 )
 
 var (
@@ -28,10 +24,6 @@ var (
 		regexp.MustCompile(`src=["\']?([^"\'>]+)["\']?`),
 	}
 	mdLinksRegex = regexp.MustCompile(`\[(?P<text>.+)\]\((?P<url>[^ ]+)(?: "(?P<title>.+)")?\)`)
-	mdParser     = parser.NewParser(parser.WithBlockParsers(parser.DefaultBlockParsers()...),
-		parser.WithInlineParsers(parser.DefaultInlineParsers()...),
-		parser.WithParagraphTransformers(parser.DefaultParagraphTransformers()...),
-	)
 )
 
 // NodeContentProcessor operates on documents content to reconcile links and
@@ -120,59 +112,30 @@ func (c *NodeContentProcessor) reconcileMDLinks(ctx context.Context, docNode *ap
 		return contentBytes, errors.ErrorOrNil()
 	}
 
-	reader := text.NewReader(contentBytes)
-	doc := mdParser.Parse(reader)
 	var errors *multierror.Error
-	if err := ast.Walk(doc, func(node ast.Node, entering bool) (ast.WalkStatus, error) {
-		if entering {
-			var (
-				destination  string
-				downloadLink string
-				resourceName string
-				err          error
-			)
-			switch node.Kind() {
-			case ast.KindLink:
-				{
-					n := node.(*ast.Link)
-					if destination, downloadLink, resourceName, err = c.processLink(ctx, docNode, string(n.Destination), contentSourcePath); err != nil {
-						return ast.WalkContinue, err
-					}
-					n.Destination = []byte(destination)
-				}
-			case ast.KindImage:
-				{
-					n := node.(*ast.Image)
-					if destination, downloadLink, resourceName, err = c.processLink(ctx, docNode, string(n.Destination), contentSourcePath); err != nil {
-						return ast.WalkContinue, err
-					}
-					n.Destination = []byte(destination)
-				}
-			}
-			if len(downloadLink) > 0 {
-				c.schedule(ctx, downloadLink, resourceName, contentSourcePath)
+	contentBytes, _ = markdown.TransformLinks(contentBytes, func(destination []byte) ([]byte, error) {
+		var (
+			_destination string
+			downloadLink string
+			resourceName string
+			err          error
+		)
+		if _destination, downloadLink, resourceName, err = c.processLink(ctx, docNode, string(destination), contentSourcePath); err != nil {
+			errors = multierror.Append(err)
+			if c.failFast {
+				return nil, err
 			}
 		}
-		return ast.WalkContinue, nil
-	}); err != nil {
-		if c.failFast {
-			return nil, err
+		if len(downloadLink) > 0 {
+			c.schedule(ctx, downloadLink, resourceName, contentSourcePath)
 		}
-		errors = multierror.Append(err)
+		return []byte(_destination), nil
+	})
+	if c.failFast && errors.Len() > 0 {
+		return nil, errors.ErrorOrNil()
 	}
 
-	var b bytes.Buffer
-	renderer := markdown.NewRenderer()
-	if err := renderer.Render(&b, contentBytes, doc); err != nil {
-		return nil, multierror.Append(err)
-	}
-
-	documentBytes, err := ioutil.ReadAll(&b)
-	if err != nil {
-		return nil, multierror.Append(err)
-	}
-
-	return documentBytes, errors.ErrorOrNil()
+	return contentBytes, errors.ErrorOrNil()
 }
 
 // replace html raw links of any sorts.

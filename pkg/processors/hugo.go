@@ -1,20 +1,14 @@
 package processors
 
 import (
-	"bytes"
 	"fmt"
-	"io/ioutil"
 	"net/url"
 	"regexp"
 	"strings"
 
-	"github.com/Kunde21/markdownfmt/v2/markdown"
 	"github.com/gardener/docforge/pkg/api"
 
-	// "github.com/gardener/docforge/pkg/resourcehandlers"
-	"github.com/yuin/goldmark/ast"
-	"github.com/yuin/goldmark/parser"
-	"github.com/yuin/goldmark/text"
+	mdutil "github.com/gardener/docforge/pkg/markdown"
 )
 
 var (
@@ -32,67 +26,22 @@ type HugoProcessor struct {
 // Process implements Processor#Process
 func (f *HugoProcessor) Process(documentBlob []byte, node *api.Node) ([]byte, error) {
 	var (
+		d   []byte
 		err error
-		b   bytes.Buffer
 	)
-	p := parser.NewParser(parser.WithBlockParsers(parser.DefaultBlockParsers()...),
-		parser.WithInlineParsers(parser.DefaultInlineParsers()...),
-		parser.WithParagraphTransformers(parser.DefaultParagraphTransformers()...),
-	)
-	reader := text.NewReader(documentBlob)
-	doc := p.Parse(reader)
-	if err = ast.Walk(doc, func(_node ast.Node, entering bool) (ast.WalkStatus, error) {
-		if entering {
-			if _node.Kind() == ast.KindLink {
-				n := _node.(*ast.Link)
-				// Non-relative links are not rewritten
-				if !strings.HasPrefix(string(n.Destination), "/") {
-					n.Destination = rewriteDestination(n.Destination, node)
-				}
-				return ast.WalkContinue, nil
-			}
-			if _node.Kind() == ast.KindImage {
-				n := _node.(*ast.Image)
-				// Non-relative links to images are not rewritten
-				if !strings.HasPrefix(string(n.Destination), "/") {
-					n.Destination = rewriteDestination(n.Destination, node)
-				}
-				return ast.WalkContinue, nil
-			}
-			if _node.Kind() == ast.KindRawHTML {
-				n := _node.(*ast.RawHTML)
-				l := n.Segments.Len()
-				for i := 0; i < l; i++ {
-					segment := n.Segments.At(i)
-					segmentStr := segment.Value(documentBlob)
-					match := hrefAttrMatchRegex.Find([]byte(segmentStr))
-					if len(match) > 0 {
-						// link := strings.Split(string(match), "=")[1]
-						// TODO: handle anchors to md files - <a href="./a/b.md">cross link</a>
-						// fmt.Printf("%v\n", link)
-						continue
-					}
-				}
-			}
-		}
-		return ast.WalkContinue, nil
+	if d, err = mdutil.TransformLinks(documentBlob, func(destination []byte) ([]byte, error) {
+		return rewriteDestination(destination, node.Name)
 	}); err != nil {
 		return nil, err
 	}
+	// TODO: process also HTML links
 
-	renderer := markdown.NewRenderer()
-	if err := renderer.Render(&b, documentBlob, doc); err != nil {
-		return nil, err
-	}
-	if documentBlob, err = ioutil.ReadAll(&b); err != nil {
-		return nil, err
-	}
-	return documentBlob, nil
+	return d, nil
 }
 
-func rewriteDestination(destination []byte, node *api.Node) []byte {
+func rewriteDestination(destination []byte, nodeName string) ([]byte, error) {
 	if len(destination) == 0 {
-		return destination
+		return destination, nil
 	}
 	link := string(destination)
 	link = strings.TrimSpace(link)
@@ -101,12 +50,17 @@ func rewriteDestination(destination []byte, node *api.Node) []byte {
 	u, err := url.Parse(link)
 	if err != nil {
 		fmt.Printf("Invalid link: %s", link)
-		return destination
+		return destination, nil
 	}
 	if !u.IsAbs() && !strings.HasPrefix(link, "#") {
+		_l := link
 		link = strings.TrimRight(link, ".md")
 		link = strings.TrimPrefix(link, "./")
-		return []byte(fmt.Sprintf("../%s", link))
+		link = fmt.Sprintf("../%s", link)
+		if _l != link {
+			fmt.Printf("[%s] Rewriting node link for Hugo: %s -> %s \n", nodeName, _l, link)
+		}
+		return []byte(link), nil
 	}
-	return destination
+	return destination, nil
 }
