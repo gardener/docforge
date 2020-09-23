@@ -37,12 +37,12 @@ build-local:
 	@env LOCAL_BUILD=1 .ci/build
 
 .PHONY: release
-release: build build-local docker-images docker-login docker-push
+release: build build-local docker-image docker-login docker-push
 
-.PHONY: docker-images
-docker-images:
-	@if ! test -f bin/rel/docforge; then \
-		echo "No docforge binary found in bin/rel. Please run 'make build'"; false;\
+.PHONY: docker-image
+docker-image:
+	@if ! test -f bin/rel/docforge-linux-amd64; then \
+		echo "No docforge-linux-amd64 binary found in bin/rel. Please run 'make build'"; false;\
 	fi
 	@docker build -t $(DOCODE_IMAGE_REPOSITORY):$(IMAGE_TAG) -t $(DOCODE_IMAGE_REPOSITORY):latest -f Dockerfile --rm .
 

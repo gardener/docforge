@@ -14,8 +14,6 @@
 
 FROM alpine:3.11.6
 
-COPY bin/rel/docforge /usr/local/bin/docforge
+COPY bin/rel/docforge-linux-amd64 /usr/local/bin/docforge
 
 WORKDIR /
-
-ENTRYPOINT ["docforge"]
