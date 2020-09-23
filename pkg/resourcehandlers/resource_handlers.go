@@ -24,7 +24,9 @@ type ResourceHandler interface {
 	// source
 	BuildAbsLink(source, link string) (string, error)
 	// GetLocalityDomainCandidate ...
-	GetLocalityDomainCandidate(source string) (key, path string, err error)
+	GetLocalityDomainCandidate(source string) (key, path, version string, err error)
+	// SetVersion
+	SetVersion(absLink, version string) (string, error)
 }
 
 // ResourceHandlers is a registry for ResourceHandler objects

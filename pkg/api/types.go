@@ -30,7 +30,7 @@ type Documentation struct {
 	// Note: WiP - proposed, not implemented yet.
 	Variables map[string]*Node `yaml:"variables,omitempty"`
 	// LocalityDomain is the range
-	LocalityDomain map[string]string `yaml:"localityDomain,omitempty"`
+	LocalityDomain LocalityDomain `yaml:"localityDomain,omitempty"`
 }
 
 // Node is a recursive, tree data structure representing documentation model.
@@ -129,4 +129,22 @@ type ContentSelector struct {
 	// Optional filtering expression that selects content from the document content
 	// Omiting this file will select the whole document content.
 	Selector *string `yaml:"selector,omitempty"`
+}
+
+// LocalityDomain contains the entries defining a
+// locality domain scope. Each entry is a mapping
+// between a domain, such as github.com/gardener/gardener,
+// and a path in it that defines "local" resources.
+// Documents referenced by documentation node structure
+// are always part of the locality domain. Other
+// resources referenced by those documents are checked
+// against the path hierarchy of locality domain
+// entries to determine hwo they will be processed.
+type LocalityDomain map[string]*LocalityDomainValue
+
+// LocalityDomainValue encapsulates the memebers of a
+// LocalityDomain entry value
+type LocalityDomainValue struct {
+	Version string `yaml:"version"`
+	Path    string `yaml:"path"`
 }

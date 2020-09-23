@@ -39,7 +39,7 @@ var (
 type NodeContentProcessor struct {
 	resourceAbsLinks map[string]string
 	rwlock           sync.RWMutex
-	LocalityDomain   LocalityDomain
+	localityDomain   localityDomain
 	// ResourcesRoot specifies the root location for downloaded resource.
 	// It is used to rewrite resource links in documents to relative paths.
 	resourcesRoot string
@@ -49,13 +49,13 @@ type NodeContentProcessor struct {
 }
 
 // NewNodeContentProcessor creates NodeContentProcessor objects
-func NewNodeContentProcessor(resourcesRoot string, localityDomain LocalityDomain, downloadJob DownloadJob, failFast bool, markdownFmt bool) *NodeContentProcessor {
-	if localityDomain == nil {
-		localityDomain = LocalityDomain{}
+func NewNodeContentProcessor(resourcesRoot string, ld localityDomain, downloadJob DownloadJob, failFast bool, markdownFmt bool) *NodeContentProcessor {
+	if ld == nil {
+		ld = localityDomain{}
 	}
 	c := &NodeContentProcessor{
 		resourceAbsLinks: make(map[string]string),
-		LocalityDomain:   localityDomain,
+		localityDomain:   ld,
 		resourcesRoot:    resourcesRoot,
 		DownloadJob:      downloadJob,
 		failFast:         failFast,
@@ -202,6 +202,7 @@ func (c *NodeContentProcessor) reconcileHTMLLinks(ctx context.Context, docNode *
 	return documentBytes, errors.ErrorOrNil()
 }
 
+// returns destination, downloadURL, resourceName, err
 func (c *NodeContentProcessor) processLink(ctx context.Context, node *api.Node, destination string, contentSourcePath string) (string, string, string, error) {
 	if strings.HasPrefix(destination, "#") {
 		return destination, "", "", nil
@@ -215,17 +216,26 @@ func (c *NodeContentProcessor) processLink(ctx context.Context, node *api.Node, 
 	if err != nil {
 		return "", "", "", err
 	}
-
+	//TODO: this is URI-specific (URLs only) - fixme
 	u, err := url.Parse(absLink)
 	if err != nil {
 		return "", "", "", err
 	}
+	_a := absLink
+	absLink, inLD := c.localityDomain.MatchPathInLocality(absLink)
+	if _a != absLink {
+		fmt.Printf("[%s] Link converted %s -> %s\n", contentSourcePath, _a, absLink)
+	}
+
+	// Links to other documents are enforced relative when
+	// linking documents from the node structure.
+	// Links to other documents are changed to match the linking
+	// document version when appropriate or left untouched.
 	if strings.HasSuffix(u.Path, ".md") {
-		//TODO: this is URI-specific - fixme
+		//TODO: this is URI-specific (URLs only) - fixme
 		l := strings.TrimRight(absLink, "?")
 		l = strings.TrimRight(l, "#")
-		existingNode := api.FindNodeByContentSource(l, node)
-		if existingNode != nil {
+		if existingNode := api.FindNodeByContentSource(l, node); existingNode != nil {
 			relPathBetweenNodes := node.RelativePath(existingNode)
 			if destination != relPathBetweenNodes {
 				fmt.Printf("[%s] %s -> %s\n", contentSourcePath, destination, relPathBetweenNodes)
@@ -233,25 +243,12 @@ func (c *NodeContentProcessor) processLink(ctx context.Context, node *api.Node, 
 			destination = relPathBetweenNodes
 			return destination, "", "", nil
 		}
-		if destination != absLink {
-			fmt.Printf("[%s] %s -> %s\n", contentSourcePath, destination, absLink)
-		}
 		return absLink, "", "", nil
 	}
-
-	rh := resourcehandlers.Get(absLink)
-	if rh == nil {
-		if absLink != destination {
-			fmt.Printf("[%s] No resource hanlder for %s found. No changes to %s\n", contentSourcePath, absLink, destination)
-		}
-		return destination, "", "", nil
-	}
-
-	key, path, err := rh.GetLocalityDomainCandidate(absLink)
-	if err != nil {
-		return "", "", "", err
-	}
-	if absLink != "" && c.LocalityDomain.PathInLocality(key, path) {
+	// Links to resources are assessed for download eligibility
+	// and if applicable their destination is updated as relative
+	// path to predefined location for resources
+	if absLink != "" && inLD {
 		resourceName := c.generateResourceName(absLink)
 		_d := destination
 		destination = buildDestination(node, resourceName, c.resourcesRoot)

@@ -27,8 +27,8 @@ func init() {
 	tests.SetGlogV(6)
 }
 
-func TestReactorWithGitHub(t *testing.T) {
-	timeout := 30 * time.Second
+func _TestReactorWithGitHub(t *testing.T) {
+	timeout := 300 * time.Second
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
@@ -37,7 +37,7 @@ func TestReactorWithGitHub(t *testing.T) {
 	node := &api.Node{
 		Name: "docs",
 		NodeSelector: &api.NodeSelector{
-			Path: "https://github.com/gardener/gardener/tree/master/docs",
+			Path: "https://github.com/gardener/gardener/tree/v1.10.0/docs",
 		},
 		Nodes: []*api.Node{
 			{
@@ -81,6 +81,7 @@ func TestReactorWithGitHub(t *testing.T) {
 				NodeContentProcessor: NewNodeContentProcessor("/"+resourcesRoot, nil, downloadJob, failFast, markdownFmt),
 			},
 		},
+		FailFast: false,
 	}
 
 	docs := &api.Documentation{Root: node}

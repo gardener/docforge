@@ -141,7 +141,10 @@ func TestUrlToGitHubLocator(t *testing.T) {
 			}
 			gh.Client = client
 		}
-		got := gh.URLToGitHubLocator(ctx, c.inURL, c.inResolveAPI)
+		got, err := gh.URLToGitHubLocator(ctx, c.inURL, c.inResolveAPI)
+		if err != nil {
+			t.Errorf("Test failed %s", err.Error())
+		}
 		if !reflect.DeepEqual(got, c.want) {
 			t.Errorf("URLToGitHubLocator(%q) == %q, want %q", c.inURL, got, c.want)
 		}
@@ -406,82 +409,35 @@ func TestGitHub_ResolveRelLink(t *testing.T) {
 	}
 }
 
-func Test_LocalityDomainKeyFromGitHubURL(t *testing.T) {
-	type args struct {
-		url *url.URL
-	}
+func TestGetLocalityDomainCandidate(t *testing.T) {
+
 	tests := []struct {
-		name string
-		args args
-		want string
+		name     string
+		link     string
+		wantKey  string
+		wantPath string
+		wantErr  error
 	}{
 		{
-			name: "Should return key as expected when path begins with /",
-			args: args{
-				&url.URL{
-					Host: "github.com",
-					Path: "/org/repo/tree/master/docs/",
-				},
-			},
-			want: "github.com/org/repo",
-		},
-		{
-			name: "Should return key as expected",
-			args: args{
-				&url.URL{
-					Host: "github.com",
-					Path: "org/repo/tree/master/docs/",
-				},
-			},
-			want: "github.com/org/repo",
+			name:     "test 1",
+			link:     "https://github.com/gardener/gardener/tree/master/readme.md",
+			wantKey:  "github.com/gardener/gardener",
+			wantPath: "gardener/gardener/master/readme.md",
+			wantErr:  nil,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := localityDomainKeyFromGitHubURL(tt.args.url); got != tt.want {
-				t.Errorf("localityDomainKey() = %v, want %v", got, tt.want)
+			gh := &GitHub{}
+			gotKey, gotPath, _, gotErr := gh.GetLocalityDomainCandidate(tt.link)
+			if gotErr != tt.wantErr {
+				t.Errorf("err %v!=%v", gotErr, tt.wantErr)
 			}
-		})
-	}
-}
-
-func Test_clearTreeOrBlobFromPath(t *testing.T) {
-
-	tests := []struct {
-		name string
-		path string
-		want string
-	}{
-		{
-			name: "without_prefix",
-			path: "gardener/gardener/tree/master/tree/blob.md",
-			want: "gardener/gardener/master/tree/blob.md",
-		},
-		{
-			name: "prefix",
-			path: "/gardener/gardener/tree/master/tree/blob.md",
-			want: "/gardener/gardener/master/tree/blob.md",
-		},
-		{
-			name: "short",
-			path: "gardener/gardener",
-			want: "gardener/gardener",
-		},
-		{
-			name: "",
-			path: "/gardener/gardener/tree/master",
-			want: "/gardener/gardener/master",
-		},
-		{
-			name: "one_element",
-			path: "/gardener",
-			want: "/gardener",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := clearTreeOrBlobFromPath(tt.path); got != tt.want {
-				t.Errorf("clearTreeOrBlobFromPath() = %v, want %v", got, tt.want)
+			if gotKey != tt.wantKey {
+				t.Errorf("key %v!=%v", gotKey, tt.wantKey)
+			}
+			if gotPath != tt.wantPath {
+				t.Errorf("path %v!=%v", gotPath, tt.wantPath)
 			}
 		})
 	}

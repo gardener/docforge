@@ -90,7 +90,7 @@ func initTestStructure() (*Node, map[string]*Node) {
 }
 
 func arrayOfNodes(names ...string) []*Node {
-	n := make([]*Node, len(names))
+	n := make([]*Node, 0)
 	for _, name := range names {
 		n = append(n, &Node{Name: name})
 	}
@@ -112,7 +112,7 @@ func TestParents(t *testing.T) {
 		{
 			"get parents of root",
 			idx["A"],
-			[]*Node{},
+			nil,
 		},
 	}
 	for _, c := range cases {

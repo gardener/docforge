@@ -32,40 +32,6 @@ func main() {
 		os.Exit(1)
 	}()
 
-	// resourcesRoot := "__resources"
-	// failFast := false
-	// downloadJob := reactor.NewResourceDownloadJob(nil, &writers.FSWriter{
-	// 	Root: filepath.Join(destination, resourcesRoot),
-	// 	//TMP
-	// 	Hugo: hugo,
-	// }, 5, failFast)
-	// var processor processors.Processor
-	// if hugo {
-	// 	processor = &processors.ProcessorChain{
-	// 		Processors: []processors.Processor{
-	// 			&processors.FrontMatter{},
-	// 			&processors.HugoProcessor{
-	// 				PrettyUrls: true,
-	// 			},
-	// 		},
-	// 	}
-	// }
-	// reactor := reactor.Reactor{
-	// 	ReplicateDocumentation: &jobs.Job{
-	// 		MinWorkers: 75,
-	// 		MaxWorkers: 75,
-	// 		FailFast:   false,
-	// 		Worker: &reactor.DocumentWorker{
-	// 			Writer: &writers.FSWriter{
-	// 				Root: destination,
-	// 			},
-	// 			Reader:               &reactor.GenericReader{},
-	// 			Processor:            processor,
-	// 			NodeContentProcessor: reactor.NewNodeContentProcessor("/"+resourcesRoot, nil, downloadJob, failFast),
-	// 		},
-	// 	},
-	// }
-
 	command := app.NewCommand(ctx, cancel)
 	flag.CommandLine.Parse([]string{})
 	if err := command.Execute(); err != nil {

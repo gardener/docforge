@@ -15,6 +15,8 @@ import (
 // Reactor orchestrates the documentation build workflow
 type Reactor struct {
 	ReplicateDocumentation *jobs.Job
+	FailFast               bool
+	localityDomain         localityDomain
 }
 
 // Run starts build operation on docStruct
@@ -24,12 +26,12 @@ func (r *Reactor) Run(ctx context.Context, docStruct *api.Documentation, dryRun 
 		return err
 	}
 
-	localityDomain := docStruct.LocalityDomain
-	if localityDomain == nil || len(localityDomain) == 0 {
-		if localityDomain, err = defineLocalityDomains(docStruct.Root); err != nil {
+	ld := fromAPI(docStruct.LocalityDomain)
+	if ld == nil || len(ld) == 0 {
+		if ld, err = setLocalityDomainForNode(docStruct.Root); err != nil {
 			return err
 		}
-		docStruct.LocalityDomain = localityDomain
+		r.localityDomain = ld
 	}
 
 	if dryRun {
@@ -45,7 +47,7 @@ func (r *Reactor) Run(ctx context.Context, docStruct *api.Documentation, dryRun 
 	defer cancel()
 
 	fmt.Printf("Building documentation structure\n\n")
-	if err = r.Build(ctx, docStruct.Root, localityDomain); err != nil {
+	if err = r.Build(ctx, docStruct.Root, ld); err != nil {
 		return err
 	}
 
@@ -94,7 +96,7 @@ func tasks(node *api.Node, t *[]interface{}) {
 
 // Build starts the build operation for a document structure root
 // in a locality domain
-func (r *Reactor) Build(ctx context.Context, documentationRoot *api.Node, localityDomain LocalityDomain) error {
+func (r *Reactor) Build(ctx context.Context, documentationRoot *api.Node, localityDomain localityDomain) error {
 	var (
 		errors    *multierror.Error
 		docWorker = r.ReplicateDocumentation.Worker.(*DocumentWorker)
@@ -116,7 +118,7 @@ func (r *Reactor) Build(ctx context.Context, documentationRoot *api.Node, locali
 	go docWorker.NodeContentProcessor.DownloadJob.Start(ctx, errCh, shutdownCh, &wg)
 
 	go func() {
-		docWorker.NodeContentProcessor.LocalityDomain = localityDomain
+		docWorker.NodeContentProcessor.localityDomain = localityDomain
 		documentPullTasks := make([]interface{}, 0)
 		tasks(documentationRoot, &documentPullTasks)
 		if err := r.ReplicateDocumentation.Dispatch(ctx, documentPullTasks); err != nil {
@@ -130,24 +132,24 @@ func (r *Reactor) Build(ctx context.Context, documentationRoot *api.Node, locali
 		case <-doneCh:
 			{
 				shutdownCh <- struct{}{}
-				return nil
+				return errors.ErrorOrNil()
 			}
 		case err, ok := <-errCh:
 			{
 				if !ok {
-					return nil
+					return errors.ErrorOrNil()
 				}
-				fmt.Printf("Error received %v\n", err)
-				// TODO: fault tolerant vs failfast
+				fmt.Printf("%v\n", err)
 				errors = multierror.Append(err)
-				return errors.ErrorOrNil()
+				if r.FailFast {
+					return errors.ErrorOrNil()
+				}
 			}
 		case <-ctx.Done():
 			{
 				fmt.Println("Context cancelled")
-				return nil
+				return errors.ErrorOrNil()
 			}
 		}
 	}
-
 }

@@ -34,8 +34,11 @@ func (rh *TestResourceHandler) Name(uri string) string {
 func (rh *TestResourceHandler) BuildAbsLink(source, relLink string) (string, error) {
 	return relLink, nil
 }
-func (rh *TestResourceHandler) GetLocalityDomainCandidate(source string) (string, string, error) {
-	return source, source, nil
+func (rh *TestResourceHandler) GetLocalityDomainCandidate(source string) (string, string, string, error) {
+	return source, source, "master", nil
+}
+func (rh *TestResourceHandler) SetVersion(link, version string) (string, error) {
+	return link, nil
 }
 
 func TestGet(t *testing.T) {
