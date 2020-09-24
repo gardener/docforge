@@ -304,7 +304,7 @@ func (gh *GitHub) GetLocalityDomainCandidate(source string) (key, path, version 
 			key = fmt.Sprintf("%s/%s/%s", rl.Host, rl.Owner, rl.Repo)
 		}
 		if len(rl.Owner) > 0 && len(rl.Repo) > 0 && len(rl.SHAAlias) > 0 {
-			path = fmt.Sprintf("%s/%s/%s/%s", rl.Owner, rl.Repo, rl.SHAAlias, rl.Path)
+			path = fmt.Sprintf("%s/%s/%s", rl.Owner, rl.Repo, rl.Path)
 		}
 	}
 	return

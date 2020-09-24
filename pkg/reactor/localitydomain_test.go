@@ -90,7 +90,7 @@ func Test_SetLocalityDomainForNode(t *testing.T) {
 			want: localityDomain{
 				"github.com/org/repo": &localityDomainValue{
 					"master",
-					"org/repo/master/docs",
+					"org/repo/docs",
 				},
 			},
 			wantErr: false,
@@ -106,7 +106,7 @@ func Test_SetLocalityDomainForNode(t *testing.T) {
 			want: localityDomain{
 				"github.com/org/repo": &localityDomainValue{
 					"master",
-					"org/repo/master/docs",
+					"org/repo/docs",
 				},
 			},
 			wantErr: false,
@@ -122,7 +122,7 @@ func Test_SetLocalityDomainForNode(t *testing.T) {
 			want: localityDomain{
 				"github.com/org/repo": &localityDomainValue{
 					"master",
-					"org/repo/master",
+					"org/repo",
 				},
 			},
 			wantErr: false,
@@ -138,11 +138,11 @@ func Test_SetLocalityDomainForNode(t *testing.T) {
 			want: localityDomain{
 				"github.com/org/repo": &localityDomainValue{
 					"master",
-					"org/repo/master",
+					"org/repo",
 				},
 				"github.com/org/repo2": &localityDomainValue{
 					"master",
-					"org/repo2/master/example",
+					"org/repo2/example",
 				},
 			},
 			wantErr: false,
@@ -168,8 +168,21 @@ func Test_SetLocalityDomainForNode(t *testing.T) {
 				t.Errorf("SetLocalityDomainForNode() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("SetLocalityDomainForNode() = %v, want %v", got, tt.want)
+			for k, v := range tt.want {
+				var (
+					_v *localityDomainValue
+					ok bool
+				)
+				if _v, ok = got[k]; !ok {
+					t.Errorf("want %s:%v, got %s:%v", k, v, k, _v)
+				} else {
+					if _v.Path != v.Path {
+						t.Errorf("want path %s, got %s", v.Path, _v.Path)
+					}
+					if _v.Version != v.Version {
+						t.Errorf("want version %s, got %s", v.Version, _v.Version)
+					}
+				}
 			}
 		})
 	}

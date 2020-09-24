@@ -3,7 +3,7 @@ package reactor
 import (
 	"context"
 	// "fmt"
-	"reflect"
+
 	"testing"
 
 	"github.com/gardener/docforge/pkg/api"
@@ -66,7 +66,7 @@ func Test_tasks(t *testing.T) {
 	tests := []struct {
 		name          string
 		args          args
-		expectedTasks []interface{}
+		expectedTasks []*DocumentWorkTask
 	}{
 		{
 			name: "it creates tasks based on the provided doc",
@@ -74,7 +74,7 @@ func Test_tasks(t *testing.T) {
 				node:  documentation.Root,
 				tasks: []interface{}{},
 			},
-			expectedTasks: []interface{}{
+			expectedTasks: []*DocumentWorkTask{
 				&DocumentWorkTask{
 					Node: documentation.Root,
 				},
@@ -96,9 +96,17 @@ func Test_tasks(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			resourcehandlers.Load(&FakeResourceHandler{})
+
 			tasks(tc.args.node, &tc.args.tasks)
-			if !reflect.DeepEqual(tc.args.tasks, tc.expectedTasks) {
-				t.Errorf("expected tasks %v !=  %v", tc.expectedTasks, tc.args.tasks)
+
+			if len(tc.args.tasks) != len(tc.expectedTasks) {
+				t.Errorf("expected number of tasks %d != %d", len(tc.expectedTasks), len(tc.args.tasks))
+			}
+
+			for i, task := range tc.args.tasks {
+				if task.(*DocumentWorkTask).Node.Name != tc.expectedTasks[i].Node.Name {
+					t.Errorf("expected task with Node name %s != %s", task.(*DocumentWorkTask).Node.Name, tc.expectedTasks[i].Node.Name)
+				}
 			}
 		})
 	}
