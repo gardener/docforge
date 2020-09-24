@@ -42,22 +42,10 @@ var (
 		Title:            "Tasks",
 		ContentSelectors: []api.ContentSelector{{Source: "https://github.com/org/repo/tree/master/docs/tasks"}},
 	}
-
-	documentation = &api.Documentation{
-		Root: &api.Node{
-			Name:             "rootNode",
-			Title:            "Root node!",
-			ContentSelectors: []api.ContentSelector{{Source: "https://github.com/org/repo/tree/master/docs"}},
-			Nodes: []*api.Node{
-				archNode,
-				blogNode,
-				tasksNode,
-			},
-		},
-	}
 )
 
 func Test_tasks(t *testing.T) {
+	newDoc := createNewDocumentation()
 	type args struct {
 		node  *api.Node
 		tasks []interface{}
@@ -71,23 +59,23 @@ func Test_tasks(t *testing.T) {
 		{
 			name: "it creates tasks based on the provided doc",
 			args: args{
-				node:  documentation.Root,
+				node:  newDoc.Root,
 				tasks: []interface{}{},
 			},
 			expectedTasks: []*DocumentWorkTask{
-				&DocumentWorkTask{
-					Node: documentation.Root,
+				{
+					Node: newDoc.Root,
 				},
-				&DocumentWorkTask{
+				{
 					Node: archNode,
 				},
-				&DocumentWorkTask{
+				{
 					Node: apiRefNode,
 				},
-				&DocumentWorkTask{
+				{
 					Node: blogNode,
 				},
-				&DocumentWorkTask{
+				{
 					Node: tasksNode,
 				},
 			},
@@ -109,6 +97,21 @@ func Test_tasks(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func createNewDocumentation() *api.Documentation {
+	return &api.Documentation{
+		Root: &api.Node{
+			Name:             "rootNode",
+			Title:            "Root node!",
+			ContentSelectors: []api.ContentSelector{{Source: "https://github.com/org/repo/tree/master/docs"}},
+			Nodes: []*api.Node{
+				archNode,
+				blogNode,
+				tasksNode,
+			},
+		},
 	}
 }
 
