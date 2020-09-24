@@ -17,11 +17,16 @@ cd ${SOURCE_PATH}
 # Get the Ginkgo (test framework) binary to be able to execute the tests.
 go get github.com/onsi/ginkgo/ginkgo
 
-if [ ! -d "${GOPATH}/bin" ] ; then 
-  echo "GOPATH not set."
-  Exit 1
+executable=${GOPATH}/bin/ginkgo
+if [ -z ${GOPATH+x} ]; then
+  echo "GOPATH not set. Trying with HOME/go/bin"
+  if [ -f ${HOME}/go/bin/ginkgo ]; then 
+    executable=${HOME}/go/bin/ginkgo
+  else
+    echo "HOME/go/bin/ginkgo not found. Set GOPATH"
+    Exit 1
+  fi
 fi
-
 
 ###############################################################################
 
@@ -30,4 +35,4 @@ if [[ ! -z "$COVERAGE" ]]; then
   COVER_FLAG="-cover"
 fi
 
-${GOPATH}/bin/ginkgo ${COVER_FLAG} -r cmd pkg
+$executable ${COVER_FLAG} -r cmd pkg

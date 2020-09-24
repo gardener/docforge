@@ -412,29 +412,34 @@ func TestGitHub_ResolveRelLink(t *testing.T) {
 func TestGetLocalityDomainCandidate(t *testing.T) {
 
 	tests := []struct {
-		name     string
-		link     string
-		wantKey  string
-		wantPath string
-		wantErr  error
+		name        string
+		link        string
+		wantKey     string
+		wantPath    string
+		wantVersion string
+		wantErr     error
 	}{
 		{
-			name:     "test 1",
-			link:     "https://github.com/gardener/gardener/tree/master/readme.md",
-			wantKey:  "github.com/gardener/gardener",
-			wantPath: "gardener/gardener/master/readme.md",
-			wantErr:  nil,
+			name:        "",
+			link:        "https://github.com/gardener/gardener/tree/master/readme.md",
+			wantKey:     "github.com/gardener/gardener",
+			wantPath:    "gardener/gardener/readme.md",
+			wantVersion: "master",
+			wantErr:     nil,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			gh := &GitHub{}
-			gotKey, gotPath, _, gotErr := gh.GetLocalityDomainCandidate(tt.link)
+			gotKey, gotPath, gotVersion, gotErr := gh.GetLocalityDomainCandidate(tt.link)
 			if gotErr != tt.wantErr {
 				t.Errorf("err %v!=%v", gotErr, tt.wantErr)
 			}
 			if gotKey != tt.wantKey {
 				t.Errorf("key %v!=%v", gotKey, tt.wantKey)
+			}
+			if gotVersion != tt.wantVersion {
+				t.Errorf("version %v!=%v", gotVersion, tt.wantVersion)
 			}
 			if gotPath != tt.wantPath {
 				t.Errorf("path %v!=%v", gotPath, tt.wantPath)

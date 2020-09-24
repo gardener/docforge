@@ -89,12 +89,12 @@ func initTestStructure() (*Node, map[string]*Node) {
 	return aNode, idx
 }
 
-func arrayOfNodes(names ...string) []*Node {
-	n := make([]*Node, 0)
+func hashOfNodes(names ...string) map[string]*Node {
+	h := make(map[string]*Node)
 	for _, name := range names {
-		n = append(n, &Node{Name: name})
+		h[name] = &Node{Name: name}
 	}
-	return n
+	return h
 }
 
 func TestParents(t *testing.T) {
@@ -188,6 +188,7 @@ func TestPath(t *testing.T) {
 }
 
 func TestIntersect(t *testing.T) {
+	nodes := hashOfNodes("A", "B", "C", "D", "E", "F")
 	tests := []struct {
 		name     string
 		a        []*Node
@@ -196,20 +197,20 @@ func TestIntersect(t *testing.T) {
 	}{
 		{
 			"it should have intersection of several elements",
-			arrayOfNodes("A", "B", "C"),
-			arrayOfNodes("D", "B", "C"),
-			arrayOfNodes("B", "C"),
+			[]*Node{nodes["A"], nodes["B"], nodes["C"]},
+			[]*Node{nodes["D"], nodes["B"], nodes["C"]},
+			[]*Node{nodes["B"], nodes["C"]},
 		},
 		{
 			"it should have intersection of one element",
-			arrayOfNodes("A", "B", "C"),
-			arrayOfNodes("D", "E", "C"),
-			arrayOfNodes("C"),
+			[]*Node{nodes["A"], nodes["B"], nodes["C"]},
+			[]*Node{nodes["D"], nodes["E"], nodes["C"]},
+			[]*Node{nodes["C"]},
 		},
 		{
 			"it should have no intersection",
-			arrayOfNodes("A", "B", "C"),
-			arrayOfNodes("D", "E", "F"),
+			[]*Node{nodes["A"], nodes["B"], nodes["C"]},
+			[]*Node{nodes["D"], nodes["E"], nodes["F"]},
 			[]*Node{},
 		},
 	}

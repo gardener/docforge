@@ -103,7 +103,7 @@ func Test_processLink(t *testing.T) {
 				c.localityDomain = localityDomain{
 					"github.com/gardener/gardener": &localityDomainValue{
 						"v1.10.0",
-						"gardener/gardener/v1.10.0/docs",
+						"gardener/gardener/docs",
 					},
 				}
 			},
@@ -153,7 +153,7 @@ func Test_processLink(t *testing.T) {
 				c.localityDomain = localityDomain{
 					"github.com/gardener/gardener": &localityDomainValue{
 						"v1.10.0",
-						"gardener/gardener/v1.10.0/docs",
+						"gardener/gardener/docs",
 					},
 				}
 			},
@@ -182,7 +182,7 @@ func Test_processLink(t *testing.T) {
 				c.localityDomain = localityDomain{
 					"github.com/gardener/gardener": &localityDomainValue{
 						"v1.10.0",
-						"gardener/gardener/v1.10.0/docs",
+						"gardener/gardener/docs",
 					},
 				}
 			},
@@ -210,7 +210,7 @@ func Test_processLink(t *testing.T) {
 				c.localityDomain = localityDomain{
 					"github.com/gardener/gardener": &localityDomainValue{
 						"v1.10.0",
-						"gardener/gardener/v1.10.0/docs",
+						"gardener/gardener/docs",
 					},
 				}
 			},
@@ -229,7 +229,7 @@ func Test_processLink(t *testing.T) {
 				c.localityDomain = localityDomain{
 					"github.com/gardener/gardener": &localityDomainValue{
 						"v1.10.0",
-						"gardener/gardener/v1.10.0/docs",
+						"gardener/gardener/docs",
 					},
 				}
 			},
@@ -247,7 +247,7 @@ func Test_processLink(t *testing.T) {
 				c.localityDomain = localityDomain{
 					"github.com/gardener/gardener": &localityDomainValue{
 						"v1.10.0",
-						"gardener/gardener/v1.10.0/docs",
+						"gardener/gardener/docs",
 					},
 				}
 			},

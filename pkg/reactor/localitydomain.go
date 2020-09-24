@@ -23,8 +23,12 @@ type localityDomain map[string]*localityDomainValue
 // LocalityDomainValue encapsulates the memebers of a
 // localityDomain entry value
 type localityDomainValue struct {
+	// Version is the version of the resources in this
+	// locality odmain
 	Version string
-	Path    string
+	// Path defines the scope of this locality domain
+	// and is relative to it
+	Path string
 }
 
 // fromAPI creates new localityDomain copy object from
@@ -84,7 +88,12 @@ func (ld localityDomain) MatchPathInLocality(link string) (string, bool) {
 			return link, false
 		}
 		// TODO: locality domain to be constructed from key for comparison
-		if strings.HasPrefix(path, localityDomain.Path) {
+		// FIXME: this is tmp valid only for github urls
+		prefix := localityDomain.Path
+		_s := strings.Split(prefix, "/")
+		_s = _s[:len(_s)-1]
+		prefix = strings.Join(_s, "/")
+		if strings.HasPrefix(path, prefix) {
 			if link, err = rh.SetVersion(link, localityDomain.Version); err != nil {
 				fmt.Printf("%v\n", err)
 				return link, false
