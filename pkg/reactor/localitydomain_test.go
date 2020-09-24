@@ -83,7 +83,7 @@ func Test_SetLocalityDomainForNode(t *testing.T) {
 		name    string
 		want    localityDomain
 		wantErr bool
-		mutate  func()
+		mutate  func(newDoc *api.Documentation)
 	}{
 		{
 			name: "Should return the expected locality domain",
@@ -94,8 +94,8 @@ func Test_SetLocalityDomainForNode(t *testing.T) {
 				},
 			},
 			wantErr: false,
-			mutate: func() {
-				documentation.Root.ContentSelectors = []api.ContentSelector{
+			mutate: func(newDoc *api.Documentation) {
+				newDoc.Root.ContentSelectors = []api.ContentSelector{
 					{Source: "https://github.com/org/repo/tree/master/docs/concepts"},
 					{Source: "https://github.com/org/repo/tree/master/docs/architecture"},
 				}
@@ -110,8 +110,8 @@ func Test_SetLocalityDomainForNode(t *testing.T) {
 				},
 			},
 			wantErr: false,
-			mutate: func() {
-				documentation.Root.ContentSelectors = []api.ContentSelector{
+			mutate: func(newDoc *api.Documentation) {
+				newDoc.Root.ContentSelectors = []api.ContentSelector{
 					{Source: "https://github.com/org/repo/tree/master/docs"},
 					{Source: "https://github.com/org/repo/tree/master/docs/architecture"},
 				}
@@ -126,8 +126,8 @@ func Test_SetLocalityDomainForNode(t *testing.T) {
 				},
 			},
 			wantErr: false,
-			mutate: func() {
-				documentation.Root.ContentSelectors = []api.ContentSelector{
+			mutate: func(newDoc *api.Documentation) {
+				newDoc.Root.ContentSelectors = []api.ContentSelector{
 					{Source: "https://github.com/org/repo/tree/master/docs"},
 					{Source: "https://github.com/org/repo/tree/master/example"},
 				}
@@ -146,12 +146,12 @@ func Test_SetLocalityDomainForNode(t *testing.T) {
 				},
 			},
 			wantErr: false,
-			mutate: func() {
-				documentation.Root.ContentSelectors = []api.ContentSelector{
+			mutate: func(newDoc *api.Documentation) {
+				newDoc.Root.ContentSelectors = []api.ContentSelector{
 					{Source: "https://github.com/org/repo/tree/master/docs"},
 					{Source: "https://github.com/org/repo/tree/master/example"},
 				}
-				documentation.Root.Nodes = []*api.Node{
+				newDoc.Root.Nodes = []*api.Node{
 					{
 						Name:             "anotherrepo",
 						ContentSelectors: []api.ContentSelector{{Source: "https://github.com/org/repo2/tree/master/example"}},
@@ -162,8 +162,9 @@ func Test_SetLocalityDomainForNode(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tt.mutate()
-			got, err := setLocalityDomainForNode(documentation.Root)
+			newDoc := createNewDocumentation()
+			tt.mutate(newDoc)
+			got, err := setLocalityDomainForNode(newDoc.Root)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("SetLocalityDomainForNode() error = %v, wantErr %v", err, tt.wantErr)
 				return
