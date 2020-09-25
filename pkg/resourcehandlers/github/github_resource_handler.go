@@ -150,15 +150,17 @@ func (c Cache) Set(path string, entry *ResourceLocator) *ResourceLocator {
 
 // GitHub implements resourcehanlders#ResourceHandler
 type GitHub struct {
-	Client *github.Client
-	cache  Cache
+	Client        *github.Client
+	cache         Cache
+	acceptedHosts []string
 }
 
 // NewResourceHandler creates new GitHub ResourceHandler objects
-func NewResourceHandler(client *github.Client) resourcehandlers.ResourceHandler {
+func NewResourceHandler(client *github.Client, acceptedHosts []string) resourcehandlers.ResourceHandler {
 	return &GitHub{
 		client,
 		Cache{},
+		acceptedHosts,
 	}
 }
 
@@ -213,13 +215,18 @@ func (gh *GitHub) Accept(uri string) bool {
 		url *url.URL
 		err error
 	)
+	if gh.acceptedHosts == nil {
+		return false
+	}
 	if url, err = url.Parse(uri); err != nil {
 		return false
 	}
-	if url.Host != "github.com" {
-		return false
+	for _, s := range gh.acceptedHosts {
+		if url.Host == s {
+			return true
+		}
 	}
-	return true
+	return false
 }
 
 // ResolveNodeSelector recursively adds nodes built from tree entries to node

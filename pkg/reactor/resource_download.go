@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/gardener/docforge/pkg/writers"
 )
 
@@ -41,9 +42,11 @@ type downloadWorker struct {
 }
 
 // NewResourceDownloadJob creates DownloadJob object
-func NewResourceDownloadJob(reader Reader, writer writers.Writer, workersCount int, failFast bool) DownloadJob {
+func NewResourceDownloadJob(reader Reader, writer writers.Writer, workersCount int, failFast bool, rhs resourcehandlers.Registry) DownloadJob {
 	if reader == nil {
-		reader = &GenericReader{}
+		reader = &GenericReader{
+			ResourceHandlers: rhs,
+		}
 	}
 	if writer == nil {
 		panic(fmt.Sprint("Invalid argument: writer is nil"))
@@ -84,6 +87,7 @@ func (l *ResourceDownloadJob) Start(ctx context.Context, errCh chan error, shutd
 		for _, ch := range shutdownChs {
 			ch <- struct{}{}
 		}
+		fmt.Printf("resource download workers stopped \n")
 		jobWg.Done()
 	}()
 

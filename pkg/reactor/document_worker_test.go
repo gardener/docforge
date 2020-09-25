@@ -42,7 +42,7 @@ func (p *TestProcessor) Process(documentBlob []byte, node *api.Node) ([]byte, er
 
 func TestDocumentWorkerWork(t *testing.T) {
 	testOutput := "#Heading 1"
-
+	rhRegistry := resourcehandlers.NewRegistry(&FakeResourceHandler{})
 	testworker := &DocumentWorker{
 		&TestWriter{
 			make(map[string][]byte),
@@ -60,8 +60,9 @@ func TestDocumentWorkerWork(t *testing.T) {
 				make(map[string][]byte),
 			}, &TestWriter{
 				make(map[string][]byte),
-			}, 1, false),
-			localityDomain: localityDomain{},
+			}, 1, false, rhRegistry),
+			localityDomain:   localityDomain{},
+			ResourceHandlers: rhRegistry,
 		},
 		localityDomain{},
 	}
@@ -94,7 +95,6 @@ func TestDocumentWorkerWork(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			resourcehandlers.Load(&FakeResourceHandler{})
 			tReader := testworker.Reader.(*TestReader)
 			tReader.input = tc.readerInput
 			tWriter := testworker.Writer.(*TestWriter)

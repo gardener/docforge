@@ -4,13 +4,15 @@ import (
 	"context"
 	"path/filepath"
 
-	"github.com/gardener/docforge/pkg/jobs"
+	"github.com/gardener/docforge/pkg/hugo"
+	"github.com/gardener/docforge/pkg/metrics"
+	"github.com/gardener/docforge/pkg/resourcehandlers"
+	"github.com/gardener/docforge/pkg/writers"
+
 	//"github.com/gardener/docforge/pkg/metrics"
 	"github.com/gardener/docforge/pkg/processors"
 	"github.com/gardener/docforge/pkg/reactor"
-	"github.com/gardener/docforge/pkg/resourcehandlers"
 	ghrs "github.com/gardener/docforge/pkg/resourcehandlers/github"
-	"github.com/gardener/docforge/pkg/writers"
 
 	"github.com/google/go-github/v32/github"
 	"golang.org/x/oauth2"
@@ -26,64 +28,76 @@ type Options struct {
 	ResourcesPath                string
 	ResourceDownloadWorkersCount int
 	MarkdownFmt                  bool
-	*Hugo
+	GitHubTokens                 map[string]string
+	Metering                     *Metering
+	Hugo                         *hugo.Options
 }
 
-// Hugo is a set of parameters for creating
-// reactor objects for Hugo builds
-type Hugo struct {
-	PrettyUrls bool
+// Metering encapsulates options for setting up client-side
+// mettering
+type Metering struct {
+	Enabled bool
 }
 
 // NewReactor creates a Reactor from Options
-func NewReactor(o *Options) *reactor.Reactor {
-
-	downloadJob := reactor.NewResourceDownloadJob(nil, &writers.FSWriter{
-		Root: filepath.Join(o.DestinationPath, o.ResourcesPath),
-		//TMP
-		Hugo: (o.Hugo != nil),
-	}, o.ResourceDownloadWorkersCount, o.FailFast)
-
-	r := &reactor.Reactor{
-		ReplicateDocumentation: &jobs.Job{
-			MinWorkers: o.MinWorkersCount,
-			MaxWorkers: o.MaxWorkersCount,
-			FailFast:   o.FailFast,
-			Worker: &reactor.DocumentWorker{
-				Writer: &writers.FSWriter{
-					Root: o.DestinationPath,
-				},
-				Reader:               &reactor.GenericReader{},
-				NodeContentProcessor: reactor.NewNodeContentProcessor("/"+o.ResourcesPath, nil, downloadJob, o.FailFast, o.MarkdownFmt),
-			},
+func NewReactor(ctx context.Context, options *Options) *reactor.Reactor {
+	o := &reactor.Options{
+		MaxWorkersCount:              options.MaxWorkersCount,
+		MinWorkersCount:              options.MinWorkersCount,
+		FailFast:                     options.FailFast,
+		DestinationPath:              options.DestinationPath,
+		ResourcesPath:                options.ResourcesPath,
+		ResourceDownloadWorkersCount: options.ResourceDownloadWorkersCount,
+		MarkdownFmt:                  options.MarkdownFmt,
+		Processor:                    nil,
+		Writer: &writers.FSWriter{
+			Root: options.DestinationPath,
 		},
-		FailFast: o.FailFast,
+		ResourceDownloadWriter: &writers.FSWriter{
+			Root: filepath.Join(options.DestinationPath, options.ResourcesPath),
+		},
+		ResourceHandlers: initResourceHanlders(ctx, options),
 	}
 
-	if o.Hugo != nil {
-		if worker, ok := r.ReplicateDocumentation.Worker.(*reactor.DocumentWorker); ok {
-			worker.Processor = &processors.ProcessorChain{
-				Processors: []processors.Processor{
-					&processors.FrontMatter{},
-					&processors.HugoProcessor{
-						PrettyUrls: true,
-					},
-				},
-			}
-		}
-
+	if options.Hugo != nil {
+		WithHugo(o, options)
 	}
 
-	return r
+	return reactor.NewReactor(o)
 }
 
-// InitResourceHanlders initializes the resource handler
+// WithHugo adapts the reactor.Options object with Hugo-specific
+// settings for writer and processor
+func WithHugo(reactorOptions *reactor.Options, o *Options) {
+	hugoOptions := o.Hugo
+	reactorOptions.Processor = &processors.ProcessorChain{
+		Processors: []processors.Processor{
+			&processors.FrontMatter{},
+			hugo.NewProcessor(hugoOptions),
+		},
+	}
+	hugoOptions.Writer = &writers.FSWriter{
+		Root: filepath.Join(o.DestinationPath),
+	}
+	reactorOptions.Writer = hugo.NewWriter(hugoOptions)
+}
+
+// initResourceHanlders initializes the resource handler
 // objects used by reactors
-func InitResourceHanlders(ctx context.Context, githubToken string) {
-	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: githubToken})
-	// TODO: make the client metering instrumentation optional and controlled by config
-	// client := github.NewClient(metrics.InstrumentClientRoundTripperDuration(oauth2.NewClient(ctx, ts)))
-	client := github.NewClient(oauth2.NewClient(ctx, ts))
-	gh := ghrs.NewResourceHandler(client)
-	resourcehandlers.Load(gh)
+func initResourceHanlders(ctx context.Context, o *Options) []resourcehandlers.ResourceHandler {
+	rhs := []resourcehandlers.ResourceHandler{}
+	if o.GitHubTokens != nil {
+		if token, ok := o.GitHubTokens["github.com"]; ok {
+			ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
+			var client *github.Client
+			if o.Metering != nil {
+				client = github.NewClient(metrics.InstrumentClientRoundTripperDuration(oauth2.NewClient(ctx, ts)))
+			} else {
+				client = github.NewClient(oauth2.NewClient(ctx, ts))
+			}
+			gh := ghrs.NewResourceHandler(client, []string{"github.com", "raw.githubusercontent.com"})
+			rhs = append(rhs, gh)
+		}
+	}
+	return rhs
 }

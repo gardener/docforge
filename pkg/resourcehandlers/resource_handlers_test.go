@@ -2,7 +2,6 @@ package resourcehandlers
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 	"testing"
 
@@ -49,7 +48,7 @@ func TestGet(t *testing.T) {
 		accept: true,
 	}
 
-	cases := []struct {
+	testCases := []struct {
 		description string
 		handlers    []ResourceHandler
 		want        ResourceHandler
@@ -70,17 +69,14 @@ func TestGet(t *testing.T) {
 			nil,
 		},
 	}
-	for _, c := range cases {
-		fmt.Println(c.description)
-		Load(c.handlers...)
-		got := Get("")
-		if !reflect.DeepEqual(got, c.want) {
-			t.Errorf("Get(\"\") == %q, want %q", got, c.want)
-		}
-		clear()
+	for _, tc := range testCases {
+		t.Run(tc.description, func(t *testing.T) {
+			r := NewRegistry(tc.handlers...)
+			got := r.Get("")
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Errorf("expected ResurceHandler %q != %q", got, tc.want)
+			}
+			r.Remove(tc.handlers...)
+		})
 	}
-}
-
-func clear() {
-	resourceHandlers = make([]ResourceHandler, 0)
 }

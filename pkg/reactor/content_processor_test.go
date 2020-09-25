@@ -7,13 +7,8 @@ import (
 
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
-	ghrs "github.com/gardener/docforge/pkg/resourcehandlers/github"
+	"github.com/gardener/docforge/pkg/resourcehandlers/github"
 )
-
-func init() {
-	gh := ghrs.NewResourceHandler(nil)
-	resourcehandlers.Load(gh)
-}
 
 func Test_processLink(t *testing.T) {
 	nodeA := &api.Node{
@@ -259,13 +254,16 @@ func Test_processLink(t *testing.T) {
 				resourceAbsLinks: make(map[string]string),
 				localityDomain:   localityDomain{},
 				resourcesRoot:    "/__resources",
+				ResourceHandlers: resourcehandlers.NewRegistry(github.NewResourceHandler(nil, []string{"github.com"})),
 			}
 			if tt.mutate != nil {
 				tt.mutate(c)
 			}
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
+
 			gotDestination, gotDownloadURL, gotResourceName, gotErr := c.processLink(ctx, tt.node, tt.destination, tt.contentSourcePath)
+
 			if gotErr != tt.wantErr {
 				t.Errorf("expected err %s != %s", gotErr, tt.wantErr)
 			}

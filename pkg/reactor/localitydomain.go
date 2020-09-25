@@ -74,8 +74,8 @@ func (ld localityDomain) Set(key, path, version string) {
 // MatchPathInLocality determines if a given link is in the locality domain scope
 // and returns the link with version matching the one of the matched locality
 // domain.
-func (ld localityDomain) MatchPathInLocality(link string) (string, bool) {
-	if rh := resourcehandlers.Get(link); rh != nil {
+func (ld localityDomain) MatchPathInLocality(link string, rhs resourcehandlers.Registry) (string, bool) {
+	if rh := rhs.Get(link); rh != nil {
 		var (
 			key, path string
 			err       error
@@ -87,12 +87,8 @@ func (ld localityDomain) MatchPathInLocality(link string) (string, bool) {
 		if !ok {
 			return link, false
 		}
-		// TODO: locality domain to be constructed from key for comparison
-		// FIXME: this is tmp valid only for github urls
 		prefix := localityDomain.Path
-		_s := strings.Split(prefix, "/")
-		_s = _s[:len(_s)-1]
-		prefix = strings.Join(_s, "/")
+		// FIXME: this is tmp valid only for github urls
 		if strings.HasPrefix(path, prefix) {
 			if link, err = rh.SetVersion(link, localityDomain.Version); err != nil {
 				fmt.Printf("%v\n", err)
@@ -100,13 +96,23 @@ func (ld localityDomain) MatchPathInLocality(link string) (string, bool) {
 			}
 			return link, true
 		}
+		// check if in the same repo and then enforce verions rewrite
+		_s := strings.Split(prefix, "/")
+		_s = _s[:len(_s)-1]
+		repoPrefix := strings.Join(_s, "/")
+		if strings.HasPrefix(path, repoPrefix) {
+			if link, err = rh.SetVersion(link, localityDomain.Version); err != nil {
+				fmt.Printf("%v\n", err)
+				return link, false
+			}
+		}
 	}
 	return link, false
 }
 
 // PathInLocality determines if a given link is in the locality domain scope
-func (ld localityDomain) PathInLocality(link string) bool {
-	if rh := resourcehandlers.Get(link); rh != nil {
+func (ld localityDomain) PathInLocality(link string, rhs resourcehandlers.Registry) bool {
+	if rh := rhs.Get(link); rh != nil {
 		var (
 			key, path, version string
 			err                error
@@ -130,22 +136,22 @@ func (ld localityDomain) PathInLocality(link string) bool {
 
 // setLocalityDomainForNode visits all content selectors in the node and its
 // descendants to build a localityDomain
-func setLocalityDomainForNode(node *api.Node) (localityDomain, error) {
+func setLocalityDomainForNode(node *api.Node, rhs resourcehandlers.Registry) (localityDomain, error) {
 	var localityDomains = make(localityDomain, 0)
-	if err := csHandle(node.ContentSelectors, localityDomains); err != nil {
+	if err := csHandle(node.ContentSelectors, localityDomains, rhs); err != nil {
 		return nil, err
 	}
 	if node.Nodes != nil {
-		if err := fromNodes(node.Nodes, localityDomains); err != nil {
+		if err := fromNodes(node.Nodes, localityDomains, rhs); err != nil {
 			return nil, err
 		}
 	}
 	return localityDomains, nil
 }
 
-func csHandle(contentSelectors []api.ContentSelector, localityDomains localityDomain) error {
+func csHandle(contentSelectors []api.ContentSelector, localityDomains localityDomain, rhs resourcehandlers.Registry) error {
 	for _, cs := range contentSelectors {
-		if rh := resourcehandlers.Get(cs.Source); rh != nil {
+		if rh := rhs.Get(cs.Source); rh != nil {
 			key, path, version, err := rh.GetLocalityDomainCandidate(cs.Source)
 			if err != nil {
 				return err
@@ -156,10 +162,10 @@ func csHandle(contentSelectors []api.ContentSelector, localityDomains localityDo
 	return nil
 }
 
-func fromNodes(nodes []*api.Node, localityDomains localityDomain) error {
+func fromNodes(nodes []*api.Node, localityDomains localityDomain, rhs resourcehandlers.Registry) error {
 	for _, node := range nodes {
-		csHandle(node.ContentSelectors, localityDomains)
-		if err := fromNodes(node.Nodes, localityDomains); err != nil {
+		csHandle(node.ContentSelectors, localityDomains, rhs)
+		if err := fromNodes(node.Nodes, localityDomains, rhs); err != nil {
 			return err
 		}
 	}
