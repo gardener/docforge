@@ -81,7 +81,11 @@ func StripFrontMatter(b []byte) ([]byte, []byte, error) {
 			return nil, nil, err
 		}
 
-		if strings.TrimSpace(line) != "---" {
+		if l := strings.TrimSpace(line); l != "---" {
+			// Only whitespace is acceptable before fron-matter.
+			if !started && len(l) > 0 {
+				return nil, b, nil
+			}
 			continue
 		}
 

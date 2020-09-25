@@ -8,7 +8,8 @@ import (
 	"time"
 
 	"github.com/gardener/docforge/pkg/api"
-	"github.com/gardener/docforge/pkg/jobs"
+	"github.com/gardener/docforge/pkg/hugo"
+	"github.com/gardener/docforge/pkg/processors"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/gardener/docforge/pkg/resourcehandlers/github"
 	"github.com/gardener/docforge/pkg/util/tests"
@@ -19,7 +20,7 @@ import (
 )
 
 // Run with:
-// go test -timeout 30s -run ^TestReactorWithGitHub$ -v -tags=integration --token=<your-token-here>
+// go test -timeout 30s -run ^_TestReactorWithGitHub$ -v -tags=integration --token=<your-token-here>
 
 var ghToken = flag.String("token", "", "GitHub personal token for authenticating requests")
 
@@ -32,59 +33,78 @@ func _TestReactorWithGitHub(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
+	docs := &api.Documentation{
+		Root: &api.Node{
+			Name: "docs",
+			NodeSelector: &api.NodeSelector{
+				Path: "https://github.com/gardener/gardener/tree/v1.10.0/docs",
+			},
+			Nodes: []*api.Node{
+				{
+					Name: "calico",
+					NodeSelector: &api.NodeSelector{
+						Path: "https://github.com/gardener/gardener-extension-networking-calico/tree/master/docs",
+					},
+				},
+				{
+					Name: "aws",
+					NodeSelector: &api.NodeSelector{
+						Path: "https://github.com/gardener/gardener-extension-provider-aws/tree/master/docs",
+					},
+				},
+			},
+		},
+		LocalityDomain: api.LocalityDomain{
+			"github.com/gardener/gardener": &api.LocalityDomainValue{
+				Version: "v1.10.0",
+				Path:    "gardener/gardener/docs",
+			},
+			"github.com/gardener/gardener-extension-provider-aws": &api.LocalityDomainValue{
+				Version: "master",
+				Path:    "gardener/gardener-extension-provider-aws/docs",
+			},
+			"github.com/gardener/gardener-extension-networking-calico": &api.LocalityDomainValue{
+				Version: "master",
+				Path:    "gardener/gardener-extension-networking-calico/docs",
+			},
+		},
+	}
+
+	destination := "../../dev"
+	resourcesRoot := "/__resources"
 	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: *ghToken})
-	gh := github.NewResourceHandler(githubapi.NewClient(oauth2.NewClient(ctx, ts)))
-	node := &api.Node{
-		Name: "docs",
-		NodeSelector: &api.NodeSelector{
-			Path: "https://github.com/gardener/gardener/tree/v1.10.0/docs",
-		},
-		Nodes: []*api.Node{
-			{
-				Name: "calico",
-				NodeSelector: &api.NodeSelector{
-					Path: "https://github.com/gardener/gardener-extension-networking-calico/tree/master/docs",
-				},
-			},
-			{
-				Name: "aws",
-				NodeSelector: &api.NodeSelector{
-					Path: "https://github.com/gardener/gardener-extension-provider-aws/tree/master/docs",
-				},
-			},
-		},
+	ghClient := githubapi.NewClient(oauth2.NewClient(ctx, ts))
+	gh := github.NewResourceHandler(ghClient, []string{"github.com"})
+	writer := &writers.FSWriter{
+		Root: destination,
 	}
-
-	// init gh resource handler
-	resourcehandlers.Load(gh)
-
-	destination := "../../example/hugo/content"
-	resourcesRoot := "__resources"
-	failFast := false
-	markdownFmt := false
-	downloadJob := NewResourceDownloadJob(nil, &writers.FSWriter{
-		Root: filepath.Join(destination, resourcesRoot),
-		//TMP
-		// Hugo: (o.Hugo != nil),
-	}, 10, failFast)
-
-	r := &Reactor{
-		ReplicateDocumentation: &jobs.Job{
-			MinWorkers: 25,
-			MaxWorkers: 75,
-			FailFast:   failFast,
-			Worker: &DocumentWorker{
-				Writer: &writers.FSWriter{
-					Root: destination,
-				},
-				Reader:               &GenericReader{},
-				NodeContentProcessor: NewNodeContentProcessor("/"+resourcesRoot, nil, downloadJob, failFast, markdownFmt),
+	hugoOptions := &hugo.Options{
+		IndexFileNames: []string{"_index", "index", "readme", "read.me"},
+		PrettyUrls:     true,
+		Writer:         writer,
+	}
+	options := &Options{
+		MaxWorkersCount:              10,
+		MinWorkersCount:              5,
+		FailFast:                     true,
+		DestinationPath:              destination,
+		ResourcesPath:                resourcesRoot,
+		ResourceDownloadWorkersCount: 4,
+		MarkdownFmt:                  true,
+		Processor: &processors.ProcessorChain{
+			Processors: []processors.Processor{
+				&processors.FrontMatter{},
+				hugo.NewProcessor(hugoOptions),
 			},
 		},
-		FailFast: false,
+		ResourceDownloadWriter: &writers.FSWriter{
+			Root: filepath.Join(destination, resourcesRoot),
+		},
+		Writer:           hugo.NewWriter(hugoOptions),
+		ResourceHandlers: []resourcehandlers.ResourceHandler{gh},
 	}
+	r := NewReactor(options)
 
-	docs := &api.Documentation{Root: node}
 	if err := r.Run(ctx, docs, false); err != nil {
 		t.Errorf("failed with: %v", err)
 	}

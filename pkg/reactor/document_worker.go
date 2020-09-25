@@ -34,11 +34,13 @@ type DocumentWorkTask struct {
 
 // GenericReader is generic implementation for Reader interface
 type GenericReader struct {
+	ResourceHandlers resourcehandlers.Registry
 }
 
-// Read TODO:
+// Read reads from the resource at the source URL delegating the
+// the actual operation to a suitable resource hadler
 func (g *GenericReader) Read(ctx context.Context, source string) ([]byte, error) {
-	if handler := resourcehandlers.Get(source); handler != nil {
+	if handler := g.ResourceHandlers.Get(source); handler != nil {
 		return handler.Read(ctx, source)
 	}
 	return nil, fmt.Errorf("failed to get handler")
@@ -57,18 +59,17 @@ func (w *DocumentWorker) Work(ctx context.Context, task interface{}) *jobs.Worke
 	if len(t.Node.ContentSelectors) < 1 {
 		return nil
 	}
-
 	// Write the document content
 	blobs := make(map[string][]byte)
 	for _, content := range t.Node.ContentSelectors {
 		sourceBlob, err := w.Reader.Read(ctx, content.Source)
 		if len(sourceBlob) == 0 {
+			fmt.Printf("No bytes read from source %s\n", content.Source)
 			continue
 		}
 		if err != nil {
 			return jobs.NewWorkerError(err, 0)
 		}
-
 		newBlob, err := w.NodeContentProcessor.ReconcileLinks(ctx, t.Node, content.Source, sourceBlob)
 		if err != nil {
 			return jobs.NewWorkerError(err, 0)

@@ -4,15 +4,11 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
-	ghrs "github.com/gardener/docforge/pkg/resourcehandlers/github"
-)
+	"github.com/gardener/docforge/pkg/resourcehandlers/github"
 
-func init() {
-	gh := ghrs.NewResourceHandler(nil)
-	resourcehandlers.Load(gh)
-}
+	"github.com/gardener/docforge/pkg/api"
+)
 
 func TestGitHubLocalityDomain_Set(t *testing.T) {
 
@@ -163,8 +159,10 @@ func Test_SetLocalityDomainForNode(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			newDoc := createNewDocumentation()
+			gh := github.NewResourceHandler(nil, []string{"github.com"})
+			rhs := resourcehandlers.NewRegistry(gh)
 			tt.mutate(newDoc)
-			got, err := setLocalityDomainForNode(newDoc.Root)
+			got, err := setLocalityDomainForNode(newDoc.Root, rhs)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("SetLocalityDomainForNode() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -185,6 +183,7 @@ func Test_SetLocalityDomainForNode(t *testing.T) {
 					}
 				}
 			}
+			rhs.Remove()
 		})
 	}
 }

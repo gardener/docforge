@@ -74,3 +74,29 @@ Title: A
 		t.Errorf("\nwant:\n%s\ngot:\n%s\n", wantContent, c)
 	}
 }
+
+func TestStripFrontMatterNoErr(t *testing.T) {
+
+	in := `
+Some text
+
+---
+`
+	wantFM := ""
+	wantContent := `
+Some text
+
+---
+`
+
+	fm, c, err := StripFrontMatter([]byte(in))
+	if err != nil {
+		t.Errorf("expected err nil != %v", err)
+	}
+	if string(fm) != wantFM {
+		t.Errorf("\nwant:\n%s\ngot:\n%s\n", wantFM, fm)
+	}
+	if string(c) != wantContent {
+		t.Errorf("\nwant:\n%s\ngot:\n%s\n", wantContent, c)
+	}
+}
