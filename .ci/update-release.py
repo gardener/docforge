@@ -2,9 +2,9 @@
 
 import pathlib
 import util
+import os
 
 from github.util import GitHubRepositoryHelper
-from os import walk
 
 VERSION_FILE_NAME='VERSION'
 
@@ -31,9 +31,10 @@ github_repo_helper = GitHubRepositoryHelper(
 
 gh_release = github_repo_helper.repository.release_from_tag(version_file_contents)
 
-for dir, dirs, files in os.walk(join(output_path, "bin", "rel")):
+for dir, dirs, files in os.walk(os.path.join(output_path, "bin", "rel")):
     for binName in files:
-        binFilePath = join(dir, binName)
+        dir_path = pathlib.Path(dir).resolve()
+        binFilePath = dir_path / binName
         gh_release.upload_asset(
             content_type='application/octet-stream',
             name=f'{binName}',

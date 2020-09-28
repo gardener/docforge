@@ -48,4 +48,6 @@ docforge:
         update-release:
           execute: 'update-release.py'
           inputs:
-            BINARY_PATH: 'binary'
+            BINARY_PATH: 'binary_path'
+          depends:
+          - release
