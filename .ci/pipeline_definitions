@@ -44,3 +44,8 @@ docforge:
             internal_scp_workspace:
               channel_name: "G0170ECNADC" #gardener-space-sofia
               slack_cfg_name: "ti_workspace"
+      steps:
+        update-release:
+          execute: 'update-release.py'
+          inputs:
+            BINARY_PATH: 'binary'
