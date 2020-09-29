@@ -34,26 +34,26 @@ type NodeContentProcessor struct {
 	localityDomain   localityDomain
 	// ResourcesRoot specifies the root location for downloaded resource.
 	// It is used to rewrite resource links in documents to relative paths.
-	resourcesRoot    string
-	DownloadJob      DownloadJob
-	failFast         bool
-	markdownFmt      bool
-	ResourceHandlers resourcehandlers.Registry
+	resourcesRoot      string
+	DownloadController DownloadController
+	failFast           bool
+	markdownFmt        bool
+	ResourceHandlers   resourcehandlers.Registry
 }
 
 // NewNodeContentProcessor creates NodeContentProcessor objects
-func NewNodeContentProcessor(resourcesRoot string, ld localityDomain, downloadJob DownloadJob, failFast bool, markdownFmt bool, resourceHandlers resourcehandlers.Registry) *NodeContentProcessor {
+func NewNodeContentProcessor(resourcesRoot string, ld localityDomain, downloadJob DownloadController, failFast bool, markdownFmt bool, resourceHandlers resourcehandlers.Registry) *NodeContentProcessor {
 	if ld == nil {
 		ld = localityDomain{}
 	}
 	c := &NodeContentProcessor{
-		resourceAbsLinks: make(map[string]string),
-		localityDomain:   ld,
-		resourcesRoot:    resourcesRoot,
-		DownloadJob:      downloadJob,
-		failFast:         failFast,
-		markdownFmt:      markdownFmt,
-		ResourceHandlers: resourceHandlers,
+		resourceAbsLinks:   make(map[string]string),
+		localityDomain:     ld,
+		resourcesRoot:      resourcesRoot,
+		DownloadController: downloadJob,
+		failFast:           failFast,
+		markdownFmt:        markdownFmt,
+		ResourceHandlers:   resourceHandlers,
 	}
 	return c
 }
@@ -61,7 +61,7 @@ func NewNodeContentProcessor(resourcesRoot string, ld localityDomain, downloadJo
 //convenience wrapper adding logging
 func (c *NodeContentProcessor) schedule(ctx context.Context, link, resourceName, from string) {
 	fmt.Printf("[%s] Linked resource scheduled for download: %s\n", from, link)
-	c.DownloadJob.Schedule(ctx, link, resourceName)
+	c.DownloadController.Schedule(ctx, link, resourceName)
 }
 
 // ReconcileLinks analyzes a document referenced by a node's contentSourcePath

@@ -56,7 +56,7 @@ func TestDocumentWorkerWork(t *testing.T) {
 			},
 		},
 		&NodeContentProcessor{
-			DownloadJob: NewResourceDownloadJob(&TestReader{
+			DownloadController: NewDownloadController(&TestReader{
 				make(map[string][]byte),
 			}, &TestWriter{
 				make(map[string][]byte),
@@ -103,7 +103,7 @@ func TestDocumentWorkerWork(t *testing.T) {
 			tProcessor.withArgs = tc.processorCb
 			ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 			defer cancel()
-			if err := testworker.Work(ctx, tc.tasks); err != nil {
+			if err := testworker.Work(ctx, tc.tasks, jobs.NewWorkQueue(5)); err != nil {
 				t.Errorf("expected error nil != %v", err)
 			}
 			if !reflect.DeepEqual(tWriter.output, tc.expectedWriterOutput) {

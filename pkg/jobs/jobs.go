@@ -26,6 +26,8 @@ import (
 
 // Job enques assignments for parallel processing and synchronous response
 type Job struct {
+	// ID is job identifier used in log messages
+	ID string
 	// MaxWorkers is the maximum number of workers processing a batch of tasks in parallel
 	MaxWorkers int
 	// MinWorkers is the minimum number of workers processing a batch of tasks in parallel
@@ -36,6 +38,17 @@ type Job struct {
 	// further processing upon the first error that occurs. For fault tolerant applications
 	// use false.
 	FailFast bool
+	// WorkQueue is the queue for tasks picked up by the workers in this Job. The Dispatch
+	// method will feed its tasks argument elements to the queue, and it may be fed
+	// from other sources in parallel, including the workers.
+	Queue WorkQueue
+	// IsWorkerExitsOnEmptyQueue controls whether a worker exits right after its Work function is
+	// done and no more tasks are available in the queue, or will loop waiting for more tasks.
+	// Note that this flag does not prevent the worker from block waiting for a task. This
+	// can be interrupted only by the workqueue with a task or stop signal. However, after a taks
+	// is processed it will be consulted whether to continue or exit before block waiting for
+	// another.
+	IsWorkerExitsOnEmptyQueue bool
 }
 
 // WorkerError wraps an underlying error struct and adds optional code
@@ -71,6 +84,11 @@ func (we WorkerError) Is(target error) bool {
 	return true
 }
 
+// Unwrap implements the contract for errors.Unwrap (https://golang.org/pkg/errors/#Unwrap)
+func (we WorkerError) Unwrap() error {
+	return we.error
+}
+
 func newerror(err error, code int) *WorkerError {
 	return &WorkerError{
 		err,
@@ -81,71 +99,18 @@ func newerror(err error, code int) *WorkerError {
 // Worker declares workers functional interface
 type Worker interface {
 	// Work processes the task within the given context.
-	Work(ctx context.Context, task interface{}) *WorkerError
+	Work(ctx context.Context, task interface{}, wq WorkQueue) *WorkerError
 }
 
 // The WorkerFunc type is an adapter to allow the use of
 // ordinary functions as Workers. If f is a function
 // with the appropriate signature, WorkerFunc(f) is a
 // Worker object that calls f.
-type WorkerFunc func(ctx context.Context, task interface{}) *WorkerError
+type WorkerFunc func(ctx context.Context, task interface{}, wq WorkQueue) *WorkerError
 
 // Work calls f(ctx, Task).
-func (f WorkerFunc) Work(ctx context.Context, task interface{}) *WorkerError {
-	return f(ctx, task)
-}
-
-// Allocates worker tasks and error channels and asynchronously feeds tasks to the worker tasks channel
-// staying sensitive to termination signals from the provided context. Context terminal signals are registered
-// as errors to the error channel.
-func (j *Job) allocate(ctx context.Context, tasks []interface{}) (<-chan interface{}, <-chan *WorkerError) {
-	msgCh := make(chan interface{})
-	errCh := make(chan *WorkerError)
-	go func() {
-		defer close(msgCh)
-		defer close(errCh)
-		for _, task := range tasks {
-			select {
-			case msgCh <- task:
-			case <-ctx.Done():
-				{
-					errCh <- newerror(ctx.Err(), 0)
-					return
-				}
-			}
-		}
-	}()
-	return msgCh, errCh
-}
-
-// Processes asynchronously tasks from the tasks channel until channel is closed or context signals
-// termination. The processing delegates to the Worker.Work function implementation registered in this Job.
-// Context terminal signals are registered as errors and sent to the error channel.
-func (j *Job) process(ctx context.Context, taskCh <-chan interface{}) <-chan *WorkerError {
-	errCh := make(chan *WorkerError, 1)
-	go func() {
-		defer close(errCh)
-		for {
-			select {
-			case task, ok := <-taskCh:
-				{
-					if !ok {
-						return
-					}
-					if err := j.Worker.Work(ctx, task); err != nil {
-						errCh <- err
-						return
-					}
-				}
-			case <-ctx.Done():
-				{
-					errCh <- newerror(ctx.Err(), 0)
-					return
-				}
-			}
-		}
-	}()
-	return errCh
+func (f WorkerFunc) Work(ctx context.Context, task interface{}, wq WorkQueue) *WorkerError {
+	return f(ctx, task, wq)
 }
 
 // Dispatch spawns a set of workers processing in parallel the supplied tasks.
@@ -154,7 +119,10 @@ func (j *Job) process(ctx context.Context, taskCh <-chan interface{}) <-chan *Wo
 // returned as soon as possible, processing halts and workers are disposed.
 func (j *Job) Dispatch(ctx context.Context, tasks []interface{}) *WorkerError {
 	if j.MaxWorkers < j.MinWorkers {
-		panic(fmt.Sprintf("Job maxWorkers < minWorkers: %d < %d", j.MaxWorkers, j.MinWorkers))
+		panic(fmt.Sprintf("Job %s maxWorkers < minWorkers: %d < %d", j.ID, j.MaxWorkers, j.MinWorkers))
+	}
+	if j.MaxWorkers == 0 {
+		return nil
 	}
 	workersCount := len(tasks)
 	if workersCount > j.MaxWorkers {
@@ -164,15 +132,118 @@ func (j *Job) Dispatch(ctx context.Context, tasks []interface{}) *WorkerError {
 		workersCount = j.MinWorkers
 	}
 
-	var errcList []<-chan *WorkerError
-	taskCh, errc := j.allocate(ctx, tasks)
-	errcList = append(errcList, errc)
-	for i := 0; i < workersCount; i++ {
-		errc = j.process(ctx, taskCh)
-		errcList = append(errcList, errc)
+	var (
+		errors              *multierror.Error
+		workerError         *WorkerError
+		loop                = true
+		stoppedWorkersCount int
+		quitCh              = make(chan struct{})
+	)
+
+	// cleanup on exit
+	defer func() {
+		close(quitCh)
+		// fmt.Println("Job done.")
+	}()
+
+	// add tasks
+	for i := 0; i < len(tasks); i++ {
+		j.Queue.Add(tasks[i])
 	}
 
-	return waitForPipeline(j.FailFast, errcList...)
+	// fire up parallel workers
+	errCh := j.startWorkers(ctx, workersCount, quitCh)
+
+	// wait job done or context cancelled
+	for loop {
+		select {
+		case <-ctx.Done():
+			{
+				if stopped := j.Queue.Stop(); stopped {
+					// fmt.Printf("Workqueue stopped\n")
+				}
+				break
+			}
+		case <-quitCh:
+			{
+				stoppedWorkersCount++
+				if stoppedWorkersCount == 1 {
+					// at least one worker exited - we are done
+					// Unlock all others waiting to get a taks
+					if stopped := j.Queue.Stop(); stopped {
+						// fmt.Printf("Workqueue stopped\n")
+					}
+				}
+				if stoppedWorkersCount == workersCount {
+					if j.Queue.Count() > 0 {
+						fmt.Printf("%d unprocessed items in queue. ", j.Queue.Count())
+					} else {
+						fmt.Println()
+					}
+					loop = false
+				}
+			}
+		case err, ok := <-errCh:
+			{
+				if !ok {
+					loop = false
+					break
+				}
+				if err != nil {
+					errors = multierror.Append(err)
+					if j.FailFast {
+						if stopped := j.Queue.Stop(); stopped {
+							// fmt.Printf("Workqueue stopped\n")
+						}
+						break
+					}
+				}
+			}
+		}
+	}
+	if err := errors.ErrorOrNil(); err != nil {
+		workerError = NewWorkerError(err, 0)
+	}
+	return workerError
+}
+
+// blocks waiting untill the required amount of workers are started
+func (j *Job) startWorkers(ctx context.Context, workersCount int, quitCh chan struct{}) <-chan *WorkerError {
+	var (
+		errcList = make([]<-chan *WorkerError, 0)
+		wg       sync.WaitGroup
+	)
+	wg.Add(workersCount)
+	for i := 0; i < workersCount; i++ {
+		go func(ctx context.Context, workerId int, wq WorkQueue, quitCh chan struct{}) {
+			errCh := make(chan *WorkerError, 1)
+			errcList = append(errcList, errCh)
+			defer func() {
+				quitCh <- struct{}{}
+				close(errCh)
+				fmt.Printf("%s worker %d stopped\n", j.ID, workerId)
+			}()
+			fmt.Printf("%s worker %d started\n", j.ID, workerId)
+			wg.Done()
+			for {
+				var task interface{}
+				if task = wq.Get(); task == nil {
+					return
+				}
+				// fmt.Printf("%s worker %d acquired task\n", j.ID, workerId)
+				if err := j.Worker.Work(ctx, task, wq); err != nil {
+					errCh <- err
+					continue
+				}
+				if !j.IsWorkerExitsOnEmptyQueue && wq.Count() == 0 {
+					return
+				}
+			}
+		}(ctx, i, j.Queue, quitCh)
+	}
+	wg.Wait()
+	errCh := mergeErrors(errcList...)
+	return errCh
 }
 
 // merges asynchronously produced errors from multiple error channels into a single channel
@@ -203,29 +274,4 @@ func mergeErrors(channels ...<-chan *WorkerError) <-chan *WorkerError {
 		close(errCh)
 	}()
 	return errCh
-}
-
-// waitForPipeline waits for results from all error channels.
-// It returns early on the first error if failfast is true or
-// collects errors and returns an aggregated error at the end.
-func waitForPipeline(failFast bool, errChs ...<-chan *WorkerError) *WorkerError {
-	var (
-		errors      *multierror.Error
-		workerError *WorkerError
-	)
-	errCh := mergeErrors(errChs...)
-	for err := range errCh {
-		if err != nil {
-			if failFast {
-				return err
-			}
-			errors = multierror.Append(err)
-		}
-	}
-	if err := errors.ErrorOrNil(); err != nil {
-		workerError = &WorkerError{
-			error: errors,
-		}
-	}
-	return workerError
 }
