@@ -85,7 +85,7 @@ func TestUrlToGitHubLocator(t *testing.T) {
 		description  string
 		inURL        string
 		inResolveAPI bool
-		cache        Cache
+		cache        *Cache
 		mux          func(mux *http.ServeMux)
 		want         *ResourceLocator
 	}{
@@ -93,8 +93,10 @@ func TestUrlToGitHubLocator(t *testing.T) {
 			"cached url should return valid GitHubResourceLocator",
 			"https://github.com/gardener/gardener/blob/master/docs/README.md",
 			false,
-			Cache{
-				"https://github.com/gardener/gardener/blob/master/docs/README.md": ghrl1,
+			&Cache{
+				cache: map[string]*ResourceLocator{
+					"https://github.com/gardener/gardener/blob/master/docs/README.md": ghrl1,
+				},
 			},
 			nil,
 			ghrl1,
@@ -103,7 +105,9 @@ func TestUrlToGitHubLocator(t *testing.T) {
 			"non-cached url should resolve a valid GitHubResourceLocator from API",
 			"https://github.com/gardener/gardener/blob/master/docs/README.md",
 			true,
-			Cache{},
+			&Cache{
+				cache: map[string]*ResourceLocator{},
+			},
 			func(mux *http.ServeMux) {
 				mux.HandleFunc("/repos/gardener/gardener/git/trees/master", func(w http.ResponseWriter, r *http.Request) {
 					w.Write([]byte(fmt.Sprintf(`
@@ -214,15 +218,14 @@ func TestResolveNodeSelector(t *testing.T) {
 				},
 				Nodes: []*api.Node{
 					{
-						Name:             "README.md",
+						Name:             "README",
 						ContentSelectors: []api.ContentSelector{{Source: "https://github.com/gardener/gardener/blob/master/docs/README.md"}},
 					},
 					{
-						Name:             "concepts",
-						ContentSelectors: []api.ContentSelector{{Source: "https://github.com/gardener/gardener/tree/master/docs/concepts"}},
+						Name: "concepts",
 						Nodes: []*api.Node{
 							{
-								Name:             "apiserver.md",
+								Name:             "apiserver",
 								ContentSelectors: []api.ContentSelector{{Source: "https://github.com/gardener/gardener/blob/master/docs/concepts/apiserver.md"}},
 							},
 						},
@@ -237,7 +240,9 @@ func TestResolveNodeSelector(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer cancel()
 		gh := &GitHub{
-			cache: Cache{},
+			cache: &Cache{
+				cache: map[string]*ResourceLocator{},
+			},
 		}
 		client, mux, _, teardown := setup()
 		defer teardown()
@@ -251,6 +256,15 @@ func TestResolveNodeSelector(t *testing.T) {
 		}
 		c.want.SetParentsDownwards()
 		if !reflect.DeepEqual(c.inNode, c.want) {
+			s, _ := api.Serialize(&api.Documentation{
+				Root: c.inNode,
+			})
+			fmt.Printf(s)
+			fmt.Printf("\n\n")
+			s, _ = api.Serialize(&api.Documentation{
+				Root: c.want,
+			})
+			fmt.Printf(s)
 			t.Errorf("ResolveNodeSelector == %v, want %v", c.inNode, c.want)
 		}
 	}
@@ -278,22 +292,26 @@ func TestName(t *testing.T) {
 	cases := []struct {
 		description string
 		inURL       string
-		cache       Cache
+		cache       *Cache
 		want        string
 	}{
 		{
 			"return file name for url",
 			"https://github.com/gardener/gardener/blob/master/docs/README.md",
-			Cache{
-				"https://github.com/gardener/gardener/blob/master/docs/README.md": ghrl1,
+			&Cache{
+				cache: map[string]*ResourceLocator{
+					"https://github.com/gardener/gardener/blob/master/docs/README.md": ghrl1,
+				},
 			},
 			"README.md",
 		},
 		{
 			"return folder name for url",
 			"https://github.com/gardener/gardener/tree/master/docs",
-			Cache{
-				"https://github.com/gardener/gardener/tree/master/docs": ghrl2,
+			&Cache{
+				cache: map[string]*ResourceLocator{
+					"https://github.com/gardener/gardener/tree/master/docs": ghrl2,
+				},
 			},
 			"docs",
 		},
@@ -316,7 +334,7 @@ func TestRead(t *testing.T) {
 		description string
 		inURI       string
 		mux         func(mux *http.ServeMux)
-		cache       Cache
+		cache       *Cache
 		want        []byte
 		wantError   error
 	}{
@@ -328,15 +346,17 @@ func TestRead(t *testing.T) {
 					w.Write(sampleContent)
 				})
 			},
-			Cache{
-				"https://github.com/gardener/gardener/blob/master/docs/README.md": &ResourceLocator{
-					"github.com",
-					"gardener",
-					"gardener",
-					"master",
-					Blob,
-					"docs/README.md",
-					"",
+			&Cache{
+				cache: map[string]*ResourceLocator{
+					"https://github.com/gardener/gardener/blob/master/docs/README.md": &ResourceLocator{
+						"github.com",
+						"gardener",
+						"gardener",
+						"master",
+						Blob,
+						"docs/README.md",
+						"",
+					},
 				},
 			},
 			sampleContent,
@@ -350,8 +370,8 @@ func TestRead(t *testing.T) {
 		client, mux, serverURL, teardown := setup()
 		defer teardown()
 		// rewrite cached url keys host to match the mock sevrer
-		for k, v := range c.cache {
-			c.cache[strings.Replace(k, "https://github.com", serverURL, 1)] = v
+		for k, v := range c.cache.cache {
+			c.cache.cache[strings.Replace(k, "https://github.com", serverURL, 1)] = v
 		}
 		gh := &GitHub{
 			cache: c.cache,

@@ -58,6 +58,11 @@ func TransformLinks(documentBlob []byte, callback OnLink) ([]byte, error) {
 	return documentBlob, nil
 }
 
+// ErrFrontMatterNotClosed is raised to signal
+// that the rules for defining a frontmatter element
+// in a markdown document have been violated
+var ErrFrontMatterNotClosed error = errors.New("Missing closing frontmatter `---` found")
+
 // StripFrontMatter splits a provided document into front-matter
 // and content.
 func StripFrontMatter(b []byte) ([]byte, []byte, error) {
@@ -73,7 +78,16 @@ func StripFrontMatter(b []byte) ([]byte, []byte, error) {
 	for {
 		line, err := buf.ReadString('\n')
 
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
+			// handle documents that contain only forntmatter
+			// and no line ending after closing ---
+			if started && yamlEnd == 0 {
+				if l := strings.TrimSpace(line); l == "---" {
+					yamlEnd = len(b) - buf.Len() - len([]byte(line))
+					contentStart = len(b)
+				}
+
+			}
 			break
 		}
 
@@ -82,7 +96,9 @@ func StripFrontMatter(b []byte) ([]byte, []byte, error) {
 		}
 
 		if l := strings.TrimSpace(line); l != "---" {
-			// Only whitespace is acceptable before fron-matter.
+			// Only whitespace is acceptable before front-matter
+			// Any other preceding text is interpeted as frontmater-less
+			// document
 			if !started && len(l) > 0 {
 				return nil, b, nil
 			}
@@ -100,7 +116,7 @@ func StripFrontMatter(b []byte) ([]byte, []byte, error) {
 	}
 
 	if started && yamlEnd == 0 {
-		return nil, nil, errors.New("Missing closing front-matter `---` mark found")
+		return nil, nil, ErrFrontMatterNotClosed
 	}
 
 	fm := b[yamlBeg:yamlEnd]
@@ -121,7 +137,8 @@ func InsertFrontMatter(fm []byte, content []byte) ([]byte, error) {
 	}
 	buf := bytes.NewBuffer([]byte("---\n"))
 	buf.Write(fm)
-	buf.WriteString("---\n\n")
+	// TODO: configurable empty line after frontmatter
+	buf.WriteString("---\n")
 	buf.Write(content)
 	if data, err = ioutil.ReadAll(buf); err != nil {
 		return nil, err

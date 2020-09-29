@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
@@ -58,7 +59,7 @@ func TreeEntryToGitHubLocator(treeEntry *github.TreeEntry, shaAlias string) *Res
 }
 
 // Recursively adds or merges nodes built from flat ResourceLocators list to node.Nodes
-func buildNodes(node *api.Node, childResourceLocators []*ResourceLocator, cache Cache) {
+func buildNodes(node *api.Node, childResourceLocators []*ResourceLocator, cache *Cache) {
 	var (
 		nodePath            string
 		nodeResourceLocator *ResourceLocator
@@ -84,6 +85,7 @@ func buildNodes(node *api.Node, childResourceLocators []*ResourceLocator, cache 
 			if childResourceLocator.Type == Blob && !strings.HasSuffix(strings.ToLower(childName), ".md") {
 				continue
 			}
+			childName := strings.TrimSuffix(childName, ".md")
 			n := &api.Node{
 				ContentSelectors: []api.ContentSelector{{Source: childResourceLocator.String()}},
 				Name:             childName,
@@ -104,14 +106,28 @@ func buildNodes(node *api.Node, childResourceLocators []*ResourceLocator, cache 
 	}
 }
 
+func cleanupNodeTree(node *api.Node) {
+	for _, n := range node.Nodes {
+		cleanupNodeTree(n)
+	}
+	if len(node.Nodes) > 0 {
+		node.ContentSelectors = nil
+	}
+}
+
 // Cache is indexes GitHub TreeEntries by website resource URLs as keys,
 // mapping ResourceLocator objects to them.
 // TODO: implement me efficently and for parallel use
-type Cache map[string]*ResourceLocator
+type Cache struct {
+	cache map[string]*ResourceLocator
+	mux   sync.Mutex
+}
 
 // Get returns a ResourceLocator object mapped to the path (URL)
-func (c Cache) Get(path string) *ResourceLocator {
-	return c[path]
+func (c *Cache) Get(path string) *ResourceLocator {
+	defer c.mux.Unlock()
+	c.mux.Lock()
+	return c.cache[path]
 }
 
 // HasURLPrefix returns true if pathPrefix tests true as prefix for path,
@@ -129,9 +145,11 @@ func HasURLPrefix(path, pathPrefix string) bool {
 
 // GetSubset returns a subset of the ResourceLocator objects mapped to keys
 // with this pathPrefix
-func (c Cache) GetSubset(pathPrefix string) []*ResourceLocator {
+func (c *Cache) GetSubset(pathPrefix string) []*ResourceLocator {
+	defer c.mux.Unlock()
+	c.mux.Lock()
 	var entries = make([]*ResourceLocator, 0)
-	for k, v := range c {
+	for k, v := range c.cache {
 		if k == pathPrefix {
 			continue
 		}
@@ -143,15 +161,17 @@ func (c Cache) GetSubset(pathPrefix string) []*ResourceLocator {
 }
 
 // Set adds a mapping between a path (URL) and a ResourceLocator to the cache
-func (c Cache) Set(path string, entry *ResourceLocator) *ResourceLocator {
-	c[path] = entry
+func (c *Cache) Set(path string, entry *ResourceLocator) *ResourceLocator {
+	defer c.mux.Unlock()
+	c.mux.Lock()
+	c.cache[path] = entry
 	return entry
 }
 
 // GitHub implements resourcehanlders#ResourceHandler
 type GitHub struct {
 	Client        *github.Client
-	cache         Cache
+	cache         *Cache
 	acceptedHosts []string
 }
 
@@ -159,7 +179,9 @@ type GitHub struct {
 func NewResourceHandler(client *github.Client, acceptedHosts []string) resourcehandlers.ResourceHandler {
 	return &GitHub{
 		client,
-		Cache{},
+		&Cache{
+			cache: map[string]*ResourceLocator{},
+		},
 		acceptedHosts,
 	}
 }
@@ -242,6 +264,8 @@ func (gh *GitHub) ResolveNodeSelector(ctx context.Context, node *api.Node) error
 		// build node subnodes hierarchy from cache (URLToGitHubLocator populates the cache)
 		childResourceLocators := gh.cache.GetSubset(rl.String())
 		buildNodes(node, childResourceLocators, gh.cache)
+		// finally cleanup folder entries from contentSelectors
+		cleanupNodeTree(node)
 	}
 	return nil
 }

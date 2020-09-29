@@ -31,7 +31,9 @@ func TestResolveNodeSelectorLive(t *testing.T) {
 	)
 	gh := &GitHub{
 		Client: github.NewClient(oauth2.NewClient(ctx, ts)),
-		cache:  Cache{},
+		cache: &Cache{
+			cache: map[string]*ResourceLocator{},
+		},
 	}
 	node := &api.Node{
 		Name: "docs",

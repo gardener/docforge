@@ -83,7 +83,7 @@ func (flags *cmdFlags) Configure(command *cobra.Command) {
 		"Build documentation bundle for hugo.")
 	command.Flags().BoolVar(&flags.hugoPrettyUrls, "hugo-pretty-urls", true,
 		"Build documentation bundle for hugo with pretty URLs (./sample.md -> ../sample). Only useful with --hugo=true")
-	command.Flags().StringSliceVar(&flags.hugoSectionFiles, "hugo-section-files", []string{"readme", "read.me", "_index", "index"},
+	command.Flags().StringSliceVar(&flags.hugoSectionFiles, "hugo-section-files", []string{"readme", "read.me", "index"},
 		"When building a Hugo-compliant documentaton bundle, files with filename matching one form this list (in that order) will be renamed to _index.md. Only useful with --hugo=true")
 }
 
