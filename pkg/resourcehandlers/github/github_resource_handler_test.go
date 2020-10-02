@@ -255,6 +255,8 @@ func TestResolveNodeSelector(t *testing.T) {
 			t.Errorf("error == %q, want %q", gotError, c.wantError)
 		}
 		c.want.SetParentsDownwards()
+		api.SortNodesByName(c.inNode)
+		api.SortNodesByName(c.want)
 		if !reflect.DeepEqual(c.inNode, c.want) {
 			s, _ := api.Serialize(&api.Documentation{
 				Root: c.inNode,
@@ -265,7 +267,7 @@ func TestResolveNodeSelector(t *testing.T) {
 				Root: c.want,
 			})
 			fmt.Printf(s)
-			t.Errorf("ResolveNodeSelector == %v, want %v", c.inNode, c.want)
+			t.Errorf("ResolveNodeSelector == %++v, want %++v", c.inNode, c.want)
 		}
 	}
 }

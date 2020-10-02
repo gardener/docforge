@@ -1,6 +1,7 @@
 package api
 
 import (
+	"sort"
 	"strings"
 )
 
@@ -167,4 +168,17 @@ func withMatchinContentSelectorSource(nodeContentSource string, node *Node) *Nod
 	}
 
 	return nil
+}
+
+// SortNodesByName recursively sorts all child nodes in the
+// node hierarchy by node Name
+func SortNodesByName(node *Node) {
+	if nodes := node.Nodes; nodes != nil {
+		sort.Slice(nodes, func(i, j int) bool {
+			return nodes[i].Name > nodes[j].Name
+		})
+		for _, n := range nodes {
+			SortNodesByName(n)
+		}
+	}
 }
