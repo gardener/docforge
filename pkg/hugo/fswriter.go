@@ -2,10 +2,14 @@ package hugo
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/gardener/docforge/pkg/markdown"
+	"gopkg.in/yaml.v3"
+
+	"github.com/gardener/docforge/pkg/api"
+	nodeutil "github.com/gardener/docforge/pkg/util/node"
 	"github.com/gardener/docforge/pkg/writers"
 )
 
@@ -19,27 +23,87 @@ type FSWriter struct {
 // Write implements writers#Write and will rename files that match the
 // list in hugo#FSWriter.IndexFileNames to _index.md on first match, first
 // renamed basis to serve as section files.
-func (w *FSWriter) Write(name, path string, docBlob []byte) error {
-
-	if strings.HasSuffix(name, ".md") {
-		// If there's still no section file at this path, assess if the file
-		// is a good candiate to become Hugo section file
-		if _, err := os.Stat(filepath.Join(path, "_index.md")); os.IsNotExist(err) {
-			for _, s := range w.IndexFileNames {
-				if strings.ToLower(strings.TrimSuffix(name, ".md")) == s {
-					fmt.Printf("Renaming %s -> _index.md\n", filepath.Join(path, name))
-					name = "_index.md"
-				}
+func (w *FSWriter) Write(name, path string, docBlob []byte, node *api.Node) error {
+	if node != nil {
+		if docBlob == nil && node.Properties != nil && node.Properties["frontmatter"] != nil {
+			var (
+				err      error
+				b        []byte
+				_docBlob []byte
+			)
+			if b, err = yaml.Marshal(node.Properties["frontmatter"]); err != nil {
+				return err
 			}
-		} else {
-			// TODO: see if we can generate _index.md section files when it's all done
+			_name := "_index"
+			if _docBlob, err = markdown.InsertFrontMatter(b, []byte("")); err != nil {
+				return err
+			}
+			if err := w.Writer.Write(_name, filepath.Join(path, name), _docBlob, node); err != nil {
+				return err
+			}
 		}
 
+		// validate
+		if node.Parent() != nil {
+			if ns := getIndexNodes(node.Parent().Nodes); len(ns) > 0 {
+				names := []string{}
+				for _, n := range ns {
+					names = append(names, n.Name)
+				}
+				p := nodeutil.Path(node, "/")
+				return fmt.Errorf("Multiple peer nodes with property index: true detected in %s: %s", p, strings.Join(names, ","))
+			}
+		}
+
+		if hasIndexNode([]*api.Node{node}) {
+			name = "_index"
+		}
+		// if IndexFileNames has values and index file has not been
+		// identified, try to figure out index file out from node names.
+		peerNodes := node.Peers()
+		if len(w.IndexFileNames) > 0 && name != "_index" && name != "_index.md" && !hasIndexNode(peerNodes) {
+			for _, s := range w.IndexFileNames {
+				if strings.ToLower(name) == s {
+					fmt.Printf("Renaming %s -> _index.md\n", filepath.Join(path, name))
+					name = "_index"
+				}
+			}
+		}
 	}
 
-	if err := w.Writer.Write(name, path, docBlob); err != nil {
+	if err := w.Writer.Write(name, path, docBlob, node); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func hasIndexNode(nodes []*api.Node) bool {
+	for _, n := range nodes {
+		if n.Properties != nil {
+			index := n.Properties["index"]
+			if isIndex, ok := index.(bool); ok {
+				return isIndex
+			}
+			if n.Name == "_index" || n.Name == "_index.md" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func getIndexNodes(nodes []*api.Node) []*api.Node {
+	indexNodes := []*api.Node{}
+	for _, n := range nodes {
+		if n.Properties != nil {
+			index := n.Properties["index"]
+			if isIndex, ok := index.(bool); ok {
+				if isIndex {
+					indexNodes = append(indexNodes, n)
+				}
+			}
+		}
+	}
+	return indexNodes
 }

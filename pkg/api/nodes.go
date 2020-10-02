@@ -114,6 +114,21 @@ func (n *Node) GetRootNode() *Node {
 	return nil
 }
 
+// Peers returns the peer nodes of the node
+func (n *Node) Peers() []*Node {
+	var parent *Node
+	if parent = n.Parent(); parent == nil {
+		return nil
+	}
+	peers := []*Node{}
+	for _, node := range parent.Nodes {
+		if node != n {
+			peers = append(peers, node)
+		}
+	}
+	return peers
+}
+
 // FindNodeByContentSource traverses up and then all around the
 // tree paths in the node's documentation strcuture, looking for
 // a node that has contentSource path nodeContentSource

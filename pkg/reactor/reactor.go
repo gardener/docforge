@@ -125,11 +125,11 @@ func (r *Reactor) Resolve(ctx context.Context, node *api.Node) error {
 
 func tasks(node *api.Node, t *[]interface{}) {
 	n := node
-	if len(n.ContentSelectors) > 0 {
-		*t = append(*t, &DocumentWorkTask{
-			Node: n,
-		})
-	}
+	// if len(n.ContentSelectors) > 0 {
+	*t = append(*t, &DocumentWorkTask{
+		Node: n,
+	})
+	// }
 	if node.Nodes != nil {
 		for _, n := range node.Nodes {
 			tasks(n, t)

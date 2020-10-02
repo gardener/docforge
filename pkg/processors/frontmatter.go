@@ -16,33 +16,60 @@ import (
 type FrontMatter struct{}
 
 // Process implements Processor#Process
-// TODO: failfast vs fault tolerant
 func (f *FrontMatter) Process(documentBlob []byte, node *api.Node) ([]byte, error) {
-	if node.Properties == nil {
-		title := strings.Title(strings.TrimRight(node.Name, ".md"))
-		node.Properties = map[string]interface{}{
-			"Title": title,
+	var (
+		nodeFmBytes, fmBytes, content []byte
+		props, fm, docFm              map[string]interface{}
+		ok                            bool
+	)
+	// Frontmatter from node
+	if props = node.Properties; props == nil {
+		props = map[string]interface{}{}
+	}
+	if _fm, found := props["frontmatter"]; found {
+		if fm, ok = _fm.(map[string]interface{}); !ok {
+			panic("node frontmatter type cast failed")
 		}
 	}
-	props, err := yaml.Marshal(node.Properties)
+
+	if fm == nil {
+		// Minimal standard front matter, injected by default
+		// if no other has been defined on a node
+		// TODO: make this configurable option, incl. the default frontmatter we inject
+		fm = map[string]interface{}{
+			"title": strings.Title(node.Name),
+		}
+	}
+
+	nodeFmBytes, err := yaml.Marshal(fm)
 	if err != nil {
 		return nil, err
 	}
-	var fm, content []byte
-	if fm, content, err = markdown.StripFrontMatter(documentBlob); err != nil {
+
+	// document front matter
+	if fmBytes, content, err = markdown.StripFrontMatter(documentBlob); err != nil {
 		return nil, err
 	}
-	if fm == nil {
-		fm = []byte(props)
-	} else {
-		buf := bytes.NewBuffer(fm)
-		buf.Write([]byte("\n"))
-		buf.Write(props)
-		if fm, err = ioutil.ReadAll(buf); err != nil {
-			return nil, err
-		}
+	docFm = map[string]interface{}{}
+	if err := yaml.Unmarshal(fmBytes, docFm); err != nil {
+		return nil, err
 	}
-	if documentBlob, err = markdown.InsertFrontMatter(fm, content); err != nil {
+
+	// TODO: merge node + doc frontmatter per configurable strategy:
+	// - merge where node frontmatter entries win over document frontmatter
+	// - merge where document frontmatter entries win over node frontmatter
+	// - merge where document frontmatter are merged wiht node frontmatter ignoring duplicates (currently impl.)
+	buf := bytes.NewBuffer([]byte{})
+	if fmBytes != nil {
+		buf.Write(fmBytes)
+	}
+	if nodeFmBytes != nil {
+		buf.Write(nodeFmBytes)
+	}
+	if fmBytes, err = ioutil.ReadAll(buf); err != nil {
+		return nil, err
+	}
+	if documentBlob, err = markdown.InsertFrontMatter(fmBytes, content); err != nil {
 		return nil, err
 	}
 	return documentBlob, nil

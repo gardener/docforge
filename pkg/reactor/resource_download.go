@@ -144,7 +144,7 @@ func (d *downloadWorker) download(ctx context.Context, dt *DownloadTask) error {
 		return err
 	}
 
-	if err := d.Writer.Write(dt.Target, "", blob); err != nil {
+	if err := d.Writer.Write(dt.Target, "", blob, nil); err != nil {
 		return err
 	}
 	return nil

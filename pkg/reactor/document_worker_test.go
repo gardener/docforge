@@ -16,7 +16,7 @@ type TestWriter struct {
 	output map[string][]byte
 }
 
-func (w *TestWriter) Write(name, path string, resourceContent []byte) error {
+func (w *TestWriter) Write(name, path string, resourceContent []byte, node *api.Node) error {
 	w.output[fmt.Sprintf("%s/%s", path, name)] = resourceContent
 	return nil
 }
