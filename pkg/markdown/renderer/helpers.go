@@ -38,9 +38,13 @@ func lastNode(node ast.Node) bool { return ast.GetNextNode(node) == nil }
 
 // wrapText wraps the text in data, taking len(prefix) into account.
 func (r *Renderer) wrapText(data, prefix []byte) []byte {
+	if r.opts.TextWidth > -1 {
+		replaced := re.ReplaceAll(data, []byte(" "))
+		wrapped := WrapBytes(replaced, r.opts.TextWidth-len(prefix))
+		return r.indentText(wrapped, prefix)
+	}
 	replaced := re.ReplaceAll(data, []byte(" "))
-	wrapped := WrapBytes(replaced, r.opts.TextWidth-len(prefix))
-	return r.indentText(wrapped, prefix)
+	return r.indentText(replaced, prefix)
 }
 
 func (r *Renderer) indentText(data, prefix []byte) []byte {
