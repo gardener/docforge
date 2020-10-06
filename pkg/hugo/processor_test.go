@@ -14,7 +14,7 @@ func TestHugoProcess(t *testing.T) {
 		err               error
 	)
 	in = []byte("[GitHub](./a/b.md) ![img](./images/img.png)")
-	expected = []byte("[GitHub](../a/b)\n![img](../images/img.png)\n")
+	expected = []byte("[GitHub](../a/b) ![img](../images/img.png)\n")
 	p := &Processor{
 		PrettyUrls: true,
 	}
@@ -22,7 +22,7 @@ func TestHugoProcess(t *testing.T) {
 		t.Errorf("%v!=nil", err)
 	}
 	if !reflect.DeepEqual(got, expected) {
-		t.Errorf("`%v`!=`%v`", string(expected), string(got))
+		t.Errorf("`%v`\n!=\n`%v`", string(expected), string(got))
 	}
 }
 
