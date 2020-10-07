@@ -10,6 +10,7 @@ import (
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	utilnode "github.com/gardener/docforge/pkg/util/node"
 	"github.com/gardener/docforge/pkg/writers"
+	"k8s.io/klog/v2"
 )
 
 // Reader reads the bytes data from a given source URI
@@ -58,7 +59,7 @@ func (w *DocumentWorker) Work(ctx context.Context, task interface{}, wq jobs.Wor
 			for _, content := range task.Node.ContentSelectors {
 				sourceBlob, err := w.Reader.Read(ctx, content.Source)
 				if len(sourceBlob) == 0 {
-					fmt.Printf("No bytes read from source %s\n", content.Source)
+					klog.V(4).Infoln("No bytes read from source", content.Source)
 					continue
 				}
 				if err != nil {

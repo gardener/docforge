@@ -10,7 +10,7 @@ import (
 )
 
 func init() {
-	tests.SetGlogV(6)
+	tests.SetKlogV(6)
 }
 
 type TestResourceHandler struct {

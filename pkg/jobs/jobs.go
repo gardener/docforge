@@ -22,6 +22,7 @@ import (
 	"sync"
 
 	"github.com/hashicorp/go-multierror"
+	klog "k8s.io/klog/v2"
 )
 
 // Job enques assignments for parallel processing and synchronous response
@@ -143,7 +144,7 @@ func (j *Job) Dispatch(ctx context.Context, tasks []interface{}) *WorkerError {
 	// cleanup on exit
 	defer func() {
 		close(quitCh)
-		// fmt.Println("Job done.")
+		klog.V(6).Infoln("Job done.")
 	}()
 
 	// add tasks
@@ -160,7 +161,7 @@ func (j *Job) Dispatch(ctx context.Context, tasks []interface{}) *WorkerError {
 		case <-ctx.Done():
 			{
 				if stopped := j.Queue.Stop(); stopped {
-					// fmt.Printf("Workqueue stopped\n")
+					// klog.V(6).Infof("Workqueue stopped\n")
 				}
 				break
 			}
@@ -171,15 +172,15 @@ func (j *Job) Dispatch(ctx context.Context, tasks []interface{}) *WorkerError {
 					// at least one worker exited - we are done
 					// Unlock all others waiting to get a taks
 					if stopped := j.Queue.Stop(); stopped {
-						// fmt.Printf("Workqueue stopped\n")
+						// klog.V(6).Infof("Workqueue stopped\n")
 					}
 				}
 				if stoppedWorkersCount == workersCount {
+					var s string
 					if j.Queue.Count() > 0 {
-						fmt.Printf("%d unprocessed items in queue. ", j.Queue.Count())
-					} else {
-						fmt.Println()
+						s = fmt.Sprintf("%d unprocessed items in queue. ", j.Queue.Count())
 					}
+					klog.V(6).Infoln(s)
 					loop = false
 				}
 			}
@@ -193,7 +194,7 @@ func (j *Job) Dispatch(ctx context.Context, tasks []interface{}) *WorkerError {
 					errors = multierror.Append(err)
 					if j.FailFast {
 						if stopped := j.Queue.Stop(); stopped {
-							// fmt.Printf("Workqueue stopped\n")
+							// klog.V(6).Infof("Workqueue stopped\n")
 						}
 						break
 					}
@@ -221,16 +222,16 @@ func (j *Job) startWorkers(ctx context.Context, workersCount int, quitCh chan st
 			defer func() {
 				quitCh <- struct{}{}
 				close(errCh)
-				fmt.Printf("%s worker %d stopped\n", j.ID, workerId)
+				klog.V(6).Infof("%s worker %d stopped\n", j.ID, workerId)
 			}()
-			fmt.Printf("%s worker %d started\n", j.ID, workerId)
+			klog.V(6).Infof("%s worker %d started\n", j.ID, workerId)
 			wg.Done()
 			for {
 				var task interface{}
 				if task = wq.Get(); task == nil {
 					return
 				}
-				// fmt.Printf("%s worker %d acquired task\n", j.ID, workerId)
+				klog.V(6).Infof("%s worker %d acquired task\n", j.ID, workerId)
 				if err := j.Worker.Work(ctx, task, wq); err != nil {
 					errCh <- err
 					continue

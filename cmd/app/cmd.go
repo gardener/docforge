@@ -6,6 +6,7 @@ import (
 
 	"github.com/gardener/docforge/pkg/hugo"
 	"github.com/spf13/cobra"
+	"k8s.io/klog/v2"
 )
 
 type cmdFlags struct {
@@ -47,6 +48,7 @@ func NewCommand(ctx context.Context, cancel context.CancelFunc) *cobra.Command {
 	version := NewVersionCmd()
 	cmd.AddCommand(version)
 
+	klog.InitFlags(nil)
 	AddFlags(cmd)
 
 	return cmd

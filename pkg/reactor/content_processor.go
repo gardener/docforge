@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
+	"k8s.io/klog/v2"
 
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
@@ -60,7 +61,7 @@ func NewNodeContentProcessor(resourcesRoot string, ld localityDomain, downloadJo
 
 //convenience wrapper adding logging
 func (c *NodeContentProcessor) schedule(ctx context.Context, link, resourceName, from string) {
-	fmt.Printf("[%s] Linked resource scheduled for download: %s\n", from, link)
+	klog.V(6).Infof("[%s] Linked resource scheduled for download: %s\n", from, link)
 	c.DownloadController.Schedule(ctx, link, resourceName)
 }
 
@@ -71,7 +72,7 @@ func (c *NodeContentProcessor) schedule(ctx context.Context, link, resourceName,
 // the linked resources.
 // The function returns the processed document or error.
 func (c *NodeContentProcessor) ReconcileLinks(ctx context.Context, node *api.Node, contentSourcePath string, documentBlob []byte) ([]byte, error) {
-	fmt.Printf("[%s] Reconciling links for %s\n", node.Name, contentSourcePath)
+	klog.V(6).Infof("[%s] Reconciling links for %s\n", node.Name, contentSourcePath)
 
 	fm, contentBytes, err := markdown.StripFrontMatter(documentBlob)
 	if err != nil {
@@ -109,7 +110,7 @@ func (c *NodeContentProcessor) reconcileMDLinks(ctx context.Context, docNode *ap
 			}
 
 			destination, downloadURL, resourceName, err := c.processLink(ctx, docNode, _u, contentSourcePath)
-			fmt.Printf("[%s] %s -> %s\n", contentSourcePath, _u, destination)
+			klog.V(6).Infof("[%s] %s -> %s\n", contentSourcePath, _u, destination)
 			if len(downloadURL) > 0 {
 				c.schedule(ctx, downloadURL, resourceName, contentSourcePath)
 			}
@@ -164,7 +165,7 @@ func (c *NodeContentProcessor) reconcileHTMLLinks(ctx context.Context, docNode *
 				url = strings.TrimSuffix(url, "\"")
 			}
 			destination, downloadURL, resourceName, err := c.processLink(ctx, docNode, url, contentSourcePath)
-			fmt.Printf("[%s] %s -> %s\n", contentSourcePath, url, destination)
+			klog.V(6).Infof("[%s] %s -> %s\n", contentSourcePath, url, destination)
 			if len(downloadURL) > 0 {
 				c.schedule(ctx, downloadURL, resourceName, contentSourcePath)
 			}
@@ -200,7 +201,7 @@ func (c *NodeContentProcessor) processLink(ctx context.Context, node *api.Node, 
 	_a := absLink
 	absLink, inLD := c.localityDomain.MatchPathInLocality(absLink, c.ResourceHandlers)
 	if _a != absLink {
-		fmt.Printf("[%s] Link converted %s -> %s\n", contentSourcePath, _a, absLink)
+		klog.V(6).Infof("[%s] Link converted %s -> %s\n", contentSourcePath, _a, absLink)
 	}
 
 	// Links to other documents are enforced relative when
@@ -214,7 +215,7 @@ func (c *NodeContentProcessor) processLink(ctx context.Context, node *api.Node, 
 		if existingNode := api.FindNodeByContentSource(l, node); existingNode != nil {
 			relPathBetweenNodes := node.RelativePath(existingNode)
 			if destination != relPathBetweenNodes {
-				fmt.Printf("[%s] %s -> %s\n", contentSourcePath, destination, relPathBetweenNodes)
+				klog.V(6).Infof("[%s] %s -> %s\n", contentSourcePath, destination, relPathBetweenNodes)
 			}
 			destination = relPathBetweenNodes
 			return destination, "", "", nil
@@ -229,12 +230,12 @@ func (c *NodeContentProcessor) processLink(ctx context.Context, node *api.Node, 
 		_d := destination
 		destination = buildDestination(node, resourceName, c.resourcesRoot)
 		if _d != destination {
-			fmt.Printf("[%s] %s -> %s\n", contentSourcePath, _d, destination)
+			klog.V(6).Infof("[%s] %s -> %s\n", contentSourcePath, _d, destination)
 		}
 		return destination, absLink, resourceName, nil
 	}
 	if destination != absLink {
-		fmt.Printf("[%s] %s -> %s\n", contentSourcePath, destination, absLink)
+		klog.V(6).Infof("[%s] %s -> %s\n", contentSourcePath, destination, absLink)
 	}
 	return absLink, "", "", nil
 }

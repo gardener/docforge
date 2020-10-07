@@ -34,7 +34,7 @@ const (
 )
 
 func init() {
-	tests.SetGlogV(10)
+	tests.SetKlogV(10)
 }
 
 func runFileModify(ctx context.Context, t *testing.T, filePath string, period time.Duration) {

@@ -8,6 +8,7 @@ import (
 
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/markdown"
+	"k8s.io/klog/v2"
 
 	mdutil "github.com/gardener/docforge/pkg/markdown"
 )
@@ -62,7 +63,7 @@ func (f *Processor) rewriteDestination(destination []byte, nodeName string) ([]b
 	link = strings.TrimSuffix(strings.TrimPrefix(link, "\""), "\"")
 	u, err := url.Parse(link)
 	if err != nil {
-		fmt.Printf("Invalid link: %s", link)
+		klog.V(2).Infoln("Invalid link:", link)
 		return destination, nil
 	}
 	if !u.IsAbs() && !strings.HasPrefix(link, "/") && !strings.HasPrefix(link, "#") {
@@ -89,7 +90,7 @@ func (f *Processor) rewriteDestination(destination []byte, nodeName string) ([]b
 			link = fmt.Sprintf("%s.html", link)
 		}
 		if _l != link {
-			fmt.Printf("[%s] Rewriting node link for Hugo: %s -> %s \n", nodeName, _l, link)
+			klog.V(6).Infof("[%s] Rewriting node link for Hugo: %s -> %s \n", nodeName, _l, link)
 		}
 		return []byte(link), nil
 	}

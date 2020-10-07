@@ -8,6 +8,7 @@ import (
 	"github.com/gardener/docforge/pkg/jobs"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/gardener/docforge/pkg/writers"
+	"k8s.io/klog/v2"
 )
 
 // DownloadTask holds information for source and target of linked document resources
@@ -62,11 +63,11 @@ func NewDownloadController(reader Reader, writer writers.Writer, workersCount in
 	}
 
 	job := &jobs.Job{
-		ID:                "Download",
-		FailFast:          failFast,
-		MaxWorkers:        workersCount,
-		MinWorkers:        workersCount,
-		Queue:             jobs.NewWorkQueue(100),
+		ID:                        "Download",
+		FailFast:                  failFast,
+		MaxWorkers:                workersCount,
+		MinWorkers:                workersCount,
+		Queue:                     jobs.NewWorkQueue(100),
 		IsWorkerExitsOnEmptyQueue: true,
 	}
 	controller := &downloadController{
@@ -80,7 +81,7 @@ func NewDownloadController(reader Reader, writer writers.Writer, workersCount in
 }
 
 func (d *downloadWorker) download(ctx context.Context, dt *DownloadTask) error {
-	fmt.Printf("Downloading %s as %s\n", dt.Source, dt.Target)
+	klog.V(6).Infof("Downloading %s as %s\n", dt.Source, dt.Target)
 	blob, err := d.Reader.Read(ctx, dt.Source)
 	if err != nil {
 		return err

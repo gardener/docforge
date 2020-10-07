@@ -24,7 +24,7 @@ const (
 )
 
 func init() {
-	tests.SetGlogV(6)
+	tests.SetKlogV(6)
 }
 
 // setup sets up a test HTTP server along with a github.Client that is

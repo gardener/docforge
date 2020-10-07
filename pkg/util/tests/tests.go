@@ -19,8 +19,8 @@ func init() {
 	rand.Seed(time.Now().UTC().UnixNano())
 }
 
-// SetGlogV sets the logging flags when unit tests are run
-func SetGlogV(level int) {
+// SetKlogV sets the logging flags when unit tests are run
+func SetKlogV(level int) {
 	l := strconv.Itoa(level)
 	if f := flag.Lookup("v"); f != nil {
 		f.Value.Set(l)

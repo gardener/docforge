@@ -33,8 +33,7 @@ func (f *FSWriter) Write(name, path string, docBlob []byte, node *api.Node) erro
 	filePath := filepath.Join(p, name)
 
 	if err := ioutil.WriteFile(filePath, docBlob, 0644); err != nil {
-		fmt.Printf("Error writing %s: %v\n", filepath.Join(f.Root, path, name), err)
-		return err
+		return fmt.Errorf("error writing %s: %v", filepath.Join(f.Root, path, name), err)
 	}
 
 	return nil

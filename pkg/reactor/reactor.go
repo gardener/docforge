@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/gardener/docforge/pkg/processors"
+	"k8s.io/klog/v2"
 
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
@@ -83,7 +84,7 @@ func (r *Reactor) Run(ctx context.Context, docStruct *api.Documentation, dryRun 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	fmt.Printf("Building documentation structure\n\n")
+	klog.V(4).Info("Building documentation structure\n\n")
 	if err = r.Build(ctx, docStruct.Root, ld); err != nil {
 		return err
 	}

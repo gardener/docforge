@@ -33,7 +33,9 @@ func main() {
 	}()
 
 	command := app.NewCommand(ctx, cancel)
-	flag.CommandLine.Parse([]string{})
+	if err := flag.CommandLine.Parse([]string{}); err != nil {
+		panic(err.Error())
+	}
 	if err := command.Execute(); err != nil {
 		os.Exit(-1)
 	}
