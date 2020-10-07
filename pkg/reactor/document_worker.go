@@ -47,55 +47,50 @@ func (g *GenericReader) Read(ctx context.Context, source string) ([]byte, error)
 }
 
 // Work implements Worker#Work function
-func (w *DocumentWorker) Work(ctx context.Context, task interface{}) *jobs.WorkerError {
-	var (
-		t          *DocumentWorkTask
-		ok         bool
-		sourceBlob []byte
-	)
-	if t, ok = task.(*DocumentWorkTask); !ok {
-		return jobs.NewWorkerError(fmt.Errorf("cast failed: %v", task), 0)
+func (w *DocumentWorker) Work(ctx context.Context, task interface{}, wq jobs.WorkQueue) *jobs.WorkerError {
+	if task, ok := task.(*DocumentWorkTask); ok {
+
+		var sourceBlob []byte
+
+		if len(task.Node.ContentSelectors) > 0 {
+			// Write the document content
+			blobs := make(map[string][]byte)
+			for _, content := range task.Node.ContentSelectors {
+				sourceBlob, err := w.Reader.Read(ctx, content.Source)
+				if len(sourceBlob) == 0 {
+					fmt.Printf("No bytes read from source %s\n", content.Source)
+					continue
+				}
+				if err != nil {
+					return jobs.NewWorkerError(err, 0)
+				}
+				newBlob, err := w.NodeContentProcessor.ReconcileLinks(ctx, task.Node, content.Source, sourceBlob)
+				if err != nil {
+					return jobs.NewWorkerError(err, 0)
+				}
+				blobs[content.Source] = newBlob
+			}
+
+			if len(blobs) == 0 {
+				return nil
+			}
+
+			for _, blob := range blobs {
+				sourceBlob = append(sourceBlob, blob...)
+			}
+
+			var err error
+			if w.Processor != nil {
+				if sourceBlob, err = w.Processor.Process(sourceBlob, task.Node); err != nil {
+					return jobs.NewWorkerError(err, 0)
+				}
+			}
+		}
+
+		path := utilnode.Path(task.Node, "/")
+		if err := w.Writer.Write(task.Node.Name, path, sourceBlob, task.Node); err != nil {
+			return jobs.NewWorkerError(err, 0)
+		}
 	}
-
-	if len(t.Node.ContentSelectors) > 0 {
-		// Write the document content
-		blobs := make(map[string][]byte)
-		for _, content := range t.Node.ContentSelectors {
-			sourceBlob, err := w.Reader.Read(ctx, content.Source)
-			if len(sourceBlob) == 0 {
-				fmt.Printf("No bytes read from source %s\n", content.Source)
-				continue
-			}
-			if err != nil {
-				return jobs.NewWorkerError(err, 0)
-			}
-			newBlob, err := w.NodeContentProcessor.ReconcileLinks(ctx, t.Node, content.Source, sourceBlob)
-			if err != nil {
-				return jobs.NewWorkerError(err, 0)
-			}
-			blobs[content.Source] = newBlob
-		}
-
-		if len(blobs) == 0 {
-			return nil
-		}
-
-		for _, blob := range blobs {
-			sourceBlob = append(sourceBlob, blob...)
-		}
-
-		var err error
-		if w.Processor != nil {
-			if sourceBlob, err = w.Processor.Process(sourceBlob, t.Node); err != nil {
-				return jobs.NewWorkerError(err, 0)
-			}
-		}
-	}
-
-	path := utilnode.Path(t.Node, "/")
-	if err := w.Writer.Write(t.Node.Name, path, sourceBlob, t.Node); err != nil {
-		return jobs.NewWorkerError(err, 0)
-	}
-
 	return nil
 }
