@@ -52,6 +52,15 @@ func Test_processLink(t *testing.T) {
 			wantErr:           nil,
 		},
 		{
+			name:              "mailto protocol is not processed",
+			destination:       "mailto:a@b.com",
+			contentSourcePath: "",
+			wantDestination:   "mailto:a@b.com",
+			wantDownloadURL:   "",
+			wantResourceName:  "",
+			wantErr:           nil,
+		},
+		{
 			name:              "Absolute links to releases not processed",
 			destination:       "https://github.com/gardener/gardener/releases/tag/v1.4.0",
 			contentSourcePath: nodeA.ContentSelectors[0].Source,
@@ -99,6 +108,10 @@ func Test_processLink(t *testing.T) {
 					"github.com/gardener/gardener": &localityDomainValue{
 						"v1.10.0",
 						"gardener/gardener/docs",
+						nil,
+						nil,
+						nil,
+						nil,
 					},
 				}
 			},
@@ -149,6 +162,10 @@ func Test_processLink(t *testing.T) {
 					"github.com/gardener/gardener": &localityDomainValue{
 						"v1.10.0",
 						"gardener/gardener/docs",
+						nil,
+						nil,
+						nil,
+						nil,
 					},
 				}
 			},
@@ -178,6 +195,10 @@ func Test_processLink(t *testing.T) {
 					"github.com/gardener/gardener": &localityDomainValue{
 						"v1.10.0",
 						"gardener/gardener/docs",
+						nil,
+						nil,
+						nil,
+						nil,
 					},
 				}
 			},
@@ -206,6 +227,10 @@ func Test_processLink(t *testing.T) {
 					"github.com/gardener/gardener": &localityDomainValue{
 						"v1.10.0",
 						"gardener/gardener/docs",
+						nil,
+						nil,
+						nil,
+						nil,
 					},
 				}
 			},
@@ -225,6 +250,10 @@ func Test_processLink(t *testing.T) {
 					"github.com/gardener/gardener": &localityDomainValue{
 						"v1.10.0",
 						"gardener/gardener/docs",
+						nil,
+						nil,
+						nil,
+						nil,
 					},
 				}
 			},
@@ -243,6 +272,10 @@ func Test_processLink(t *testing.T) {
 					"github.com/gardener/gardener": &localityDomainValue{
 						"v1.10.0",
 						"gardener/gardener/docs",
+						nil,
+						nil,
+						nil,
+						nil,
 					},
 				}
 			},

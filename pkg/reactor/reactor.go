@@ -64,9 +64,9 @@ func (r *Reactor) Run(ctx context.Context, docStruct *api.Documentation, dryRun 
 		return err
 	}
 
-	ld := fromAPI(docStruct.LocalityDomain)
+	ld := copy(docStruct.LocalityDomain)
 	if ld == nil || len(ld) == 0 {
-		if ld, err = setLocalityDomainForNode(docStruct.Root, r.ResourceHandlers); err != nil {
+		if ld, err = localityDomainFromNode(docStruct.Root, r.ResourceHandlers); err != nil {
 			return err
 		}
 		r.localityDomain = ld

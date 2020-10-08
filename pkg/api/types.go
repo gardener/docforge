@@ -29,7 +29,8 @@ type Documentation struct {
 	//
 	// Note: WiP - proposed, not implemented yet.
 	Variables map[string]*Node `yaml:"variables,omitempty"`
-	// LocalityDomain is the range
+	// LocalityDomain defines the scope of the downloadable resources
+	// for this structure
 	LocalityDomain LocalityDomain `yaml:"localityDomain,omitempty"`
 }
 
@@ -86,10 +87,8 @@ type Node struct {
 	// and the serialization of the Node. For example the properyies member could be
 	// used to set the front-matter to markdowns for front-matter aware builders such
 	// as Hugo.
-	Properties map[string]interface{} `yaml:"properties,omitempty"`
-	// Links is an optional tunning of the mechanisms for processing
-	// links applicable to document nodes.
-	Links *Links `yaml:"links,omitempty"`
+	Properties     map[string]interface{} `yaml:"properties,omitempty"`
+	LocalityDomain `yaml:"localityDomain,omitempty"`
 }
 
 // NodeSelector is an specification for selecting subnodes (children) for a node.
@@ -134,22 +133,8 @@ type ContentSelector struct {
 	Selector *string `yaml:"selector,omitempty"`
 }
 
-// Links defines rules for links handling
-type Links struct {
-	// Substitutes is an optional map of links and their
-	// substitutions. Use it to override the default links handling:
-	// - An empty substritution string ("") can be used to remove
-	//   a link mark (applies only to markdown links and images).
-	// - A fixed string that will replace the whole original link.
-	// - An expression with substitution variables can be used
-	//   to change the default pattern for generating donwloaded resouce
-	//   names, which is $uuid. That applies only to downloaded resouces.
-	//   The supported variables are
-	//   - $name: the original name of the resouce
-	//   - $path: the original path fo the resource (may be empty)
-	//   - $uuid: the identifier generated for the downloaded resource
-	//   Example: $name-$uuid
-	Substitutes map[string]string `yaml:"substitutes,omitempty"`
+// LinksMatchers defines links exclusion/inclusion patterns
+type LinksMatchers struct {
 	// Include is a list of regular expressions that will be matched to every
 	// link that is candidate for download to determine whether it is
 	// eligible. The links to match are absolute.
@@ -174,12 +159,46 @@ type Links struct {
 // are always part of the locality domain. Other
 // resources referenced by those documents are checked
 // against the path hierarchy of locality domain
-// entries to determine hwo they will be processed.
+// entries to determine how they will be processed.
 type LocalityDomain map[string]*LocalityDomainValue
 
 // LocalityDomainValue encapsulates the memebers of a
 // LocalityDomain entry value
 type LocalityDomainValue struct {
+	// Version sets the version of the resources that will
+	// be referenced in this domain. Download targets and
+	// absolute links in documents referenced by the structure
+	// will be rewritten to match this version
 	Version string `yaml:"version"`
-	Path    string `yaml:"path"`
+	// Path is the relative path inside a domain that contains
+	// resources considered 'local' that will be downloaded.
+	Path          string `yaml:"path"`
+	LinksMatchers `yaml:",inline"`
+	// LinkSubstitutes is an optional map of links and their
+	// substitutions. Use it to override the default handling of those
+	// links in documents in this locality domain:
+	// - An empty substitution string ("") removes a link markdown
+	//   turning. It leaves only its text component in the document
+	//   for links and nothing for images.
+	//   This applies only to markdown for links and images.
+	// - A fixed string that will replace the whole original link
+	//   destination.
+	LinkSubstitutes Substitutes
+	// DownloadSubstitutes is an optional map of resource names in this
+	// locality domain and their substitutions. Use it to override the
+	// default downloads naming:
+	// - An exact download name mapped to a download resource will be used
+	//   to name that resources when downloaded.
+	// - An expression with substitution variables can be used
+	//   to change the default pattern for generating donwloaded resouce
+	//   names, which is $uuid.
+	//   The supported variables are:
+	//   - $name: the original name of the resouce
+	//   - $path: the original path of the resource in this domain (may be empty)
+	//   - $uuid: the identifier generated for the downloaded resource
+	//   Example expression: $name-$uuid
+	DownloadSubstitutes Substitutes
 }
+
+// Substitutes is map of ...
+type Substitutes map[string]string

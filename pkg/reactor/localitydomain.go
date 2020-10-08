@@ -2,6 +2,7 @@ package reactor
 
 import (
 	"reflect"
+	"regexp"
 	"strings"
 
 	"github.com/gardener/docforge/pkg/api"
@@ -28,17 +29,36 @@ type localityDomainValue struct {
 	Version string
 	// Path defines the scope of this locality domain
 	// and is relative to it
-	Path string
+	Path                string
+	Include             []string
+	Exclude             []string
+	LinkSubstitutes     Substitutes
+	DownloadSubstitutes Substitutes
+}
+
+// Substitutes is ...
+type Substitutes map[string]string
+
+func copySubstitutes(s api.Substitutes) Substitutes {
+	_s := Substitutes{}
+	for k, v := range s {
+		_s[k] = v
+	}
+	return _s
 }
 
 // fromAPI creates new localityDomain copy object from
 // api.LocalityDomain
-func fromAPI(ld api.LocalityDomain) localityDomain {
+func copy(ld api.LocalityDomain) localityDomain {
 	localityDomain := localityDomain{}
 	for k, v := range ld {
 		localityDomain[k] = &localityDomainValue{
 			v.Version,
 			v.Path,
+			v.Include,
+			v.Exclude,
+			copySubstitutes(v.LinkSubstitutes),
+			copySubstitutes(v.DownloadSubstitutes),
 		}
 	}
 	return localityDomain
@@ -46,7 +66,7 @@ func fromAPI(ld api.LocalityDomain) localityDomain {
 
 // Set creates or updates a locality domain entry
 // with key and path. An update is performed when
-// the path is ancestor fo the existing path for
+// the path is ancestor оф the existing path for
 // that key.
 func (ld localityDomain) Set(key, path, version string) {
 	var (
@@ -57,6 +77,10 @@ func (ld localityDomain) Set(key, path, version string) {
 		ld[key] = &localityDomainValue{
 			version,
 			path,
+			nil,
+			nil,
+			nil,
+			nil,
 		}
 		return
 	}
@@ -87,6 +111,39 @@ func (ld localityDomain) MatchPathInLocality(link string, rhs resourcehandlers.R
 		if !ok {
 			return link, false
 		}
+
+		var exclude, include bool
+		// check if the link is not in locality scope by explicit exclude
+		if len(localityDomain.Exclude) > 0 {
+			for _, rx := range localityDomain.Exclude {
+				if exclude, err = regexp.MatchString(rx, link); err != nil {
+					klog.Warningf("exclude pattern match %s failed for %s\n", localityDomain.Exclude, link)
+				}
+				if exclude {
+					break
+				}
+			}
+		}
+		// check if the link is in locality scope by explicit include
+		if len(localityDomain.Include) > 0 {
+			for _, rx := range localityDomain.Include {
+				if include, err = regexp.MatchString(rx, link); err != nil {
+					klog.Warningf("include pattern match %s failed for %s\n", localityDomain.Include, link)
+				}
+				if include {
+					exclude = false
+					break
+				}
+			}
+		}
+		if exclude {
+			if link, err = rh.SetVersion(link, localityDomain.Version); err != nil {
+				klog.Errorf("%v\n", err)
+				return link, false
+			}
+			return link, true
+		}
+
 		prefix := localityDomain.Path
 		// FIXME: this is tmp valid only for github urls
 		if strings.HasPrefix(path, prefix) {
@@ -129,6 +186,10 @@ func (ld localityDomain) PathInLocality(link string, rhs resourcehandlers.Regist
 		return reflect.DeepEqual(localityDomain, &localityDomainValue{
 			version,
 			path,
+			nil,
+			nil,
+			nil,
+			nil,
 		})
 	}
 	return false
@@ -136,7 +197,7 @@ func (ld localityDomain) PathInLocality(link string, rhs resourcehandlers.Regist
 
 // setLocalityDomainForNode visits all content selectors in the node and its
 // descendants to build a localityDomain
-func setLocalityDomainForNode(node *api.Node, rhs resourcehandlers.Registry) (localityDomain, error) {
+func localityDomainFromNode(node *api.Node, rhs resourcehandlers.Registry) (localityDomain, error) {
 	var localityDomains = make(localityDomain, 0)
 	if err := csHandle(node.ContentSelectors, localityDomains, rhs); err != nil {
 		return nil, err
@@ -170,4 +231,84 @@ func fromNodes(nodes []*api.Node, localityDomains localityDomain, rhs resourceha
 		}
 	}
 	return nil
+}
+
+// ResolveLocalityDomain resolves the actual locality domain for a node,
+// considering the global one (if any) and locally defined one.
+// If no localityDomain is defined on the node the function returns nil
+func resolveLocalityDomain(node *api.Node, globalLD localityDomain) localityDomain {
+	if nodeLD := node.LocalityDomain; nodeLD != nil {
+		nodeLD := copy(nodeLD)
+		if globalLD == nil {
+			return copy(node.LocalityDomain)
+		}
+		ld := localityDomain{}
+		for k, v := range globalLD {
+			ld[k] = &localityDomainValue{
+				v.Version,
+				v.Path,
+				v.Exclude,
+				v.Include,
+				v.LinkSubstitutes,
+				v.DownloadSubstitutes,
+			}
+		}
+		for k, nodeV := range nodeLD {
+			if globalV, ok := ld[k]; ok {
+				ld[k] = merge(globalV, nodeV)
+				continue
+			}
+			ld[k] = nodeV
+		}
+		return ld
+	}
+	return globalLD
+}
+
+// replaces Version and Path from b in a if any
+// merges Exclude and Include from b in a if any
+// merges LinkSubstitutes and DownloadSubstitutes from b in a if any,
+// replacing duplicate entries in a with entries from b.
+func merge(a, b *localityDomainValue) *localityDomainValue {
+	if len(b.Version) > 0 {
+		a.Version = b.Version
+	}
+	if len(b.Path) > 0 {
+		a.Path = b.Path
+	}
+	if len(b.Exclude) > 0 {
+		_e := []string{}
+		if len(a.Exclude) > 0 {
+			_e = append(_e, a.Exclude...)
+		}
+		a.Exclude = append(_e, b.Exclude...)
+	}
+	if len(b.Include) > 0 {
+		_e := []string{}
+		if len(a.Include) > 0 {
+			_e = append(_e, a.Include...)
+		}
+		a.Include = append(_e, b.Include...)
+	}
+	if len(b.LinkSubstitutes) > 0 {
+		_e := a.LinkSubstitutes
+		if _e == nil {
+			_e = b.LinkSubstitutes
+		} else {
+			for k, v := range b.LinkSubstitutes {
+				_e[k] = v
+			}
+		}
+	}
+	if len(b.DownloadSubstitutes) > 0 {
+		_e := a.DownloadSubstitutes
+		if _e == nil {
+			_e = b.DownloadSubstitutes
+		} else {
+			for k, v := range b.DownloadSubstitutes {
+				_e[k] = v
+			}
+		}
+	}
+	return a
 }

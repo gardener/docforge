@@ -149,7 +149,7 @@ func (c *NodeContentProcessor) reconcileHTMLLinks(ctx context.Context, docNode *
 
 // returns destination, downloadURL, resourceName, err
 func (c *NodeContentProcessor) processLink(ctx context.Context, node *api.Node, destination string, contentSourcePath string) (string, string, string, error) {
-	if strings.HasPrefix(destination, "#") {
+	if strings.HasPrefix(destination, "#") || strings.HasPrefix(destination, "mailto:") {
 		return destination, "", "", nil
 	}
 
@@ -167,38 +167,13 @@ func (c *NodeContentProcessor) processLink(ctx context.Context, node *api.Node, 
 		return "", "", "", err
 	}
 	_a := absLink
-	var (
-		include, exclude bool
-	)
-	// check if the links is not eligible by explicit exclude
-	if node.Links != nil && len(node.Links.Exclude) > 0 {
-		for _, rx := range node.Links.Exclude {
-			if exclude, err = regexp.MatchString(rx, absLink); err != nil {
-				klog.V(6).Infof("[%s] exclude pattern match %s failed for %s\n", contentSourcePath, node.Links.Exclude, absLink)
-			}
-			if exclude {
-				break
-			}
-		}
+	ld := c.localityDomain
+	if node != nil {
+		ld = resolveLocalityDomain(node, c.localityDomain)
 	}
-	absLink, inLD := c.localityDomain.MatchPathInLocality(absLink, c.ResourceHandlers)
+	absLink, inLD := ld.MatchPathInLocality(absLink, c.ResourceHandlers)
 	if _a != absLink {
 		klog.V(6).Infof("[%s] Link converted %s -> %s\n", contentSourcePath, _a, absLink)
-	}
-	// check if the links is eligible by explicit include
-	if node.Links != nil && len(node.Links.Include) > 0 {
-		for _, rx := range node.Links.Include {
-			if include, err = regexp.MatchString(rx, absLink); err != nil {
-				klog.V(6).Infof("[%s] exclude pattern match %s failed for %s\n", contentSourcePath, node.Links.Exclude, absLink)
-			}
-			if include {
-				break
-			}
-		}
-		exclude = !include
-	}
-	if exclude {
-		return absLink, "", "", nil
 	}
 	// Links to other documents are enforced relative when
 	// linking documents from the node structure.
@@ -221,7 +196,7 @@ func (c *NodeContentProcessor) processLink(ctx context.Context, node *api.Node, 
 	// Links to resources are assessed for download eligibility
 	// and if applicable their destination is updated as relative
 	// path to predefined location for resources
-	if absLink != "" && (inLD || include) {
+	if absLink != "" && inLD { //(inLD || include)
 		resourceName := c.generateResourceName(absLink)
 		_d := destination
 		destination = buildDestination(node, resourceName, c.resourcesRoot)

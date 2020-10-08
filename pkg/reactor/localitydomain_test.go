@@ -25,6 +25,10 @@ func TestGitHubLocalityDomain_Set(t *testing.T) {
 				"https://github.com/gardener/gardener": &localityDomainValue{
 					"master",
 					"/gardener/gardener/master/docs",
+					nil,
+					nil,
+					nil,
+					nil,
 				},
 			},
 			key:  "https://github.com/gardener/gardener",
@@ -32,6 +36,10 @@ func TestGitHubLocalityDomain_Set(t *testing.T) {
 			expected: &localityDomainValue{
 				"master",
 				"/gardener/gardener/master/docs",
+				nil,
+				nil,
+				nil,
+				nil,
 			},
 		},
 		{
@@ -40,6 +48,10 @@ func TestGitHubLocalityDomain_Set(t *testing.T) {
 				"https://github.com/gardener/gardener": &localityDomainValue{
 					"master",
 					"/gardener/gardener/master/docs",
+					nil,
+					nil,
+					nil,
+					nil,
 				},
 			},
 			key:  "github.com/gardener/gardener",
@@ -47,6 +59,10 @@ func TestGitHubLocalityDomain_Set(t *testing.T) {
 			expected: &localityDomainValue{
 				"master",
 				"/gardener/gardener/master",
+				nil,
+				nil,
+				nil,
+				nil,
 			},
 		},
 		{
@@ -57,6 +73,10 @@ func TestGitHubLocalityDomain_Set(t *testing.T) {
 			expected: &localityDomainValue{
 				"master",
 				"/gardener/gardener/master",
+				nil,
+				nil,
+				nil,
+				nil,
 			},
 		},
 	}
@@ -87,6 +107,10 @@ func Test_SetLocalityDomainForNode(t *testing.T) {
 				"github.com/org/repo": &localityDomainValue{
 					"master",
 					"org/repo/docs",
+					nil,
+					nil,
+					nil,
+					nil,
 				},
 			},
 			wantErr: false,
@@ -103,6 +127,10 @@ func Test_SetLocalityDomainForNode(t *testing.T) {
 				"github.com/org/repo": &localityDomainValue{
 					"master",
 					"org/repo/docs",
+					nil,
+					nil,
+					nil,
+					nil,
 				},
 			},
 			wantErr: false,
@@ -119,6 +147,10 @@ func Test_SetLocalityDomainForNode(t *testing.T) {
 				"github.com/org/repo": &localityDomainValue{
 					"master",
 					"org/repo",
+					nil,
+					nil,
+					nil,
+					nil,
 				},
 			},
 			wantErr: false,
@@ -135,10 +167,18 @@ func Test_SetLocalityDomainForNode(t *testing.T) {
 				"github.com/org/repo": &localityDomainValue{
 					"master",
 					"org/repo",
+					nil,
+					nil,
+					nil,
+					nil,
 				},
 				"github.com/org/repo2": &localityDomainValue{
 					"master",
 					"org/repo2/example",
+					nil,
+					nil,
+					nil,
+					nil,
 				},
 			},
 			wantErr: false,
@@ -162,7 +202,7 @@ func Test_SetLocalityDomainForNode(t *testing.T) {
 			gh := github.NewResourceHandler(nil, []string{"github.com"})
 			rhs := resourcehandlers.NewRegistry(gh)
 			tt.mutate(newDoc)
-			got, err := setLocalityDomainForNode(newDoc.Root, rhs)
+			got, err := localityDomainFromNode(newDoc.Root, rhs)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("SetLocalityDomainForNode() error = %v, wantErr %v", err, tt.wantErr)
 				return

@@ -17,10 +17,15 @@ package api
 
 import (
 	"fmt"
+	"io/ioutil"
+	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
-var b = []byte(`root:
+var b = []byte(`
+root:
   name: root
   nodes:
   - name: node_1
@@ -31,10 +36,21 @@ var b = []byte(`root:
     - source: https://a.com
     properties:
       "custom_key": custom_value
+    localityDomain:
+      github.com/gardener/gardener:
+        exclude:
+        - a
     nodes:
     - name: subnode
       contentSelectors:	
-      - source: path/a`)
+      - source: path/a
+localityDomain:
+  github.com/gardener/gardener:
+    version: v1.10.0
+    path: gardener/gardener/docs
+    LinkSubstitutes:
+      a: b
+`)
 
 func traverse(node *Node) {
 	fmt.Printf("%++v \n", node)
@@ -138,5 +154,64 @@ func TestMe(t *testing.T) {
 	if err != nil {
 		fmt.Println(err)
 		return
+	}
+}
+
+func TestFile(t *testing.T) {
+	var (
+		blob []byte
+		err  error
+		got  *Documentation
+	)
+	expected := &Documentation{
+		Root: &Node{
+			Name: "00",
+			Nodes: []*Node{
+				&Node{
+					Name: "01",
+					ContentSelectors: []ContentSelector{
+						ContentSelector{
+							Source: "https://github.com/gardener/gardener/blob/master/docs/concepts/gardenlet.md",
+						},
+					},
+					LocalityDomain: LocalityDomain{
+						"github.com/gardener/gardener": &LocalityDomainValue{
+							Version: "v1.11.1",
+							Path:    "gardener/gardener",
+							LinksMatchers: LinksMatchers{
+								Exclude: []string{
+									"example",
+								},
+							},
+						},
+					},
+				},
+				&Node{
+					Name: "02",
+					ContentSelectors: []ContentSelector{
+						ContentSelector{
+							Source: "https://github.com/gardener/gardener/blob/master/docs/deployment/deploy_gardenlet.md",
+						},
+					},
+				},
+			},
+		},
+		LocalityDomain: LocalityDomain{
+			"github.com/gardener/gardener": &LocalityDomainValue{
+				Version: "v1.10.0",
+				Path:    "gardener/gardener",
+			},
+		},
+	}
+
+	if blob, err = ioutil.ReadFile(filepath.Join("testdata", "parse_test_00.yaml")); err != nil {
+		t.Fatalf(err.Error())
+	}
+	got, err = Parse(blob)
+	if err != nil {
+		t.Errorf("%v\n", err)
+	}
+	if got != expected {
+		assert.Equal(t, expected, got)
 	}
 }

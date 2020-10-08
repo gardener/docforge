@@ -41,7 +41,7 @@ func (p *TestProcessor) Process(documentBlob []byte, node *api.Node) ([]byte, er
 }
 
 func TestDocumentWorkerWork(t *testing.T) {
-	testOutput := "#Heading 1"
+	testOutput := "#Heading 1\n"
 	rhRegistry := resourcehandlers.NewRegistry(&FakeResourceHandler{})
 	testworker := &DocumentWorker{
 		&TestWriter{
