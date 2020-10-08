@@ -1,12 +1,15 @@
 package reactor
 
 import (
+	"fmt"
 	"reflect"
 	"regexp"
 	"strings"
 
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
+	"github.com/gardener/docforge/pkg/util/urls"
+	"github.com/google/uuid"
 	"k8s.io/klog/v2"
 )
 
@@ -186,13 +189,57 @@ func (ld localityDomain) PathInLocality(link string, rhs resourcehandlers.Regist
 		return reflect.DeepEqual(localityDomain, &localityDomainValue{
 			version,
 			path,
-			nil,
-			nil,
-			nil,
-			nil,
+			localityDomain.Include,
+			localityDomain.Exclude,
+			localityDomain.LinkSubstitutes,
+			localityDomain.DownloadSubstitutes,
 		})
 	}
 	return false
+}
+
+func (ld localityDomain) SubstituteLink(link string) string {
+	if len(link) > 0 {
+		for _, d := range ld {
+			if len(d.LinkSubstitutes) > 0 {
+				if s, ok := d.LinkSubstitutes[link]; ok {
+					return s
+				}
+			}
+		}
+	}
+	return link
+}
+
+func (ld localityDomain) GetDownloadedResourceName(u *urls.URL) string {
+	k := strings.TrimPrefix(u.Path, "/")
+	id := uuid.New().String()
+	for _, d := range ld {
+		if len(d.DownloadSubstitutes) > 0 {
+			for substituteMatcher, s := range d.DownloadSubstitutes {
+				var (
+					matched bool
+					err     error
+				)
+				if matched, err = regexp.MatchString(substituteMatcher, k); err != nil {
+					klog.Warningf("download subsitution pattern match %s failed for %s\n", substituteMatcher, k)
+					break
+				}
+				if matched {
+					s = strings.ReplaceAll(s, "$name", u.ResourceName)
+					s = strings.ReplaceAll(s, "$uuid", id)
+					s = strings.ReplaceAll(s, "$path", u.ResourcePath)
+					s = strings.ReplaceAll(s, "$ext", u.Extension)
+					return s
+				}
+			}
+		}
+	}
+	if len(u.Extension) > 0 {
+		s := fmt.Sprintf("%s.%s", id, u.Extension)
+		return s
+	}
+	return id
 }
 
 // setLocalityDomainForNode visits all content selectors in the node and its
@@ -299,6 +346,7 @@ func merge(a, b *localityDomainValue) *localityDomainValue {
 				_e[k] = v
 			}
 		}
+		a.LinkSubstitutes = _e
 	}
 	if len(b.DownloadSubstitutes) > 0 {
 		_e := a.DownloadSubstitutes
@@ -309,6 +357,7 @@ func merge(a, b *localityDomainValue) *localityDomainValue {
 				_e[k] = v
 			}
 		}
+		a.DownloadSubstitutes = _e
 	}
 	return a
 }

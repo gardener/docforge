@@ -183,7 +183,9 @@ type LocalityDomainValue struct {
 	//   This applies only to markdown for links and images.
 	// - A fixed string that will replace the whole original link
 	//   destination.
-	LinkSubstitutes Substitutes
+	// The keys in the substitution map are matched against documents
+	// links as exact string matches.
+	LinkSubstitutes Substitutes `yaml:"linkSubstitutes,omitempty"`
 	// DownloadSubstitutes is an optional map of resource names in this
 	// locality domain and their substitutions. Use it to override the
 	// default downloads naming:
@@ -195,9 +197,10 @@ type LocalityDomainValue struct {
 	//   The supported variables are:
 	//   - $name: the original name of the resouce
 	//   - $path: the original path of the resource in this domain (may be empty)
-	//   - $uuid: the identifier generated for the downloaded resource
+	//   - $uuid: the identifier generated f=or the downloaded resource
+	//   - $ext:  the extension of the original resource (may be "")
 	//   Example expression: $name-$uuid
-	DownloadSubstitutes Substitutes
+	DownloadSubstitutes Substitutes `yaml:"downloadSubstitutes,omitempty"`
 }
 
 // Substitutes is map of ...

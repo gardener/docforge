@@ -4,16 +4,15 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
 
-	"github.com/google/uuid"
 	"k8s.io/klog/v2"
 
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
+	"github.com/gardener/docforge/pkg/util/urls"
 	"github.com/hashicorp/go-multierror"
 
 	"github.com/gardener/docforge/pkg/markdown"
@@ -95,7 +94,7 @@ func (c *NodeContentProcessor) ReconcileLinks(ctx context.Context, node *api.Nod
 
 func (c *NodeContentProcessor) reconcileMDLinks(ctx context.Context, docNode *api.Node, contentBytes []byte, contentSourcePath string) ([]byte, error) {
 	var errors *multierror.Error
-	contentBytes, _ = markdown.TransformLinks(contentBytes, func(destination []byte) ([]byte, error) {
+	contentBytes, _ = markdown.UpdateLinkRefDestinations(contentBytes, func(destination []byte) ([]byte, error) {
 		var (
 			_destination string
 			downloadLink string
@@ -110,6 +109,9 @@ func (c *NodeContentProcessor) reconcileMDLinks(ctx context.Context, docNode *ap
 		}
 		if len(downloadLink) > 0 {
 			c.schedule(ctx, downloadLink, resourceName, contentSourcePath)
+		}
+		if len(_destination) < 1 {
+			return nil, nil
 		}
 		return []byte(_destination), nil
 	})
@@ -167,11 +169,15 @@ func (c *NodeContentProcessor) processLink(ctx context.Context, node *api.Node, 
 		return "", "", "", err
 	}
 	_a := absLink
-	ld := c.localityDomain
+	recolvedLD := c.localityDomain
 	if node != nil {
-		ld = resolveLocalityDomain(node, c.localityDomain)
+		recolvedLD = resolveLocalityDomain(node, c.localityDomain)
 	}
-	absLink, inLD := ld.MatchPathInLocality(absLink, c.ResourceHandlers)
+	if absLink = recolvedLD.SubstituteLink(absLink); len(absLink) == 0 {
+		// substitution is a request to remove this link
+		return "", "", "", nil
+	}
+	absLink, inLD := recolvedLD.MatchPathInLocality(absLink, c.ResourceHandlers)
 	if _a != absLink {
 		klog.V(6).Infof("[%s] Link converted %s -> %s\n", contentSourcePath, _a, absLink)
 	}
@@ -196,8 +202,8 @@ func (c *NodeContentProcessor) processLink(ctx context.Context, node *api.Node, 
 	// Links to resources are assessed for download eligibility
 	// and if applicable their destination is updated as relative
 	// path to predefined location for resources
-	if absLink != "" && inLD { //(inLD || include)
-		resourceName := c.generateResourceName(absLink)
+	if absLink != "" && inLD {
+		resourceName := c.generateResourceName(absLink, recolvedLD)
 		_d := destination
 		destination = buildDestination(node, resourceName, c.resourcesRoot)
 		if _d != destination {
@@ -229,20 +235,21 @@ func buildDestination(node *api.Node, resourceName, root string) string {
 	return resourceRelPath
 }
 
-func (c *NodeContentProcessor) generateResourceName(path string) string {
+func (c *NodeContentProcessor) generateResourceName(absURL string, resolvedLD localityDomain) string {
 	var (
 		ok           bool
 		resourceName string
 	)
-
+	u, _ := urls.Parse(absURL)
 	c.rwlock.Lock()
 	defer c.rwlock.Unlock()
-	if resourceName, ok = c.resourceAbsLinks[path]; !ok {
-		separatedSource := strings.Split(path, "/")
-		resource := separatedSource[len(separatedSource)-1]
-		resourceFileExtension := filepath.Ext(resource)
-		resourceName = uuid.New().String() + resourceFileExtension
-		c.resourceAbsLinks[path] = resourceName
+	if resourceName, ok = c.resourceAbsLinks[u.Path]; !ok {
+		resourceName = u.ResourceName
+		if len(u.Extension) > 0 {
+			resourceName = fmt.Sprintf("%s.%s", u.ResourceName, u.Extension)
+		}
+		resourceName = resolvedLD.GetDownloadedResourceName(u)
+		c.resourceAbsLinks[absURL] = resourceName
 	}
 	return resourceName
 }

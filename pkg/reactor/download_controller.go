@@ -134,7 +134,7 @@ func (c *downloadController) Schedule(ctx context.Context, link, resourceName st
 }
 
 func (c *downloadController) Stop(shutdownCh chan struct{}) {
-	// CheckExit immediately if nothing in queue and blocked waiting
+	// Check and exit immediately if nothing in queue and blocked waiting
 	if c.job.Queue.Count() == 0 {
 		c.Controller.Shutdown()
 	}

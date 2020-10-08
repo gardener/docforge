@@ -15,17 +15,68 @@ import (
 )
 
 // OnLink is a callback function invoked on each link
-// by mardown#TransformLinks
+// by mardown#UpdateLinkRefDestinations
 type OnLink func(destination []byte) ([]byte, error)
 
 const (
 	extensions = parser.CommonExtensions | parser.AutoHeadingIDs
 )
 
-//TransformLinks transforms document links destinations, delegating
-// the transformation to a callback invoked on each link
+func removeDestination(node ast.Node) {
+	children := node.GetParent().GetChildren()
+	idx := -1
+	for i, p := range children {
+		if p == node {
+			idx = i
+			break
+		}
+	}
+	if idx > -1 {
+		if link, ok := node.(*ast.Link); ok {
+			textNode := link.Children[0]
+			if textNode != nil && len(textNode.AsLeaf().Literal) > 0 {
+				// if prev sibling is text node, add this link text to it
+				if idx > 0 {
+					_n := children[idx-1]
+					if t, ok := _n.(*ast.Text); ok {
+						t.Literal = append(t.Literal, textNode.AsLeaf().Literal...)
+						children = removeNode(children, idx)
+						node.GetParent().SetChildren(children)
+						return
+					}
+				}
+				// if next sibling is text node, add this link text to it
+				if idx < len(children)-1 {
+					_n := children[idx+1]
+					if t, ok := _n.(*ast.Text); ok {
+						t.Literal = append(t.Literal, textNode.AsLeaf().Literal...)
+						children = removeNode(children, idx)
+						node.GetParent().SetChildren(children)
+						return
+					}
+				}
+				node.GetParent().AsContainer().Children[idx] = textNode
+				return
+			}
+		}
+		if _, ok := node.(*ast.Image); ok {
+			children = removeNode(children, idx)
+			node.GetParent().SetChildren(children)
+			return
+		}
+	}
+}
+func removeNode(n []ast.Node, i int) []ast.Node {
+	return append(n[:i], n[i+1:]...)
+}
+
+// UpdateLinkRefDestinations changes document links destinations, consulting
+// with callback on the destination to use on each link or image in document.
+// If a callback returns "" for a destination, this is interpreted as
+// request to remove the link destination and leave only the link text or in
+// case it's an image - to remvoe it completely.
 // TODO: failfast vs fault tolerance support
-func TransformLinks(documentBlob []byte, callback OnLink) ([]byte, error) {
+func UpdateLinkRefDestinations(documentBlob []byte, callback OnLink) ([]byte, error) {
 	mdParser := parser.NewWithExtensions(extensions)
 	document := markdown.Parse(documentBlob, mdParser)
 	ast.WalkFunc(document, func(_node ast.Node, entering bool) ast.WalkStatus {
@@ -38,12 +89,20 @@ func TransformLinks(documentBlob []byte, callback OnLink) ([]byte, error) {
 				if destination, err = callback(l.Destination); err != nil {
 					return ast.Terminate
 				}
+				if destination == nil {
+					removeDestination(l)
+					return ast.GoToNext
+				}
 				l.Destination = destination
 				return ast.GoToNext
 			}
 			if l, ok := _node.(*ast.Image); ok {
 				if destination, err = callback(l.Destination); err != nil {
 					return ast.Terminate
+				}
+				if destination == nil {
+					removeDestination(l)
+					return ast.GoToNext
 				}
 				l.Destination = destination
 				return ast.GoToNext

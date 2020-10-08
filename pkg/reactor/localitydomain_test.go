@@ -6,6 +6,7 @@ import (
 
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/gardener/docforge/pkg/resourcehandlers/github"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/gardener/docforge/pkg/api"
 )
@@ -224,6 +225,45 @@ func Test_SetLocalityDomainForNode(t *testing.T) {
 				}
 			}
 			rhs.Remove()
+		})
+	}
+}
+
+func Test_SubstituteLink(t *testing.T) {
+	testCases := []struct {
+		link        string
+		substitutes map[string]string
+		want        string
+	}{
+		{
+			"abc",
+			map[string]string{
+				"abc": "cda",
+			},
+			"cda",
+		},
+		{
+			"abc",
+			map[string]string{},
+			"abc",
+		},
+		{
+			"",
+			map[string]string{
+				"abc": "cda",
+			},
+			"",
+		},
+	}
+	for _, tc := range testCases {
+		t.Run("", func(t *testing.T) {
+			ld := localityDomain{
+				"": &localityDomainValue{
+					LinkSubstitutes: tc.substitutes,
+				},
+			}
+			got := ld.SubstituteLink(tc.link)
+			assert.Equal(t, tc.want, got)
 		})
 	}
 }
