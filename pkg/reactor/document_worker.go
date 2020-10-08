@@ -1,8 +1,10 @@
 package reactor
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io/ioutil"
 
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/jobs"
@@ -10,7 +12,6 @@ import (
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	utilnode "github.com/gardener/docforge/pkg/util/node"
 	"github.com/gardener/docforge/pkg/writers"
-	"k8s.io/klog/v2"
 )
 
 // Reader reads the bytes data from a given source URI
@@ -51,45 +52,43 @@ func (g *GenericReader) Read(ctx context.Context, source string) ([]byte, error)
 func (w *DocumentWorker) Work(ctx context.Context, task interface{}, wq jobs.WorkQueue) *jobs.WorkerError {
 	if task, ok := task.(*DocumentWorkTask); ok {
 
-		var sourceBlob []byte
+		var (
+			b        bytes.Buffer
+			document []byte
+			err      error
+		)
 
 		if len(task.Node.ContentSelectors) > 0 {
-			// Write the document content
-			blobs := make(map[string][]byte)
 			for _, content := range task.Node.ContentSelectors {
-				sourceBlob, err := w.Reader.Read(ctx, content.Source)
+				var sourceBlob []byte
+				if sourceBlob, err = w.Reader.Read(ctx, content.Source); err != nil {
+					return jobs.NewWorkerError(err, 0)
+				}
 				if len(sourceBlob) == 0 {
-					klog.V(4).Infoln("No bytes read from source", content.Source)
 					continue
 				}
-				if err != nil {
+				if sourceBlob, err = w.NodeContentProcessor.ReconcileLinks(ctx, task.Node, content.Source, sourceBlob); err != nil {
 					return jobs.NewWorkerError(err, 0)
 				}
-				newBlob, err := w.NodeContentProcessor.ReconcileLinks(ctx, task.Node, content.Source, sourceBlob)
-				if err != nil {
-					return jobs.NewWorkerError(err, 0)
-				}
-				blobs[content.Source] = newBlob
+				b.Write(sourceBlob)
 			}
 
-			if len(blobs) == 0 {
+			if b.Len() == 0 {
 				return nil
 			}
-
-			for _, blob := range blobs {
-				sourceBlob = append(sourceBlob, blob...)
+			if document, err = ioutil.ReadAll(&b); err != nil {
+				return jobs.NewWorkerError(err, 0)
 			}
 
-			var err error
 			if w.Processor != nil {
-				if sourceBlob, err = w.Processor.Process(sourceBlob, task.Node); err != nil {
+				if document, err = w.Processor.Process(document, task.Node); err != nil {
 					return jobs.NewWorkerError(err, 0)
 				}
 			}
 		}
 
 		path := utilnode.Path(task.Node, "/")
-		if err := w.Writer.Write(task.Node.Name, path, sourceBlob, task.Node); err != nil {
+		if err = w.Writer.Write(task.Node.Name, path, document, task.Node); err != nil {
 			return jobs.NewWorkerError(err, 0)
 		}
 	}

@@ -9,9 +9,14 @@ import (
 	"testing"
 
 	"github.com/gardener/docforge/pkg/api"
+	"github.com/gardener/docforge/pkg/util/tests"
 	"github.com/gardener/docforge/pkg/writers"
 	"github.com/google/uuid"
 )
+
+func init() {
+	tests.SetKlogV(6)
+}
 
 func TestWrite(t *testing.T) {
 	testCases := []struct {

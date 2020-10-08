@@ -2,27 +2,52 @@ package hugo
 
 import (
 	"bytes"
-	"reflect"
 	"testing"
 
 	"github.com/gardener/docforge/pkg/api"
+	"github.com/gardener/docforge/pkg/util/tests"
+	"github.com/stretchr/testify/assert"
 )
 
+func init() {
+	tests.SetKlogV(6)
+}
+
 func TestHugoProcess(t *testing.T) {
-	var (
-		in, got, expected []byte
-		err               error
-	)
-	in = []byte("[GitHub](./a/b.md) ![img](./images/img.png)")
-	expected = []byte("[GitHub](../a/b) ![img](../images/img.png)\n")
-	p := &Processor{
-		PrettyUrls: true,
+	testCases := []struct {
+		in      []byte
+		want    []byte
+		wantErr error
+		mutate  func(p *Processor)
+	}{
+		{
+			in:   []byte(`[GitHub](./a/b.md) [anyresource](./a/b.ppt) ![img](./images/img.png) <a href="a.md">A</a> <a href="https://a.com/b.md">B</a> <style src="a.css"/> <style src="https://a.com/b.css"/>`),
+			want: []byte("[GitHub](../a/b) [anyresource](../a/b.ppt) ![img](../images/img.png) <a href=\"../a\">A</a> <a href=\"https://a.com/b.md\">B</a> <style src=\"../a.css\"/> <style src=\"https://a.com/b.css\"/>\n"),
+			mutate: func(p *Processor) {
+				p.PrettyUrls = true
+			},
+		},
+		{
+			in:   []byte(`[GitHub](./a/b.md) [anyresource](./a/b.ppt) ![img](./images/img.png) <a href="a.md">A</a> <a href="https://a.com/b.md">B</a> <style src="a.css"/> <style src="https://a.com/b.css"/>`),
+			want: []byte("[GitHub](./a/b.html) [anyresource](./a/b.ppt) ![img](./images/img.png) <a href=\"a.html\">A</a> <a href=\"https://a.com/b.md\">B</a> <style src=\"a.css\"/> <style src=\"https://a.com/b.css\"/>\n"),
+			mutate: func(p *Processor) {
+				p.PrettyUrls = false
+			},
+		},
 	}
-	if got, err = p.Process(in, &api.Node{Name: "Test"}); err != nil {
-		t.Errorf("%v!=nil", err)
-	}
-	if !reflect.DeepEqual(got, expected) {
-		t.Errorf("`%v`\n!=\n`%v`", string(expected), string(got))
+	for _, tc := range testCases {
+		t.Run("", func(t *testing.T) {
+			p := &Processor{}
+			if tc.mutate != nil {
+				tc.mutate(p)
+			}
+			got, err := p.Process(tc.in, &api.Node{Name: "Test"})
+
+			if tc.wantErr != err {
+				t.Errorf("want err %v != %v", tc.wantErr, err)
+			}
+			assert.Equal(t, string(tc.want), string(got))
+		})
 	}
 }
 
@@ -83,17 +108,18 @@ func TestRewriteDestination(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			h := &Processor{}
+			p := &Processor{}
 			if tc.mutate != nil {
-				tc.mutate(h)
+				tc.mutate(p)
 			}
 
-			gotDestination, gotErr := h.rewriteDestination([]byte(tc.destination), tc.nodeName)
+			gotDestination, gotErr := p.rewriteDestination([]byte(tc.destination), tc.nodeName)
+
 			if gotErr != tc.wantError {
-				t.Errorf("expected error %v != %v", gotErr, tc.wantError)
+				t.Errorf("want error %v != %v", gotErr, tc.wantError)
 			}
 			if !bytes.Equal(gotDestination, []byte(tc.wantDestination)) {
-				t.Errorf("expected destination %v != %v", string(gotDestination), tc.wantDestination)
+				t.Errorf("want destination %v != %v", string(gotDestination), tc.wantDestination)
 			}
 		})
 	}
