@@ -8,13 +8,17 @@ import (
 
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/markdown"
+	"github.com/hashicorp/go-multierror"
 	"k8s.io/klog/v2"
 
 	mdutil "github.com/gardener/docforge/pkg/markdown"
 )
 
 var (
-	hrefAttrMatchRegex = regexp.MustCompile(`href=["\']?([^"\'>]+)["\']?`)
+	htmlLinksRegexList = []*regexp.Regexp{
+		regexp.MustCompile(`href=["\']?([^"\'>]+)["\']?`),
+		regexp.MustCompile(`src=["\']?([^"\'>]+)["\']?`),
+	}
 )
 
 // Processor is a processor implementation responsible to rewrite links
@@ -44,6 +48,9 @@ func (f *Processor) Process(documentBlob []byte, node *api.Node) ([]byte, error)
 	}); err != nil {
 		return nil, err
 	}
+	if documentBlob, err = f.rewriteHTMLLinks(documentBlob, node.Name); err != nil {
+		return nil, err
+	}
 	documentBlob, err = markdown.InsertFrontMatter(fm, documentBlob)
 	if err != nil {
 		return nil, err
@@ -63,13 +70,13 @@ func (f *Processor) rewriteDestination(destination []byte, nodeName string) ([]b
 	link = strings.TrimSuffix(strings.TrimPrefix(link, "\""), "\"")
 	u, err := url.Parse(link)
 	if err != nil {
-		klog.V(2).Infoln("Invalid link:", link)
+		klog.Warning("Invalid link:", link)
 		return destination, nil
 	}
 	if !u.IsAbs() && !strings.HasPrefix(link, "/") && !strings.HasPrefix(link, "#") {
 		_l := link
-		link = strings.TrimSuffix(u.Path, ".md")
 		if f.PrettyUrls {
+			link = strings.TrimSuffix(u.Path, ".md")
 			link = strings.TrimPrefix(link, "./")
 			// Remove the last path segment if it is readme, index or _index
 			// The Hugo writer will rename those files to _index.md and runtime
@@ -86,8 +93,11 @@ func (f *Processor) rewriteDestination(destination []byte, nodeName string) ([]b
 			}
 			link = fmt.Sprintf("../%s", link)
 		} else {
-			// TODO: propagate fragment and query
-			link = fmt.Sprintf("%s.html", link)
+			if strings.HasSuffix(u.Path, ".md") {
+				link = strings.TrimSuffix(u.Path, ".md")
+				// TODO: propagate fragment and query if any
+				link = fmt.Sprintf("%s.html", link)
+			}
 		}
 		if _l != link {
 			klog.V(6).Infof("[%s] Rewriting node link for Hugo: %s -> %s \n", nodeName, _l, link)
@@ -95,4 +105,29 @@ func (f *Processor) rewriteDestination(destination []byte, nodeName string) ([]b
 		return []byte(link), nil
 	}
 	return destination, nil
+}
+
+func (f *Processor) rewriteHTMLLinks(documentBytes []byte, nodeName string) ([]byte, error) {
+	var errs *multierror.Error
+	for _, regex := range htmlLinksRegexList {
+		documentBytes = regex.ReplaceAllFunc(documentBytes, func(match []byte) []byte {
+			var (
+				destination []byte
+				err         error
+			)
+			attr := strings.Split(string(match), "=")
+			name := attr[0]
+			url := attr[1]
+			if len(url) > 0 {
+				url = strings.TrimPrefix(url, "\"")
+				url = strings.TrimSuffix(url, "\"")
+			}
+			if destination, err = f.rewriteDestination([]byte(url), nodeName); err != nil {
+				errs = multierror.Append(err)
+				return match
+			}
+			return []byte(fmt.Sprintf("%s=\"%s\"", name, string(destination)))
+		})
+	}
+	return documentBytes, errs.ErrorOrNil()
 }
