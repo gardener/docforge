@@ -1,12 +1,12 @@
 package reactor
 
 import (
-	"fmt"
 	"reflect"
 	"strings"
 
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
+	"k8s.io/klog/v2"
 )
 
 // localityDomain contains the entries defining a
@@ -91,7 +91,7 @@ func (ld localityDomain) MatchPathInLocality(link string, rhs resourcehandlers.R
 		// FIXME: this is tmp valid only for github urls
 		if strings.HasPrefix(path, prefix) {
 			if link, err = rh.SetVersion(link, localityDomain.Version); err != nil {
-				fmt.Printf("%v\n", err)
+				klog.Errorf("%v\n", err)
 				return link, false
 			}
 			return link, true
@@ -102,7 +102,7 @@ func (ld localityDomain) MatchPathInLocality(link string, rhs resourcehandlers.R
 		repoPrefix := strings.Join(_s, "/")
 		if strings.HasPrefix(path, repoPrefix) {
 			if link, err = rh.SetVersion(link, localityDomain.Version); err != nil {
-				fmt.Printf("%v\n", err)
+				klog.Errorf("%v\n", err)
 				return link, false
 			}
 		}
@@ -124,7 +124,7 @@ func (ld localityDomain) PathInLocality(link string, rhs resourcehandlers.Regist
 		if !ok {
 			return false
 		}
-		fmt.Printf("Path %s in locality domain %s: %v\n", path, localityDomain, strings.HasPrefix(path, localityDomain.Path))
+		klog.V(6).Infof("Path %s in locality domain %s: %v\n", path, localityDomain, strings.HasPrefix(path, localityDomain.Path))
 		// TODO: locality domain to be constructed from key for comparison
 		return reflect.DeepEqual(localityDomain, &localityDomainValue{
 			version,

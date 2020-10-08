@@ -2,10 +2,10 @@ package reactor
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/hashicorp/go-multierror"
+	"k8s.io/klog/v2"
 )
 
 func tasks(node *api.Node, t *[]interface{}) {
@@ -36,18 +36,18 @@ func (r *Reactor) Build(ctx context.Context, documentationRoot *api.Node, locali
 		close(downloadShutdownCh)
 		close(documentShutdownCh)
 		close(doneCh)
-		fmt.Println("Build finished")
+		klog.V(2).Infoln("Build finished")
 	}()
 
 	// start download controller
 	go func() {
-		fmt.Println("Starting download controller")
+		klog.V(6).Infoln("Starting download controller")
 		r.DownloadController.Start(ctx, errCh, downloadShutdownCh)
 	}()
 	// start document controller with download scope
 	r.DocController.SetDownloadScope(localityDomain)
 	go func() {
-		fmt.Println("Starting document controller")
+		klog.V(6).Infoln("Starting document controller")
 		r.DocController.Start(ctx, errCh, documentShutdownCh)
 	}()
 
@@ -59,12 +59,12 @@ func (r *Reactor) Build(ctx context.Context, documentationRoot *api.Node, locali
 			select {
 			case <-downloadShutdownCh:
 				{
-					fmt.Println("Download controller stopped")
+					klog.V(6).Infoln("Download controller stopped")
 					stoppedControllers++
 				}
 			case <-documentShutdownCh:
 				{
-					fmt.Println("Document controller stopped")
+					klog.V(6).Infoln("Document controller stopped")
 					stoppedControllers++
 					// propagate the stop to the related download controller
 					r.DocController.GetDownloadController().Stop(nil)
@@ -82,7 +82,7 @@ func (r *Reactor) Build(ctx context.Context, documentationRoot *api.Node, locali
 		for _, task := range documentPullTasks {
 			r.DocController.Enqueue(ctx, task)
 		}
-		fmt.Println("Tasks for document controller enqueued")
+		klog.V(6).Infoln("Tasks for document controller enqueued")
 		r.DocController.Stop(nil)
 	}()
 

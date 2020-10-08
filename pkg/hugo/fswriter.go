@@ -7,6 +7,7 @@ import (
 
 	"github.com/gardener/docforge/pkg/markdown"
 	"gopkg.in/yaml.v3"
+	"k8s.io/klog/v2"
 
 	"github.com/gardener/docforge/pkg/api"
 	nodeutil "github.com/gardener/docforge/pkg/util/node"
@@ -64,7 +65,7 @@ func (w *FSWriter) Write(name, path string, docBlob []byte, node *api.Node) erro
 		if len(w.IndexFileNames) > 0 && name != "_index" && name != "_index.md" && !hasIndexNode(peerNodes) {
 			for _, s := range w.IndexFileNames {
 				if strings.ToLower(name) == s {
-					fmt.Printf("Renaming %s -> _index.md\n", filepath.Join(path, name))
+					klog.V(6).Infof("Renaming %s -> _index.md\n", filepath.Join(path, name))
 					name = "_index"
 				}
 			}

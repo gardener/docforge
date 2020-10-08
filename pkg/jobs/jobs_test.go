@@ -29,7 +29,7 @@ import (
 )
 
 func init() {
-	tests.SetGlogV(6)
+	tests.SetKlogV(6)
 }
 
 func newTasksList(tasksCount int, serverURL string, randomizePaths bool) []interface{} {

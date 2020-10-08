@@ -20,7 +20,7 @@ import (
 var ghToken = flag.String("token", "", "GitHub personal token for authenticating requests")
 
 func init() {
-	tests.SetGlogV(6)
+	tests.SetKlogV(6)
 }
 
 func TestResolveNodeSelectorLive(t *testing.T) {

@@ -2,16 +2,16 @@ package jobs
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/gardener/docforge/pkg/util/tests"
+	klog "k8s.io/klog/v2"
 )
 
 func init() {
-	tests.SetGlogV(6)
+	tests.SetKlogV(6)
 }
 
 func Test(t *testing.T) {
@@ -24,12 +24,12 @@ func Test(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(5)
 	for i := 0; i < 5; i++ {
-		fmt.Printf("Spawning worker %d\n", i)
+		klog.V(6).Infof("Spawning worker %d\n", i)
 		idx := i
 		go func() {
-			defer fmt.Printf("Worker %d stopped\n", idx)
+			defer klog.V(6).Infof("Worker %d stopped\n", idx)
 			wg.Done()
-			fmt.Printf("Worker %d spawned\n", idx)
+			klog.V(6).Infof("Worker %d spawned\n", idx)
 			var additionalAdded bool
 			for {
 				var (
@@ -38,7 +38,7 @@ func Test(t *testing.T) {
 				if task = wq.Get(); task == nil {
 					return
 				}
-				fmt.Printf("Work done by worker %d %v\n", idx, task)
+				klog.V(6).Infof("Work done by worker %d %v\n", idx, task)
 				if !additionalAdded {
 					wq.Add(struct{}{})
 					additionalAdded = true
@@ -62,14 +62,14 @@ func Test(t *testing.T) {
 		select {
 		case <-ctx.Done():
 			{
-				fmt.Printf("ctx Done received\n")
+				klog.V(6).Infoln("ctx Done received")
 				return
 			}
 		case <-ticker.C:
 			{
 				if wq.(*workQueue).Count() < 1 {
 					if stopped := wq.Stop(); stopped {
-						fmt.Printf("Stopped\n")
+						klog.V(6).Infoln("Stopped")
 						return
 					}
 				}
