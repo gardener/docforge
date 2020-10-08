@@ -20,25 +20,21 @@ import (
 	"testing"
 )
 
-var b = []byte(`{
-	root: {
-	  title: "A Title",
-	  nodes: [{
-		  title: "node 1",
-		  source: "path1/**"
-	    }, {
-		  title: "path 2",
-		  source: "https://a.com",
-		  properties: {
-			"custom_key": "custom_value",
-		  },
-		  nodes: [{
-			title: "subnode",
-			source: "path/a",
-		  }]
-	  }]
-	}
-  }`)
+var b = []byte(`root:
+  name: root
+  nodes:
+  - name: node_1
+    contentSelectors:
+    - source: path1/**
+  - name: node_2
+    contentSelectors:
+    - source: https://a.com
+    properties:
+      "custom_key": custom_value
+    nodes:
+    - name: subnode
+      contentSelectors:	
+      - source: path/a`)
 
 func traverse(node *Node) {
 	fmt.Printf("%++v \n", node)

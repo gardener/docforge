@@ -35,6 +35,13 @@ type Documentation struct {
 
 // Node is a recursive, tree data structure representing documentation model.
 type Node struct {
+	parent *Node
+	// Name is the name of this node. If omited, the name is the resource name from
+	// Source as reported by an eligible ResourceHandler's Name() method.
+	// Node with multiple Source entries require name.
+	Name string `yaml:"name,omitempty"`
+	// A reference to the parent of this node, unless it is the root. Unexported and
+	// assigned internally when the node structure is resolved. Not marshalled.
 	// Title is the title for a node displayed to human users
 	Title string `yaml:"title,omitempty"`
 	// Source is a sequence of path specifications to locate the resources
@@ -80,13 +87,9 @@ type Node struct {
 	// used to set the front-matter to markdowns for front-matter aware builders such
 	// as Hugo.
 	Properties map[string]interface{} `yaml:"properties,omitempty"`
-	// Name is the name of this node. If omited, the name is the resource name from
-	// Source as reported by an eligible ResourceHandler's Name() method.
-	// Node with multiple Source entries require name.
-	Name string `yaml:"name,omitempty"`
-	// A reference to the parent of this node, unless it is the root. Unexported and
-	// assigned internally when the node structure is resolved. Not marshalled.
-	parent *Node
+	// Links is an optional tunning of the mechanisms for processing
+	// links applicable to document nodes.
+	Links *Links `yaml:"links,omitempty"`
 }
 
 // NodeSelector is an specification for selecting subnodes (children) for a node.
@@ -122,13 +125,45 @@ type NodeSelector struct {
 	Annotation string `yaml:"annotation,omitempty"`
 }
 
-// ContentSelector specifies a content target
+// ContentSelector specifies a document node content target
 type ContentSelector struct {
 	// URI of a document
-	Source string
+	Source string `yaml:"source,omitempty"`
 	// Optional filtering expression that selects content from the document content
 	// Omiting this file will select the whole document content.
 	Selector *string `yaml:"selector,omitempty"`
+}
+
+// Links defines rules for links handling
+type Links struct {
+	// Substitutes is an optional map of links and their
+	// substitutions. Use it to override the default links handling:
+	// - An empty substritution string ("") can be used to remove
+	//   a link mark (applies only to markdown links and images).
+	// - A fixed string that will replace the whole original link.
+	// - An expression with substitution variables can be used
+	//   to change the default pattern for generating donwloaded resouce
+	//   names, which is $uuid. That applies only to downloaded resouces.
+	//   The supported variables are
+	//   - $name: the original name of the resouce
+	//   - $path: the original path fo the resource (may be empty)
+	//   - $uuid: the identifier generated for the downloaded resource
+	//   Example: $name-$uuid
+	Substitutes map[string]string `yaml:"substitutes,omitempty"`
+	// Include is a list of regular expressions that will be matched to every
+	// link that is candidate for download to determine whether it is
+	// eligible. The links to match are absolute.
+	// Include can be used in conjunction with Exclude when it is easier/
+	// preferable to deny all resources and allow selectively.
+	// Include can be used in conjunction with localityDomain to add
+	// additional resources not in the domain.
+	Include []string `yaml:"include,omitempty"`
+	// Exclude is a list of regular expression that will be matched to every
+	// link that is candidate for download to determine whether it is
+	// not eligible. The links to match are absolute.
+	// Use Exclude to further constrain the set of downloaded resources
+	// that are in a locality domain.
+	Exclude []string `yaml:"exclude,omitempty"`
 }
 
 // LocalityDomain contains the entries defining a

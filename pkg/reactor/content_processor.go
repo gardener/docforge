@@ -24,7 +24,6 @@ var (
 		regexp.MustCompile(`href=["\']?([^"\'>]+)["\']?`),
 		regexp.MustCompile(`src=["\']?([^"\'>]+)["\']?`),
 	}
-	mdLinksRegex = regexp.MustCompile(`\[(?P<text>.+)\]\((?P<url>[^ ]+)(?: "(?P<title>.+)")?\)`)
 )
 
 // NodeContentProcessor operates on documents content to reconcile links and
@@ -95,37 +94,6 @@ func (c *NodeContentProcessor) ReconcileLinks(ctx context.Context, node *api.Nod
 }
 
 func (c *NodeContentProcessor) reconcileMDLinks(ctx context.Context, docNode *api.Node, contentBytes []byte, contentSourcePath string) ([]byte, error) {
-	if !c.markdownFmt {
-		var errors *multierror.Error
-		contentBytes = mdLinksRegex.ReplaceAllFunc(contentBytes, func(match []byte) []byte {
-			var title string
-			link := strings.Split(string(match), "](")
-			text := link[0] + "]"          // [text]
-			d := link[1]                   // url title)
-			d = strings.TrimSuffix(d, ")") // url title
-			_d := strings.Split(d, "\"")
-			_u := _d[0] // url
-			if len(_d) > 1 {
-				title = "\"%s" + _d[1] //title
-			}
-
-			destination, downloadURL, resourceName, err := c.processLink(ctx, docNode, _u, contentSourcePath)
-			klog.V(6).Infof("[%s] %s -> %s\n", contentSourcePath, _u, destination)
-			if len(downloadURL) > 0 {
-				c.schedule(ctx, downloadURL, resourceName, contentSourcePath)
-			}
-			if err != nil {
-				errors = multierror.Append(err)
-				return match
-			}
-			if len(title) > 0 {
-				return []byte(fmt.Sprintf("%s(%s %s)", text, destination, title))
-			}
-			return []byte(fmt.Sprintf("%s(%s)", text, destination))
-		})
-		return contentBytes, errors.ErrorOrNil()
-	}
-
 	var errors *multierror.Error
 	contentBytes, _ = markdown.TransformLinks(contentBytes, func(destination []byte) ([]byte, error) {
 		var (
@@ -199,11 +167,39 @@ func (c *NodeContentProcessor) processLink(ctx context.Context, node *api.Node, 
 		return "", "", "", err
 	}
 	_a := absLink
+	var (
+		include, exclude bool
+	)
+	// check if the links is not eligible by explicit exclude
+	if node.Links != nil && len(node.Links.Exclude) > 0 {
+		for _, rx := range node.Links.Exclude {
+			if exclude, err = regexp.MatchString(rx, absLink); err != nil {
+				klog.V(6).Infof("[%s] exclude pattern match %s failed for %s\n", contentSourcePath, node.Links.Exclude, absLink)
+			}
+			if exclude {
+				break
+			}
+		}
+	}
 	absLink, inLD := c.localityDomain.MatchPathInLocality(absLink, c.ResourceHandlers)
 	if _a != absLink {
 		klog.V(6).Infof("[%s] Link converted %s -> %s\n", contentSourcePath, _a, absLink)
 	}
-
+	// check if the links is eligible by explicit include
+	if node.Links != nil && len(node.Links.Include) > 0 {
+		for _, rx := range node.Links.Include {
+			if include, err = regexp.MatchString(rx, absLink); err != nil {
+				klog.V(6).Infof("[%s] exclude pattern match %s failed for %s\n", contentSourcePath, node.Links.Exclude, absLink)
+			}
+			if include {
+				break
+			}
+		}
+		exclude = !include
+	}
+	if exclude {
+		return absLink, "", "", nil
+	}
 	// Links to other documents are enforced relative when
 	// linking documents from the node structure.
 	// Links to other documents are changed to match the linking
@@ -225,7 +221,7 @@ func (c *NodeContentProcessor) processLink(ctx context.Context, node *api.Node, 
 	// Links to resources are assessed for download eligibility
 	// and if applicable their destination is updated as relative
 	// path to predefined location for resources
-	if absLink != "" && inLD {
+	if absLink != "" && (inLD || include) {
 		resourceName := c.generateResourceName(absLink)
 		_d := destination
 		destination = buildDestination(node, resourceName, c.resourcesRoot)
