@@ -105,6 +105,8 @@ type Node struct {
 	// their absolute form for the match
 	// TODO: update this doc
 	LinksSubstitutes LinkSubstitutes `yaml:"linksSubstitutes,omitempty"`
+
+	stats []*Stat
 }
 
 // NodeSelector is an specification for selecting subnodes (children) for a node.
@@ -195,6 +197,8 @@ type LocalityDomain struct {
 	DownloadSubstitutes map[string]string `yaml:"downloadSubstitutes,omitempty"`
 }
 
+// LocalityDomainMap maps domains such as github.com/gardener/gardener
+// to LocalityDomainValues
 type LocalityDomainMap map[string]*LocalityDomainValue
 
 // LocalityDomainValue encapsulates the memebers of a
@@ -211,8 +215,12 @@ type LocalityDomainValue struct {
 	LinksMatchers `yaml:",inline"`
 }
 
+// LinkSubstitutes is the mapping between absolute links
+// and substitutions for them
 type LinkSubstitutes map[string]*LinkSubstitute
 
+// LinkSubstitute comprises subtitutes for various link details
+// commonly found in markup
 type LinkSubstitute struct {
 	Text        *string `yaml:"text,omitempty"`
 	Destination *string `yaml:"destination,omitempty"`

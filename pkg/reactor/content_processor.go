@@ -109,6 +109,13 @@ func (c *NodeContentProcessor) reconcileMDLinks(ctx context.Context, docNode *ap
 				return destination, text, title, err
 			}
 		}
+		if docNode != nil {
+			if _destination != string(destination) {
+				recordLinkStats(docNode, "Links", fmt.Sprintf("%s -> %s", _destination, string(destination)))
+			} else {
+				recordLinkStats(docNode, "Links", "")
+			}
+		}
 		if download != nil {
 			c.schedule(ctx, download, contentSourcePath)
 		}
@@ -157,6 +164,7 @@ func (c *NodeContentProcessor) reconcileHTMLLinks(ctx context.Context, docNode *
 	return documentBytes, errors.ErrorOrNil()
 }
 
+// Download represents a resource that can be downloaded
 type Download struct {
 	url          string
 	resourceName string
@@ -167,6 +175,8 @@ func (c *NodeContentProcessor) resolveLink(ctx context.Context, node *api.Node, 
 	var (
 		text, title, substituteDestination *string
 		hasSubstition                      bool
+		inLD                               bool
+		absLink                            string
 	)
 	if strings.HasPrefix(destination, "#") || strings.HasPrefix(destination, "mailto:") {
 		return destination, nil, nil, nil, nil
@@ -200,7 +210,9 @@ func (c *NodeContentProcessor) resolveLink(ctx context.Context, node *api.Node, 
 	if node != nil {
 		recolvedLD = resolveLocalityDomain(node, c.localityDomain)
 	}
-	absLink, inLD := recolvedLD.MatchPathInLocality(absLink, c.ResourceHandlers)
+	if recolvedLD != nil {
+		absLink, inLD = recolvedLD.MatchPathInLocality(absLink, c.ResourceHandlers)
+	}
 	if _a != absLink {
 		klog.V(6).Infof("[%s] Link converted %s -> %s\n", contentSourcePath, _a, absLink)
 	}
@@ -295,4 +307,37 @@ func substitute(absLink string, node *api.Node) (ok bool, destination *string, t
 		}
 	}
 	return false, nil, nil, nil
+}
+
+// recordLinkStats records link stats for a node
+func recordLinkStats(node *api.Node, title, details string) {
+	var (
+		stat *api.Stat
+	)
+	nodeStats := node.GetStats()
+	if nodeStats != nil {
+		for _, _stat := range nodeStats {
+			if _stat.Title == title {
+				stat = _stat
+				break
+			}
+		}
+	}
+	if stat == nil {
+		stat = &api.Stat{
+			Title: title,
+		}
+		if len(details) > 0 {
+			stat.Details = []string{details}
+		} else {
+			stat.Details = []string{}
+		}
+		stat.Figures = fmt.Sprintf("%d link rewrites", len(stat.Details))
+		node.AddStats(stat)
+		return
+	}
+	if len(details) > 0 {
+		stat.Details = append(stat.Details, details)
+	}
+	stat.Figures = fmt.Sprintf("%d link rewrites", len(stat.Details))
 }

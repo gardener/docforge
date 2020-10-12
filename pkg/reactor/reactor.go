@@ -3,6 +3,7 @@ package reactor
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/gardener/docforge/pkg/processors"
 	"k8s.io/klog/v2"
@@ -26,6 +27,7 @@ type Options struct {
 	ResourceDownloadWriter writers.Writer
 	Writer                 writers.Writer
 	ResourceHandlers       []resourcehandlers.ResourceHandler
+	DryRunWriter           writers.DryRunWriter
 }
 
 // NewReactor creates a Reactor from Options
@@ -44,6 +46,7 @@ func NewReactor(o *Options) *Reactor {
 		ResourceHandlers:   rhRegistry,
 		DocController:      docController,
 		DownloadController: downloadController,
+		DryRunWriter:       o.DryRunWriter,
 	}
 	return r
 }
@@ -55,21 +58,27 @@ type Reactor struct {
 	localityDomain     *localityDomain
 	DocController      DocumentController
 	DownloadController DownloadController
+	DryRunWriter       writers.DryRunWriter
 }
 
 // Run starts build operation on docStruct
 func (r *Reactor) Run(ctx context.Context, docStruct *api.Documentation, dryRun bool) error {
-	var err error
+	var (
+		err error
+		ld  *localityDomain
+	)
 	if err := r.Resolve(ctx, docStruct.Root); err != nil {
 		return err
 	}
 
-	ld := copyLocalityDomain(docStruct.LocalityDomain)
-	if ld == nil || len(ld.mapping) == 0 {
-		if ld, err = localityDomainFromNode(docStruct.Root, r.ResourceHandlers); err != nil {
-			return err
+	if docStruct.LocalityDomain != nil {
+		ld = copyLocalityDomain(docStruct.LocalityDomain)
+		if ld == nil || len(ld.mapping) == 0 {
+			if ld, err = localityDomainFromNode(docStruct.Root, r.ResourceHandlers); err != nil {
+				return err
+			}
+			r.localityDomain = ld
 		}
-		r.localityDomain = ld
 	}
 
 	if dryRun {
@@ -77,8 +86,9 @@ func (r *Reactor) Run(ctx context.Context, docStruct *api.Documentation, dryRun 
 		if err != nil {
 			return err
 		}
-		fmt.Println(s)
-		return nil
+		// TODO: either reuse dry run's wrapped writer or build different command for that
+		os.Stdout.Write([]byte(s))
+		os.Stdout.Write([]byte("\n\n"))
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -87,6 +97,10 @@ func (r *Reactor) Run(ctx context.Context, docStruct *api.Documentation, dryRun 
 	klog.V(4).Info("Building documentation structure\n\n")
 	if err = r.Build(ctx, docStruct.Root, ld); err != nil {
 		return err
+	}
+
+	if dryRun {
+		r.DryRunWriter.Flush()
 	}
 
 	return nil
