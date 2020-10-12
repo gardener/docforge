@@ -1,0 +1,19 @@
+root:
+  name: 00
+  nodes:
+  - name: 01
+    contentSelectors:
+      - source: https://github.com/gardener/gardener/blob/master/docs/concepts/gardenlet.md
+    localityDomain:
+      github.com/gardener/gardener:
+        version: v1.11.1
+        path: gardener/gardener
+        exclude:
+        - example
+  - name: 02
+    contentSelectors:
+      - source: https://github.com/gardener/gardener/blob/master/docs/deployment/deploy_gardenlet.md
+localityDomain:
+  github.com/gardener/gardener:
+    version: v1.10.0
+    path: gardener/gardener

@@ -52,7 +52,7 @@ func NewReactor(o *Options) *Reactor {
 type Reactor struct {
 	FailFast           bool
 	ResourceHandlers   resourcehandlers.Registry
-	localityDomain     localityDomain
+	localityDomain     *localityDomain
 	DocController      DocumentController
 	DownloadController DownloadController
 }
@@ -64,9 +64,9 @@ func (r *Reactor) Run(ctx context.Context, docStruct *api.Documentation, dryRun 
 		return err
 	}
 
-	ld := fromAPI(docStruct.LocalityDomain)
-	if ld == nil || len(ld) == 0 {
-		if ld, err = setLocalityDomainForNode(docStruct.Root, r.ResourceHandlers); err != nil {
+	ld := copyLocalityDomain(docStruct.LocalityDomain)
+	if ld == nil || len(ld.mapping) == 0 {
+		if ld, err = localityDomainFromNode(docStruct.Root, r.ResourceHandlers); err != nil {
 			return err
 		}
 		r.localityDomain = ld

@@ -29,12 +29,20 @@ type Documentation struct {
 	//
 	// Note: WiP - proposed, not implemented yet.
 	Variables map[string]*Node `yaml:"variables,omitempty"`
-	// LocalityDomain is the range
-	LocalityDomain LocalityDomain `yaml:"localityDomain,omitempty"`
+	// LocalityDomain defines the scope of the downloadable resources
+	// for this structure
+	LocalityDomain *LocalityDomain `yaml:"localityDomain,omitempty"`
 }
 
 // Node is a recursive, tree data structure representing documentation model.
 type Node struct {
+	parent *Node
+	// Name is the name of this node. If omited, the name is the resource name from
+	// Source as reported by an eligible ResourceHandler's Name() method.
+	// Node with multiple Source entries require name.
+	Name string `yaml:"name,omitempty"`
+	// A reference to the parent of this node, unless it is the root. Unexported and
+	// assigned internally when the node structure is resolved. Not marshalled.
 	// Title is the title for a node displayed to human users
 	Title string `yaml:"title,omitempty"`
 	// Source is a sequence of path specifications to locate the resources
@@ -80,13 +88,23 @@ type Node struct {
 	// used to set the front-matter to markdowns for front-matter aware builders such
 	// as Hugo.
 	Properties map[string]interface{} `yaml:"properties,omitempty"`
-	// Name is the name of this node. If omited, the name is the resource name from
-	// Source as reported by an eligible ResourceHandler's Name() method.
-	// Node with multiple Source entries require name.
-	Name string `yaml:"name,omitempty"`
-	// A reference to the parent of this node, unless it is the root. Unexported and
-	// assigned internally when the node structure is resolved. Not marshalled.
-	parent *Node
+
+	*LocalityDomain `yaml:"localityDomain,omitempty"`
+
+	// LinksSubstitutes is an optional map of links and their
+	// substitutions. Use it to override the default handling of those
+	// links in documents referenced by this node's contentSelector:
+	// - An empty substitution string ("") removes a link markdown.
+	//   It leaves only its text component in the document for links
+	//   and nothing for images.
+	//   This applies only to markdown for links and images.
+	// - A fixed string that will replace the whole original link
+	//   destination.
+	// The keys in the substitution map are matched against documents
+	// links as exact string matches. The document links are converted to
+	// their absolute form for the match
+	// TODO: update this doc
+	LinksSubstitutes LinkSubstitutes `yaml:"linksSubstitutes,omitempty"`
 }
 
 // NodeSelector is an specification for selecting subnodes (children) for a node.
@@ -122,13 +140,31 @@ type NodeSelector struct {
 	Annotation string `yaml:"annotation,omitempty"`
 }
 
-// ContentSelector specifies a content target
+// ContentSelector specifies a document node content target
 type ContentSelector struct {
 	// URI of a document
-	Source string
+	Source string `yaml:"source,omitempty"`
 	// Optional filtering expression that selects content from the document content
 	// Omiting this file will select the whole document content.
 	Selector *string `yaml:"selector,omitempty"`
+}
+
+// LinksMatchers defines links exclusion/inclusion patterns
+type LinksMatchers struct {
+	// Include is a list of regular expressions that will be matched to every
+	// link that is candidate for download to determine whether it is
+	// eligible. The links to match are absolute.
+	// Include can be used in conjunction with Exclude when it is easier/
+	// preferable to deny all resources and allow selectively.
+	// Include can be used in conjunction with localityDomain to add
+	// additional resources not in the domain.
+	Include []string `yaml:"include,omitempty"`
+	// Exclude is a list of regular expression that will be matched to every
+	// link that is candidate for download to determine whether it is
+	// not eligible. The links to match are absolute.
+	// Use Exclude to further constrain the set of downloaded resources
+	// that are in a locality domain.
+	Exclude []string `yaml:"exclude,omitempty"`
 }
 
 // LocalityDomain contains the entries defining a
@@ -139,12 +175,46 @@ type ContentSelector struct {
 // are always part of the locality domain. Other
 // resources referenced by those documents are checked
 // against the path hierarchy of locality domain
-// entries to determine hwo they will be processed.
-type LocalityDomain map[string]*LocalityDomainValue
+// entries to determine how they will be processed.
+type LocalityDomain struct {
+	LocalityDomainMap `yaml:",inline"`
+	// DownloadSubstitutes is an optional map of resource names in this
+	// locality domain and their substitutions. Use it to override the
+	// default downloads naming:
+	// - An exact download name mapped to a download resource will be used
+	//   to name that resources when downloaded.
+	// - An expression with substitution variables can be used
+	//   to change the default pattern for generating donwloaded resouce
+	//   names, which is $uuid.
+	//   The supported variables are:
+	//   - $name: the original name of the resouce
+	//   - $path: the original path of the resource in this domain (may be empty)
+	//   - $uuid: the identifier generated f=or the downloaded resource
+	//   - $ext:  the extension of the original resource (may be "")
+	//   Example expression: $name-$uuid
+	DownloadSubstitutes map[string]string `yaml:"downloadSubstitutes,omitempty"`
+}
+
+type LocalityDomainMap map[string]*LocalityDomainValue
 
 // LocalityDomainValue encapsulates the memebers of a
 // LocalityDomain entry value
 type LocalityDomainValue struct {
+	// Version sets the version of the resources that will
+	// be referenced in this domain. Download targets and
+	// absolute links in documents referenced by the structure
+	// will be rewritten to match this version
 	Version string `yaml:"version"`
-	Path    string `yaml:"path"`
+	// Path is the relative path inside a domain that contains
+	// resources considered 'local' that will be downloaded.
+	Path          string `yaml:"path"`
+	LinksMatchers `yaml:",inline"`
+}
+
+type LinkSubstitutes map[string]*LinkSubstitute
+
+type LinkSubstitute struct {
+	Text        *string `yaml:"text,omitempty"`
+	Destination *string `yaml:"destination,omitempty"`
+	Title       *string `yaml:"title,omitempty"`
 }

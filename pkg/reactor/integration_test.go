@@ -54,18 +54,20 @@ func _TestReactorWithGitHub(t *testing.T) {
 				},
 			},
 		},
-		LocalityDomain: api.LocalityDomain{
-			"github.com/gardener/gardener": &api.LocalityDomainValue{
-				Version: "v1.10.0",
-				Path:    "gardener/gardener/docs",
-			},
-			"github.com/gardener/gardener-extension-provider-aws": &api.LocalityDomainValue{
-				Version: "master",
-				Path:    "gardener/gardener-extension-provider-aws/docs",
-			},
-			"github.com/gardener/gardener-extension-networking-calico": &api.LocalityDomainValue{
-				Version: "master",
-				Path:    "gardener/gardener-extension-networking-calico/docs",
+		LocalityDomain: &api.LocalityDomain{
+			LocalityDomainMap: map[string]*api.LocalityDomainValue{
+				"github.com/gardener/gardener": &api.LocalityDomainValue{
+					Version: "v1.10.0",
+					Path:    "gardener/gardener/docs",
+				},
+				"github.com/gardener/gardener-extension-provider-aws": &api.LocalityDomainValue{
+					Version: "master",
+					Path:    "gardener/gardener-extension-provider-aws/docs",
+				},
+				"github.com/gardener/gardener-extension-networking-calico": &api.LocalityDomainValue{
+					Version: "master",
+					Path:    "gardener/gardener-extension-networking-calico/docs",
+				},
 			},
 		},
 	}

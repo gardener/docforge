@@ -41,7 +41,7 @@ func (p *TestProcessor) Process(documentBlob []byte, node *api.Node) ([]byte, er
 }
 
 func TestDocumentWorkerWork(t *testing.T) {
-	testOutput := "#Heading 1"
+	testOutput := "#Heading 1\n"
 	rhRegistry := resourcehandlers.NewRegistry(&FakeResourceHandler{})
 	testworker := &DocumentWorker{
 		&TestWriter{
@@ -61,10 +61,14 @@ func TestDocumentWorkerWork(t *testing.T) {
 			}, &TestWriter{
 				make(map[string][]byte),
 			}, 1, false, rhRegistry),
-			localityDomain:   localityDomain{},
+			localityDomain: &localityDomain{
+				mapping: map[string]*localityDomainValue{},
+			},
 			ResourceHandlers: rhRegistry,
 		},
-		localityDomain{},
+		localityDomain{
+			mapping: map[string]*localityDomainValue{},
+		},
 	}
 
 	testCases := []struct {

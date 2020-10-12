@@ -14,17 +14,21 @@ func TestGitHubLocalityDomain_Set(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		localityDomain localityDomain
+		localityDomain *localityDomain
 		key            string
 		urls           []string
 		expected       *localityDomainValue
 	}{
 		{
 			name: "Should return the same and already existing locality domain",
-			localityDomain: localityDomain{
-				"https://github.com/gardener/gardener": &localityDomainValue{
-					"master",
-					"/gardener/gardener/master/docs",
+			localityDomain: &localityDomain{
+				mapping: map[string]*localityDomainValue{
+					"https://github.com/gardener/gardener": &localityDomainValue{
+						"master",
+						"/gardener/gardener/master/docs",
+						nil,
+						nil,
+					},
 				},
 			},
 			key:  "https://github.com/gardener/gardener",
@@ -32,14 +36,20 @@ func TestGitHubLocalityDomain_Set(t *testing.T) {
 			expected: &localityDomainValue{
 				"master",
 				"/gardener/gardener/master/docs",
+				nil,
+				nil,
 			},
 		},
 		{
 			name: "Should return the candidate locality domain as it is higher in the hierarchy",
-			localityDomain: localityDomain{
-				"https://github.com/gardener/gardener": &localityDomainValue{
-					"master",
-					"/gardener/gardener/master/docs",
+			localityDomain: &localityDomain{
+				mapping: map[string]*localityDomainValue{
+					"https://github.com/gardener/gardener": &localityDomainValue{
+						"master",
+						"/gardener/gardener/master/docs",
+						nil,
+						nil,
+					},
 				},
 			},
 			key:  "github.com/gardener/gardener",
@@ -47,28 +57,34 @@ func TestGitHubLocalityDomain_Set(t *testing.T) {
 			expected: &localityDomainValue{
 				"master",
 				"/gardener/gardener/master",
+				nil,
+				nil,
 			},
 		},
 		{
-			name:           "Should return one level higher because both are on the same level in the hierarchy",
-			localityDomain: localityDomain{},
-			key:            "github.com/gardener/gardener",
-			urls:           []string{"/gardener/gardener/master/examples", "/gardener/gardener/master"},
+			name: "Should return one level higher because both are on the same level in the hierarchy",
+			localityDomain: &localityDomain{
+				mapping: map[string]*localityDomainValue{},
+			},
+			key:  "github.com/gardener/gardener",
+			urls: []string{"/gardener/gardener/master/examples", "/gardener/gardener/master"},
 			expected: &localityDomainValue{
 				"master",
 				"/gardener/gardener/master",
+				nil,
+				nil,
 			},
 		},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ld := tt.localityDomain
-			for _, url := range tt.urls {
-				ld.Set(tt.key, url, "master")
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			ld := tc.localityDomain
+			for _, url := range tc.urls {
+				ld.Set(tc.key, url, "master")
 			}
 
-			if !reflect.DeepEqual(ld[tt.key], tt.expected) {
-				t.Errorf("test failed %s != %s", ld[tt.key], tt.expected)
+			if !reflect.DeepEqual(ld.mapping[tc.key], tc.expected) {
+				t.Errorf("test failed %s != %s", ld.mapping[tc.key], tc.expected)
 			}
 		})
 	}
@@ -77,16 +93,20 @@ func TestGitHubLocalityDomain_Set(t *testing.T) {
 func Test_SetLocalityDomainForNode(t *testing.T) {
 	tests := []struct {
 		name    string
-		want    localityDomain
+		want    *localityDomain
 		wantErr bool
 		mutate  func(newDoc *api.Documentation)
 	}{
 		{
 			name: "Should return the expected locality domain",
-			want: localityDomain{
-				"github.com/org/repo": &localityDomainValue{
-					"master",
-					"org/repo/docs",
+			want: &localityDomain{
+				mapping: map[string]*localityDomainValue{
+					"github.com/org/repo": &localityDomainValue{
+						"master",
+						"org/repo/docs",
+						nil,
+						nil,
+					},
 				},
 			},
 			wantErr: false,
@@ -99,10 +119,14 @@ func Test_SetLocalityDomainForNode(t *testing.T) {
 		},
 		{
 			name: "Should return the expected locality domain",
-			want: localityDomain{
-				"github.com/org/repo": &localityDomainValue{
-					"master",
-					"org/repo/docs",
+			want: &localityDomain{
+				mapping: map[string]*localityDomainValue{
+					"github.com/org/repo": &localityDomainValue{
+						"master",
+						"org/repo/docs",
+						nil,
+						nil,
+					},
 				},
 			},
 			wantErr: false,
@@ -115,10 +139,14 @@ func Test_SetLocalityDomainForNode(t *testing.T) {
 		},
 		{
 			name: "Should return the expected locality domain",
-			want: localityDomain{
-				"github.com/org/repo": &localityDomainValue{
-					"master",
-					"org/repo",
+			want: &localityDomain{
+				mapping: map[string]*localityDomainValue{
+					"github.com/org/repo": &localityDomainValue{
+						"master",
+						"org/repo",
+						nil,
+						nil,
+					},
 				},
 			},
 			wantErr: false,
@@ -131,14 +159,20 @@ func Test_SetLocalityDomainForNode(t *testing.T) {
 		},
 		{
 			name: "Should return the expected locality domain",
-			want: localityDomain{
-				"github.com/org/repo": &localityDomainValue{
-					"master",
-					"org/repo",
-				},
-				"github.com/org/repo2": &localityDomainValue{
-					"master",
-					"org/repo2/example",
+			want: &localityDomain{
+				mapping: map[string]*localityDomainValue{
+					"github.com/org/repo": &localityDomainValue{
+						"master",
+						"org/repo",
+						nil,
+						nil,
+					},
+					"github.com/org/repo2": &localityDomainValue{
+						"master",
+						"org/repo2/example",
+						nil,
+						nil,
+					},
 				},
 			},
 			wantErr: false,
@@ -156,23 +190,23 @@ func Test_SetLocalityDomainForNode(t *testing.T) {
 			},
 		},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
 			newDoc := createNewDocumentation()
 			gh := github.NewResourceHandler(nil, []string{"github.com"})
 			rhs := resourcehandlers.NewRegistry(gh)
-			tt.mutate(newDoc)
-			got, err := setLocalityDomainForNode(newDoc.Root, rhs)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("SetLocalityDomainForNode() error = %v, wantErr %v", err, tt.wantErr)
+			tc.mutate(newDoc)
+			got, err := localityDomainFromNode(newDoc.Root, rhs)
+			if (err != nil) != tc.wantErr {
+				t.Errorf("SetLocalityDomainForNode() error = %v, wantErr %v", err, tc.wantErr)
 				return
 			}
-			for k, v := range tt.want {
+			for k, v := range tc.want.mapping {
 				var (
 					_v *localityDomainValue
 					ok bool
 				)
-				if _v, ok = got[k]; !ok {
+				if _v, ok = got.mapping[k]; !ok {
 					t.Errorf("want %s:%v, got %s:%v", k, v, k, _v)
 				} else {
 					if _v.Path != v.Path {

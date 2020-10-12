@@ -4,16 +4,15 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
 
-	"github.com/google/uuid"
 	"k8s.io/klog/v2"
 
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
+	"github.com/gardener/docforge/pkg/util/urls"
 	"github.com/hashicorp/go-multierror"
 
 	"github.com/gardener/docforge/pkg/markdown"
@@ -24,7 +23,6 @@ var (
 		regexp.MustCompile(`href=["\']?([^"\'>]+)["\']?`),
 		regexp.MustCompile(`src=["\']?([^"\'>]+)["\']?`),
 	}
-	mdLinksRegex = regexp.MustCompile(`\[(?P<text>.+)\]\((?P<url>[^ ]+)(?: "(?P<title>.+)")?\)`)
 )
 
 // NodeContentProcessor operates on documents content to reconcile links and
@@ -32,7 +30,7 @@ var (
 type NodeContentProcessor struct {
 	resourceAbsLinks map[string]string
 	rwlock           sync.RWMutex
-	localityDomain   localityDomain
+	localityDomain   *localityDomain
 	// ResourcesRoot specifies the root location for downloaded resource.
 	// It is used to rewrite resource links in documents to relative paths.
 	resourcesRoot      string
@@ -43,9 +41,11 @@ type NodeContentProcessor struct {
 }
 
 // NewNodeContentProcessor creates NodeContentProcessor objects
-func NewNodeContentProcessor(resourcesRoot string, ld localityDomain, downloadJob DownloadController, failFast bool, markdownFmt bool, resourceHandlers resourcehandlers.Registry) *NodeContentProcessor {
+func NewNodeContentProcessor(resourcesRoot string, ld *localityDomain, downloadJob DownloadController, failFast bool, markdownFmt bool, resourceHandlers resourcehandlers.Registry) *NodeContentProcessor {
 	if ld == nil {
-		ld = localityDomain{}
+		ld = &localityDomain{
+			mapping: map[string]*localityDomainValue{},
+		}
 	}
 	c := &NodeContentProcessor{
 		resourceAbsLinks:   make(map[string]string),
@@ -60,9 +60,9 @@ func NewNodeContentProcessor(resourcesRoot string, ld localityDomain, downloadJo
 }
 
 //convenience wrapper adding logging
-func (c *NodeContentProcessor) schedule(ctx context.Context, link, resourceName, from string) {
-	klog.V(6).Infof("[%s] Linked resource scheduled for download: %s\n", from, link)
-	c.DownloadController.Schedule(ctx, link, resourceName)
+func (c *NodeContentProcessor) schedule(ctx context.Context, download *Download, from string) {
+	klog.V(6).Infof("[%s] Linked resource scheduled for download: %s\n", from, download.url)
+	c.DownloadController.Schedule(ctx, download.url, download.resourceName)
 }
 
 // ReconcileLinks analyzes a document referenced by a node's contentSourcePath
@@ -95,55 +95,33 @@ func (c *NodeContentProcessor) ReconcileLinks(ctx context.Context, node *api.Nod
 }
 
 func (c *NodeContentProcessor) reconcileMDLinks(ctx context.Context, docNode *api.Node, contentBytes []byte, contentSourcePath string) ([]byte, error) {
-	if !c.markdownFmt {
-		var errors *multierror.Error
-		contentBytes = mdLinksRegex.ReplaceAllFunc(contentBytes, func(match []byte) []byte {
-			var title string
-			link := strings.Split(string(match), "](")
-			text := link[0] + "]"          // [text]
-			d := link[1]                   // url title)
-			d = strings.TrimSuffix(d, ")") // url title
-			_d := strings.Split(d, "\"")
-			_u := _d[0] // url
-			if len(_d) > 1 {
-				title = "\"%s" + _d[1] //title
-			}
-
-			destination, downloadURL, resourceName, err := c.processLink(ctx, docNode, _u, contentSourcePath)
-			klog.V(6).Infof("[%s] %s -> %s\n", contentSourcePath, _u, destination)
-			if len(downloadURL) > 0 {
-				c.schedule(ctx, downloadURL, resourceName, contentSourcePath)
-			}
-			if err != nil {
-				errors = multierror.Append(err)
-				return match
-			}
-			if len(title) > 0 {
-				return []byte(fmt.Sprintf("%s(%s %s)", text, destination, title))
-			}
-			return []byte(fmt.Sprintf("%s(%s)", text, destination))
-		})
-		return contentBytes, errors.ErrorOrNil()
-	}
-
 	var errors *multierror.Error
-	contentBytes, _ = markdown.TransformLinks(contentBytes, func(destination []byte) ([]byte, error) {
+	contentBytes, _ = markdown.UpdateLinkRefs(contentBytes, func(destination, text, title []byte) ([]byte, []byte, []byte, error) {
 		var (
-			_destination string
-			downloadLink string
-			resourceName string
-			err          error
+			_destination  string
+			_text, _title *string
+			download      *Download
+			err           error
 		)
-		if _destination, downloadLink, resourceName, err = c.processLink(ctx, docNode, string(destination), contentSourcePath); err != nil {
+		if _destination, _text, _title, download, err = c.resolveLink(ctx, docNode, string(destination), contentSourcePath); err != nil {
 			errors = multierror.Append(err)
 			if c.failFast {
-				return nil, err
+				return destination, text, title, err
 			}
 		}
-		if len(downloadLink) > 0 {
-			c.schedule(ctx, downloadLink, resourceName, contentSourcePath)
+		if download != nil {
+			c.schedule(ctx, download, contentSourcePath)
 		}
-		return []byte(_destination), nil
+		if _text != nil {
+			text = []byte(*_text)
+		}
+		if _title != nil {
+			title = []byte(*_title)
+		}
+		if len(_destination) < 1 {
+			return nil, text, title, nil
+		}
+		return []byte(_destination), text, title, nil
 	})
 	if c.failFast && errors != nil && errors.Len() > 0 {
 		return nil, errors.ErrorOrNil()
@@ -164,10 +142,10 @@ func (c *NodeContentProcessor) reconcileHTMLLinks(ctx context.Context, docNode *
 				url = strings.TrimPrefix(url, "\"")
 				url = strings.TrimSuffix(url, "\"")
 			}
-			destination, downloadURL, resourceName, err := c.processLink(ctx, docNode, url, contentSourcePath)
+			destination, _, _, download, err := c.resolveLink(ctx, docNode, url, contentSourcePath)
 			klog.V(6).Infof("[%s] %s -> %s\n", contentSourcePath, url, destination)
-			if len(downloadURL) > 0 {
-				c.schedule(ctx, downloadURL, resourceName, contentSourcePath)
+			if download != nil {
+				c.schedule(ctx, download, contentSourcePath)
 			}
 			if err != nil {
 				errors = multierror.Append(err)
@@ -179,31 +157,53 @@ func (c *NodeContentProcessor) reconcileHTMLLinks(ctx context.Context, docNode *
 	return documentBytes, errors.ErrorOrNil()
 }
 
-// returns destination, downloadURL, resourceName, err
-func (c *NodeContentProcessor) processLink(ctx context.Context, node *api.Node, destination string, contentSourcePath string) (string, string, string, error) {
-	if strings.HasPrefix(destination, "#") {
-		return destination, "", "", nil
+type Download struct {
+	url          string
+	resourceName string
+}
+
+// returns destination, text (alt-text for images), title, download(url, downloadName), err
+func (c *NodeContentProcessor) resolveLink(ctx context.Context, node *api.Node, destination string, contentSourcePath string) (string, *string, *string, *Download, error) {
+	var (
+		text, title, substituteDestination *string
+		hasSubstition                      bool
+	)
+	if strings.HasPrefix(destination, "#") || strings.HasPrefix(destination, "mailto:") {
+		return destination, nil, nil, nil, nil
 	}
 
 	handler := c.ResourceHandlers.Get(contentSourcePath)
 	if handler == nil {
-		return destination, "", "", nil
+		return destination, nil, nil, nil, nil
 	}
 	absLink, err := handler.BuildAbsLink(contentSourcePath, destination)
 	if err != nil {
-		return "", "", "", err
+		return "", nil, nil, nil, err
 	}
+
+	if hasSubstition, substituteDestination, text, title = substitute(absLink, node); hasSubstition && substituteDestination != nil {
+		if len(*substituteDestination) == 0 {
+			// quit early. substitution is a request to remove this link
+			return "", text, title, nil, nil
+		}
+		absLink = *substituteDestination
+	}
+
 	//TODO: this is URI-specific (URLs only) - fixme
 	u, err := url.Parse(absLink)
 	if err != nil {
-		return "", "", "", err
+		return "", text, title, nil, err
 	}
 	_a := absLink
-	absLink, inLD := c.localityDomain.MatchPathInLocality(absLink, c.ResourceHandlers)
+
+	recolvedLD := c.localityDomain
+	if node != nil {
+		recolvedLD = resolveLocalityDomain(node, c.localityDomain)
+	}
+	absLink, inLD := recolvedLD.MatchPathInLocality(absLink, c.ResourceHandlers)
 	if _a != absLink {
 		klog.V(6).Infof("[%s] Link converted %s -> %s\n", contentSourcePath, _a, absLink)
 	}
-
 	// Links to other documents are enforced relative when
 	// linking documents from the node structure.
 	// Links to other documents are changed to match the linking
@@ -218,26 +218,28 @@ func (c *NodeContentProcessor) processLink(ctx context.Context, node *api.Node, 
 				klog.V(6).Infof("[%s] %s -> %s\n", contentSourcePath, destination, relPathBetweenNodes)
 			}
 			destination = relPathBetweenNodes
-			return destination, "", "", nil
+			return destination, text, title, nil, nil
 		}
-		return absLink, "", "", nil
+		return absLink, text, title, nil, nil
 	}
+
 	// Links to resources are assessed for download eligibility
 	// and if applicable their destination is updated as relative
 	// path to predefined location for resources
 	if absLink != "" && inLD {
-		resourceName := c.generateResourceName(absLink)
+		resourceName := c.generateResourceName(absLink, recolvedLD)
 		_d := destination
 		destination = buildDestination(node, resourceName, c.resourcesRoot)
 		if _d != destination {
 			klog.V(6).Infof("[%s] %s -> %s\n", contentSourcePath, _d, destination)
 		}
-		return destination, absLink, resourceName, nil
+		return destination, text, title, &Download{absLink, resourceName}, nil
 	}
 	if destination != absLink {
 		klog.V(6).Infof("[%s] %s -> %s\n", contentSourcePath, destination, absLink)
 	}
-	return absLink, "", "", nil
+
+	return absLink, text, title, nil, nil
 }
 
 // Builds destination path for links from node to resource in root path
@@ -258,20 +260,36 @@ func buildDestination(node *api.Node, resourceName, root string) string {
 	return resourceRelPath
 }
 
-func (c *NodeContentProcessor) generateResourceName(path string) string {
+func (c *NodeContentProcessor) generateResourceName(absURL string, resolvedLD *localityDomain) string {
 	var (
 		ok           bool
 		resourceName string
 	)
-
+	u, _ := urls.Parse(absURL)
 	c.rwlock.Lock()
 	defer c.rwlock.Unlock()
-	if resourceName, ok = c.resourceAbsLinks[path]; !ok {
-		separatedSource := strings.Split(path, "/")
-		resource := separatedSource[len(separatedSource)-1]
-		resourceFileExtension := filepath.Ext(resource)
-		resourceName = uuid.New().String() + resourceFileExtension
-		c.resourceAbsLinks[path] = resourceName
+	if resourceName, ok = c.resourceAbsLinks[u.Path]; !ok {
+		resourceName = u.ResourceName
+		if len(u.Extension) > 0 {
+			resourceName = fmt.Sprintf("%s.%s", u.ResourceName, u.Extension)
+		}
+		resourceName = resolvedLD.GetDownloadedResourceName(u)
+		c.resourceAbsLinks[absURL] = resourceName
 	}
 	return resourceName
+}
+
+// returns substitution found, destination, text, title
+func substitute(absLink string, node *api.Node) (ok bool, destination *string, text *string, title *string) {
+	if substitutes := node.LinksSubstitutes; substitutes != nil {
+		for substituteK, substituteV := range substitutes {
+			// remove trailing slasshes to avoid inequality only due to that
+			l := strings.TrimSuffix(absLink, "/")
+			s := strings.TrimSuffix(substituteK, "/")
+			if s == l {
+				return true, substituteV.Destination, substituteV.Text, substituteV.Title
+			}
+		}
+	}
+	return false, nil, nil, nil
 }
