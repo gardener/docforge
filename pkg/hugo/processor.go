@@ -44,7 +44,7 @@ func (f *Processor) Process(documentBlob []byte, node *api.Node) ([]byte, error)
 		return nil, err
 	}
 	if documentBlob, err = mdutil.UpdateLinkRefs(contentBytes, func(destination, text, title []byte) ([]byte, []byte, []byte, error) {
-		return f.rewriteDestination(destination, node.Name)
+		return f.rewriteDestination(destination, text, title, node.Name)
 	}); err != nil {
 		return nil, err
 	}
@@ -60,7 +60,7 @@ func (f *Processor) Process(documentBlob []byte, node *api.Node) ([]byte, error)
 	return documentBlob, nil
 }
 
-func (f *Processor) rewriteDestination(destination []byte, nodeName string) ([]byte, []byte, []byte, error) {
+func (f *Processor) rewriteDestination(destination, text, title []byte, nodeName string) ([]byte, []byte, []byte, error) {
 	if len(destination) == 0 {
 		return destination, nil, nil, nil
 	}
@@ -71,7 +71,7 @@ func (f *Processor) rewriteDestination(destination []byte, nodeName string) ([]b
 	u, err := url.Parse(link)
 	if err != nil {
 		klog.Warning("Invalid link:", link)
-		return destination, nil, nil, nil
+		return destination, text, title, nil
 	}
 	if !u.IsAbs() && !strings.HasPrefix(link, "/") && !strings.HasPrefix(link, "#") {
 		_l := link
@@ -102,9 +102,9 @@ func (f *Processor) rewriteDestination(destination []byte, nodeName string) ([]b
 		if _l != link {
 			klog.V(6).Infof("[%s] Rewriting node link for Hugo: %s -> %s \n", nodeName, _l, link)
 		}
-		return []byte(link), nil, nil, nil
+		return []byte(link), text, title, nil
 	}
-	return destination, nil, nil, nil
+	return destination, text, title, nil
 }
 
 func (f *Processor) rewriteHTMLLinks(documentBytes []byte, nodeName string) ([]byte, error) {
@@ -122,7 +122,7 @@ func (f *Processor) rewriteHTMLLinks(documentBytes []byte, nodeName string) ([]b
 				url = strings.TrimPrefix(url, "\"")
 				url = strings.TrimSuffix(url, "\"")
 			}
-			if destination, _, _, err = f.rewriteDestination([]byte(url), nodeName); err != nil {
+			if destination, _, _, err = f.rewriteDestination([]byte(url), []byte(""), []byte(""), nodeName); err != nil {
 				errs = multierror.Append(err)
 				return match
 			}

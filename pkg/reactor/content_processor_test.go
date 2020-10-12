@@ -319,11 +319,9 @@ func Test_processLink(t *testing.T) {
 				if gotDestination != tt.wantDestination {
 					t.Errorf("expected destination %s != %s", tt.wantDestination, gotDestination)
 				}
-				if gotDownload.resourceName != tt.wantDownloadURL {
-					t.Errorf("expected downloadURL %s != %s", tt.wantDownloadURL, gotDownload.url)
-				}
-				if gotDownload.resourceName != tt.wantResourceName {
-					t.Errorf("expected resourceName %s != %s", tt.wantResourceName, gotDownload.resourceName)
+				if gotDownload != nil {
+					t.Error("expected download == nil")
+					return
 				}
 			}
 		})
@@ -356,7 +354,7 @@ func Test_Substitute(t *testing.T) {
 			"abc",
 			map[string]*api.LinkSubstitute{},
 			"abc",
-			true,
+			false,
 			&cda,
 			&cda,
 		},
@@ -368,7 +366,7 @@ func Test_Substitute(t *testing.T) {
 				},
 			},
 			"",
-			true,
+			false,
 			nil,
 			nil,
 		},
@@ -384,9 +382,15 @@ func Test_Substitute(t *testing.T) {
 			)
 			gotOK, gotDestination, gotText, gotTitle = substitute(tc.link, n)
 			assert.Equal(t, tc.wantOK, gotOK)
-			assert.Equal(t, tc.wantDestination, gotDestination)
-			assert.Equal(t, tc.wantText, gotText)
-			assert.Equal(t, tc.wantTitle, gotTitle)
+			if gotDestination != nil {
+				assert.Equal(t, tc.wantDestination, *gotDestination)
+			}
+			if gotText != nil {
+				assert.Equal(t, tc.wantText, *gotText)
+			}
+			if gotTitle != nil {
+				assert.Equal(t, tc.wantTitle, *gotTitle)
+			}
 		})
 	}
 }
