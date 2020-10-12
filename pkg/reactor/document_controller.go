@@ -11,7 +11,7 @@ type DocumentController interface {
 	jobs.Controller
 	// SetDownloadScope sets the scope for respurces considered "local"
 	// and therefore downloaded and relatively linked
-	SetDownloadScope(scope map[string]*localityDomainValue)
+	SetDownloadScope(scope *localityDomain)
 	// GetDownloadController is accessor for the DownloadController
 	// working with this DocumentController
 	GetDownloadController() DownloadController
@@ -43,7 +43,7 @@ func (d *docController) Shutdown() {
 	// propagate the shutdown to the related download controller
 	d.Worker.(*DocumentWorker).NodeContentProcessor.DownloadController.Shutdown()
 }
-func (d *docController) SetDownloadScope(scope map[string]*localityDomainValue) {
+func (d *docController) SetDownloadScope(scope *localityDomain) {
 	d.Worker.(*DocumentWorker).NodeContentProcessor.localityDomain = scope
 }
 func (d *docController) GetDownloadController() DownloadController {

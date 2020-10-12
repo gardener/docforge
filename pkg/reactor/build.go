@@ -22,7 +22,7 @@ func tasks(node *api.Node, t *[]interface{}) {
 
 // Build starts the build operation for a document structure root
 // in a locality domain
-func (r *Reactor) Build(ctx context.Context, documentationRoot *api.Node, localityDomain localityDomain) error {
+func (r *Reactor) Build(ctx context.Context, documentationRoot *api.Node, localityDomain *localityDomain) error {
 	var errors *multierror.Error
 
 	errCh := make(chan error)

@@ -31,7 +31,7 @@ type Documentation struct {
 	Variables map[string]*Node `yaml:"variables,omitempty"`
 	// LocalityDomain defines the scope of the downloadable resources
 	// for this structure
-	LocalityDomain LocalityDomain `yaml:"localityDomain,omitempty"`
+	LocalityDomain *LocalityDomain `yaml:"localityDomain,omitempty"`
 }
 
 // Node is a recursive, tree data structure representing documentation model.
@@ -87,8 +87,24 @@ type Node struct {
 	// and the serialization of the Node. For example the properyies member could be
 	// used to set the front-matter to markdowns for front-matter aware builders such
 	// as Hugo.
-	Properties     map[string]interface{} `yaml:"properties,omitempty"`
-	LocalityDomain `yaml:"localityDomain,omitempty"`
+	Properties map[string]interface{} `yaml:"properties,omitempty"`
+
+	*LocalityDomain `yaml:"localityDomain,omitempty"`
+
+	// LinksSubstitutes is an optional map of links and their
+	// substitutions. Use it to override the default handling of those
+	// links in documents referenced by this node's contentSelector:
+	// - An empty substitution string ("") removes a link markdown.
+	//   It leaves only its text component in the document for links
+	//   and nothing for images.
+	//   This applies only to markdown for links and images.
+	// - A fixed string that will replace the whole original link
+	//   destination.
+	// The keys in the substitution map are matched against documents
+	// links as exact string matches. The document links are converted to
+	// their absolute form for the match
+	// TODO: update this doc
+	LinksSubstitutes LinkSubstitutes `yaml:"linksSubstitutes,omitempty"`
 }
 
 // NodeSelector is an specification for selecting subnodes (children) for a node.
@@ -160,32 +176,8 @@ type LinksMatchers struct {
 // resources referenced by those documents are checked
 // against the path hierarchy of locality domain
 // entries to determine how they will be processed.
-type LocalityDomain map[string]*LocalityDomainValue
-
-// LocalityDomainValue encapsulates the memebers of a
-// LocalityDomain entry value
-type LocalityDomainValue struct {
-	// Version sets the version of the resources that will
-	// be referenced in this domain. Download targets and
-	// absolute links in documents referenced by the structure
-	// will be rewritten to match this version
-	Version string `yaml:"version"`
-	// Path is the relative path inside a domain that contains
-	// resources considered 'local' that will be downloaded.
-	Path          string `yaml:"path"`
-	LinksMatchers `yaml:",inline"`
-	// LinkSubstitutes is an optional map of links and their
-	// substitutions. Use it to override the default handling of those
-	// links in documents in this locality domain:
-	// - An empty substitution string ("") removes a link markdown
-	//   turning. It leaves only its text component in the document
-	//   for links and nothing for images.
-	//   This applies only to markdown for links and images.
-	// - A fixed string that will replace the whole original link
-	//   destination.
-	// The keys in the substitution map are matched against documents
-	// links as exact string matches.
-	LinkSubstitutes Substitutes `yaml:"linkSubstitutes,omitempty"`
+type LocalityDomain struct {
+	LocalityDomainMap `yaml:",inline"`
 	// DownloadSubstitutes is an optional map of resource names in this
 	// locality domain and their substitutions. Use it to override the
 	// default downloads naming:
@@ -200,8 +192,29 @@ type LocalityDomainValue struct {
 	//   - $uuid: the identifier generated f=or the downloaded resource
 	//   - $ext:  the extension of the original resource (may be "")
 	//   Example expression: $name-$uuid
-	DownloadSubstitutes Substitutes `yaml:"downloadSubstitutes,omitempty"`
+	DownloadSubstitutes map[string]string `yaml:"downloadSubstitutes,omitempty"`
 }
 
-// Substitutes is map of ...
-type Substitutes map[string]string
+type LocalityDomainMap map[string]*LocalityDomainValue
+
+// LocalityDomainValue encapsulates the memebers of a
+// LocalityDomain entry value
+type LocalityDomainValue struct {
+	// Version sets the version of the resources that will
+	// be referenced in this domain. Download targets and
+	// absolute links in documents referenced by the structure
+	// will be rewritten to match this version
+	Version string `yaml:"version"`
+	// Path is the relative path inside a domain that contains
+	// resources considered 'local' that will be downloaded.
+	Path          string `yaml:"path"`
+	LinksMatchers `yaml:",inline"`
+}
+
+type LinkSubstitutes map[string]*LinkSubstitute
+
+type LinkSubstitute struct {
+	Text        *string `yaml:"text,omitempty"`
+	Destination *string `yaml:"destination,omitempty"`
+	Title       *string `yaml:"title,omitempty"`
+}

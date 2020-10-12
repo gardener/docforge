@@ -22,7 +22,11 @@ import (
 // resources referenced by those documents are checked
 // against the path hierarchy of locality domain
 // entries to determine hwo they will be processed.
-type localityDomain map[string]*localityDomainValue
+type localityDomain struct {
+	mapping
+	downloadSubstitutes map[string]string
+}
+type mapping map[string]*localityDomainValue
 
 // LocalityDomainValue encapsulates the memebers of a
 // localityDomain entry value
@@ -32,18 +36,13 @@ type localityDomainValue struct {
 	Version string
 	// Path defines the scope of this locality domain
 	// and is relative to it
-	Path                string
-	Include             []string
-	Exclude             []string
-	LinkSubstitutes     Substitutes
-	DownloadSubstitutes Substitutes
+	Path    string
+	Include []string
+	Exclude []string
 }
 
-// Substitutes is ...
-type Substitutes map[string]string
-
-func copySubstitutes(s api.Substitutes) Substitutes {
-	_s := Substitutes{}
+func copyMap(s map[string]string) map[string]string {
+	_s := make(map[string]string)
 	for k, v := range s {
 		_s[k] = v
 	}
@@ -52,18 +51,19 @@ func copySubstitutes(s api.Substitutes) Substitutes {
 
 // fromAPI creates new localityDomain copy object from
 // api.LocalityDomain
-func copy(ld api.LocalityDomain) localityDomain {
-	localityDomain := localityDomain{}
-	for k, v := range ld {
-		localityDomain[k] = &localityDomainValue{
+func copyLocalityDomain(ld *api.LocalityDomain) *localityDomain {
+	localityDomain := &localityDomain{
+		mapping: map[string]*localityDomainValue{},
+	}
+	for k, v := range ld.LocalityDomainMap {
+		localityDomain.mapping[k] = &localityDomainValue{
 			v.Version,
 			v.Path,
 			v.Include,
 			v.Exclude,
-			copySubstitutes(v.LinkSubstitutes),
-			copySubstitutes(v.DownloadSubstitutes),
 		}
 	}
+	localityDomain.downloadSubstitutes = copyMap(ld.DownloadSubstitutes)
 	return localityDomain
 }
 
@@ -76,12 +76,10 @@ func (ld localityDomain) Set(key, path, version string) {
 		existingLD *localityDomainValue
 		ok         bool
 	)
-	if existingLD, ok = ld[key]; !ok {
-		ld[key] = &localityDomainValue{
+	if existingLD, ok = ld.mapping[key]; !ok {
+		ld.mapping[key] = &localityDomainValue{
 			version,
 			path,
-			nil,
-			nil,
 			nil,
 			nil,
 		}
@@ -92,7 +90,7 @@ func (ld localityDomain) Set(key, path, version string) {
 	localityDomainCandidate := strings.Split(path, "/")
 	for i := range localityDomain {
 		if len(localityDomainCandidate) <= i || localityDomain[i] != localityDomainCandidate[i] {
-			ld[key].Path = strings.Join(localityDomain[:i], "/")
+			ld.mapping[key].Path = strings.Join(localityDomain[:i], "/")
 			return
 		}
 	}
@@ -110,7 +108,7 @@ func (ld localityDomain) MatchPathInLocality(link string, rhs resourcehandlers.R
 		if key, path, _, err = rh.GetLocalityDomainCandidate(link); err != nil {
 			return link, false
 		}
-		localityDomain, ok := ld[key]
+		localityDomain, ok := ld.mapping[key]
 		if !ok {
 			return link, false
 		}
@@ -144,7 +142,7 @@ func (ld localityDomain) MatchPathInLocality(link string, rhs resourcehandlers.R
 				klog.Errorf("%v\n", err)
 				return link, false
 			}
-			return link, true
+			return link, false
 		}
 
 		prefix := localityDomain.Path
@@ -180,7 +178,7 @@ func (ld localityDomain) PathInLocality(link string, rhs resourcehandlers.Regist
 		if key, path, version, err = rh.GetLocalityDomainCandidate(link); err != nil {
 			return false
 		}
-		localityDomain, ok := ld[key]
+		localityDomain, ok := ld.mapping[key]
 		if !ok {
 			return false
 		}
@@ -191,47 +189,30 @@ func (ld localityDomain) PathInLocality(link string, rhs resourcehandlers.Regist
 			path,
 			localityDomain.Include,
 			localityDomain.Exclude,
-			localityDomain.LinkSubstitutes,
-			localityDomain.DownloadSubstitutes,
 		})
 	}
 	return false
 }
 
-func (ld localityDomain) SubstituteLink(link string) string {
-	if len(link) > 0 {
-		for _, d := range ld {
-			if len(d.LinkSubstitutes) > 0 {
-				if s, ok := d.LinkSubstitutes[link]; ok {
-					return s
-				}
-			}
-		}
-	}
-	return link
-}
-
 func (ld localityDomain) GetDownloadedResourceName(u *urls.URL) string {
 	k := strings.TrimPrefix(u.Path, "/")
 	id := uuid.New().String()
-	for _, d := range ld {
-		if len(d.DownloadSubstitutes) > 0 {
-			for substituteMatcher, s := range d.DownloadSubstitutes {
-				var (
-					matched bool
-					err     error
-				)
-				if matched, err = regexp.MatchString(substituteMatcher, k); err != nil {
-					klog.Warningf("download subsitution pattern match %s failed for %s\n", substituteMatcher, k)
-					break
-				}
-				if matched {
-					s = strings.ReplaceAll(s, "$name", u.ResourceName)
-					s = strings.ReplaceAll(s, "$uuid", id)
-					s = strings.ReplaceAll(s, "$path", u.ResourcePath)
-					s = strings.ReplaceAll(s, "$ext", u.Extension)
-					return s
-				}
+	if len(ld.downloadSubstitutes) > 0 {
+		for substituteMatcher, s := range ld.downloadSubstitutes {
+			var (
+				matched bool
+				err     error
+			)
+			if matched, err = regexp.MatchString(substituteMatcher, k); err != nil {
+				klog.Warningf("download subsitution pattern match %s failed for %s\n", substituteMatcher, k)
+				break
+			}
+			if matched {
+				s = strings.ReplaceAll(s, "$name", u.ResourceName)
+				s = strings.ReplaceAll(s, "$uuid", id)
+				s = strings.ReplaceAll(s, "$path", u.ResourcePath)
+				s = strings.ReplaceAll(s, "$ext", u.Extension)
+				return s
 			}
 		}
 	}
@@ -244,8 +225,10 @@ func (ld localityDomain) GetDownloadedResourceName(u *urls.URL) string {
 
 // setLocalityDomainForNode visits all content selectors in the node and its
 // descendants to build a localityDomain
-func localityDomainFromNode(node *api.Node, rhs resourcehandlers.Registry) (localityDomain, error) {
-	var localityDomains = make(localityDomain, 0)
+func localityDomainFromNode(node *api.Node, rhs resourcehandlers.Registry) (*localityDomain, error) {
+	var localityDomains = &localityDomain{
+		mapping: map[string]*localityDomainValue{},
+	}
 	if err := csHandle(node.ContentSelectors, localityDomains, rhs); err != nil {
 		return nil, err
 	}
@@ -257,7 +240,7 @@ func localityDomainFromNode(node *api.Node, rhs resourcehandlers.Registry) (loca
 	return localityDomains, nil
 }
 
-func csHandle(contentSelectors []api.ContentSelector, localityDomains localityDomain, rhs resourcehandlers.Registry) error {
+func csHandle(contentSelectors []api.ContentSelector, localityDomains *localityDomain, rhs resourcehandlers.Registry) error {
 	for _, cs := range contentSelectors {
 		if rh := rhs.Get(cs.Source); rh != nil {
 			key, path, version, err := rh.GetLocalityDomainCandidate(cs.Source)
@@ -270,7 +253,7 @@ func csHandle(contentSelectors []api.ContentSelector, localityDomains localityDo
 	return nil
 }
 
-func fromNodes(nodes []*api.Node, localityDomains localityDomain, rhs resourcehandlers.Registry) error {
+func fromNodes(nodes []*api.Node, localityDomains *localityDomain, rhs resourcehandlers.Registry) error {
 	for _, node := range nodes {
 		csHandle(node.ContentSelectors, localityDomains, rhs)
 		if err := fromNodes(node.Nodes, localityDomains, rhs); err != nil {
@@ -283,40 +266,46 @@ func fromNodes(nodes []*api.Node, localityDomains localityDomain, rhs resourceha
 // ResolveLocalityDomain resolves the actual locality domain for a node,
 // considering the global one (if any) and locally defined one.
 // If no localityDomain is defined on the node the function returns nil
-func resolveLocalityDomain(node *api.Node, globalLD localityDomain) localityDomain {
+func resolveLocalityDomain(node *api.Node, globalLD *localityDomain) *localityDomain {
 	if nodeLD := node.LocalityDomain; nodeLD != nil {
-		nodeLD := copy(nodeLD)
+		nodeLD := copyLocalityDomain(nodeLD)
 		if globalLD == nil {
-			return copy(node.LocalityDomain)
+			return copyLocalityDomain(node.LocalityDomain)
 		}
-		ld := localityDomain{}
-		for k, v := range globalLD {
-			ld[k] = &localityDomainValue{
+		ld := &localityDomain{
+			mapping: map[string]*localityDomainValue{},
+		}
+		for k, v := range globalLD.mapping {
+			ld.mapping[k] = &localityDomainValue{
 				v.Version,
 				v.Path,
 				v.Exclude,
 				v.Include,
-				v.LinkSubstitutes,
-				v.DownloadSubstitutes,
 			}
 		}
-		for k, nodeV := range nodeLD {
-			if globalV, ok := ld[k]; ok {
-				ld[k] = merge(globalV, nodeV)
-				continue
-			}
-			ld[k] = nodeV
-		}
+		mergeLocalityDomain(ld, nodeLD)
 		return ld
 	}
 	return globalLD
 }
 
+func mergeLocalityDomain(a, b *localityDomain) *localityDomain {
+	if a == nil || b == nil {
+		panic("cannot merge nil localityDomain arguments")
+	}
+	a.downloadSubstitutes = mergeDownloadSubstitutes(a.downloadSubstitutes, b.downloadSubstitutes)
+	for k, v := range b.mapping {
+		v := mergeLocalityDomainValue(a.mapping[k], v)
+		a.mapping[k] = v
+	}
+	return a
+}
+
 // replaces Version and Path from b in a if any
 // merges Exclude and Include from b in a if any
-// merges LinkSubstitutes and DownloadSubstitutes from b in a if any,
+// merges DownloadSubstitutes from b in a if any,
 // replacing duplicate entries in a with entries from b.
-func merge(a, b *localityDomainValue) *localityDomainValue {
+func mergeLocalityDomainValue(a, b *localityDomainValue) *localityDomainValue {
 	if len(b.Version) > 0 {
 		a.Version = b.Version
 	}
@@ -337,27 +326,18 @@ func merge(a, b *localityDomainValue) *localityDomainValue {
 		}
 		a.Include = append(_e, b.Include...)
 	}
-	if len(b.LinkSubstitutes) > 0 {
-		_e := a.LinkSubstitutes
-		if _e == nil {
-			_e = b.LinkSubstitutes
-		} else {
-			for k, v := range b.LinkSubstitutes {
-				_e[k] = v
-			}
-		}
-		a.LinkSubstitutes = _e
+	return a
+}
+
+func mergeDownloadSubstitutes(a, b map[string]string) map[string]string {
+	if len(a) > 0 && len(b) < 1 {
+		return a
 	}
-	if len(b.DownloadSubstitutes) > 0 {
-		_e := a.DownloadSubstitutes
-		if _e == nil {
-			_e = b.DownloadSubstitutes
-		} else {
-			for k, v := range b.DownloadSubstitutes {
-				_e[k] = v
-			}
-		}
-		a.DownloadSubstitutes = _e
+	if len(a) < 1 && len(b) > 0 {
+		return b
+	}
+	for k, v := range b {
+		a[k] = v
 	}
 	return a
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/gardener/docforge/pkg/resourcehandlers/github"
+	"github.com/stretchr/testify/assert"
 )
 
 func Test_processLink(t *testing.T) {
@@ -104,14 +105,14 @@ func Test_processLink(t *testing.T) {
 			wantResourceName:  "",
 			wantErr:           nil,
 			mutate: func(c *NodeContentProcessor) {
-				c.localityDomain = localityDomain{
-					"github.com/gardener/gardener": &localityDomainValue{
-						"v1.10.0",
-						"gardener/gardener/docs",
-						nil,
-						nil,
-						nil,
-						nil,
+				c.localityDomain = &localityDomain{
+					mapping: map[string]*localityDomainValue{
+						"github.com/gardener/gardener": &localityDomainValue{
+							"v1.10.0",
+							"gardener/gardener/docs",
+							nil,
+							nil,
+						},
 					},
 				}
 			},
@@ -158,14 +159,14 @@ func Test_processLink(t *testing.T) {
 			wantResourceName:  "",
 			wantErr:           nil,
 			mutate: func(c *NodeContentProcessor) {
-				c.localityDomain = localityDomain{
-					"github.com/gardener/gardener": &localityDomainValue{
-						"v1.10.0",
-						"gardener/gardener/docs",
-						nil,
-						nil,
-						nil,
-						nil,
+				c.localityDomain = &localityDomain{
+					mapping: map[string]*localityDomainValue{
+						"github.com/gardener/gardener": &localityDomainValue{
+							"v1.10.0",
+							"gardener/gardener/docs",
+							nil,
+							nil,
+						},
 					},
 				}
 			},
@@ -191,14 +192,14 @@ func Test_processLink(t *testing.T) {
 			wantResourceName:  "",
 			wantErr:           nil,
 			mutate: func(c *NodeContentProcessor) {
-				c.localityDomain = localityDomain{
-					"github.com/gardener/gardener": &localityDomainValue{
-						"v1.10.0",
-						"gardener/gardener/docs",
-						nil,
-						nil,
-						nil,
-						nil,
+				c.localityDomain = &localityDomain{
+					mapping: map[string]*localityDomainValue{
+						"github.com/gardener/gardener": &localityDomainValue{
+							"v1.10.0",
+							"gardener/gardener/docs",
+							nil,
+							nil,
+						},
 					},
 				}
 			},
@@ -223,14 +224,14 @@ func Test_processLink(t *testing.T) {
 			wantResourceName:  "",
 			wantErr:           nil,
 			mutate: func(c *NodeContentProcessor) {
-				c.localityDomain = localityDomain{
-					"github.com/gardener/gardener": &localityDomainValue{
-						"v1.10.0",
-						"gardener/gardener/docs",
-						nil,
-						nil,
-						nil,
-						nil,
+				c.localityDomain = &localityDomain{
+					mapping: map[string]*localityDomainValue{
+						"github.com/gardener/gardener": &localityDomainValue{
+							"v1.10.0",
+							"gardener/gardener/docs",
+							nil,
+							nil,
+						},
 					},
 				}
 			},
@@ -246,14 +247,14 @@ func Test_processLink(t *testing.T) {
 			wantResourceName:  "",
 			wantErr:           nil,
 			mutate: func(c *NodeContentProcessor) {
-				c.localityDomain = localityDomain{
-					"github.com/gardener/gardener": &localityDomainValue{
-						"v1.10.0",
-						"gardener/gardener/docs",
-						nil,
-						nil,
-						nil,
-						nil,
+				c.localityDomain = &localityDomain{
+					mapping: map[string]*localityDomainValue{
+						"github.com/gardener/gardener": &localityDomainValue{
+							"v1.10.0",
+							"gardener/gardener/docs",
+							nil,
+							nil,
+						},
 					},
 				}
 			},
@@ -268,14 +269,14 @@ func Test_processLink(t *testing.T) {
 			wantResourceName:  "",
 			wantErr:           nil,
 			mutate: func(c *NodeContentProcessor) {
-				c.localityDomain = localityDomain{
-					"github.com/gardener/gardener": &localityDomainValue{
-						"v1.10.0",
-						"gardener/gardener/docs",
-						nil,
-						nil,
-						nil,
-						nil,
+				c.localityDomain = &localityDomain{
+					mapping: map[string]*localityDomainValue{
+						"github.com/gardener/gardener": &localityDomainValue{
+							"v1.10.0",
+							"gardener/gardener/docs",
+							nil,
+							nil,
+						},
 					},
 				}
 			},
@@ -285,7 +286,9 @@ func Test_processLink(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &NodeContentProcessor{
 				resourceAbsLinks: make(map[string]string),
-				localityDomain:   localityDomain{},
+				localityDomain: &localityDomain{
+					mapping: map[string]*localityDomainValue{},
+				},
 				resourcesRoot:    "/__resources",
 				ResourceHandlers: resourcehandlers.NewRegistry(github.NewResourceHandler(nil, []string{"github.com"})),
 			}
@@ -295,7 +298,7 @@ func Test_processLink(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			gotDestination, gotDownloadURL, gotResourceName, gotErr := c.processLink(ctx, tt.node, tt.destination, tt.contentSourcePath)
+			gotDestination, _, _, gotDownload, gotErr := c.resolveLink(ctx, tt.node, tt.destination, tt.contentSourcePath)
 
 			if gotErr != tt.wantErr {
 				t.Errorf("expected err %s != %s", gotErr, tt.wantErr)
@@ -306,23 +309,84 @@ func Test_processLink(t *testing.T) {
 				} else if !strings.HasPrefix(gotDestination, tt.wantDestination) {
 					t.Errorf("expected destination starting with %s, was %s", tt.wantDestination, gotDestination)
 				}
-				if gotDownloadURL != tt.wantDownloadURL {
-					t.Errorf("expected downloadURL %s != %s", tt.wantDownloadURL, gotDownloadURL)
+				if gotDownload.url != tt.wantDownloadURL {
+					t.Errorf("expected downloadURL %s != %s", tt.wantDownloadURL, gotDownload.url)
 				}
-				if len(gotResourceName) == 0 {
-					t.Error("expected resource name != \"\"\n", gotResourceName)
+				if len(gotDownload.resourceName) == 0 {
+					t.Error("expected resource name != \"\"\n", gotDownload.resourceName)
 				}
 			} else {
 				if gotDestination != tt.wantDestination {
 					t.Errorf("expected destination %s != %s", tt.wantDestination, gotDestination)
 				}
-				if gotDownloadURL != tt.wantDownloadURL {
-					t.Errorf("expected downloadURL %s != %s", tt.wantDownloadURL, gotDownloadURL)
+				if gotDownload.resourceName != tt.wantDownloadURL {
+					t.Errorf("expected downloadURL %s != %s", tt.wantDownloadURL, gotDownload.url)
 				}
-				if gotResourceName != tt.wantResourceName {
-					t.Errorf("expected resourceName %s != %s", tt.wantResourceName, gotResourceName)
+				if gotDownload.resourceName != tt.wantResourceName {
+					t.Errorf("expected resourceName %s != %s", tt.wantResourceName, gotDownload.resourceName)
 				}
 			}
+		})
+	}
+}
+
+func Test_Substitute(t *testing.T) {
+	cda := "cda"
+	testCases := []struct {
+		link            string
+		substitutes     map[string]*api.LinkSubstitute
+		wantDestination string
+		wantOK          bool
+		wantText        *string
+		wantTitle       *string
+	}{
+		{
+			"abc",
+			map[string]*api.LinkSubstitute{
+				"abc": &api.LinkSubstitute{
+					Destination: &cda,
+				},
+			},
+			"cda",
+			true,
+			&cda,
+			&cda,
+		},
+		{
+			"abc",
+			map[string]*api.LinkSubstitute{},
+			"abc",
+			true,
+			&cda,
+			&cda,
+		},
+		{
+			"",
+			map[string]*api.LinkSubstitute{
+				"abc": &api.LinkSubstitute{
+					Destination: &cda,
+				},
+			},
+			"",
+			true,
+			nil,
+			nil,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run("", func(t *testing.T) {
+			n := &api.Node{
+				LinksSubstitutes: tc.substitutes,
+			}
+			var (
+				gotOK                             bool
+				gotDestination, gotText, gotTitle *string
+			)
+			gotOK, gotDestination, gotText, gotTitle = substitute(tc.link, n)
+			assert.Equal(t, tc.wantOK, gotOK)
+			assert.Equal(t, tc.wantDestination, gotDestination)
+			assert.Equal(t, tc.wantText, gotText)
+			assert.Equal(t, tc.wantTitle, gotTitle)
 		})
 	}
 }

@@ -174,13 +174,15 @@ func TestFile(t *testing.T) {
 							Source: "https://github.com/gardener/gardener/blob/master/docs/concepts/gardenlet.md",
 						},
 					},
-					LocalityDomain: LocalityDomain{
-						"github.com/gardener/gardener": &LocalityDomainValue{
-							Version: "v1.11.1",
-							Path:    "gardener/gardener",
-							LinksMatchers: LinksMatchers{
-								Exclude: []string{
-									"example",
+					LocalityDomain: &LocalityDomain{
+						LocalityDomainMap: LocalityDomainMap{
+							"github.com/gardener/gardener": &LocalityDomainValue{
+								Version: "v1.11.1",
+								Path:    "gardener/gardener",
+								LinksMatchers: LinksMatchers{
+									Exclude: []string{
+										"example",
+									},
 								},
 							},
 						},
@@ -196,10 +198,12 @@ func TestFile(t *testing.T) {
 				},
 			},
 		},
-		LocalityDomain: LocalityDomain{
-			"github.com/gardener/gardener": &LocalityDomainValue{
-				Version: "v1.10.0",
-				Path:    "gardener/gardener",
+		LocalityDomain: &LocalityDomain{
+			LocalityDomainMap: LocalityDomainMap{
+				"github.com/gardener/gardener": &LocalityDomainValue{
+					Version: "v1.10.0",
+					Path:    "gardener/gardener",
+				},
 			},
 		},
 	}
