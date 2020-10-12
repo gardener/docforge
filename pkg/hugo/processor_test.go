@@ -55,32 +55,48 @@ func TestRewriteDestination(t *testing.T) {
 	testCases := []struct {
 		name            string
 		destination     string
+		text            string
+		title           string
 		nodeName        string
 		wantDestination string
+		wantText        string
+		wantTitle       string
 		wantError       error
 		mutate          func(h *Processor)
 	}{
 		{
 			"",
 			"#fragment-id",
+			"",
+			"",
 			"testnode",
 			"#fragment-id",
+			"",
+			"",
 			nil,
 			nil,
 		},
 		{
 			"",
 			"https://github.com/a/b/sample.md",
+			"",
+			"",
 			"testnode",
 			"https://github.com/a/b/sample.md",
+			"",
+			"",
 			nil,
 			nil,
 		},
 		{
 			"",
 			"./a/b/sample.md",
+			"",
+			"",
 			"testnode",
 			"../a/b/sample",
+			"",
+			"",
 			nil,
 			func(h *Processor) {
 				h.PrettyUrls = true
@@ -89,8 +105,12 @@ func TestRewriteDestination(t *testing.T) {
 		{
 			"",
 			"./a/b/README.md",
+			"",
+			"",
 			"testnode",
 			"../a/b",
+			"",
+			"",
 			nil,
 			func(h *Processor) {
 				h.PrettyUrls = true
@@ -100,8 +120,12 @@ func TestRewriteDestination(t *testing.T) {
 		{
 			"",
 			"./a/b/README.md",
+			"",
+			"",
 			"testnode",
 			"./a/b/README.html",
+			"",
+			"",
 			nil,
 			nil,
 		},
@@ -113,13 +137,19 @@ func TestRewriteDestination(t *testing.T) {
 				tc.mutate(p)
 			}
 
-			gotDestination, gotErr := p.rewriteDestination([]byte(tc.destination), tc.nodeName)
+			gotDestination, gotText, gotTitle, gotErr := p.rewriteDestination([]byte(tc.destination), []byte(tc.text), []byte(tc.title), tc.nodeName)
 
 			if gotErr != tc.wantError {
 				t.Errorf("want error %v != %v", gotErr, tc.wantError)
 			}
 			if !bytes.Equal(gotDestination, []byte(tc.wantDestination)) {
 				t.Errorf("want destination %v != %v", string(gotDestination), tc.wantDestination)
+			}
+			if !bytes.Equal(gotText, []byte(tc.wantText)) {
+				t.Errorf("want text %v != %v", string(gotText), tc.wantText)
+			}
+			if !bytes.Equal(gotTitle, []byte(tc.wantTitle)) {
+				t.Errorf("want title %v != %v", string(gotTitle), tc.wantTitle)
 			}
 		})
 	}

@@ -281,6 +281,9 @@ func (c *NodeContentProcessor) generateResourceName(absURL string, resolvedLD *l
 
 // returns substitution found, destination, text, title
 func substitute(absLink string, node *api.Node) (ok bool, destination *string, text *string, title *string) {
+	if node == nil {
+		return false, nil, nil, nil
+	}
 	if substitutes := node.LinksSubstitutes; substitutes != nil {
 		for substituteK, substituteV := range substitutes {
 			// remove trailing slasshes to avoid inequality only due to that
