@@ -28,6 +28,7 @@ type Options struct {
 	Writer                 writers.Writer
 	ResourceHandlers       []resourcehandlers.ResourceHandler
 	DryRunWriter           writers.DryRunWriter
+	Resolve                bool
 }
 
 // NewReactor creates a Reactor from Options
@@ -47,6 +48,7 @@ func NewReactor(o *Options) *Reactor {
 		DocController:      docController,
 		DownloadController: downloadController,
 		DryRunWriter:       o.DryRunWriter,
+		Resolve:            o.Resolve,
 	}
 	return r
 }
@@ -59,6 +61,7 @@ type Reactor struct {
 	DocController      DocumentController
 	DownloadController DownloadController
 	DryRunWriter       writers.DryRunWriter
+	Resolve            bool
 }
 
 // Run starts build operation on docStruct
@@ -67,7 +70,7 @@ func (r *Reactor) Run(ctx context.Context, docStruct *api.Documentation, dryRun 
 		err error
 		ld  *localityDomain
 	)
-	if err := r.Resolve(ctx, docStruct.Root); err != nil {
+	if err := r.ResolveStructure(ctx, docStruct.Root); err != nil {
 		return err
 	}
 
@@ -81,12 +84,11 @@ func (r *Reactor) Run(ctx context.Context, docStruct *api.Documentation, dryRun 
 		}
 	}
 
-	if dryRun {
+	if r.Resolve {
 		s, err := api.Serialize(docStruct)
 		if err != nil {
 			return err
 		}
-		// TODO: either reuse dry run's wrapped writer or build different command for that
 		os.Stdout.Write([]byte(s))
 		os.Stdout.Write([]byte("\n\n"))
 	}
@@ -106,12 +108,12 @@ func (r *Reactor) Run(ctx context.Context, docStruct *api.Documentation, dryRun 
 	return nil
 }
 
-// Resolve builds the subnodes hierarchy of a node based on the natural nodes
+// ResolveStructure builds the subnodes hierarchy of a node based on the natural nodes
 // hierarchy and on rules such as those in NodeSelector.
 // The node hierarchy is resolved by an appropriate handler selected based
 // on the NodeSelector path URI
 // The resulting model is the actual flight plan for replicating resources.
-func (r *Reactor) Resolve(ctx context.Context, node *api.Node) error {
+func (r *Reactor) ResolveStructure(ctx context.Context, node *api.Node) error {
 	node.SetParentsDownwards()
 	if node.NodeSelector != nil {
 		var handler resourcehandlers.ResourceHandler
@@ -121,10 +123,12 @@ func (r *Reactor) Resolve(ctx context.Context, node *api.Node) error {
 		if err := handler.ResolveNodeSelector(ctx, node); err != nil {
 			return err
 		}
+		// remove node selctors after resolution
+		node.NodeSelector = nil
 	}
 	if len(node.Nodes) > 0 {
 		for _, n := range node.Nodes {
-			if err := r.Resolve(ctx, n); err != nil {
+			if err := r.ResolveStructure(ctx, n); err != nil {
 				return err
 			}
 		}

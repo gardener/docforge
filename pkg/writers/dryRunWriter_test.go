@@ -2,6 +2,7 @@ package writers
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"testing"
 
@@ -15,7 +16,8 @@ func TestFormat(t *testing.T) {
 		err   error
 	)
 	in := []string{
-		"dev/doc",
+		"dev/__resources/015ec383-3c1b-487b-acff-4d7f4f8a1b14.png",
+		"dev/__resources/173a7246-e1d5-40d5-b981-8cff293e177a.png",
 		"dev/doc/aws_provider.md",
 		"dev/doc/gardener",
 		"dev/doc/gardener/_index.md",
@@ -36,6 +38,9 @@ func TestFormat(t *testing.T) {
 		"dev/doc/gardener/usage/control_plane_migration.md",
 	}
 	out := `dev
+  __resources
+    015ec383-3c1b-487b-acff-4d7f4f8a1b14.png
+    173a7246-e1d5-40d5-b981-8cff293e177a.png
   doc
     aws_provider.md
     gardener
@@ -63,10 +68,12 @@ func TestFormat(t *testing.T) {
 			path: p,
 		})
 	}
+
 	format(files, &b)
 
 	if bytes, err = ioutil.ReadAll(&b); err != nil {
 		t.Error(err.Error())
 	}
 	assert.Equal(t, out, string(bytes))
+	fmt.Printf("%s\n", string(bytes))
 }

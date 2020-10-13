@@ -22,6 +22,7 @@ type cmdFlags struct {
 	markdownFmt                  bool
 	ghOAuthToken                 string
 	dryRun                       bool
+	resolve                      bool
 	clientMetering               bool
 	hugo                         bool
 	hugoPrettyUrls               bool
@@ -74,6 +75,8 @@ func (flags *cmdFlags) Configure(command *cobra.Command) {
 		"Applies formatting rules to source markdown.")
 	command.Flags().BoolVar(&flags.dryRun, "dry-run", false,
 		"Runs the command end-to-end but instead of writing files, it will output the proejcted file/folder hierarchy to the standard output and statistics for the processing of each file.")
+	command.Flags().BoolVar(&flags.resolve, "resolve", false,
+		"Resolves the documentation structure and prints it to the standard output. The resolution expands nodeSelector constructs into node hierarchies.")
 	command.Flags().IntVar(&flags.minWorkersCount, "min-workers", 10,
 		"Minimum number of parallel workers.")
 	command.Flags().IntVar(&flags.maxWorkersCount, "max-workers", 25,
@@ -133,6 +136,7 @@ func NewOptions(f *cmdFlags) *Options {
 		GitHubTokens:                 tokens,
 		Metering:                     metering,
 		DryRunWriter:                 dryRunWriter,
+		Resolve:                      f.resolve,
 		Hugo:                         hugoOptions,
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -67,12 +68,20 @@ func (d *dryRunWriter) GetWriter(root string) Writer {
 }
 
 func (w *writer) Write(name, path string, docBlob []byte, node *api.Node) error {
-	if len(docBlob) > 0 && node != nil && !strings.HasSuffix(name, ".md") {
-		name = fmt.Sprintf("%s.md", name)
+	var stats []*api.Stat
+	if len(docBlob) > 0 && node != nil {
+		if !strings.HasSuffix(name, ".md") {
+			name = fmt.Sprintf("%s.md", name)
+		}
+		stats = node.GetStats()
 	}
+	root := filepath.Clean(w.root)
+	path = filepath.Clean(path)
+	filePath := fmt.Sprintf("%s/%s/%s", root, path, name)
+	filePath = filepath.Clean(filePath)
 	f := &file{
-		path:  fmt.Sprintf("%s/%s/%s", w.root, path, name),
-		stats: node.GetStats(),
+		path:  filePath,
+		stats: stats,
 	}
 	*w.files = append(*w.files, f)
 	return nil
@@ -107,6 +116,7 @@ func format(files []*file, b *bytes.Buffer) {
 	all := []string{}
 	for _, f := range files {
 		p := f.path
+		p = filepath.Clean(p)
 		dd := strings.Split(p, "/")
 		indent := 0
 		for i, s := range dd {
@@ -119,6 +129,9 @@ func format(files []*file, b *bytes.Buffer) {
 			if !any(all, _p) {
 				all = append(all, _p)
 				b.WriteString(fmt.Sprintf("%s\n", s))
+				if i < len(dd)-1 {
+					b.Write(bytes.Repeat([]byte("  "), i))
+				}
 				for _, st := range f.stats {
 					b.Write([]byte("  "))
 					b.Write(bytes.Repeat([]byte("  "), indent))

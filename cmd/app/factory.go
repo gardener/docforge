@@ -32,6 +32,7 @@ type Options struct {
 	GitHubTokens                 map[string]string
 	Metering                     *Metering
 	DryRunWriter                 io.Writer
+	Resolve                      bool
 	Hugo                         *hugo.Options
 }
 
@@ -55,6 +56,7 @@ func NewReactor(ctx context.Context, options *Options) *reactor.Reactor {
 		Processor:                    nil,
 		ResourceHandlers:             initResourceHanlders(ctx, options),
 		DryRunWriter:                 dryRunWriters,
+		Resolve:                      options.Resolve,
 	}
 	if options.DryRunWriter != nil {
 		o.Writer = dryRunWriters.GetWriter(options.DestinationPath)
