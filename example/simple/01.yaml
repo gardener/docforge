@@ -1,0 +1,41 @@
+# The documentation structure root node. Mandatory.
+root:
+    name: doc
+    # nodeSelector is resolved to a node hierarchy, where nodes are selected
+    # by criteria (criteria is not implemented yet, i.e no filters). 
+    nodesSelector:
+      # A node selector path defines the scope that will be used to
+      # generate a hierarchy. For GitHub paths that is a folder in a GitHub repo
+      # and the generated nodes hierarchy corresponds ot the file/folder structure 
+      # available in the repository at that path.
+      path: https://github.com/gardener/gardener/tree/master/docs
+    # A list of child nodes to this structure node to form document structure hierarchy.
+    # Note that if a nodeSelector is specified on this node, will be merged with other
+    # existing nodes in `nodes`. Nodes with the same name will have their other properties
+    # merged, making it possible to add properties to the generated structure or additional
+    # nodes.
+    nodes:
+      - name: aws_provider
+        # contentSelectors is a list of source selection specifications.
+        # Normally, there will be one but it is possible to specify several and
+        # they will be appended in that order. 
+        contentSelectors:
+          # Source specifies location of document source. 
+          # The supported sources as of now are GitHub repository documents and wiki pages.
+        - source: https://github.com/gardener/gardener-extension-provider-aws/blob/v1.13.0/docs/usage-as-end-user.md
+# A localityDomain defines the scope of documentation structure "local" 
+# resources that are downloaded along with structure's documents.
+localityDomain:
+  # A locality domain. GFor GitHub it is in the form
+  # <host>/<organization>/<repository>
+  github.com/gardener/gardener:
+    # The version, if specified, is applied to all links inside this domain. 
+    # Document-local resources that will be downloaded (inside `path`), and
+    # links that will be absolute in this domain (github.com/gardener/gardener)
+    # will be rewritten with this version in their URLs. 
+    version: v1.11.1
+    # Path inside this domain that defines the scope of the "document-local"
+    # resources, which will be downloaded along with documents.
+    # If version is specified, the links used to download the resources are
+    # rewritten to match the version.
+    path: gardener/gardener/docs

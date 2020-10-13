@@ -1,0 +1,69 @@
+root:
+    name: doc
+    nodes:
+    - name: overview
+      contentSelectors:
+        - source: https://github.com/gardener/documentation/wiki/Architecture.md
+    - name: gardenlet
+      contentSelectors:
+        - source: https://github.com/gardener/gardener/blob/master/docs/concepts/gardenlet.md
+      # linkSubstitutes define changes to links in documents.They apply to links and images
+      # specified with markdown markup.
+      linksSubstitutes:
+        # The key in the mapping is an absolute form of a document link that will be 
+        # subject to transformation
+        "https://github.com/gardener/gardener/blob/master/docs/usage/shooted_seed.md":
+          # destination is the link reference URL. If it is empty string, 
+          # the links markup is removed leaving only link text behind.
+          # For images, the entire markup is removed.
+          destination: ""
+        "https://kubernetes.io/docs/concepts/extend-kubernetes/operator/":
+          destination: "https://kubernetes.io/docs/concepts/extend-kubernetes/operator1111"
+          # text is a link text element (alt-text for images). Specifying text
+          # will change it to the new value. Empty string is valid only with 
+          # `destination=""`
+          text: smooth operator
+          # title is the title element of a link or image. Specifying text
+          # will change it to the new value.
+          title: a title
+      # localityDomains can be specified on node level too.
+      # Node's localityDomain definitions override and amend global ones.
+      localityDomain:
+        github.com/gardener/gardener:
+          version: v1.11.1
+          path: gardener/gardener
+          # exclude omits resources from path. You can 
+          # also use include with the reverse semantics
+          exclude:
+          - example
+        # downloadSubstitutes is a list of regular expressions matching
+        # links to resources on documents that will be downloaded, mapped
+        # to name expressions tha define how the downloaded resources will
+        # named.
+        # There is a set of variables that can be used to construct the
+        # expressions:
+        # - $name: the original name of the resource
+        # - $path: the original path of the resource
+        # - $uuid: a UUID generated for the resource
+        # - $ext: a original resource extension
+        # The default expression applying to all resources is: $uuid.$ext
+        # Besides regular-expression-to-expression mappings it is possible
+        # to map exact URLs (escaped) to concrete names.
+        downloadSubstitutes:
+          "\\.(jpg|gif|png)": "$name-hires-$uuid.$ext"
+    - name: deploying-gardenlets
+      contentSelectors:
+        - source: https://github.com/gardener/gardener/blob/master/docs/deployment/deploy_gardenlet.md
+    - name: automatic-deployment
+      contentSelectors:
+        - source: https://github.com/gardener/gardener/blob/master/docs/deployment/deploy_gardenlet_automatically.md
+    - name: deploy-gardenlet-manually
+      contentSelectors:
+        - source: https://github.com/gardener/gardener/blob/2a33b26458dddd7ad09c4c3b2311d3391db890e7/docs/deployment/deploy_gardenlet_manually.md
+    - name: shooted-seeds
+      contentSelectors:
+        - source: https://github.com/gardener/gardener/blob/master/docs/usage/shooted_seed.md
+localityDomain:
+  github.com/gardener/gardener:
+    version: v1.10.0
+    path: gardener/gardener

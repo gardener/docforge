@@ -1,0 +1,11 @@
+# The documentation structure root node. Mandatory.
+root:
+    name: doc
+    # nodeSelector is resolved to a node hierarchy, where nodes are selected
+    # by criteria (criteria is not implemented yet, i.e no filters). 
+    nodesSelector:
+      # A node selector path defines the scope that will be used to
+      # generate a hierarchy. For GitHub paths that is a folder in a GitHub repo
+      # and the generated nodes hierarchy corresponds ot the file/folder structure 
+      # available in the repository at that path.
+      path: https://github.com/gardener/gardener/tree/v1.10.0/docs
