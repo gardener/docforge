@@ -21,12 +21,12 @@ type worker interface {
 	download(ctx context.Context, dt *DownloadTask) error
 }
 
-// DownloadController encapsulates activities for asyncronous
+// DownloadController encapsulates activities for asynchronous
 // and parallel scheduling and download of resources
 type DownloadController interface {
 	jobs.Controller
-	// Schedule is a typesafe wrtapper around Controller#Enqueue
-	// for enquing download tasks
+	// Schedule is a typesafe wrapper around Controller#Enqueue
+	// for enqueuing download tasks
 	Schedule(ctx context.Context, link, resourceName string)
 }
 
@@ -124,7 +124,7 @@ func (c *downloadController) setDownloaded(dt *DownloadTask) {
 	c.downloadedResources[dt.Source] = struct{}{}
 }
 
-// Schedule enqeues and resource link for download
+// Schedule enqueues and resource link for download
 func (c *downloadController) Schedule(ctx context.Context, link, resourceName string) {
 	task := &DownloadTask{
 		Source: link,

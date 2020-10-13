@@ -58,7 +58,7 @@ func (f *FrontMatter) Process(documentBlob []byte, node *api.Node) ([]byte, erro
 	// TODO: merge node + doc frontmatter per configurable strategy:
 	// - merge where node frontmatter entries win over document frontmatter
 	// - merge where document frontmatter entries win over node frontmatter
-	// - merge where document frontmatter are merged wiht node frontmatter ignoring duplicates (currently impl.)
+	// - merge where document frontmatter are merged with node frontmatter ignoring duplicates (currently impl.)
 	buf := bytes.NewBuffer([]byte{})
 	if fmBytes != nil {
 		buf.Write(fmBytes)

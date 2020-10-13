@@ -84,7 +84,7 @@ func RegisterClientMetrics(registry prometheus.Registerer) {
 	registry.MustRegister(clientCounter, clclientTLSLatencyVec, clientDNSLatencyVec, clientHistVec, clientInFlightGauge)
 }
 
-// ResetClientMetrics resets the HTTP client metrics. The functin is useful for designing self-contained unit tests
+// ResetClientMetrics resets the HTTP client metrics. The function is useful for designing self-contained unit tests
 // where the count of metrics matters.
 func ResetClientMetrics() {
 	clientCounter.Reset()

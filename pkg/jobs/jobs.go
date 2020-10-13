@@ -25,7 +25,7 @@ import (
 	klog "k8s.io/klog/v2"
 )
 
-// Job enques assignments for parallel processing and synchronous response
+// Job enqueues assignments for parallel processing and synchronous response
 type Job struct {
 	// ID is job identifier used in log messages
 	ID string
@@ -46,7 +46,7 @@ type Job struct {
 	// IsWorkerExitsOnEmptyQueue controls whether a worker exits right after its Work function is
 	// done and no more tasks are available in the queue, or will loop waiting for more tasks.
 	// Note that this flag does not prevent the worker from block waiting for a task. This
-	// can be interrupted only by the workqueue with a task or stop signal. However, after a taks
+	// can be interrupted only by the workqueue with a task or stop signal. However, after a task
 	// is processed it will be consulted whether to continue or exit before block waiting for
 	// another.
 	IsWorkerExitsOnEmptyQueue bool
@@ -170,7 +170,7 @@ func (j *Job) Dispatch(ctx context.Context, tasks []interface{}) *WorkerError {
 				stoppedWorkersCount++
 				if stoppedWorkersCount == 1 {
 					// at least one worker exited - we are done
-					// Unlock all others waiting to get a taks
+					// Unlock all others waiting to get a task
 					if stopped := j.Queue.Stop(); stopped {
 						// klog.V(6).Infof("Workqueue stopped\n")
 					}
@@ -208,7 +208,7 @@ func (j *Job) Dispatch(ctx context.Context, tasks []interface{}) *WorkerError {
 	return workerError
 }
 
-// blocks waiting untill the required amount of workers are started
+// blocks waiting until the required amount of workers are started
 func (j *Job) startWorkers(ctx context.Context, workersCount int, quitCh chan struct{}) <-chan *WorkerError {
 	var (
 		errcList = make([]<-chan *WorkerError, 0)

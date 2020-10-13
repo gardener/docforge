@@ -63,7 +63,7 @@ type ResourceLocator struct {
 }
 
 // String produces a GitHub website link to a resource from a ResourceLocator.
-// That's the format used to link а GitHub rеsource in the documentatiоn structure and pages.
+// That's the format used to link а GitHub resource in the documentation structure and pages.
 // Example: https://github.com/gardener/gardener/blob/master/docs/README.md
 func (r *ResourceLocator) String() string {
 	if r.Type == Wiki {

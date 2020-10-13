@@ -54,7 +54,7 @@ func NewReactor(ctx context.Context, options *Options) *reactor.Reactor {
 		ResourceDownloadWorkersCount: options.ResourceDownloadWorkersCount,
 		MarkdownFmt:                  options.MarkdownFmt,
 		Processor:                    nil,
-		ResourceHandlers:             initResourceHanlders(ctx, options),
+		ResourceHandlers:             initResourceHandlers(ctx, options),
 		DryRunWriter:                 dryRunWriters,
 		Resolve:                      options.Resolve,
 	}
@@ -97,9 +97,9 @@ func WithHugo(reactorOptions *reactor.Options, o *Options) {
 	reactorOptions.Writer = hugo.NewWriter(hugoOptions)
 }
 
-// initResourceHanlders initializes the resource handler
+// initResourceHandlers initializes the resource handler
 // objects used by reactors
-func initResourceHanlders(ctx context.Context, o *Options) []resourcehandlers.ResourceHandler {
+func initResourceHandlers(ctx context.Context, o *Options) []resourcehandlers.ResourceHandler {
 	rhs := []resourcehandlers.ResourceHandler{}
 	if o.GitHubTokens != nil {
 		if token, ok := o.GitHubTokens["github.com"]; ok {

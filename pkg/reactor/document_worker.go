@@ -40,7 +40,7 @@ type GenericReader struct {
 }
 
 // Read reads from the resource at the source URL delegating the
-// the actual operation to a suitable resource hadler
+// the actual operation to a suitable resource handler
 func (g *GenericReader) Read(ctx context.Context, source string) ([]byte, error) {
 	if handler := g.ResourceHandlers.Get(source); handler != nil {
 		return handler.Read(ctx, source)

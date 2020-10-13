@@ -16,7 +16,7 @@
 package api
 
 // Documentation is a documentation structure that can be serialized and deserialized
-// and parsed into a model supporting the tasks around building a concrete documentaiton
+// and parsed into a model supporting the tasks around building a concrete documentation
 // bundle.
 type Documentation struct {
 	// Root is the root node of this documentation structure
@@ -25,7 +25,7 @@ type Documentation struct {
 	// and the value is a node template. Nodes defined as variables can be resused
 	// by reference throughout the documentation structure to minimise duplicate
 	// node definitions. A reference to a variable is in the format `$variable-name`,
-	// where `varaible-name` is a key in this Variables map structure.
+	// where `variable-name` is a key in this Variables map structure.
 	//
 	// Note: WiP - proposed, not implemented yet.
 	Variables map[string]*Node `yaml:"variables,omitempty"`
@@ -37,7 +37,7 @@ type Documentation struct {
 // Node is a recursive, tree data structure representing documentation model.
 type Node struct {
 	parent *Node
-	// Name is the name of this node. If omited, the name is the resource name from
+	// Name is the name of this node. If omitted, the name is the resource name from
 	// Source as reported by an eligible ResourceHandler's Name() method.
 	// Node with multiple Source entries require name.
 	Name string `yaml:"name,omitempty"`
@@ -54,7 +54,7 @@ type Node struct {
 	// `path[#{semantic-block-selector}]`, where:
 	// - `path` is a valid resource locator for a document.
 	// - `semantic-block-selector`is an expression that selects semantic block
-	//   elements from the document similiar to CSS selectors (Note: WiP - proposed,
+	//   elements from the document similar to CSS selectors (Note: WiP - proposed,
 	//	 not implemented yet.).
 	//
 	// Examples:
@@ -82,9 +82,9 @@ type Node struct {
 	// nodes structure resource paths with `Nodes`.
 	// Note: WiP - proposed, not implemented yet.
 	NodeSelector *NodeSelector `yaml:"nodesSelector,omitempty"`
-	// Properties are a map of arbitary, key-value pairs to model custom,
+	// Properties are a map of arbitrary, key-value pairs to model custom,
 	// untyped node properties. They could be used to instruct specific ResourceHandlers
-	// and the serialization of the Node. For example the properyies member could be
+	// and the serialization of the Node. For example the properties member could be
 	// used to set the front-matter to markdowns for front-matter aware builders such
 	// as Hugo.
 	Properties map[string]interface{} `yaml:"properties,omitempty"`
@@ -186,10 +186,10 @@ type LocalityDomain struct {
 	// - An exact download name mapped to a download resource will be used
 	//   to name that resources when downloaded.
 	// - An expression with substitution variables can be used
-	//   to change the default pattern for generating donwloaded resouce
+	//   to change the default pattern for generating downloaded resource
 	//   names, which is $uuid.
 	//   The supported variables are:
-	//   - $name: the original name of the resouce
+	//   - $name: the original name of the resource
 	//   - $path: the original path of the resource in this domain (may be empty)
 	//   - $uuid: the identifier generated f=or the downloaded resource
 	//   - $ext:  the extension of the original resource (may be "")
@@ -201,7 +201,7 @@ type LocalityDomain struct {
 // to LocalityDomainValues
 type LocalityDomainMap map[string]*LocalityDomainValue
 
-// LocalityDomainValue encapsulates the memebers of a
+// LocalityDomainValue encapsulates the members of a
 // LocalityDomain entry value
 type LocalityDomainValue struct {
 	// Version sets the version of the resources that will
