@@ -3,14 +3,23 @@ package github
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
 	"sync"
+	"time"
+
+	"k8s.io/klog/v2"
 
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/google/go-github/v32/github"
+)
+
+var (
+	reHasTree = regexp.MustCompile("^(.*?)tree(.*)$")
 )
 
 // TreeEntryToGitHubLocator creates a ResourceLocator from a github.TreeEntry and shaAlias.
@@ -135,11 +144,9 @@ func (c *Cache) Get(path string) *ResourceLocator {
 // The resource type in the URL prefix {tree|blob} changes according to the resource
 // To keep the prefix valid it should alternate this path segment too.
 func HasURLPrefix(path, pathPrefix string) bool {
-	// TODO: make me global
-	reStrBlob := regexp.MustCompile(fmt.Sprintf("^(.*?)%s(.*)$", "tree"))
 	repStr := "${1}blob$2"
 	pathPrefixAsBlob := pathPrefix
-	pathPrefixAsBlob = reStrBlob.ReplaceAllString(pathPrefixAsBlob, repStr)
+	pathPrefixAsBlob = reHasTree.ReplaceAllString(pathPrefixAsBlob, repStr)
 	return strings.HasPrefix(path, pathPrefix) || strings.HasPrefix(path, pathPrefixAsBlob)
 }
 
@@ -170,19 +177,27 @@ func (c *Cache) Set(path string, entry *ResourceLocator) *ResourceLocator {
 
 // GitHub implements resourcehanlders#ResourceHandler
 type GitHub struct {
-	Client        *github.Client
-	cache         *Cache
-	acceptedHosts []string
+	Client               *github.Client
+	cache                *Cache
+	acceptedHosts        []string
+	rawusercontentClient *http.Client
 }
 
 // NewResourceHandler creates new GitHub ResourceHandler objects
 func NewResourceHandler(client *github.Client, acceptedHosts []string) resourcehandlers.ResourceHandler {
+	tr := &http.Transport{
+		MaxIdleConns:       10,
+		IdleConnTimeout:    30 * time.Second,
+		DisableCompression: true,
+	}
+
 	return &GitHub{
 		client,
 		&Cache{
 			cache: map[string]*ResourceLocator{},
 		},
 		acceptedHosts,
+		&http.Client{Transport: tr},
 	}
 }
 
@@ -208,7 +223,7 @@ func (gh *GitHub) URLToGitHubLocator(ctx context.Context, urlString string, reso
 		if ghRL, err = parse(urlString); err != nil {
 			return nil, err
 		}
-		if resolveAPIUrl {
+		if ghRL.Type != Wiki && resolveAPIUrl {
 			_p := strings.Split(ghRL.Path, "/")[0]
 			if _, found := nonSHAPathPrefixes[_p]; found {
 				return ghRL, nil
@@ -280,10 +295,28 @@ func (gh *GitHub) Read(ctx context.Context, uri string) ([]byte, error) {
 	if rl, err = gh.URLToGitHubLocator(ctx, uri, true); err != nil {
 		return nil, err
 	}
-	if rl != nil && rl.Type != Tree {
-		blob, _, err = gh.Client.Git.GetBlobRaw(ctx, rl.Owner, rl.Repo, rl.SHA)
-		if err != nil {
-			return nil, err
+	if rl != nil {
+		switch rl.Type {
+		case Blob:
+			{
+				blob, _, err = gh.Client.Git.GetBlobRaw(ctx, rl.Owner, rl.Repo, rl.SHA)
+				if err != nil {
+					return nil, err
+				}
+			}
+		case Wiki:
+			{
+				resp, err := gh.rawusercontentClient.Get(rl.String())
+				if err != nil {
+					return nil, err
+				}
+				defer resp.Body.Close()
+				return ioutil.ReadAll(resp.Body)
+			}
+		case Tree:
+			{
+				klog.Warningf("Attempted to read tree object from GitHub: %s. Only wiki and blob URls are supported", rl.String())
+			}
 		}
 	}
 	return blob, err

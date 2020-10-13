@@ -97,7 +97,7 @@ func (r *Reactor) Build(ctx context.Context, documentationRoot *api.Node, locali
 		case err, ok := <-errCh:
 			{
 				if ok {
-					errors = multierror.Append(err)
+					errors = multierror.Append(errors, err)
 					if r.FailFast {
 						loop = false
 					}

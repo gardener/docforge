@@ -2,7 +2,6 @@ package writers
 
 import (
 	"bytes"
-	"fmt"
 	"io/ioutil"
 	"testing"
 
@@ -75,5 +74,4 @@ func TestFormat(t *testing.T) {
 		t.Error(err.Error())
 	}
 	assert.Equal(t, out, string(bytes))
-	fmt.Printf("%s\n", string(bytes))
 }

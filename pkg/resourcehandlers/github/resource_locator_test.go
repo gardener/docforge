@@ -80,6 +80,19 @@ func Test_parse(t *testing.T) {
 			},
 			wantErr: nil,
 		},
+		{
+			name: "",
+			url:  "https://github.com/gardener/documentation/wiki/Architecture",
+			wantResourceLocator: &ResourceLocator{
+				Host:     "github.com",
+				Owner:    "gardener",
+				Repo:     "documentation",
+				Path:     "Architecture",
+				SHAAlias: "",
+				Type:     Wiki,
+			},
+			wantErr: nil,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

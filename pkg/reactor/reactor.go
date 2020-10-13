@@ -14,7 +14,7 @@ import (
 )
 
 // Options encapsulates the parameters for creating
-// new Reactor objects wiht NewReactor
+// new Reactor objects with NewReactor
 type Options struct {
 	MaxWorkersCount              int
 	MinWorkersCount              int

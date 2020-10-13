@@ -45,7 +45,7 @@ func (g *GenericReader) Read(ctx context.Context, source string) ([]byte, error)
 	if handler := g.ResourceHandlers.Get(source); handler != nil {
 		return handler.Read(ctx, source)
 	}
-	return nil, fmt.Errorf("failed to get handler")
+	return nil, fmt.Errorf("failed to get handler to read from %s", source)
 }
 
 // Work implements Worker#Work function
