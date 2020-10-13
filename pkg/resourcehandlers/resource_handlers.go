@@ -8,7 +8,7 @@ import (
 )
 
 // ResourceHandler does resource specific operations on a type of objects
-// identified by an uri schem that it accepts to handle
+// identified by an uri schema that it accepts to handle
 type ResourceHandler interface {
 	// Accepts manifests if this ResourceHandler can manage the type of resources
 	// identified by the URI scheme of uri.
@@ -43,7 +43,7 @@ type registry struct {
 }
 
 // NewRegistry creates Registry object, optionally loading it with
-// resurceHanbdlers if provided
+// resourceHandlers if provided
 func NewRegistry(resourceHandlers ...ResourceHandler) Registry {
 	r := &registry{
 		handlers: []ResourceHandler{},
@@ -70,8 +70,8 @@ func (r *registry) Get(uri string) ResourceHandler {
 	return nil
 }
 
-// Remove removes a ResourceHandler from regsitry. If no argument is provided
-// themethod will remove all registered ahdnlers
+// Remove removes a ResourceHandler from registry. If no argument is provided
+// the method will remove all registered handlers
 func (r *registry) Remove(resourceHandlers ...ResourceHandler) {
 	if len(resourceHandlers) == 0 {
 		r.handlers = []ResourceHandler{}

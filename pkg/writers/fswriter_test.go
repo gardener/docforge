@@ -58,7 +58,7 @@ func TestWrite(t *testing.T) {
 				b []byte
 			)
 			if b, err = ioutil.ReadFile(fPath); err != nil {
-				t.Errorf("unexppected error opening file %v", err)
+				t.Errorf("unexpected error opening file %v", err)
 			}
 			if !reflect.DeepEqual(b, []byte(tc.wantContent)) {
 				t.Errorf("expected content %v != %v", tc.wantContent, tc.wantContent)

@@ -305,7 +305,7 @@ func substitute(absLink string, node *api.Node) (ok bool, destination *string, t
 	}
 	if substitutes := node.LinksSubstitutes; substitutes != nil {
 		for substituteK, substituteV := range substitutes {
-			// remove trailing slasshes to avoid inequality only due to that
+			// remove trailing slashes to avoid inequality only due to that
 			l := strings.TrimSuffix(absLink, "/")
 			s := strings.TrimSuffix(substituteK, "/")
 			if s == l {

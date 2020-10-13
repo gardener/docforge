@@ -5,11 +5,11 @@ import (
 )
 
 // DocumentController is the functional interface for a controller
-// handling tasks for processing enqued documents. It ammends the
+// handling tasks for processing enqueued documents. It amends the
 // jobs.Controller interface with specific methods.
 type DocumentController interface {
 	jobs.Controller
-	// SetDownloadScope sets the scope for respurces considered "local"
+	// SetDownloadScope sets the scope for resources considered "local"
 	// and therefore downloaded and relatively linked
 	SetDownloadScope(scope *localityDomain)
 	// GetDownloadController is accessor for the DownloadController

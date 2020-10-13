@@ -28,11 +28,11 @@ type localityDomain struct {
 }
 type mapping map[string]*localityDomainValue
 
-// LocalityDomainValue encapsulates the memebers of a
+// LocalityDomainValue encapsulates the members of a
 // localityDomain entry value
 type localityDomainValue struct {
 	// Version is the version of the resources in this
-	// locality odmain
+	// locality domain
 	Version string
 	// Path defines the scope of this locality domain
 	// and is relative to it
@@ -154,7 +154,7 @@ func (ld localityDomain) MatchPathInLocality(link string, rhs resourcehandlers.R
 			}
 			return link, true
 		}
-		// check if in the same repo and then enforce verions rewrite
+		// check if in the same repo and then enforce versions rewrite
 		_s := strings.Split(prefix, "/")
 		_s = _s[:len(_s)-1]
 		repoPrefix := strings.Join(_s, "/")
@@ -204,7 +204,7 @@ func (ld localityDomain) GetDownloadedResourceName(u *urls.URL) string {
 				err     error
 			)
 			if matched, err = regexp.MatchString(substituteMatcher, k); err != nil {
-				klog.Warningf("download subsitution pattern match %s failed for %s\n", substituteMatcher, k)
+				klog.Warningf("download substitution pattern match %s failed for %s\n", substituteMatcher, k)
 				break
 			}
 			if matched {

@@ -123,7 +123,7 @@ func (r *Reactor) ResolveStructure(ctx context.Context, node *api.Node) error {
 		if err := handler.ResolveNodeSelector(ctx, node); err != nil {
 			return err
 		}
-		// remove node selctors after resolution
+		// remove node selectors after resolution
 		node.NodeSelector = nil
 	}
 	if len(node.Nodes) > 0 {

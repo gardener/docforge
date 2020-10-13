@@ -126,7 +126,7 @@ func cleanupNodeTree(node *api.Node) {
 
 // Cache is indexes GitHub TreeEntries by website resource URLs as keys,
 // mapping ResourceLocator objects to them.
-// TODO: implement me efficently and for parallel use
+// TODO: implement me efficiently and for parallel use
 type Cache struct {
 	cache map[string]*ResourceLocator
 	mux   sync.Mutex
@@ -211,7 +211,7 @@ func NewResourceHandler(client *github.Client, acceptedHosts []string) resourceh
 //
 // If resolveAPIUrl is true, GitHub API will be queried to populate the API URL for
 // that resource (its SHA cannot be inferred from the url). If it's false the APIUrl
-// property will be nil. In this case ctx can be omited too.
+// property will be nil. In this case ctx can be omitted too.
 func (gh *GitHub) URLToGitHubLocator(ctx context.Context, urlString string, resolveAPIUrl bool) (*ResourceLocator, error) {
 	var (
 		ghRL *ResourceLocator

@@ -143,7 +143,7 @@ func (n *Node) AddStats(s ...*Stat) {
 }
 
 // FindNodeByContentSource traverses up and then all around the
-// tree paths in the node's documentation strcuture, looking for
+// tree paths in the node's documentation structure, looking for
 // a node that has contentSource path nodeContentSource
 func FindNodeByContentSource(nodeContentSource string, node *Node) *Node {
 	if node == nil {

@@ -371,7 +371,7 @@ func TestRead(t *testing.T) {
 		defer cancel()
 		client, mux, serverURL, teardown := setup()
 		defer teardown()
-		// rewrite cached url keys host to match the mock sevrer
+		// rewrite cached url keys host to match the mock server
 		for k, v := range c.cache.cache {
 			c.cache.cache[strings.Replace(k, "https://github.com", serverURL, 1)] = v
 		}

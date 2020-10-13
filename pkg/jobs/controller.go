@@ -5,13 +5,13 @@ import (
 	"sync"
 )
 
-// Controller is the functional interface of worker controllers for workeque.
+// Controller is the functional interface of worker controllers for work queue.
 // It captures a controller lifecycle from its start (Start), through adding
 // tasks for workers (Enqueue) to its immediate (Shutdown) or gracefull end (Stop).
 type Controller interface {
 	// Start starts a controller that reports errors on errCh and
 	// optionally stopped status on shutdownCh if the channel is provided.
-	// The controller blokcs waiting on tasks in its queue untill
+	// The controller blocks waiting on tasks in its queue until
 	// interrupted by context (ctx) or a Shutdown/Stop function call.
 	Start(ctx context.Context, errCh chan<- error, shutdownCh chan struct{})
 	// Enqueue adds a task to this controller's queue for workers to

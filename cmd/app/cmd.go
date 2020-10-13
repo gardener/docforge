@@ -68,13 +68,13 @@ func (flags *cmdFlags) Configure(command *cobra.Command) {
 	command.Flags().StringVar(&flags.resourcesPath, "resources-download-path", "/__resources",
 		"Resources download path.")
 	command.Flags().StringVar(&flags.ghOAuthToken, "github-oauth-token", "",
-		"GitHub personal token authorizing reading from GitHub repos.")
+		"GitHub personal token authorizing reading from GitHub repositories.")
 	command.Flags().BoolVar(&flags.failFast, "fail-fast", false,
 		"Fail-fast vs fault tolerant operation.")
 	command.Flags().BoolVar(&flags.markdownFmt, "markdownfmt", true,
 		"Applies formatting rules to source markdown.")
 	command.Flags().BoolVar(&flags.dryRun, "dry-run", false,
-		"Runs the command end-to-end but instead of writing files, it will output the proejcted file/folder hierarchy to the standard output and statistics for the processing of each file.")
+		"Runs the command end-to-end but instead of writing files, it will output the projected file/folder hierarchy to the standard output and statistics for the processing of each file.")
 	command.Flags().BoolVar(&flags.resolve, "resolve", false,
 		"Resolves the documentation structure and prints it to the standard output. The resolution expands nodeSelector constructs into node hierarchies.")
 	command.Flags().IntVar(&flags.minWorkersCount, "min-workers", 10,
@@ -83,7 +83,7 @@ func (flags *cmdFlags) Configure(command *cobra.Command) {
 		"Maximum number of parallel workers.")
 	command.Flags().IntVar(&flags.resourceDownloadWorkersCount, "download-workers", 10,
 		"Number of workers downloading document resources in parallel.")
-	// Disabled unitl "fatal error: concurrent map writes" is fixed
+	// Disabled until "fatal error: concurrent map writes" is fixed
 	// command.Flags().BoolVar(&flags.clientMetering, "metering", false,
 	// 	"Enables client-side networking metering to produce Prometheus compliant series.")
 	command.Flags().BoolVar(&flags.hugo, "hugo", false,
@@ -104,7 +104,7 @@ func NewOptions(f *cmdFlags) *Options {
 	)
 	if len(f.ghOAuthToken) > 0 {
 		tokens = map[string]string{
-			// TODO: Currently only github is passed and hardcoded, because there is no flag format supporitn multiple tokens
+			// TODO: Currently only github is passed and hardcoded, because there is no flag format supporting multiple tokens
 			"github.com": f.ghOAuthToken,
 		}
 	}
