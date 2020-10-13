@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"io"
 	"path/filepath"
 
 	"github.com/gardener/docforge/pkg/hugo"
@@ -30,6 +31,8 @@ type Options struct {
 	MarkdownFmt                  bool
 	GitHubTokens                 map[string]string
 	Metering                     *Metering
+	DryRunWriter                 io.Writer
+	Resolve                      bool
 	Hugo                         *hugo.Options
 }
 
@@ -41,6 +44,7 @@ type Metering struct {
 
 // NewReactor creates a Reactor from Options
 func NewReactor(ctx context.Context, options *Options) *reactor.Reactor {
+	dryRunWriters := writers.NewDryRunWritersFactory(options.DryRunWriter)
 	o := &reactor.Options{
 		MaxWorkersCount:              options.MaxWorkersCount,
 		MinWorkersCount:              options.MinWorkersCount,
@@ -50,13 +54,20 @@ func NewReactor(ctx context.Context, options *Options) *reactor.Reactor {
 		ResourceDownloadWorkersCount: options.ResourceDownloadWorkersCount,
 		MarkdownFmt:                  options.MarkdownFmt,
 		Processor:                    nil,
-		Writer: &writers.FSWriter{
+		ResourceHandlers:             initResourceHanlders(ctx, options),
+		DryRunWriter:                 dryRunWriters,
+		Resolve:                      options.Resolve,
+	}
+	if options.DryRunWriter != nil {
+		o.Writer = dryRunWriters.GetWriter(options.DestinationPath)
+		o.ResourceDownloadWriter = dryRunWriters.GetWriter(filepath.Join(options.DestinationPath, options.ResourcesPath))
+	} else {
+		o.Writer = &writers.FSWriter{
 			Root: options.DestinationPath,
-		},
-		ResourceDownloadWriter: &writers.FSWriter{
+		}
+		o.ResourceDownloadWriter = &writers.FSWriter{
 			Root: filepath.Join(options.DestinationPath, options.ResourcesPath),
-		},
-		ResourceHandlers: initResourceHanlders(ctx, options),
+		}
 	}
 
 	if options.Hugo != nil {
@@ -76,8 +87,12 @@ func WithHugo(reactorOptions *reactor.Options, o *Options) {
 			hugo.NewProcessor(hugoOptions),
 		},
 	}
-	hugoOptions.Writer = &writers.FSWriter{
-		Root: filepath.Join(o.DestinationPath),
+	if o.DryRunWriter != nil {
+		hugoOptions.Writer = reactorOptions.Writer
+	} else {
+		hugoOptions.Writer = &writers.FSWriter{
+			Root: filepath.Join(o.DestinationPath),
+		}
 	}
 	reactorOptions.Writer = hugo.NewWriter(hugoOptions)
 }

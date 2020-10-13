@@ -109,6 +109,13 @@ func (c *NodeContentProcessor) reconcileMDLinks(ctx context.Context, docNode *ap
 				return destination, text, title, err
 			}
 		}
+		if docNode != nil {
+			if _destination != string(destination) {
+				recordLinkStats(docNode, "Links", fmt.Sprintf("%s -> %s", string(destination), _destination))
+			} else {
+				recordLinkStats(docNode, "Links", "")
+			}
+		}
 		if download != nil {
 			c.schedule(ctx, download, contentSourcePath)
 		}
@@ -144,6 +151,13 @@ func (c *NodeContentProcessor) reconcileHTMLLinks(ctx context.Context, docNode *
 			}
 			destination, _, _, download, err := c.resolveLink(ctx, docNode, url, contentSourcePath)
 			klog.V(6).Infof("[%s] %s -> %s\n", contentSourcePath, url, destination)
+			if docNode != nil {
+				if url != destination {
+					recordLinkStats(docNode, "Links", fmt.Sprintf("%s -> %s", url, destination))
+				} else {
+					recordLinkStats(docNode, "Links", "")
+				}
+			}
 			if download != nil {
 				c.schedule(ctx, download, contentSourcePath)
 			}
@@ -157,6 +171,7 @@ func (c *NodeContentProcessor) reconcileHTMLLinks(ctx context.Context, docNode *
 	return documentBytes, errors.ErrorOrNil()
 }
 
+// Download represents a resource that can be downloaded
 type Download struct {
 	url          string
 	resourceName string
@@ -167,6 +182,8 @@ func (c *NodeContentProcessor) resolveLink(ctx context.Context, node *api.Node, 
 	var (
 		text, title, substituteDestination *string
 		hasSubstition                      bool
+		inLD                               bool
+		absLink                            string
 	)
 	if strings.HasPrefix(destination, "#") || strings.HasPrefix(destination, "mailto:") {
 		return destination, nil, nil, nil, nil
@@ -196,11 +213,13 @@ func (c *NodeContentProcessor) resolveLink(ctx context.Context, node *api.Node, 
 	}
 	_a := absLink
 
-	recolvedLD := c.localityDomain
+	resolvedLD := c.localityDomain
 	if node != nil {
-		recolvedLD = resolveLocalityDomain(node, c.localityDomain)
+		resolvedLD = resolveLocalityDomain(node, c.localityDomain)
 	}
-	absLink, inLD := recolvedLD.MatchPathInLocality(absLink, c.ResourceHandlers)
+	if resolvedLD != nil {
+		absLink, inLD = resolvedLD.MatchPathInLocality(absLink, c.ResourceHandlers)
+	}
 	if _a != absLink {
 		klog.V(6).Infof("[%s] Link converted %s -> %s\n", contentSourcePath, _a, absLink)
 	}
@@ -227,7 +246,7 @@ func (c *NodeContentProcessor) resolveLink(ctx context.Context, node *api.Node, 
 	// and if applicable their destination is updated as relative
 	// path to predefined location for resources
 	if absLink != "" && inLD {
-		resourceName := c.generateResourceName(absLink, recolvedLD)
+		resourceName := c.generateResourceName(absLink, resolvedLD)
 		_d := destination
 		destination = buildDestination(node, resourceName, c.resourcesRoot)
 		if _d != destination {
@@ -295,4 +314,37 @@ func substitute(absLink string, node *api.Node) (ok bool, destination *string, t
 		}
 	}
 	return false, nil, nil, nil
+}
+
+// recordLinkStats records link stats for a node
+func recordLinkStats(node *api.Node, title, details string) {
+	var (
+		stat *api.Stat
+	)
+	nodeStats := node.GetStats()
+	if nodeStats != nil {
+		for _, _stat := range nodeStats {
+			if _stat.Title == title {
+				stat = _stat
+				break
+			}
+		}
+	}
+	if stat == nil {
+		stat = &api.Stat{
+			Title: title,
+		}
+		if len(details) > 0 {
+			stat.Details = []string{details}
+		} else {
+			stat.Details = []string{}
+		}
+		stat.Figures = fmt.Sprintf("%d link rewrites", len(stat.Details))
+		node.AddStats(stat)
+		return
+	}
+	if len(details) > 0 {
+		stat.Details = append(stat.Details, details)
+	}
+	stat.Figures = fmt.Sprintf("%d link rewrites", len(stat.Details))
 }

@@ -3,6 +3,7 @@ package reactor
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/gardener/docforge/pkg/processors"
 	"k8s.io/klog/v2"
@@ -26,6 +27,8 @@ type Options struct {
 	ResourceDownloadWriter writers.Writer
 	Writer                 writers.Writer
 	ResourceHandlers       []resourcehandlers.ResourceHandler
+	DryRunWriter           writers.DryRunWriter
+	Resolve                bool
 }
 
 // NewReactor creates a Reactor from Options
@@ -44,6 +47,8 @@ func NewReactor(o *Options) *Reactor {
 		ResourceHandlers:   rhRegistry,
 		DocController:      docController,
 		DownloadController: downloadController,
+		DryRunWriter:       o.DryRunWriter,
+		Resolve:            o.Resolve,
 	}
 	return r
 }
@@ -55,30 +60,37 @@ type Reactor struct {
 	localityDomain     *localityDomain
 	DocController      DocumentController
 	DownloadController DownloadController
+	DryRunWriter       writers.DryRunWriter
+	Resolve            bool
 }
 
 // Run starts build operation on docStruct
 func (r *Reactor) Run(ctx context.Context, docStruct *api.Documentation, dryRun bool) error {
-	var err error
-	if err := r.Resolve(ctx, docStruct.Root); err != nil {
+	var (
+		err error
+		ld  *localityDomain
+	)
+	if err := r.ResolveStructure(ctx, docStruct.Root); err != nil {
 		return err
 	}
 
-	ld := copyLocalityDomain(docStruct.LocalityDomain)
-	if ld == nil || len(ld.mapping) == 0 {
-		if ld, err = localityDomainFromNode(docStruct.Root, r.ResourceHandlers); err != nil {
-			return err
+	if docStruct.LocalityDomain != nil {
+		ld = copyLocalityDomain(docStruct.LocalityDomain)
+		if ld == nil || len(ld.mapping) == 0 {
+			if ld, err = localityDomainFromNode(docStruct.Root, r.ResourceHandlers); err != nil {
+				return err
+			}
+			r.localityDomain = ld
 		}
-		r.localityDomain = ld
 	}
 
-	if dryRun {
+	if r.Resolve {
 		s, err := api.Serialize(docStruct)
 		if err != nil {
 			return err
 		}
-		fmt.Println(s)
-		return nil
+		os.Stdout.Write([]byte(s))
+		os.Stdout.Write([]byte("\n\n"))
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -89,15 +101,19 @@ func (r *Reactor) Run(ctx context.Context, docStruct *api.Documentation, dryRun 
 		return err
 	}
 
+	if dryRun {
+		r.DryRunWriter.Flush()
+	}
+
 	return nil
 }
 
-// Resolve builds the subnodes hierarchy of a node based on the natural nodes
+// ResolveStructure builds the subnodes hierarchy of a node based on the natural nodes
 // hierarchy and on rules such as those in NodeSelector.
 // The node hierarchy is resolved by an appropriate handler selected based
 // on the NodeSelector path URI
 // The resulting model is the actual flight plan for replicating resources.
-func (r *Reactor) Resolve(ctx context.Context, node *api.Node) error {
+func (r *Reactor) ResolveStructure(ctx context.Context, node *api.Node) error {
 	node.SetParentsDownwards()
 	if node.NodeSelector != nil {
 		var handler resourcehandlers.ResourceHandler
@@ -107,10 +123,12 @@ func (r *Reactor) Resolve(ctx context.Context, node *api.Node) error {
 		if err := handler.ResolveNodeSelector(ctx, node); err != nil {
 			return err
 		}
+		// remove node selctors after resolution
+		node.NodeSelector = nil
 	}
 	if len(node.Nodes) > 0 {
 		for _, n := range node.Nodes {
-			if err := r.Resolve(ctx, n); err != nil {
+			if err := r.ResolveStructure(ctx, n); err != nil {
 				return err
 			}
 		}

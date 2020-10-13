@@ -3,6 +3,8 @@ package app
 import (
 	"context"
 	"flag"
+	"io"
+	"os"
 
 	"github.com/gardener/docforge/pkg/hugo"
 	"github.com/spf13/cobra"
@@ -20,6 +22,7 @@ type cmdFlags struct {
 	markdownFmt                  bool
 	ghOAuthToken                 string
 	dryRun                       bool
+	resolve                      bool
 	clientMetering               bool
 	hugo                         bool
 	hugoPrettyUrls               bool
@@ -71,7 +74,9 @@ func (flags *cmdFlags) Configure(command *cobra.Command) {
 	command.Flags().BoolVar(&flags.markdownFmt, "markdownfmt", true,
 		"Applies formatting rules to source markdown.")
 	command.Flags().BoolVar(&flags.dryRun, "dry-run", false,
-		"Resolves and prints the resolved documentation structure without downloading anything.")
+		"Runs the command end-to-end but instead of writing files, it will output the proejcted file/folder hierarchy to the standard output and statistics for the processing of each file.")
+	command.Flags().BoolVar(&flags.resolve, "resolve", false,
+		"Resolves the documentation structure and prints it to the standard output. The resolution expands nodeSelector constructs into node hierarchies.")
 	command.Flags().IntVar(&flags.minWorkersCount, "min-workers", 10,
 		"Minimum number of parallel workers.")
 	command.Flags().IntVar(&flags.maxWorkersCount, "max-workers", 25,
@@ -92,9 +97,10 @@ func (flags *cmdFlags) Configure(command *cobra.Command) {
 // NewOptions creates an options object from flags
 func NewOptions(f *cmdFlags) *Options {
 	var (
-		tokens      map[string]string
-		metering    *Metering
-		hugoOptions *hugo.Options
+		tokens       map[string]string
+		metering     *Metering
+		hugoOptions  *hugo.Options
+		dryRunWriter io.Writer
 	)
 	if len(f.ghOAuthToken) > 0 {
 		tokens = map[string]string{
@@ -115,6 +121,10 @@ func NewOptions(f *cmdFlags) *Options {
 		}
 	}
 
+	if f.dryRun {
+		dryRunWriter = os.Stdout
+	}
+
 	return &Options{
 		DestinationPath:              f.destinationPath,
 		FailFast:                     f.failFast,
@@ -125,6 +135,8 @@ func NewOptions(f *cmdFlags) *Options {
 		MarkdownFmt:                  f.markdownFmt,
 		GitHubTokens:                 tokens,
 		Metering:                     metering,
+		DryRunWriter:                 dryRunWriter,
+		Resolve:                      f.resolve,
 		Hugo:                         hugoOptions,
 	}
 }

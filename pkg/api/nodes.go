@@ -130,6 +130,18 @@ func (n *Node) Peers() []*Node {
 	return peers
 }
 
+// GetStats returns statistics for this node
+func (n *Node) GetStats() []*Stat {
+	return n.stats
+}
+
+// AddStats appends Stats
+func (n *Node) AddStats(s ...*Stat) {
+	for _, stat := range s {
+		n.stats = append(n.stats, stat)
+	}
+}
+
 // FindNodeByContentSource traverses up and then all around the
 // tree paths in the node's documentation strcuture, looking for
 // a node that has contentSource path nodeContentSource
