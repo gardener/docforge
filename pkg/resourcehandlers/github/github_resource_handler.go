@@ -116,13 +116,36 @@ func buildNodes(node *api.Node, childResourceLocators []*ResourceLocator, cache 
 	}
 }
 
+// - remove contentSources that reference tree objects. They are used
+//   internally to build the structure but are not a valid contentSource
+// - remove empty nodes that do not contain markdown. The build algorithm
+//   is blind for the content of a node and leaves nodes that are folders
+//   containing for example images only adn thus irrelevant to the
+//   documentation structure
 func cleanupNodeTree(node *api.Node) {
+	if len(node.ContentSelectors) > 0 {
+		source := node.ContentSelectors[0].Source
+		if rl, _ := parse(source); rl.Type == Tree {
+			node.ContentSelectors = nil
+		}
+	}
 	for _, n := range node.Nodes {
 		cleanupNodeTree(n)
 	}
+	childrenCopy := make([]*api.Node, len(node.Nodes))
 	if len(node.Nodes) > 0 {
-		node.ContentSelectors = nil
+		copy(childrenCopy, node.Nodes)
 	}
+	for i, n := range node.Nodes {
+		if n.ContentSelectors == nil && len(n.Nodes) == 0 {
+			childrenCopy = removeNode(childrenCopy, i)
+		}
+		node.Nodes = childrenCopy
+	}
+}
+
+func removeNode(n []*api.Node, i int) []*api.Node {
+	return append(n[:i], n[i+1:]...)
 }
 
 // Cache is indexes GitHub TreeEntries by website resource URLs as keys,
