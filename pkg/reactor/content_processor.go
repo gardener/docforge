@@ -98,7 +98,7 @@ func (c *NodeContentProcessor) ReconcileLinks(ctx context.Context, node *api.Nod
 
 func (c *NodeContentProcessor) reconcileMDLinks(ctx context.Context, docNode *api.Node, contentBytes []byte, contentSourcePath string) ([]byte, error) {
 	var errors *multierror.Error
-	contentBytes, _ = markdown.UpdateLinkRefs(contentBytes, func(destination, text, title []byte) ([]byte, []byte, []byte, error) {
+	contentBytes, _ = markdown.UpdateLinkRefs(contentBytes, func(markdownType markdown.Type, destination, text, title []byte) ([]byte, []byte, []byte, error) {
 		var (
 			_destination  string
 			_text, _title *string
@@ -108,6 +108,13 @@ func (c *NodeContentProcessor) reconcileMDLinks(ctx context.Context, docNode *ap
 		if _destination, _text, _title, download, err = c.resolveLink(ctx, docNode, string(destination), contentSourcePath); err != nil {
 			errors = multierror.Append(err)
 			if c.failFast {
+				return destination, text, title, err
+			}
+		}
+		// rewrite abs links to embedded images to their raw format if necessary, to
+		// ensure they are embedable
+		if c.rewriteEmbedded && markdownType == markdown.Image {
+			if _destination, err = c.rawImage(_destination); err != nil {
 				return destination, text, title, err
 			}
 		}
@@ -268,19 +275,34 @@ func (c *NodeContentProcessor) resolveLink(ctx context.Context, node *api.Node, 
 		return destination, text, title, &Download{absLink, resourceName}, nil
 	}
 
-	if c.rewriteEmbedded {
-		// rewrite abs links to embedded objects to their raw format if necessary, to
-		// ensure they are embedable
-		if absLink, err = handler.GetRawFormatLink(absLink); err != nil {
-			return "", text, title, nil, err
-		}
-	}
-
 	if destination != absLink {
 		klog.V(6).Infof("[%s] %s -> %s\n", contentSourcePath, destination, absLink)
 	}
 
 	return absLink, text, title, nil, nil
+}
+
+func (c *NodeContentProcessor) rawImage(src string) (string, error) {
+	var (
+		u   *url.URL
+		err error
+	)
+	if u, err = url.Parse(src); err != nil {
+		return src, err
+	}
+	if !u.IsAbs() {
+		return src, nil
+	}
+	handler := c.ResourceHandlers.Get(src)
+	if handler == nil {
+		return src, nil
+	}
+	// rewrite abs links to embedded objects to their raw format if necessary, to
+	// ensure they are embedable
+	if src, err = handler.GetRawFormatLink(src); err != nil {
+		return src, err
+	}
+	return src, nil
 }
 
 // Builds destination path for links from node to resource in root path

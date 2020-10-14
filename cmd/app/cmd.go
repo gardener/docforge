@@ -42,7 +42,7 @@ func NewCommand(ctx context.Context, cancel context.CancelFunc) *cobra.Command {
 			doc := Manifest(flags.documentationManifestPath)
 			reactor := NewReactor(ctx, options)
 			if err := reactor.Run(ctx, doc, flags.dryRun); err != nil {
-				panic(err)
+				klog.Errorf(err.Error())
 			}
 		},
 	}

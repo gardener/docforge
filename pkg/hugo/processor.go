@@ -43,7 +43,7 @@ func (f *Processor) Process(documentBlob []byte, node *api.Node) ([]byte, error)
 	if err != nil {
 		return nil, err
 	}
-	if documentBlob, err = mdutil.UpdateLinkRefs(contentBytes, func(destination, text, title []byte) ([]byte, []byte, []byte, error) {
+	if documentBlob, err = mdutil.UpdateLinkRefs(contentBytes, func(markdownType mdutil.Type, destination, text, title []byte) ([]byte, []byte, []byte, error) {
 		return f.rewriteDestination(destination, text, title, node.Name)
 	}); err != nil {
 		return nil, err
