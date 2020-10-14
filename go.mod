@@ -22,4 +22,5 @@ require (
 	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776
 	k8s.io/apimachinery v0.19.2 // indirect
 	k8s.io/client-go v11.0.0+incompatible
+	k8s.io/klog/v2 v2.2.0
 )

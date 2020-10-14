@@ -57,6 +57,7 @@ func TreeEntryToGitHubLocator(treeEntry *github.TreeEntry, shaAlias string) *Res
 		panic(fmt.Sprintf("unexpected resource type %v: %v", treeEntry.GetType(), err))
 	}
 	return &ResourceLocator{
+		"https",
 		host,
 		owner,
 		repo,
@@ -175,7 +176,7 @@ func (c *Cache) Set(path string, entry *ResourceLocator) *ResourceLocator {
 	return entry
 }
 
-// GitHub implements resourcehanlders#ResourceHandler
+// GitHub implements resourcehandlers/ResourceHandler
 type GitHub struct {
 	Client               *github.Client
 	cache                *Cache
@@ -246,7 +247,7 @@ func (gh *GitHub) URLToGitHubLocator(ctx context.Context, urlString string, reso
 	return ghRL, nil
 }
 
-// Accept implements resourcehandlers.ResourceHandler#Accept
+// Accept implements resourcehandlers/ResourceHandler#Accept
 func (gh *GitHub) Accept(uri string) bool {
 	var (
 		url *url.URL
@@ -267,6 +268,7 @@ func (gh *GitHub) Accept(uri string) bool {
 }
 
 // ResolveNodeSelector recursively adds nodes built from tree entries to node
+// ResolveNodeSelector implements resourcehandlers/ResourceHandler#ResolveNodeSelector
 func (gh *GitHub) ResolveNodeSelector(ctx context.Context, node *api.Node) error {
 	var (
 		rl  *ResourceLocator
@@ -285,7 +287,7 @@ func (gh *GitHub) ResolveNodeSelector(ctx context.Context, node *api.Node) error
 	return nil
 }
 
-// Accept implements resourcehandlers.ResourceHandler#Read
+// Read implements resourcehandlers/ResourceHandler#Read
 func (gh *GitHub) Read(ctx context.Context, uri string) ([]byte, error) {
 	var (
 		blob []byte
@@ -315,14 +317,14 @@ func (gh *GitHub) Read(ctx context.Context, uri string) ([]byte, error) {
 			}
 		case Tree:
 			{
-				klog.Warningf("Attempted to read tree object from GitHub: %s. Only wiki and blob URls are supported", rl.String())
+				klog.Warningf("Attempted to read tree object from GitHub: %s. Only wiki pages and blob URLs are supported", rl.String())
 			}
 		}
 	}
 	return blob, err
 }
 
-// Name implements resourcehandlers.ResourceHandler#Name
+// Name implements resourcehandlers/ResourceHandler#Name
 func (gh *GitHub) Name(uri string) string {
 	var (
 		rl  *ResourceLocator
@@ -338,6 +340,7 @@ func (gh *GitHub) Name(uri string) string {
 }
 
 // BuildAbsLink builds the abs link from the source and the relative path
+// Implements resourcehandlers/ResourceHandler#BuildAbsLink
 func (gh *GitHub) BuildAbsLink(source, relPath string) (string, error) {
 	u, err := url.Parse(relPath)
 	if err != nil {
@@ -360,6 +363,7 @@ func (gh *GitHub) BuildAbsLink(source, relPath string) (string, error) {
 
 // GetLocalityDomainCandidate returns the provided source as locality domain candidate
 // parameters suitable for quering reactor/LocalityDomain#PathInLocality
+// Implements resourcehandlers/ResourceHandler#GetLocalityDomainCandidate
 func (gh *GitHub) GetLocalityDomainCandidate(source string) (key, path, version string, err error) {
 	var rl *ResourceLocator
 	if rl, err = parse(source); rl != nil {
@@ -376,6 +380,7 @@ func (gh *GitHub) GetLocalityDomainCandidate(source string) (key, path, version 
 
 // SetVersion replaces the version segment in the path of GitHub URLs if
 // applicable or returns the original URL unchanged if not.
+// Implements resourcehandlers/ResourceHandler#SetVersion
 func (gh *GitHub) SetVersion(absLink, version string) (string, error) {
 	var (
 		rl  *ResourceLocator
@@ -394,5 +399,20 @@ func (gh *GitHub) SetVersion(absLink, version string) (string, error) {
 		return rl.String(), nil
 	}
 
+	return absLink, nil
+}
+
+// GetRawFormatLink implements ResourceHandler#GetRawFormatLink
+func (gh *GitHub) GetRawFormatLink(absLink string) (string, error) {
+	var (
+		rl  *ResourceLocator
+		err error
+	)
+	if rl, err = parse(absLink); err != nil {
+		return "", err
+	}
+	if l := rl.GetRaw(); len(l) > 0 {
+		return l, nil
+	}
 	return absLink, nil
 }
