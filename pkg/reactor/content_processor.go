@@ -37,11 +37,12 @@ type NodeContentProcessor struct {
 	DownloadController DownloadController
 	failFast           bool
 	markdownFmt        bool
+	rewriteEmbedded    bool
 	ResourceHandlers   resourcehandlers.Registry
 }
 
 // NewNodeContentProcessor creates NodeContentProcessor objects
-func NewNodeContentProcessor(resourcesRoot string, ld *localityDomain, downloadJob DownloadController, failFast bool, markdownFmt bool, resourceHandlers resourcehandlers.Registry) *NodeContentProcessor {
+func NewNodeContentProcessor(resourcesRoot string, ld *localityDomain, downloadJob DownloadController, failFast bool, markdownFmt bool, rewriteEmbedded bool, resourceHandlers resourcehandlers.Registry) *NodeContentProcessor {
 	if ld == nil {
 		ld = &localityDomain{
 			mapping: map[string]*localityDomainValue{},
@@ -54,6 +55,7 @@ func NewNodeContentProcessor(resourcesRoot string, ld *localityDomain, downloadJ
 		DownloadController: downloadJob,
 		failFast:           failFast,
 		markdownFmt:        markdownFmt,
+		rewriteEmbedded:    rewriteEmbedded,
 		ResourceHandlers:   resourceHandlers,
 	}
 	return c
@@ -189,13 +191,24 @@ func (c *NodeContentProcessor) resolveLink(ctx context.Context, node *api.Node, 
 		return destination, nil, nil, nil, nil
 	}
 
+	// validate destination
+	u, err := url.Parse(destination)
+	if err != nil {
+		return "", text, title, nil, err
+	}
+	// can we handle this destination?
+	if u.IsAbs() && c.ResourceHandlers.Get(destination) == nil {
+		// It's a valid absolute link that is not in our scope. Leave it be.
+		return destination, text, title, nil, err
+	}
+
 	handler := c.ResourceHandlers.Get(contentSourcePath)
 	if handler == nil {
-		return destination, nil, nil, nil, nil
+		return destination, text, title, nil, nil
 	}
-	absLink, err := handler.BuildAbsLink(contentSourcePath, destination)
+	absLink, err = handler.BuildAbsLink(contentSourcePath, destination)
 	if err != nil {
-		return "", nil, nil, nil, err
+		return "", text, title, nil, err
 	}
 
 	if hasSubstition, substituteDestination, text, title = substitute(absLink, node); hasSubstition && substituteDestination != nil {
@@ -207,7 +220,7 @@ func (c *NodeContentProcessor) resolveLink(ctx context.Context, node *api.Node, 
 	}
 
 	//TODO: this is URI-specific (URLs only) - fixme
-	u, err := url.Parse(absLink)
+	u, err = url.Parse(absLink)
 	if err != nil {
 		return "", text, title, nil, err
 	}
@@ -254,6 +267,15 @@ func (c *NodeContentProcessor) resolveLink(ctx context.Context, node *api.Node, 
 		}
 		return destination, text, title, &Download{absLink, resourceName}, nil
 	}
+
+	if c.rewriteEmbedded {
+		// rewrite abs links to embedded objects to their raw format if necessary, to
+		// ensure they are embedable
+		if absLink, err = handler.GetRawFormatLink(absLink); err != nil {
+			return "", text, title, nil, err
+		}
+	}
+
 	if destination != absLink {
 		klog.V(6).Infof("[%s] %s -> %s\n", contentSourcePath, destination, absLink)
 	}

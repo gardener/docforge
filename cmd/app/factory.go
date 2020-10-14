@@ -29,6 +29,7 @@ type Options struct {
 	ResourcesPath                string
 	ResourceDownloadWorkersCount int
 	MarkdownFmt                  bool
+	RewriteEmbedded              bool
 	GitHubTokens                 map[string]string
 	Metering                     *Metering
 	DryRunWriter                 io.Writer
@@ -53,6 +54,7 @@ func NewReactor(ctx context.Context, options *Options) *reactor.Reactor {
 		ResourcesPath:                options.ResourcesPath,
 		ResourceDownloadWorkersCount: options.ResourceDownloadWorkersCount,
 		MarkdownFmt:                  options.MarkdownFmt,
+		RewriteEmbedded:              options.RewriteEmbedded,
 		Processor:                    nil,
 		ResourceHandlers:             initResourceHandlers(ctx, options),
 		DryRunWriter:                 dryRunWriters,

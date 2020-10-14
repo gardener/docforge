@@ -20,6 +20,7 @@ type cmdFlags struct {
 	resourcesPath                string
 	resourceDownloadWorkersCount int
 	markdownFmt                  bool
+	rewriteEmbedded              bool
 	ghOAuthToken                 string
 	dryRun                       bool
 	resolve                      bool
@@ -69,6 +70,8 @@ func (flags *cmdFlags) Configure(command *cobra.Command) {
 		"Resources download path.")
 	command.Flags().StringVar(&flags.ghOAuthToken, "github-oauth-token", "",
 		"GitHub personal token authorizing reading from GitHub repositories.")
+	command.Flags().BoolVar(&flags.rewriteEmbedded, "rewrite-embedded-to-raw", true,
+		"Rewrites absolute link destinations for embedded resources (images) to reference embeddable media (e.g. for GitHub - reference to a 'raw' version of an image).")
 	command.Flags().BoolVar(&flags.failFast, "fail-fast", false,
 		"Fail-fast vs fault tolerant operation.")
 	command.Flags().BoolVar(&flags.markdownFmt, "markdownfmt", true,
@@ -133,6 +136,7 @@ func NewOptions(f *cmdFlags) *Options {
 		ResourceDownloadWorkersCount: f.resourceDownloadWorkersCount,
 		ResourcesPath:                f.resourcesPath,
 		MarkdownFmt:                  f.markdownFmt,
+		RewriteEmbedded:              f.rewriteEmbedded,
 		GitHubTokens:                 tokens,
 		Metering:                     metering,
 		DryRunWriter:                 dryRunWriter,

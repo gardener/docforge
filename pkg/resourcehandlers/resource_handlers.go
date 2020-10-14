@@ -21,12 +21,17 @@ type ResourceHandler interface {
 	// Name resolves the name of the resource from a URI
 	// Example: https://github.com/owner/repo/tree/master/a/b/c.md -> c.md
 	Name(uri string) string
-	// ResolveRelLink should return an absolute path of a relative link in regards of the provided
+	// BuildAbsLink should return an absolute path of a relative link in regards of the provided
 	// source
 	BuildAbsLink(source, link string) (string, error)
+	// GetRawFormatLink returns a link to an embedable object (image) in raw format.
+	// If the provided link is not referencing an embedable object, the function
+	// returns absLink without changes.
+	GetRawFormatLink(absLink string) (string, error)
 	// GetLocalityDomainCandidate ...
 	GetLocalityDomainCandidate(source string) (key, path, version string, err error)
-	// SetVersion
+	// SetVersion sets version to absLink according to the API scheme. For GitHub
+	// for example this would replace e.g. the 'master' segment in the path with version
 	SetVersion(absLink, version string) (string, error)
 }
 

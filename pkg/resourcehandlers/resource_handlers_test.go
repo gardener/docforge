@@ -40,6 +40,10 @@ func (rh *TestResourceHandler) SetVersion(link, version string) (string, error) 
 	return link, nil
 }
 
+func (rh *TestResourceHandler) GetRawFormatLink(absLink string) (string, error) {
+	return absLink, nil
+}
+
 func TestGet(t *testing.T) {
 	nonAcceptingHandler := &TestResourceHandler{
 		accept: false,
@@ -74,7 +78,7 @@ func TestGet(t *testing.T) {
 			r := NewRegistry(tc.handlers...)
 			got := r.Get("")
 			if !reflect.DeepEqual(got, tc.want) {
-				t.Errorf("expected ResurceHandler %q != %q", got, tc.want)
+				t.Errorf("expected ResourceHandler %q != %q", got, tc.want)
 			}
 			r.Remove(tc.handlers...)
 		})

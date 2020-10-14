@@ -144,3 +144,7 @@ func (f *FakeResourceHandler) GetLocalityDomainCandidate(source string) (string,
 func (f *FakeResourceHandler) SetVersion(link, version string) (string, error) {
 	return link, nil
 }
+
+func (f *FakeResourceHandler) GetRawFormatLink(link string) (string, error) {
+	return link, nil
+}

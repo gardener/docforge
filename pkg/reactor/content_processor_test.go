@@ -84,7 +84,7 @@ func Test_processLink(t *testing.T) {
 			name:              "Relative link to resource NOT in locality domain",
 			destination:       "./image.png",
 			contentSourcePath: "https://github.com/gardener/gardener/blob/v1.10.0/docs/README.md",
-			wantDestination:   "https://github.com/gardener/gardener/blob/v1.10.0/docs/image.png",
+			wantDestination:   "https://github.com/gardener/gardener/raw/v1.10.0/docs/image.png",
 			wantDownloadURL:   "",
 			wantResourceName:  "",
 			wantErr:           nil,
@@ -128,7 +128,7 @@ func Test_processLink(t *testing.T) {
 			},
 			destination:       "../image.png",
 			contentSourcePath: "https://github.com/gardener/gardener/blob/v1.10.0/docs/README.md",
-			wantDestination:   "https://github.com/gardener/gardener/blob/v1.10.0/image.png",
+			wantDestination:   "https://github.com/gardener/gardener/raw/v1.10.0/image.png",
 			wantDownloadURL:   "",
 			wantResourceName:  "",
 			wantErr:           nil,
@@ -138,7 +138,7 @@ func Test_processLink(t *testing.T) {
 			node:              nodeA,
 			destination:       "https://github.com/owner/repo/blob/master/docs/image.png",
 			contentSourcePath: nodeA.ContentSelectors[0].Source,
-			wantDestination:   "https://github.com/owner/repo/blob/master/docs/image.png",
+			wantDestination:   "https://github.com/owner/repo/raw/master/docs/image.png",
 			wantDownloadURL:   "",
 			wantResourceName:  "",
 			wantErr:           nil,
@@ -291,6 +291,7 @@ func Test_processLink(t *testing.T) {
 				},
 				resourcesRoot:    "/__resources",
 				ResourceHandlers: resourcehandlers.NewRegistry(github.NewResourceHandler(nil, []string{"github.com"})),
+				rewriteEmbedded:  true,
 			}
 			if tt.mutate != nil {
 				tt.mutate(c)

@@ -64,6 +64,7 @@ func setup() (client *github.Client, mux *http.ServeMux, serverURL string, teard
 
 func TestUrlToGitHubLocator(t *testing.T) {
 	ghrl1 := &ResourceLocator{
+		"https",
 		"github.com",
 		"gardener",
 		"gardener",
@@ -73,6 +74,7 @@ func TestUrlToGitHubLocator(t *testing.T) {
 		"master",
 	}
 	ghrl2 := &ResourceLocator{
+		"https",
 		"github.com",
 		"gardener",
 		"gardener",
@@ -274,6 +276,7 @@ func TestResolveNodeSelector(t *testing.T) {
 
 func TestName(t *testing.T) {
 	ghrl1 := &ResourceLocator{
+		"https",
 		"github.com",
 		"gardener",
 		"gardener",
@@ -283,6 +286,7 @@ func TestName(t *testing.T) {
 		"",
 	}
 	ghrl2 := &ResourceLocator{
+		"https",
 		"github.com",
 		"gardener",
 		"gardener",
@@ -351,6 +355,7 @@ func TestRead(t *testing.T) {
 			&Cache{
 				cache: map[string]*ResourceLocator{
 					"https://github.com/gardener/gardener/blob/master/docs/README.md": &ResourceLocator{
+						"https",
 						"github.com",
 						"gardener",
 						"gardener",
