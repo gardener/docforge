@@ -1,6 +1,8 @@
 package markdown
 
 import (
+	"fmt"
+
 	"github.com/gardener/docforge/pkg/markdown/renderer"
 	"github.com/gomarkdown/markdown"
 	"github.com/gomarkdown/markdown/ast"
@@ -9,7 +11,30 @@ import (
 
 const (
 	extensions = parser.CommonExtensions | parser.AutoHeadingIDs
+
+	// Link is a link markdown type
+	Link Type = iota
+	// Image is an image markdown type
+	Image
 )
+
+// Type is an enumeration for markdown types
+type Type int
+
+func (m Type) String() string {
+	return [...]string{"link", "image"}[m]
+}
+
+// NewType creates a markdown Type enum from string
+func NewType(markdownTypeString string) (Type, error) {
+	switch markdownTypeString {
+	case "link":
+		return Link, nil
+	case "image":
+		return Image, nil
+	}
+	return 0, fmt.Errorf("Unknown markdown type string '%s'. Must be one of %v", markdownTypeString, []string{"link", "image"})
+}
 
 // OnLink is a callback function invoked on each link
 // by mardown#UpdateLinkRefs
@@ -20,7 +45,7 @@ const (
 // Nil text or title returned yield no change. Any other value replaces
 // the original. If a returned title is empty string an originally
 // existing title element will be completely removed
-type OnLink func(destination, text, title []byte) ([]byte, []byte, []byte, error)
+type OnLink func(markdownType Type, destination, text, title []byte) ([]byte, []byte, []byte, error)
 
 func removeDestination(node ast.Node) {
 	children := node.GetParent().GetChildren()
@@ -108,7 +133,7 @@ func UpdateLinkRefs(documentBlob []byte, callback OnLink) ([]byte, error) {
 			)
 			if l, ok := _node.(*ast.Link); ok {
 				text = l.GetChildren()[0].AsLeaf().Literal
-				if destination, text, title, err = callback(l.Destination, text, l.Title); err != nil {
+				if destination, text, title, err = callback(Link, l.Destination, text, l.Title); err != nil {
 					return ast.Terminate
 				}
 				if destination != nil {
@@ -126,7 +151,7 @@ func UpdateLinkRefs(documentBlob []byte, callback OnLink) ([]byte, error) {
 			}
 			if l, ok := _node.(*ast.Image); ok {
 				text = l.GetChildren()[0].AsLeaf().Literal
-				if destination, text, title, err = callback(l.Destination, text, l.Title); err != nil {
+				if destination, text, title, err = callback(Image, l.Destination, text, l.Title); err != nil {
 					return ast.Terminate
 				}
 				if destination != nil {

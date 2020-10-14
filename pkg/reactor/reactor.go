@@ -71,6 +71,14 @@ func (r *Reactor) Run(ctx context.Context, docStruct *api.Documentation, dryRun 
 		err error
 		ld  *localityDomain
 	)
+	ctx, cancel := context.WithCancel(ctx)
+	defer func() {
+		cancel()
+		if dryRun {
+			r.DryRunWriter.Flush()
+		}
+	}()
+
 	if err := r.ResolveStructure(ctx, docStruct.Root); err != nil {
 		return err
 	}
@@ -94,16 +102,9 @@ func (r *Reactor) Run(ctx context.Context, docStruct *api.Documentation, dryRun 
 		os.Stdout.Write([]byte("\n\n"))
 	}
 
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
 	klog.V(4).Info("Building documentation structure\n\n")
 	if err = r.Build(ctx, docStruct.Root, ld); err != nil {
 		return err
-	}
-
-	if dryRun {
-		r.DryRunWriter.Flush()
 	}
 
 	return nil
