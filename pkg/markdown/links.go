@@ -53,28 +53,33 @@ func removeDestination(node ast.Node) {
 	if idx > -1 {
 		if link, ok := node.(*ast.Link); ok {
 			textNode := link.Children[0]
-			if textNode != nil && len(textNode.AsLeaf().Literal) > 0 {
-				// if prev sibling is text node, add this link text to it
-				if idx > 0 {
-					_n := children[idx-1]
-					if t, ok := _n.(*ast.Text); ok {
-						t.Literal = append(t.Literal, textNode.AsLeaf().Literal...)
-						children = removeNode(children, idx)
-						node.GetParent().SetChildren(children)
-						return
+			if textNode != nil {
+				if len(textNode.AsLeaf().Literal) > 0 {
+					// if prev sibling is text node, add this link text to it
+					if idx > 0 {
+						_n := children[idx-1]
+						if t, ok := _n.(*ast.Text); ok {
+							t.Literal = append(t.Literal, textNode.AsLeaf().Literal...)
+							children = removeNode(children, idx)
+							node.GetParent().SetChildren(children)
+							return
+						}
 					}
-				}
-				// if next sibling is text node, add this link text to it
-				if idx < len(children)-1 {
-					_n := children[idx+1]
-					if t, ok := _n.(*ast.Text); ok {
-						t.Literal = append(t.Literal, textNode.AsLeaf().Literal...)
-						children = removeNode(children, idx)
-						node.GetParent().SetChildren(children)
-						return
+					// if next sibling is text node, add this link text to it
+					if idx < len(children)-1 {
+						_n := children[idx+1]
+						if t, ok := _n.(*ast.Text); ok {
+							t.Literal = append(t.Literal, textNode.AsLeaf().Literal...)
+							children = removeNode(children, idx)
+							node.GetParent().SetChildren(children)
+							return
+						}
 					}
+					node.GetParent().AsContainer().Children[idx] = textNode
+					return
 				}
-				node.GetParent().AsContainer().Children[idx] = textNode
+				children = removeNode(children, idx)
+				node.GetParent().SetChildren(children)
 				return
 			}
 		}
@@ -100,7 +105,7 @@ func nodeIndex(node ast.Node) int {
 	return idx
 }
 
-func updateText(node ast.Node, text []byte) {
+func setText(node ast.Node, text []byte) {
 	idx := nodeIndex(node)
 	if idx > -1 {
 		if link, ok := node.(*ast.Link); ok {
@@ -121,7 +126,7 @@ func updateText(node ast.Node, text []byte) {
 // If a callback returns "" for a destination, this is interpreted as
 // request to remove the link destination and leave only the link text or in
 // case it's an image - to remvoe it completely.
-// TODO: failfast vs fault tolerance support
+// TODO: failfast vs fault tolerance support?
 func UpdateLinkRefs(documentBlob []byte, callback OnLink) ([]byte, error) {
 	mdParser := parser.NewWithExtensions(extensions)
 	document := markdown.Parse(documentBlob, mdParser)
@@ -136,17 +141,7 @@ func UpdateLinkRefs(documentBlob []byte, callback OnLink) ([]byte, error) {
 				if destination, text, title, err = callback(Link, l.Destination, text, l.Title); err != nil {
 					return ast.Terminate
 				}
-				if destination != nil {
-					updateText(_node, text)
-				}
-				if destination == nil {
-					removeDestination(l)
-					return ast.GoToNext
-				}
-				l.Destination = destination
-				if title != nil {
-					l.Title = title
-				}
+				updateLink(_node, destination, text, title)
 				return ast.GoToNext
 			}
 			if l, ok := _node.(*ast.Image); ok {
@@ -154,17 +149,7 @@ func UpdateLinkRefs(documentBlob []byte, callback OnLink) ([]byte, error) {
 				if destination, text, title, err = callback(Image, l.Destination, text, l.Title); err != nil {
 					return ast.Terminate
 				}
-				if destination != nil {
-					updateText(_node, text)
-				}
-				if destination == nil {
-					removeDestination(l)
-					return ast.GoToNext
-				}
-				l.Destination = destination
-				if title != nil {
-					l.Title = title
-				}
+				updateLink(_node, destination, text, title)
 				return ast.GoToNext
 			}
 		}
@@ -175,4 +160,27 @@ func UpdateLinkRefs(documentBlob []byte, callback OnLink) ([]byte, error) {
 	})
 	documentBlob = markdown.Render(document, r)
 	return documentBlob, nil
+}
+
+func updateLink(node ast.Node, destination, text, title []byte) {
+	if text != nil {
+		setText(node, text)
+	}
+	if destination == nil {
+		removeDestination(node)
+		return
+	}
+	if l, ok := node.(*ast.Link); ok {
+		l.Destination = destination
+		if title != nil {
+			l.Title = title
+		}
+		return
+	}
+	if l, ok := node.(*ast.Image); ok {
+		l.Destination = destination
+		if title != nil {
+			l.Title = title
+		}
+	}
 }
