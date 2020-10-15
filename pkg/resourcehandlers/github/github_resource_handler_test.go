@@ -15,6 +15,7 @@ import (
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/util/tests"
 	"github.com/google/go-github/v32/github"
+	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -437,7 +438,6 @@ func TestGitHub_ResolveRelLink(t *testing.T) {
 }
 
 func TestGetLocalityDomainCandidate(t *testing.T) {
-
 	tests := []struct {
 		name        string
 		link        string
@@ -471,6 +471,95 @@ func TestGetLocalityDomainCandidate(t *testing.T) {
 			if gotPath != tt.wantPath {
 				t.Errorf("path %v!=%v", gotPath, tt.wantPath)
 			}
+		})
+	}
+}
+
+func TestCleanupNodeTree(t *testing.T) {
+	tests := []struct {
+		name     string
+		node     *api.Node
+		wantNode *api.Node
+	}{
+		{
+			name: "",
+			node: &api.Node{
+				Name: "00",
+				ContentSelectors: []api.ContentSelector{
+					api.ContentSelector{
+						Source: "https://github.com/gardener/gardener/tree/master/docs/00",
+					},
+				},
+				Nodes: []*api.Node{
+					&api.Node{
+						Name: "01",
+						ContentSelectors: []api.ContentSelector{
+							api.ContentSelector{
+								Source: "https://github.com/gardener/gardener/blob/master/docs/01.md",
+							},
+						},
+					},
+					&api.Node{
+						Name: "02",
+						ContentSelectors: []api.ContentSelector{
+							api.ContentSelector{
+								Source: "https://github.com/gardener/gardener/tree/master/docs/02",
+							},
+						},
+						Nodes: []*api.Node{
+							&api.Node{
+								Name: "021",
+								ContentSelectors: []api.ContentSelector{
+									api.ContentSelector{
+										Source: "https://github.com/gardener/gardener/blob/master/docs/021.md",
+									},
+								},
+							},
+						},
+					},
+					&api.Node{
+						Name: "03",
+						ContentSelectors: []api.ContentSelector{
+							api.ContentSelector{
+								Source: "https://github.com/gardener/gardener/tree/master/docs/03",
+							},
+						},
+						Nodes: []*api.Node{},
+					},
+				},
+			},
+			wantNode: &api.Node{
+				Name: "00",
+				Nodes: []*api.Node{
+					&api.Node{
+						Name: "01",
+						ContentSelectors: []api.ContentSelector{
+							api.ContentSelector{
+								Source: "https://github.com/gardener/gardener/blob/master/docs/01.md",
+							},
+						},
+					},
+					&api.Node{
+						Name: "02",
+						Nodes: []*api.Node{
+							&api.Node{
+								Name: "021",
+								ContentSelectors: []api.ContentSelector{
+									api.ContentSelector{
+										Source: "https://github.com/gardener/gardener/blob/master/docs/021.md",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cleanupNodeTree(tc.node)
+			assert.Equal(t, tc.wantNode, tc.node)
 		})
 	}
 }
