@@ -12,10 +12,10 @@ import (
 
 func TestRemoveLink(t *testing.T) {
 	testCases := []struct {
-		in             string
-		wantLinksCount int
-		wantImgsCount  int
-		wantTexts      []string
+		in              string
+		wantLinksCount  int
+		wantImagesCount int
+		wantTexts       []string
 	}{
 		{
 			`A [a0](b.md) [a1](b.md "c") ![](a.png) B`,
@@ -63,7 +63,7 @@ func TestRemoveLink(t *testing.T) {
 	}
 }
 
-func TestUpdateText(t *testing.T) {
+func TestSetText(t *testing.T) {
 	testCases := []struct {
 		in                    string
 		text                  string
@@ -74,6 +74,11 @@ func TestUpdateText(t *testing.T) {
 			"b",
 			3,
 		},
+		{
+			`A [a0](b.md) [a1](b.md "c") ![](a.png) B`,
+			"",
+			3,
+		},
 	}
 	for _, tc := range testCases {
 		t.Run("", func(t *testing.T) {
@@ -82,10 +87,10 @@ func TestUpdateText(t *testing.T) {
 			ast.WalkFunc(document, func(node ast.Node, entering bool) ast.WalkStatus {
 				if entering {
 					if l, ok := node.(*ast.Link); ok {
-						updateText(l, []byte(tc.text))
+						setText(l, []byte(tc.text))
 					}
 					if i, ok := node.(*ast.Image); ok {
-						updateText(i, []byte(tc.text))
+						setText(i, []byte(tc.text))
 					}
 				}
 				return ast.GoToNext
@@ -109,6 +114,99 @@ func TestUpdateText(t *testing.T) {
 				return ast.GoToNext
 			})
 			assert.Equal(t, tc.wantTextsUpdatesCount, textsUpdatesCount)
+		})
+	}
+}
+
+//TODO: improve the test results checking
+func TestUpdateLink(t *testing.T) {
+	testCases := []struct {
+		in                         string
+		destination                []byte
+		text                       []byte
+		title                      []byte
+		wantLinkTextUpdates        []string
+		wantLinkDestinationUpdates []string
+		wantLinkTitleUpdates       []string
+		wantLinkUpdatesCount       int
+		wantImageUpdatesCount      int
+	}{
+		{
+			`A [a0](b.md) [a1](b.md "c") ![](a.png) B`,
+			[]byte("b"),
+			[]byte("new"),
+			nil,
+			nil,
+			nil,
+			nil,
+			2,
+			1,
+		},
+		{
+			`A [a0](b.md) [a1](b.md "c") ![](a.png) B`,
+			nil,
+			[]byte(""),
+			nil,
+			nil,
+			nil,
+			nil,
+			0,
+			0,
+		},
+		{
+			`A [a0](b.md) [a1](b.md "c") ![](a.png) B`,
+			nil,
+			[]byte("A"),
+			nil,
+			nil,
+			nil,
+			nil,
+			0,
+			0,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run("", func(t *testing.T) {
+			mdParser := parser.NewWithExtensions(extensions)
+			document := markdown.Parse([]byte(tc.in), mdParser)
+			ast.WalkFunc(document, func(node ast.Node, entering bool) ast.WalkStatus {
+				if entering {
+					if l, ok := node.(*ast.Link); ok {
+						updateLink(l, tc.destination, tc.text, tc.title)
+					}
+					if i, ok := node.(*ast.Image); ok {
+						updateLink(i, tc.destination, tc.text, tc.title)
+					}
+				}
+				return ast.GoToNext
+			})
+			var (
+				linkUpdatesCount  int
+				imageUpdatesCount int
+			)
+			ast.WalkFunc(document, func(node ast.Node, entering bool) ast.WalkStatus {
+				if entering {
+					if l, ok := node.(*ast.Link); ok {
+						text := l.Children[0].AsLeaf().Literal
+						destination := l.Destination
+						title := l.Title
+						if bytes.Equal(text, tc.text) || bytes.Equal(destination, tc.destination) || bytes.Equal(title, tc.title) {
+							linkUpdatesCount++
+						}
+					}
+					if i, ok := node.(*ast.Image); ok {
+						text := i.Children[0].AsLeaf().Literal
+						destination := i.Destination
+						title := i.Title
+						if bytes.Equal(text, tc.text) || bytes.Equal(destination, tc.destination) || bytes.Equal(title, tc.title) {
+							imageUpdatesCount++
+						}
+					}
+				}
+				return ast.GoToNext
+			})
+			assert.Equal(t, tc.wantLinkUpdatesCount, linkUpdatesCount, "link updates")
+			assert.Equal(t, tc.wantImageUpdatesCount, imageUpdatesCount, "image updates")
 		})
 	}
 }
