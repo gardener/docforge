@@ -30,6 +30,10 @@ func SetKlogV(level int) {
 	}
 }
 
+// StrPtr is a convenience one-liner for producing pointers
+// to string values
+func StrPtr(s string) *string { return &s }
+
 // ReadBodyAndClose properly handles the reading of body and closing the reader
 func ReadBodyAndClose(bodyReader io.ReadCloser) ([]byte, error) {
 	defer bodyReader.Close()

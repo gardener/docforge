@@ -8,21 +8,20 @@ import (
 	"k8s.io/klog/v2"
 )
 
-func tasks(node *api.Node, t *[]interface{}) {
-	n := node
-	*t = append(*t, &DocumentWorkTask{
-		Node: n,
-	})
-	if node.Nodes != nil {
-		for _, n := range node.Nodes {
-			tasks(n, t)
+func tasks(nodes []*api.Node, t *[]interface{}) {
+	for _, node := range nodes {
+		*t = append(*t, &DocumentWorkTask{
+			Node: node,
+		})
+		if node.Nodes != nil {
+			tasks(node.Nodes, t)
 		}
 	}
 }
 
 // Build starts the build operation for a document structure root
 // in a locality domain
-func (r *Reactor) Build(ctx context.Context, documentationRoot *api.Node, localityDomain *localityDomain) error {
+func (r *Reactor) Build(ctx context.Context, documentationStructure []*api.Node) error {
 	var errors *multierror.Error
 
 	errCh := make(chan error)
@@ -45,7 +44,7 @@ func (r *Reactor) Build(ctx context.Context, documentationRoot *api.Node, locali
 		r.DownloadController.Start(ctx, errCh, downloadShutdownCh)
 	}()
 	// start document controller with download scope
-	r.DocController.SetDownloadScope(localityDomain)
+	// r.DocController.SetDownloadScope(localityDomain)
 	go func() {
 		klog.V(6).Infoln("Starting document controller")
 		r.DocController.Start(ctx, errCh, documentShutdownCh)
@@ -78,7 +77,7 @@ func (r *Reactor) Build(ctx context.Context, documentationRoot *api.Node, locali
 	// to exit when ready
 	go func() {
 		documentPullTasks := make([]interface{}, 0)
-		tasks(documentationRoot, &documentPullTasks)
+		tasks(documentationStructure, &documentPullTasks)
 		for _, task := range documentPullTasks {
 			r.DocController.Enqueue(ctx, task)
 		}

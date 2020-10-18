@@ -21,12 +21,13 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/gardener/docforge/pkg/util/tests"
 	"github.com/stretchr/testify/assert"
 )
 
 var b = []byte(`
-root:
-  name: root
+structure:
+- name: root
   nodes:
   - name: node_1
     contentSelectors:
@@ -36,20 +37,19 @@ root:
     - source: https://a.com
     properties:
       "custom_key": custom_value
-    localityDomain:
-      github.com/gardener/gardener:
-        exclude:
-        - a
+    links:
+      downloads:
+        scope:
+          github.com/gardener/gardener: ~
     nodes:
     - name: subnode
       contentSelectors:	
       - source: path/a
-localityDomain:
-  github.com/gardener/gardener:
-    version: v1.10.0
-    path: gardener/gardener/docs
-    LinkSubstitutes:
-      a: b
+links:
+  rewrites:
+    github.com/gardener/gardener:
+      version: v1.10.0
+      text: b
 `)
 
 func traverse(node *Node) {
@@ -73,7 +73,9 @@ func TestParse(t *testing.T) {
 			fmt.Println(err)
 			return
 		}
-		traverse(got.Root)
+		for _, n := range got.Structure {
+			traverse(n)
+		}
 		// if got != c.want {
 		// 	t.Errorf("Something(%q) == %q, want %q", c.in, got, c.want)
 		// }
@@ -87,23 +89,25 @@ func TestSerialize(t *testing.T) {
 	}{
 		{
 			&Documentation{
-				Root: &Node{
-					Title: "A Title",
-					Nodes: []*Node{
-						{
-							Title:            "node 1",
-							ContentSelectors: []ContentSelector{{Source: "path1/**"}},
-						},
-						{
-							Title:            "path 2",
-							ContentSelectors: []ContentSelector{{Source: "https://a.com"}},
-							Properties: map[string]interface{}{
-								"custom_key": "custom_value",
+				Structure: []*Node{
+					&Node{
+						Name: "A Title",
+						Nodes: []*Node{
+							{
+								Name:             "node 1",
+								ContentSelectors: []ContentSelector{{Source: "path1/**"}},
 							},
-							Nodes: []*Node{
-								{
-									Title:            "subnode",
-									ContentSelectors: []ContentSelector{{Source: "path/a"}},
+							{
+								Name:             "path 2",
+								ContentSelectors: []ContentSelector{{Source: "https://a.com"}},
+								Properties: map[string]interface{}{
+									"custom_key": "custom_value",
+								},
+								Nodes: []*Node{
+									{
+										Name:             "subnode",
+										ContentSelectors: []ContentSelector{{Source: "path/a"}},
+									},
 								},
 							},
 						},
@@ -128,22 +132,24 @@ func TestSerialize(t *testing.T) {
 
 func TestMe(t *testing.T) {
 	d := &Documentation{
-		Root: &Node{
-			Name: "docs",
-			NodeSelector: &NodeSelector{
-				Path: "https://github.com/gardener/gardener/tree/master/docs",
-			},
-			Nodes: []*Node{
-				{
-					Name: "calico",
-					NodeSelector: &NodeSelector{
-						Path: "https://github.com/gardener/gardener-extension-networking-calico/tree/master/docs",
-					},
+		Structure: []*Node{
+			&Node{
+				Name: "docs",
+				NodeSelector: &NodeSelector{
+					Path: "https://github.com/gardener/gardener/tree/master/docs",
 				},
-				{
-					Name: "aws",
-					NodeSelector: &NodeSelector{
-						Path: "https://github.com/gardener/gardener-extension-provider-aws/tree/master/docs",
+				Nodes: []*Node{
+					{
+						Name: "calico",
+						NodeSelector: &NodeSelector{
+							Path: "https://github.com/gardener/gardener-extension-networking-calico/tree/master/docs",
+						},
+					},
+					{
+						Name: "aws",
+						NodeSelector: &NodeSelector{
+							Path: "https://github.com/gardener/gardener-extension-provider-aws/tree/master/docs",
+						},
 					},
 				},
 			},
@@ -164,45 +170,46 @@ func TestFile(t *testing.T) {
 		got  *Documentation
 	)
 	expected := &Documentation{
-		Root: &Node{
-			Name: "00",
-			Nodes: []*Node{
-				&Node{
-					Name: "01",
-					ContentSelectors: []ContentSelector{
-						ContentSelector{
-							Source: "https://github.com/gardener/gardener/blob/master/docs/concepts/gardenlet.md",
-						},
-					},
-					LocalityDomain: &LocalityDomain{
-						LocalityDomainMap: LocalityDomainMap{
-							"github.com/gardener/gardener": &LocalityDomainValue{
-								Version: "v1.11.1",
-								Path:    "gardener/gardener",
-								LinksMatchers: LinksMatchers{
-									Exclude: []string{
-										"example",
-									},
+		Structure: []*Node{
+			&Node{
+				Name: "00",
+				Nodes: []*Node{
+					&Node{
+						Name:   "01",
+						Source: "https://github.com/gardener/gardener/blob/master/docs/concepts/gardenlet.md",
+						Links: &Links{
+							Rewrites: map[string]*LinkRewriteRule{
+								"github.com/gardener/gardener": &LinkRewriteRule{
+									Version: tests.StrPtr("v1.11.1"),
+								},
+							},
+							Downloads: &Downloads{
+								Scope: map[string]ResourceRenameRules{
+									"github.com/gardener/gardener": nil,
 								},
 							},
 						},
 					},
-				},
-				&Node{
-					Name: "02",
-					ContentSelectors: []ContentSelector{
-						ContentSelector{
-							Source: "https://github.com/gardener/gardener/blob/master/docs/deployment/deploy_gardenlet.md",
+					&Node{
+						Name: "02",
+						ContentSelectors: []ContentSelector{
+							ContentSelector{
+								Source: "https://github.com/gardener/gardener/blob/master/docs/deployment/deploy_gardenlet.md",
+							},
 						},
 					},
 				},
 			},
 		},
-		LocalityDomain: &LocalityDomain{
-			LocalityDomainMap: LocalityDomainMap{
-				"github.com/gardener/gardener": &LocalityDomainValue{
-					Version: "v1.10.0",
-					Path:    "gardener/gardener",
+		Links: &Links{
+			Rewrites: map[string]*LinkRewriteRule{
+				"github.com/gardener/gardener": &LinkRewriteRule{
+					Version: tests.StrPtr("v1.10.0"),
+				},
+			},
+			Downloads: &Downloads{
+				Scope: map[string]ResourceRenameRules{
+					"github.com/gardener/gardener": nil,
 				},
 			},
 		},

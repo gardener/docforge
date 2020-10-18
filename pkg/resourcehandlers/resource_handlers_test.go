@@ -20,16 +20,18 @@ type TestResourceHandler struct {
 func (rh *TestResourceHandler) Accept(uri string) bool {
 	return rh.accept
 }
-func (rh *TestResourceHandler) ResolveNodeSelector(ctx context.Context, node *api.Node) error {
+func (rh *TestResourceHandler) ResolveNodeSelector(ctx context.Context, node *api.Node, excludePaths []string, frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32) error {
 	return nil
 }
 func (rh *TestResourceHandler) Read(ctx context.Context, uri string) ([]byte, error) {
 	return nil, nil
 }
 func (rh *TestResourceHandler) Name(uri string) string {
-	return string("")
+	return ""
 }
-
+func (rh *TestResourceHandler) ResourceName(uri string) (string, string) {
+	return "", ""
+}
 func (rh *TestResourceHandler) BuildAbsLink(source, relLink string) (string, error) {
 	return relLink, nil
 }

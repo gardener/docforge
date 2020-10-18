@@ -131,6 +131,7 @@ func format(files []*file, b *bytes.Buffer) {
 				b.WriteString(fmt.Sprintf("%s\n", s))
 				if i < len(dd)-1 {
 					b.Write(bytes.Repeat([]byte("  "), i))
+					continue
 				}
 				for _, st := range f.stats {
 					b.Write([]byte("  "))

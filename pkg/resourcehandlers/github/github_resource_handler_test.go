@@ -165,15 +165,23 @@ func TestResolveNodeSelector(t *testing.T) {
 		},
 	}
 	cases := []struct {
-		description string
-		inNode      *api.Node
-		mux         func(mux *http.ServeMux)
-		want        *api.Node
-		wantError   error
+		description        string
+		inNode             *api.Node
+		excludePaths       []string
+		frontMatter        map[string]interface{}
+		excludeFrontMatter map[string]interface{}
+		depth              int32
+		mux                func(mux *http.ServeMux)
+		want               *api.Node
+		wantError          error
 	}{
 		{
 			"resolve node selector",
 			n1,
+			nil,
+			nil,
+			nil,
+			0,
 			func(mux *http.ServeMux) {
 				mux.HandleFunc("/repos/gardener/gardener/git/trees/master", func(w http.ResponseWriter, r *http.Request) {
 					w.Write([]byte(fmt.Sprintf(`
@@ -221,15 +229,15 @@ func TestResolveNodeSelector(t *testing.T) {
 				},
 				Nodes: []*api.Node{
 					{
-						Name:             "README",
-						ContentSelectors: []api.ContentSelector{{Source: "https://github.com/gardener/gardener/blob/master/docs/README.md"}},
+						Name:   "README.md",
+						Source: "https://github.com/gardener/gardener/blob/master/docs/README.md",
 					},
 					{
 						Name: "concepts",
 						Nodes: []*api.Node{
 							{
-								Name:             "apiserver",
-								ContentSelectors: []api.ContentSelector{{Source: "https://github.com/gardener/gardener/blob/master/docs/concepts/apiserver.md"}},
+								Name:   "apiserver.md",
+								Source: "https://github.com/gardener/gardener/blob/master/docs/concepts/apiserver.md",
 							},
 						},
 					},
@@ -239,7 +247,6 @@ func TestResolveNodeSelector(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		fmt.Println(c.description)
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer cancel()
 		gh := &GitHub{
@@ -253,25 +260,14 @@ func TestResolveNodeSelector(t *testing.T) {
 			c.mux(mux)
 		}
 		gh.Client = client
-		gotError := gh.ResolveNodeSelector(ctx, c.inNode)
+		gotError := gh.ResolveNodeSelector(ctx, c.inNode, c.excludePaths, c.frontMatter, c.excludeFrontMatter, c.depth)
 		if gotError != nil {
 			t.Errorf("error == %q, want %q", gotError, c.wantError)
 		}
 		c.want.SetParentsDownwards()
 		api.SortNodesByName(c.inNode)
 		api.SortNodesByName(c.want)
-		if !reflect.DeepEqual(c.inNode, c.want) {
-			s, _ := api.Serialize(&api.Documentation{
-				Root: c.inNode,
-			})
-			fmt.Printf(s)
-			fmt.Printf("\n\n")
-			s, _ = api.Serialize(&api.Documentation{
-				Root: c.want,
-			})
-			fmt.Printf(s)
-			t.Errorf("ResolveNodeSelector == %++v, want %++v", c.inNode, c.want)
-		}
+		assert.Equal(t, c.want, c.inNode)
 	}
 }
 
@@ -296,11 +292,12 @@ func TestName(t *testing.T) {
 		"docs",
 		"",
 	}
-	cases := []struct {
+	testCases := []struct {
 		description string
 		inURL       string
 		cache       *Cache
-		want        string
+		wantName    string
+		wantExt     string
 	}{
 		{
 			"return file name for url",
@@ -310,7 +307,8 @@ func TestName(t *testing.T) {
 					"https://github.com/gardener/gardener/blob/master/docs/README.md": ghrl1,
 				},
 			},
-			"README.md",
+			"README",
+			"md",
 		},
 		{
 			"return folder name for url",
@@ -321,17 +319,16 @@ func TestName(t *testing.T) {
 				},
 			},
 			"docs",
+			"",
 		},
 	}
-	for _, c := range cases {
-		fmt.Println(c.description)
+	for _, tc := range testCases {
 		gh := &GitHub{
-			cache: c.cache,
+			cache: tc.cache,
 		}
-		got := gh.Name(c.inURL)
-		if !reflect.DeepEqual(got, c.want) {
-			t.Errorf("Name(%q) == %q, want %q", c.inURL, got, c.want)
-		}
+		gotName, gotExt := gh.ResourceName(tc.inURL)
+		assert.Equal(t, tc.wantName, gotName)
+		assert.Equal(t, tc.wantExt, gotExt)
 	}
 }
 
@@ -437,44 +434,6 @@ func TestGitHub_ResolveRelLink(t *testing.T) {
 	}
 }
 
-func TestGetLocalityDomainCandidate(t *testing.T) {
-	tests := []struct {
-		name        string
-		link        string
-		wantKey     string
-		wantPath    string
-		wantVersion string
-		wantErr     error
-	}{
-		{
-			name:        "",
-			link:        "https://github.com/gardener/gardener/tree/master/readme.md",
-			wantKey:     "github.com/gardener/gardener",
-			wantPath:    "gardener/gardener/readme.md",
-			wantVersion: "master",
-			wantErr:     nil,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			gh := &GitHub{}
-			gotKey, gotPath, gotVersion, gotErr := gh.GetLocalityDomainCandidate(tt.link)
-			if gotErr != tt.wantErr {
-				t.Errorf("err %v!=%v", gotErr, tt.wantErr)
-			}
-			if gotKey != tt.wantKey {
-				t.Errorf("key %v!=%v", gotKey, tt.wantKey)
-			}
-			if gotVersion != tt.wantVersion {
-				t.Errorf("version %v!=%v", gotVersion, tt.wantVersion)
-			}
-			if gotPath != tt.wantPath {
-				t.Errorf("path %v!=%v", gotPath, tt.wantPath)
-			}
-		})
-	}
-}
-
 func TestCleanupNodeTree(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -484,47 +443,27 @@ func TestCleanupNodeTree(t *testing.T) {
 		{
 			name: "",
 			node: &api.Node{
-				Name: "00",
-				ContentSelectors: []api.ContentSelector{
-					api.ContentSelector{
-						Source: "https://github.com/gardener/gardener/tree/master/docs/00",
-					},
-				},
+				Name:   "00",
+				Source: "https://github.com/gardener/gardener/tree/master/docs/00",
 				Nodes: []*api.Node{
 					&api.Node{
-						Name: "01",
-						ContentSelectors: []api.ContentSelector{
-							api.ContentSelector{
-								Source: "https://github.com/gardener/gardener/blob/master/docs/01.md",
-							},
-						},
+						Name:   "01.md",
+						Source: "https://github.com/gardener/gardener/blob/master/docs/01.md",
 					},
 					&api.Node{
-						Name: "02",
-						ContentSelectors: []api.ContentSelector{
-							api.ContentSelector{
-								Source: "https://github.com/gardener/gardener/tree/master/docs/02",
-							},
-						},
+						Name:   "02",
+						Source: "https://github.com/gardener/gardener/tree/master/docs/02",
 						Nodes: []*api.Node{
 							&api.Node{
-								Name: "021",
-								ContentSelectors: []api.ContentSelector{
-									api.ContentSelector{
-										Source: "https://github.com/gardener/gardener/blob/master/docs/021.md",
-									},
-								},
+								Name:   "021.md",
+								Source: "https://github.com/gardener/gardener/blob/master/docs/021.md",
 							},
 						},
 					},
 					&api.Node{
-						Name: "03",
-						ContentSelectors: []api.ContentSelector{
-							api.ContentSelector{
-								Source: "https://github.com/gardener/gardener/tree/master/docs/03",
-							},
-						},
-						Nodes: []*api.Node{},
+						Name:   "03",
+						Source: "https://github.com/gardener/gardener/tree/master/docs/03",
+						Nodes:  []*api.Node{},
 					},
 				},
 			},
@@ -532,23 +471,15 @@ func TestCleanupNodeTree(t *testing.T) {
 				Name: "00",
 				Nodes: []*api.Node{
 					&api.Node{
-						Name: "01",
-						ContentSelectors: []api.ContentSelector{
-							api.ContentSelector{
-								Source: "https://github.com/gardener/gardener/blob/master/docs/01.md",
-							},
-						},
+						Name:   "01.md",
+						Source: "https://github.com/gardener/gardener/blob/master/docs/01.md",
 					},
 					&api.Node{
 						Name: "02",
 						Nodes: []*api.Node{
 							&api.Node{
-								Name: "021",
-								ContentSelectors: []api.ContentSelector{
-									api.ContentSelector{
-										Source: "https://github.com/gardener/gardener/blob/master/docs/021.md",
-									},
-								},
+								Name:   "021.md",
+								Source: "https://github.com/gardener/gardener/blob/master/docs/021.md",
 							},
 						},
 					},

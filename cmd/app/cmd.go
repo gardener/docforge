@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/hugo"
 	"github.com/spf13/cobra"
 	"k8s.io/klog/v2"
@@ -37,13 +38,17 @@ func NewCommand(ctx context.Context, cancel context.CancelFunc) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "docforge",
 		Short: "Build documentation bundle",
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			options := NewOptions(flags)
 			doc := Manifest(flags.documentationManifestPath)
-			reactor := NewReactor(ctx, options)
-			if err := reactor.Run(ctx, doc, flags.dryRun); err != nil {
-				klog.Errorf(err.Error())
+			if err := api.ValidateManifest(doc); err != nil {
+				return err
 			}
+			reactor := NewReactor(ctx, options, doc.Links)
+			if err := reactor.Run(ctx, doc, flags.dryRun); err != nil {
+				return err
+			}
+			return nil
 		},
 	}
 

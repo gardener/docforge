@@ -1,11 +1,46 @@
-# The documentation structure root node. Mandatory.
-root:
-    name: doc
-    # nodeSelector is resolved to a node hierarchy, where nodes are selected
-    # by criteria (criteria is not implemented yet, i.e no filters). 
-    nodesSelector:
-      # A node selector path defines the scope that will be used to
-      # generate a hierarchy. For GitHub paths that is a folder in a GitHub repo
-      # and the generated nodes hierarchy corresponds ot the file/folder structure 
-      # available in the repository at that path.
-      path: https://github.com/gardener/gardener/tree/v1.10.0/docs
+# Structuring Material
+# 
+# Container and Document Nodes
+#
+# A documentation structure definition
+# A structure consists of a list of node definitions.
+# These could be A) document nodes that reference markdown content sources(s),
+# or B) container nodes that structure nodes hierarchically and can contain
+# other nodes.
+# The structure below will be serialized as follows at destination <d>:
+# <d>
+#  |__ overview.md (file)
+#  |__ concepts (folder)
+#  |____ apiserver.md (file)
+#
+structure:
+  # Example of a document node that will be serialized as top-level file in the
+  # destination configured in docforge, with name overview.md
+  # A node name will be used to identify the serialized node content. When 
+  # writing to filesystem, the name translates ot a file name.
+  #
+  # A document node that has 'source' property provides several additional 
+  # options for node names:
+  # 1. Node name can be inferred from its source path.
+  # 2. Node name can be constructed from an expression using the variables 
+  # $name and $ext, which stand for the name of the resource at node's source 
+  # path, and $ext stands for its extension.
+  - name: overview.md
+    # A document node should always have content form source(s) assigned to it.
+    # There are multiple options to assign content form source to a node.
+    # The simplest one is to use source as in this example, which assigns the 
+    # content of the resources at the URL provided by source to this node.
+    # Other options with more sophisticated options to control and reorganize
+    # content from potentially multiple source are contentSelector and template.
+    source: https://github.com/gardener/gardener/blob/master/docs/README.md
+    # Example of a container node with no content source with name concepts.
+    # Writing this structure to a file system will serialize it as folder `concepts`.
+  - name: concepts
+    # The property `nodes` references the direct descendant nodes of this node. It
+    # is used to organize nodes into a tree.
+    # The property nodes is specific for container nodes. Document nodes do not
+    # specify nodes, because they are leafs in the tree nodes structure.
+    nodes:
+    # Example of a minimal document node specification. The node name is 
+    # inferred to be 'apiserver.md' from the path in its source property.
+    - source: https://github.com/gardener/gardener/blob/master/docs/concepts/apiserver.md

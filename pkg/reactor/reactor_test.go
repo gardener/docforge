@@ -15,14 +15,12 @@ func init() {
 var (
 	apiRefNode = &api.Node{
 		Name:             "apiRef",
-		Title:            "API Reference",
 		ContentSelectors: []api.ContentSelector{{Source: "https://github.com/org/repo/tree/master/docs/architecture/apireference.md"}},
 	}
 
 	archNode = &api.Node{
 		Name:             "arch",
 		ContentSelectors: []api.ContentSelector{{Source: "https://github.com/org/repo/tree/master/docs/architecture"}},
-		Title:            "Architecture",
 		Nodes: []*api.Node{
 			apiRefNode,
 		},
@@ -31,26 +29,25 @@ var (
 	blogNode = &api.Node{
 		Name:             "blog",
 		ContentSelectors: []api.ContentSelector{{Source: "https://github.com/org/repo/tree/master/docs/blog/blog-part1.md"}},
-		Title:            "Blog",
 	}
 
 	tasksNode = &api.Node{
 		Name:             "tasks",
-		Title:            "Tasks",
 		ContentSelectors: []api.ContentSelector{{Source: "https://github.com/org/repo/tree/master/docs/tasks"}},
 	}
 )
 
 func createNewDocumentation() *api.Documentation {
 	return &api.Documentation{
-		Root: &api.Node{
-			Name:             "rootNode",
-			Title:            "Root node!",
-			ContentSelectors: []api.ContentSelector{{Source: "https://github.com/org/repo/tree/master/docs"}},
-			Nodes: []*api.Node{
-				archNode,
-				blogNode,
-				tasksNode,
+		Structure: []*api.Node{
+			&api.Node{
+				Name:             "rootNode",
+				ContentSelectors: []api.ContentSelector{{Source: "https://github.com/org/repo/tree/master/docs"}},
+				Nodes: []*api.Node{
+					archNode,
+					blogNode,
+					tasksNode,
+				},
 			},
 		},
 	}
@@ -62,7 +59,7 @@ func (f *FakeResourceHandler) Accept(uri string) bool {
 	return true
 }
 
-func (f *FakeResourceHandler) ResolveNodeSelector(ctx context.Context, node *api.Node) error {
+func (f *FakeResourceHandler) ResolveNodeSelector(ctx context.Context, node *api.Node, excludePaths []string, frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32) error {
 	return nil
 }
 
@@ -72,6 +69,10 @@ func (f *FakeResourceHandler) Read(ctx context.Context, uri string) ([]byte, err
 
 func (f *FakeResourceHandler) Name(uri string) string {
 	return uri
+}
+
+func (f *FakeResourceHandler) ResourceName(uri string) (string, string) {
+	return "", ""
 }
 
 func (f *FakeResourceHandler) BuildAbsLink(source, relLink string) (string, error) {

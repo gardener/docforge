@@ -17,6 +17,7 @@ func TestFormat(t *testing.T) {
 	in := []string{
 		"dev/__resources/015ec383-3c1b-487b-acff-4d7f4f8a1b14.png",
 		"dev/__resources/173a7246-e1d5-40d5-b981-8cff293e177a.png",
+		"dev/doc/README.md",
 		"dev/doc/aws_provider.md",
 		"dev/doc/gardener",
 		"dev/doc/gardener/_index.md",
@@ -41,6 +42,7 @@ func TestFormat(t *testing.T) {
     015ec383-3c1b-487b-acff-4d7f4f8a1b14.png
     173a7246-e1d5-40d5-b981-8cff293e177a.png
   doc
+    README.md
     aws_provider.md
     gardener
       _index.md

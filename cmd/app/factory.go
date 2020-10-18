@@ -5,6 +5,7 @@ import (
 	"io"
 	"path/filepath"
 
+	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/hugo"
 	"github.com/gardener/docforge/pkg/metrics"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
@@ -44,7 +45,7 @@ type Metering struct {
 }
 
 // NewReactor creates a Reactor from Options
-func NewReactor(ctx context.Context, options *Options) *reactor.Reactor {
+func NewReactor(ctx context.Context, options *Options, globalLinksCfg *api.Links) *reactor.Reactor {
 	dryRunWriters := writers.NewDryRunWritersFactory(options.DryRunWriter)
 	o := &reactor.Options{
 		MaxWorkersCount:              options.MaxWorkersCount,
@@ -59,6 +60,7 @@ func NewReactor(ctx context.Context, options *Options) *reactor.Reactor {
 		ResourceHandlers:             initResourceHandlers(ctx, options),
 		DryRunWriter:                 dryRunWriters,
 		Resolve:                      options.Resolve,
+		GlobalLinksConfig:            globalLinksCfg,
 	}
 	if options.DryRunWriter != nil {
 		o.Writer = dryRunWriters.GetWriter(options.DestinationPath)

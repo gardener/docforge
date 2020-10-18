@@ -55,20 +55,20 @@ func TestDocumentWorkerWork(t *testing.T) {
 				return documentBlob, nil
 			},
 		},
-		&NodeContentProcessor{
-			DownloadController: NewDownloadController(&TestReader{
+		&nodeContentProcessor{
+			downloadController: NewDownloadController(&TestReader{
 				make(map[string][]byte),
 			}, &TestWriter{
 				make(map[string][]byte),
 			}, 1, false, rhRegistry),
-			localityDomain: &localityDomain{
-				mapping: map[string]*localityDomainValue{},
-			},
-			ResourceHandlers: rhRegistry,
+			// localityDomain: &localityDomain{
+			// 	mapping: map[string]*localityDomainValue{},
+			// },
+			resourceHandlers: rhRegistry,
 		},
-		localityDomain{
-			mapping: map[string]*localityDomainValue{},
-		},
+		// localityDomain{
+		// 	mapping: map[string]*localityDomainValue{},
+		// },
 	}
 
 	testCases := []struct {
