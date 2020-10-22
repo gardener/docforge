@@ -12,6 +12,7 @@ import (
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	utilnode "github.com/gardener/docforge/pkg/util/node"
 	"github.com/gardener/docforge/pkg/writers"
+	"k8s.io/klog/v2"
 )
 
 // Reader reads the bytes data from a given source URI
@@ -24,8 +25,7 @@ type DocumentWorker struct {
 	writers.Writer
 	Reader
 	processors.Processor
-	NodeContentProcessor *NodeContentProcessor
-	localityDomain       localityDomain
+	NodeContentProcessor NodeContentProcessor
 }
 
 // DocumentWorkTask implements jobs#Task
@@ -53,29 +53,45 @@ func (w *DocumentWorker) Work(ctx context.Context, task interface{}, wq jobs.Wor
 	if task, ok := task.(*DocumentWorkTask); ok {
 
 		var (
-			b        bytes.Buffer
-			document []byte
-			err      error
+			b                    bytes.Buffer
+			sourceBlob, document []byte
+			err                  error
 		)
 
-		if len(task.Node.ContentSelectors) > 0 {
-			for _, content := range task.Node.ContentSelectors {
-				var sourceBlob []byte
-				if sourceBlob, err = w.Reader.Read(ctx, content.Source); err != nil {
+		if len(task.Node.Nodes) == 0 {
+			if len(task.Node.ContentSelectors) > 0 {
+				for _, content := range task.Node.ContentSelectors {
+					if sourceBlob, err = w.Reader.Read(ctx, content.Source); err != nil {
+						return jobs.NewWorkerError(err, 0)
+					}
+					if len(sourceBlob) == 0 {
+						continue
+					}
+					if sourceBlob, err = w.NodeContentProcessor.ReconcileLinks(ctx, task.Node, content.Source, sourceBlob); err != nil {
+						return jobs.NewWorkerError(err, 0)
+					}
+					b.Write(sourceBlob)
+				}
+			}
+			// TODO: implement read by template
+			if len(task.Node.Source) > 0 {
+				if sourceBlob, err = w.Reader.Read(ctx, task.Node.Source); err != nil {
 					return jobs.NewWorkerError(err, 0)
 				}
 				if len(sourceBlob) == 0 {
-					continue
+					klog.Warningf("No content read from node %s source %s:", task.Node.Name, task.Node.Source)
+					return nil
 				}
-				if sourceBlob, err = w.NodeContentProcessor.ReconcileLinks(ctx, task.Node, content.Source, sourceBlob); err != nil {
+				if sourceBlob, err = w.NodeContentProcessor.ReconcileLinks(ctx, task.Node, task.Node.Source, sourceBlob); err != nil {
 					return jobs.NewWorkerError(err, 0)
 				}
 				b.Write(sourceBlob)
 			}
-
 			if b.Len() == 0 {
+				klog.Warningf("Document node processing halted: No content assigned to document node %s", task.Node.Name)
 				return nil
 			}
+
 			if document, err = ioutil.ReadAll(&b); err != nil {
 				return jobs.NewWorkerError(err, 0)
 			}

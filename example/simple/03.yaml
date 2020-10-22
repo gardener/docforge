@@ -1,0 +1,56 @@
+# The documentation structure.
+structure:
+  # Top-level container node with descendent hierarchy defined both with rules
+  # by its nodeSelector and explicitly with its nodes list property
+  # name stands for the name of the node. It is mandatory property for container nodes
+  - name: concepts
+    # nodeSelector is resolved to a node hierarchy using path and rules to select nodes
+    # to be part of the hierarchy. not specifying anything but path will end up in 
+    # selecting the whole file/folder structure at path.
+    nodesSelector:
+      # A node selector path defines the scope that will be used to
+      # generate a hierarchy. For GitHub paths that is a folder in a GitHub repo
+      # and the generated nodes hierarchy corresponds ot the file/folder structure 
+      # available in the repository at that path.
+      path: https://github.com/gardener/gardener/tree/v1.11.1/docs/concepts
+    # A list of child nodes to this structure node to explicitly define document structure hierarchy.
+    # Merging nodeSelector hierarchy with nodes:
+    # If both a nodeSelector and nodes are specified on this node, when the node selector is resolved, 
+    # its resulting top-level nodes will merge with other existing nodes in `nodes`. Nodes with the same
+    # name will have their other properties merged, making it possible to add properties to
+    # the generated structure or additional nodes.
+    nodes:
+        # Name of this document node.
+        # Name is not mandatory for document nodes if source is provided. With source and no name,
+        # the name will be resolved to the resource name in source.
+      - name: architecture
+        # Source specifies location of document source. 
+        # The supported sources as of now are GitHub repository documents and wiki pages.
+        source: https://github.com/gardener/documentation/wiki/Architecture
+# Links define configuration for handling document resource references 
+# including both hyperlinks and images. 
+links:
+  # rewrites defines rewrite rules for document links. 
+  # rules are mapped to regular expressions to match links in documents
+  rewrites:
+    # A regex to rule mapping binding all links that features gardener/gardener/blob,
+    # gardener/gardener/tree or gardener/gardener/raw to this rule
+    gardener/gardener/(blob|tree|raw):
+      # The version, if specified, is applied to all links matched by this regex. 
+      # Both document-local resources that will be downloaded, and
+      # links that will be absolute in this domain (gardener/gardener)
+      # will be rewritten with this version in their URLs.
+      version: v1.11.1
+    # Mapping a regular expression to nil effectively removes matching links
+    # from their documents
+    gardener/gardener/(pulls|pull|issue|issues): ~
+  # downloads define the downloads domain and global renaming rules for
+  # downloaded resources
+  downloads:
+    # Scope defines the download scope for documents, mapping regular expressions
+    # to optional rename rules valid for links matched by them. Resources with URLs
+    # that match the regex will be downloaded.
+    # A mapping to nil will apply a default rename pattern ($uuid.$ext)
+    scope:
+      # Download all referenced blobs and raw type of files in gardener/gardener's docs folder
+      gardener/gardener/(blob|raw)/v1.11.1/docs: ~

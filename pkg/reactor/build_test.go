@@ -12,7 +12,7 @@ func Test_tasks(t *testing.T) {
 	type args struct {
 		node  *api.Node
 		tasks []interface{}
-		lds   localityDomain
+		// lds   localityDomain
 	}
 	tests := []struct {
 		name          string
@@ -22,12 +22,12 @@ func Test_tasks(t *testing.T) {
 		{
 			name: "it creates tasks based on the provided doc",
 			args: args{
-				node:  newDoc.Root,
+				node:  newDoc.Structure[0],
 				tasks: []interface{}{},
 			},
 			expectedTasks: []*DocumentWorkTask{
 				{
-					Node: newDoc.Root,
+					Node: newDoc.Structure[0],
 				},
 				{
 					Node: archNode,
@@ -47,7 +47,7 @@ func Test_tasks(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			rhs := resourcehandlers.NewRegistry(&FakeResourceHandler{})
-			tasks(tc.args.node, &tc.args.tasks)
+			tasks([]*api.Node{tc.args.node}, &tc.args.tasks)
 
 			if len(tc.args.tasks) != len(tc.expectedTasks) {
 				t.Errorf("expected number of tasks %d != %d", len(tc.expectedTasks), len(tc.args.tasks))

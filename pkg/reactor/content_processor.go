@@ -27,44 +27,49 @@ var (
 
 // NodeContentProcessor operates on documents content to reconcile links and
 // schedule linked resources downloads
-type NodeContentProcessor struct {
-	resourceAbsLinks map[string]string
-	rwlock           sync.RWMutex
-	localityDomain   *localityDomain
+type NodeContentProcessor interface {
+	ReconcileLinks(ctx context.Context, node *api.Node, contentSourcePath string, documentBlob []byte) ([]byte, error)
+	GetDownloadController() DownloadController
+}
+
+type nodeContentProcessor struct {
+	resourceAbsLinks  map[string]string
+	rwlock            sync.RWMutex
+	globalLinksConfig *api.Links
+	// localityDomain   *localityDomain
 	// ResourcesRoot specifies the root location for downloaded resource.
 	// It is used to rewrite resource links in documents to relative paths.
 	resourcesRoot      string
-	DownloadController DownloadController
+	downloadController DownloadController
 	failFast           bool
 	markdownFmt        bool
 	rewriteEmbedded    bool
-	ResourceHandlers   resourcehandlers.Registry
+	resourceHandlers   resourcehandlers.Registry
 }
 
 // NewNodeContentProcessor creates NodeContentProcessor objects
-func NewNodeContentProcessor(resourcesRoot string, ld *localityDomain, downloadJob DownloadController, failFast bool, markdownFmt bool, rewriteEmbedded bool, resourceHandlers resourcehandlers.Registry) *NodeContentProcessor {
-	if ld == nil {
-		ld = &localityDomain{
-			mapping: map[string]*localityDomainValue{},
-		}
-	}
-	c := &NodeContentProcessor{
+func NewNodeContentProcessor(resourcesRoot string, globalLinksConfig *api.Links, downloadJob DownloadController, failFast bool, markdownFmt bool, rewriteEmbedded bool, resourceHandlers resourcehandlers.Registry) NodeContentProcessor {
+	c := &nodeContentProcessor{
 		resourceAbsLinks:   make(map[string]string),
-		localityDomain:     ld,
+		globalLinksConfig:  globalLinksConfig,
 		resourcesRoot:      resourcesRoot,
-		DownloadController: downloadJob,
+		downloadController: downloadJob,
 		failFast:           failFast,
 		markdownFmt:        markdownFmt,
 		rewriteEmbedded:    rewriteEmbedded,
-		ResourceHandlers:   resourceHandlers,
+		resourceHandlers:   resourceHandlers,
 	}
 	return c
 }
 
+func (c *nodeContentProcessor) GetDownloadController() DownloadController {
+	return c.downloadController
+}
+
 //convenience wrapper adding logging
-func (c *NodeContentProcessor) schedule(ctx context.Context, download *Download, from string) {
+func (c *nodeContentProcessor) schedule(ctx context.Context, download *Download, from string) {
 	klog.V(6).Infof("[%s] Linked resource scheduled for download: %s\n", from, download.url)
-	c.DownloadController.Schedule(ctx, download.url, download.resourceName)
+	c.downloadController.Schedule(ctx, download.url, download.resourceName)
 }
 
 // ReconcileLinks analyzes a document referenced by a node's contentSourcePath
@@ -73,7 +78,7 @@ func (c *NodeContentProcessor) schedule(ctx context.Context, download *Download,
 // destinations, or rewriting them to absolute, as well as downloading some of
 // the linked resources.
 // The function returns the processed document or error.
-func (c *NodeContentProcessor) ReconcileLinks(ctx context.Context, node *api.Node, contentSourcePath string, documentBlob []byte) ([]byte, error) {
+func (c *nodeContentProcessor) ReconcileLinks(ctx context.Context, node *api.Node, contentSourcePath string, documentBlob []byte) ([]byte, error) {
 	klog.V(6).Infof("[%s] Reconciling links for %s\n", node.Name, contentSourcePath)
 
 	fm, contentBytes, err := markdown.StripFrontMatter(documentBlob)
@@ -96,14 +101,13 @@ func (c *NodeContentProcessor) ReconcileLinks(ctx context.Context, node *api.Nod
 	return documentBytes, err
 }
 
-func (c *NodeContentProcessor) reconcileMDLinks(ctx context.Context, docNode *api.Node, contentBytes []byte, contentSourcePath string) ([]byte, error) {
+func (c *nodeContentProcessor) reconcileMDLinks(ctx context.Context, docNode *api.Node, contentBytes []byte, contentSourcePath string) ([]byte, error) {
 	var errors *multierror.Error
 	contentBytes, _ = markdown.UpdateLinkRefs(contentBytes, func(markdownType markdown.Type, destination, text, title []byte) ([]byte, []byte, []byte, error) {
 		var (
-			_destination  string
-			_text, _title *string
-			download      *Download
-			err           error
+			_destination, _text, _title *string
+			download                    *Download
+			err                         error
 		)
 		if _destination, _text, _title, download, err = c.resolveLink(ctx, docNode, string(destination), contentSourcePath); err != nil {
 			errors = multierror.Append(err)
@@ -111,22 +115,28 @@ func (c *NodeContentProcessor) reconcileMDLinks(ctx context.Context, docNode *ap
 				return destination, text, title, err
 			}
 		}
+		if download != nil {
+			c.schedule(ctx, download, contentSourcePath)
+		}
 		// rewrite abs links to embedded images to their raw format if necessary, to
 		// ensure they are embedable
-		if c.rewriteEmbedded && markdownType == markdown.Image {
-			if _destination, err = c.rawImage(_destination); err != nil {
+		if c.rewriteEmbedded && markdownType == markdown.Image && _destination != nil {
+			if err = c.rawImage(_destination); err != nil {
 				return destination, text, title, err
 			}
 		}
+		// write node processing stats for document nodes
 		if docNode != nil {
-			if _destination != string(destination) {
-				recordLinkStats(docNode, "Links", fmt.Sprintf("%s -> %s", string(destination), _destination))
+			if _destination != nil && *_destination != string(destination) {
+				if len(*_destination) == 0 {
+					*_destination = "*deleted*"
+				}
+				recordLinkStats(docNode, "Links", fmt.Sprintf("%s -> %s", string(destination), *_destination))
 			} else {
-				recordLinkStats(docNode, "Links", "")
+				if _text != nil && len(*_text) == 0 {
+					recordLinkStats(docNode, "Links", fmt.Sprintf("%s -> *deleted*", string(destination)))
+				}
 			}
-		}
-		if download != nil {
-			c.schedule(ctx, download, contentSourcePath)
 		}
 		if _text != nil {
 			text = []byte(*_text)
@@ -134,10 +144,10 @@ func (c *NodeContentProcessor) reconcileMDLinks(ctx context.Context, docNode *ap
 		if _title != nil {
 			title = []byte(*_title)
 		}
-		if len(_destination) < 1 {
+		if _destination == nil {
 			return nil, text, title, nil
 		}
-		return []byte(_destination), text, title, nil
+		return []byte(*_destination), text, title, nil
 	})
 	if c.failFast && errors != nil && errors.Len() > 0 {
 		return nil, errors.ErrorOrNil()
@@ -147,7 +157,7 @@ func (c *NodeContentProcessor) reconcileMDLinks(ctx context.Context, docNode *ap
 }
 
 // replace html raw links of any sorts.
-func (c *NodeContentProcessor) reconcileHTMLLinks(ctx context.Context, docNode *api.Node, documentBytes []byte, contentSourcePath string) ([]byte, error) {
+func (c *nodeContentProcessor) reconcileHTMLLinks(ctx context.Context, docNode *api.Node, documentBytes []byte, contentSourcePath string) ([]byte, error) {
 	var errors *multierror.Error
 	for _, regex := range htmlLinksRegexList {
 		documentBytes = regex.ReplaceAllFunc(documentBytes, func(match []byte) []byte {
@@ -159,10 +169,10 @@ func (c *NodeContentProcessor) reconcileHTMLLinks(ctx context.Context, docNode *
 				url = strings.TrimSuffix(url, "\"")
 			}
 			destination, _, _, download, err := c.resolveLink(ctx, docNode, url, contentSourcePath)
-			klog.V(6).Infof("[%s] %s -> %s\n", contentSourcePath, url, destination)
-			if docNode != nil {
-				if url != destination {
-					recordLinkStats(docNode, "Links", fmt.Sprintf("%s -> %s", url, destination))
+			klog.V(6).Infof("[%s] %s -> %s\n", contentSourcePath, url, *destination)
+			if docNode != nil && destination != nil {
+				if url != *destination {
+					recordLinkStats(docNode, "Links", fmt.Sprintf("%s -> %s", url, *destination))
 				} else {
 					recordLinkStats(docNode, "Links", "")
 				}
@@ -174,7 +184,7 @@ func (c *NodeContentProcessor) reconcileHTMLLinks(ctx context.Context, docNode *
 				errors = multierror.Append(err)
 				return match
 			}
-			return []byte(fmt.Sprintf("%s=%s", name, destination))
+			return []byte(fmt.Sprintf("%s=%s", name, *destination))
 		})
 	}
 	return documentBytes, errors.ErrorOrNil()
@@ -187,122 +197,135 @@ type Download struct {
 }
 
 // returns destination, text (alt-text for images), title, download(url, downloadName), err
-func (c *NodeContentProcessor) resolveLink(ctx context.Context, node *api.Node, destination string, contentSourcePath string) (string, *string, *string, *Download, error) {
+func (c *nodeContentProcessor) resolveLink(ctx context.Context, node *api.Node, destination string, contentSourcePath string) (*string, *string, *string, *Download, error) {
 	var (
-		text, title, substituteDestination *string
-		hasSubstition                      bool
-		inLD                               bool
-		absLink                            string
+		substituteDestination, version, text, title *string
+		downloadResourceName, absLink               string
+		ok                                          bool
+		globalRewrites                              map[string]*api.LinkRewriteRule
 	)
 	if strings.HasPrefix(destination, "#") || strings.HasPrefix(destination, "mailto:") {
-		return destination, nil, nil, nil, nil
+		return &destination, nil, nil, nil, nil
 	}
 
 	// validate destination
-	u, err := url.Parse(destination)
+	u, err := urls.Parse(destination)
 	if err != nil {
-		return "", text, title, nil, err
+		return nil, text, title, nil, err
 	}
 	// can we handle this destination?
-	if u.IsAbs() && c.ResourceHandlers.Get(destination) == nil {
+	if u.IsAbs() && c.resourceHandlers.Get(destination) == nil {
 		// It's a valid absolute link that is not in our scope. Leave it be.
-		return destination, text, title, nil, err
+		return &destination, text, title, nil, err
 	}
-
-	handler := c.ResourceHandlers.Get(contentSourcePath)
+	// force destination to absolute URL
+	handler := c.resourceHandlers.Get(contentSourcePath)
 	if handler == nil {
-		return destination, text, title, nil, nil
+		return &destination, text, title, nil, nil
 	}
 	absLink, err = handler.BuildAbsLink(contentSourcePath, destination)
 	if err != nil {
-		return "", text, title, nil, err
+		return nil, text, title, nil, err
 	}
 
-	if hasSubstition, substituteDestination, text, title = substitute(absLink, node); hasSubstition && substituteDestination != nil {
-		if len(*substituteDestination) == 0 {
-			// quit early. substitution is a request to remove this link
-			return "", text, title, nil, nil
-		}
-		absLink = *substituteDestination
-	}
-
-	//TODO: this is URI-specific (URLs only) - fixme
-	u, err = url.Parse(absLink)
-	if err != nil {
-		return "", text, title, nil, err
+	// rewrite link if required
+	if gLinks := c.globalLinksConfig; gLinks != nil {
+		globalRewrites = gLinks.Rewrites
 	}
 	_a := absLink
-
-	resolvedLD := c.localityDomain
 	if node != nil {
-		resolvedLD = resolveLocalityDomain(node, c.localityDomain)
+		if version, substituteDestination, text, title, ok = MatchForLinkRewrite(absLink, node, globalRewrites); ok {
+			if substituteDestination != nil {
+				if len(*substituteDestination) == 0 {
+					// quit early. substitution is a request to remove this link
+					s := ""
+					return nil, substituteDestination, &s, nil, nil
+				}
+				absLink = *substituteDestination
+			}
+			if version != nil {
+				handler := c.resourceHandlers.Get(absLink)
+				if handler == nil {
+					return &absLink, text, title, nil, nil
+				}
+				if absLink, err = handler.SetVersion(absLink, *version); err != nil {
+					klog.Warningf("Failed to set version %s to %s: %s\n", *version, absLink, err.Error())
+					return &absLink, text, title, nil, nil
+				}
+			}
+		}
 	}
-	if resolvedLD != nil {
-		absLink, inLD = resolvedLD.MatchPathInLocality(absLink, c.ResourceHandlers)
+
+	// validate potentially rewritten links
+	u, err = urls.Parse(absLink)
+	if err != nil {
+		return nil, text, title, nil, err
 	}
 	if _a != absLink {
-		klog.V(6).Infof("[%s] Link converted %s -> %s\n", contentSourcePath, _a, absLink)
-	}
-	// Links to other documents are enforced relative when
-	// linking documents from the node structure.
-	// Links to other documents are changed to match the linking
-	// document version when appropriate or left untouched.
-	if strings.HasSuffix(u.Path, ".md") {
-		//TODO: this is URI-specific (URLs only) - fixme
-		l := strings.TrimSuffix(absLink, "?")
-		l = strings.TrimSuffix(l, "#")
-		if existingNode := api.FindNodeByContentSource(l, node); existingNode != nil {
-			relPathBetweenNodes := node.RelativePath(existingNode)
-			if destination != relPathBetweenNodes {
-				klog.V(6).Infof("[%s] %s -> %s\n", contentSourcePath, destination, relPathBetweenNodes)
-			}
-			destination = relPathBetweenNodes
-			return destination, text, title, nil, nil
-		}
-		return absLink, text, title, nil, nil
+		klog.V(6).Infof("[%s] Link rewritten %s -> %s\n", contentSourcePath, _a, absLink)
 	}
 
-	// Links to resources are assessed for download eligibility
-	// and if applicable their destination is updated as relative
-	// path to predefined location for resources
-	if absLink != "" && inLD {
-		resourceName := c.generateResourceName(absLink, resolvedLD)
-		_d := destination
-		destination = buildDestination(node, resourceName, c.resourcesRoot)
-		if _d != destination {
-			klog.V(6).Infof("[%s] %s -> %s\n", contentSourcePath, _d, destination)
+	if node != nil {
+		// Links to other documents are enforced relative when
+		// linking documents from the node structure.
+		// Check if md extension to reduce the walkthroughs
+		if u.Extension == "md" {
+			if existingNode := api.FindNodeBySource(absLink, node); existingNode != nil {
+				relPathBetweenNodes := node.RelativePath(existingNode)
+				if destination != relPathBetweenNodes {
+					klog.V(6).Infof("[%s] %s -> %s\n", contentSourcePath, destination, relPathBetweenNodes)
+				}
+				return &relPathBetweenNodes, text, title, nil, nil
+			}
+			return &absLink, text, title, nil, nil
 		}
-		return destination, text, title, &Download{absLink, resourceName}, nil
+
+		// Links to resources that are not structure document nodes are
+		// assessed for download eligibility and if applicable their
+		// destination is updated to relative path to predefined location
+		// for resources.
+		var globalDownloadsConfig *api.Downloads
+		if c.globalLinksConfig != nil {
+			globalDownloadsConfig = c.globalLinksConfig.Downloads
+		}
+		if downloadResourceName, ok = MatchForDownload(u, node, globalDownloadsConfig); ok {
+			resourceName := c.getDownloadResourceName(u, downloadResourceName)
+			_d := destination
+			destination = buildDownloadDestination(node, resourceName, c.resourcesRoot)
+			if _d != destination {
+				klog.V(6).Infof("[%s] %s -> %s\n", contentSourcePath, _d, destination)
+			}
+			return &destination, text, title, &Download{absLink, resourceName}, nil
+		}
 	}
 
 	if destination != absLink {
 		klog.V(6).Infof("[%s] %s -> %s\n", contentSourcePath, destination, absLink)
 	}
 
-	return absLink, text, title, nil, nil
+	return &absLink, text, title, nil, nil
 }
 
-func (c *NodeContentProcessor) rawImage(src string) (string, error) {
+// rewrite abs links to embedded objects to their raw link format if necessary, to
+// ensure they are embedable
+func (c *nodeContentProcessor) rawImage(link *string) (err error) {
 	var (
-		u   *url.URL
-		err error
+		u *url.URL
 	)
-	if u, err = url.Parse(src); err != nil {
-		return src, err
+	if u, err = url.Parse(*link); err != nil {
+		return
 	}
 	if !u.IsAbs() {
-		return src, nil
+		return nil
 	}
-	handler := c.ResourceHandlers.Get(src)
+	handler := c.resourceHandlers.Get(*link)
 	if handler == nil {
-		return src, nil
+		return nil
 	}
-	// rewrite abs links to embedded objects to their raw format if necessary, to
-	// ensure they are embedable
-	if src, err = handler.GetRawFormatLink(src); err != nil {
-		return src, err
+	if *link, err = handler.GetRawFormatLink(*link); err != nil {
+		return
 	}
-	return src, nil
+	return nil
 }
 
 // Builds destination path for links from node to resource in root path
@@ -311,7 +334,7 @@ func (c *NodeContentProcessor) rawImage(src string) (string, error) {
 // in root, e.g. "../../__resources/image.png", where root is "__resources".
 // If root is document root path, destinations are paths from the root,
 // e.g. "/__resources/image.png", where root is "/__resources".
-func buildDestination(node *api.Node, resourceName, root string) string {
+func buildDownloadDestination(node *api.Node, resourceName, root string) string {
 	if strings.HasPrefix(root, "/") {
 		return root + "/" + resourceName
 	}
@@ -323,41 +346,15 @@ func buildDestination(node *api.Node, resourceName, root string) string {
 	return resourceRelPath
 }
 
-func (c *NodeContentProcessor) generateResourceName(absURL string, resolvedLD *localityDomain) string {
-	var (
-		ok           bool
-		resourceName string
-	)
-	u, _ := urls.Parse(absURL)
+// Check for cached resource name first and return that if found. Otherwise,
+// return the downloadName
+func (c *nodeContentProcessor) getDownloadResourceName(u *urls.URL, downloadName string) string {
 	c.rwlock.Lock()
 	defer c.rwlock.Unlock()
-	if resourceName, ok = c.resourceAbsLinks[u.Path]; !ok {
-		resourceName = u.ResourceName
-		if len(u.Extension) > 0 {
-			resourceName = fmt.Sprintf("%s.%s", u.ResourceName, u.Extension)
-		}
-		resourceName = resolvedLD.GetDownloadedResourceName(u)
-		c.resourceAbsLinks[absURL] = resourceName
+	if cachedDownloadName, ok := c.resourceAbsLinks[u.Path]; ok {
+		return cachedDownloadName
 	}
-	return resourceName
-}
-
-// returns substitution found, destination, text, title
-func substitute(absLink string, node *api.Node) (ok bool, destination *string, text *string, title *string) {
-	if node == nil {
-		return false, nil, nil, nil
-	}
-	if substitutes := node.LinksSubstitutes; substitutes != nil {
-		for substituteK, substituteV := range substitutes {
-			// remove trailing slashes to avoid inequality only due to that
-			l := strings.TrimSuffix(absLink, "/")
-			s := strings.TrimSuffix(substituteK, "/")
-			if s == l {
-				return true, substituteV.Destination, substituteV.Text, substituteV.Title
-			}
-		}
-	}
-	return false, nil, nil, nil
+	return downloadName
 }
 
 // recordLinkStats records link stats for a node

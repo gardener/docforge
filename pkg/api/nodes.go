@@ -142,38 +142,53 @@ func (n *Node) AddStats(s ...*Stat) {
 	}
 }
 
-// FindNodeByContentSource traverses up and then all around the
+// FindNodeBySource traverses up and then all around the
 // tree paths in the node's documentation structure, looking for
-// a node that has contentSource path nodeContentSource
-func FindNodeByContentSource(nodeContentSource string, node *Node) *Node {
+// a node that has the source string either in source, contentSelector
+// or template
+func FindNodeBySource(source string, node *Node) *Node {
 	if node == nil {
 		return nil
 	}
-
-	for _, contentSelector := range node.ContentSelectors {
-		if contentSelector.Source == nodeContentSource {
-			return node
-		}
+	if n := matchAnySource(source, node); n != nil {
+		return n
 	}
 	root := node.GetRootNode()
 	if root == nil {
 		root = node
 	}
-	return withMatchinContentSelectorSource(nodeContentSource, root)
+	return withMatchinContentSelectorSource(source, root)
 }
 
-func withMatchinContentSelectorSource(nodeContentSource string, node *Node) *Node {
-	if node == nil {
-		return nil
+func matchAnySource(source string, node *Node) *Node {
+	if node.Source == source {
+		return node
 	}
 	for _, contentSelector := range node.ContentSelectors {
-		if contentSelector.Source == nodeContentSource {
+		if contentSelector.Source == source {
 			return node
 		}
 	}
+	if t := node.Template; t != nil {
+		for _, contentSelector := range t.Sources {
+			if contentSelector.Source == source {
+				return node
+			}
+		}
+	}
+	return nil
+}
+
+func withMatchinContentSelectorSource(source string, node *Node) *Node {
+	if node == nil {
+		return nil
+	}
+	if n := matchAnySource(source, node); n != nil {
+		return n
+	}
 
 	for i := range node.Nodes {
-		foundNode := withMatchinContentSelectorSource(nodeContentSource, node.Nodes[i])
+		foundNode := withMatchinContentSelectorSource(source, node.Nodes[i])
 		if foundNode != nil {
 			return foundNode
 		}

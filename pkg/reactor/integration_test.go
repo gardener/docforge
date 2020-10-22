@@ -34,39 +34,45 @@ func _TestReactorWithGitHub(t *testing.T) {
 	defer cancel()
 
 	docs := &api.Documentation{
-		Root: &api.Node{
-			Name: "docs",
-			NodeSelector: &api.NodeSelector{
-				Path: "https://github.com/gardener/gardener/tree/v1.10.0/docs",
-			},
-			Nodes: []*api.Node{
-				{
-					Name: "calico",
-					NodeSelector: &api.NodeSelector{
-						Path: "https://github.com/gardener/gardener-extension-networking-calico/tree/master/docs",
-					},
+		Structure: []*api.Node{
+			&api.Node{
+				Name: "docs",
+				NodeSelector: &api.NodeSelector{
+					Path: "https://github.com/gardener/gardener/tree/v1.10.0/docs",
 				},
-				{
-					Name: "aws",
-					NodeSelector: &api.NodeSelector{
-						Path: "https://github.com/gardener/gardener-extension-provider-aws/tree/master/docs",
+				Nodes: []*api.Node{
+					{
+						Name: "calico",
+						NodeSelector: &api.NodeSelector{
+							Path: "https://github.com/gardener/gardener-extension-networking-calico/tree/master/docs",
+						},
+					},
+					{
+						Name: "aws",
+						NodeSelector: &api.NodeSelector{
+							Path: "https://github.com/gardener/gardener-extension-provider-aws/tree/master/docs",
+						},
 					},
 				},
 			},
 		},
-		LocalityDomain: &api.LocalityDomain{
-			LocalityDomainMap: map[string]*api.LocalityDomainValue{
-				"github.com/gardener/gardener": &api.LocalityDomainValue{
-					Version: "v1.10.0",
-					Path:    "gardener/gardener/docs",
+		Links: &api.Links{
+			Rewrites: map[string]*api.LinkRewriteRule{
+				"gardener/gardener/(blob|tree|raw)": &api.LinkRewriteRule{
+					Version: tests.StrPtr("v1.10.0"),
 				},
-				"github.com/gardener/gardener-extension-provider-aws": &api.LocalityDomainValue{
-					Version: "master",
-					Path:    "gardener/gardener-extension-provider-aws/docs",
+				"gardener/gardener-extension-provider-aws/(blob|tree|raw)": &api.LinkRewriteRule{
+					Version: tests.StrPtr("v1.15.3"),
 				},
-				"github.com/gardener/gardener-extension-networking-calico": &api.LocalityDomainValue{
-					Version: "master",
-					Path:    "gardener/gardener-extension-networking-calico/docs",
+				"gardener/gardener-extension-networking-calico/(blob|tree|raw)": &api.LinkRewriteRule{
+					Version: tests.StrPtr("v1.10.0"),
+				},
+			},
+			Downloads: &api.Downloads{
+				Scope: map[string]api.ResourceRenameRules{
+					"gardener/gardener/(blob|tree|raw)/v1.10.0/docs":                             nil,
+					"gardener/gardener-extension-provider-aws/(blob|tree|raw)/v1.15.3/docs":      nil,
+					"gardener/gardener-extension-networking-calico/(blob|tree|raw)/v1.10.0/docs": nil,
 				},
 			},
 		},

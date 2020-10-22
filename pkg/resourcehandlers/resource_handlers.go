@@ -15,12 +15,12 @@ type ResourceHandler interface {
 	Accept(uri string) bool
 	// ResolveNodeSelector resolves the NodeSelector rules of a Node into subnodes
 	// hierarchy (Node.Nodes)
-	ResolveNodeSelector(ctx context.Context, node *api.Node) error
+	ResolveNodeSelector(ctx context.Context, node *api.Node, excludePaths []string, frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32) error
 	// Read a resource content at uri into a byte array
 	Read(ctx context.Context, uri string) ([]byte, error)
-	// Name resolves the name of the resource from a URI
-	// Example: https://github.com/owner/repo/tree/master/a/b/c.md -> c.md
-	Name(uri string) string
+	// ResourceName returns a breakdown of a resource name in the link, consisting
+	// of name and potentially and extention without the dot.
+	ResourceName(link string) (string, string)
 	// BuildAbsLink should return an absolute path of a relative link in regards of the provided
 	// source
 	BuildAbsLink(source, link string) (string, error)
@@ -28,8 +28,6 @@ type ResourceHandler interface {
 	// If the provided link is not referencing an embedable object, the function
 	// returns absLink without changes.
 	GetRawFormatLink(absLink string) (string, error)
-	// GetLocalityDomainCandidate ...
-	GetLocalityDomainCandidate(source string) (key, path, version string, err error)
 	// SetVersion sets version to absLink according to the API scheme. For GitHub
 	// for example this would replace e.g. the 'master' segment in the path with version
 	SetVersion(absLink, version string) (string, error)
