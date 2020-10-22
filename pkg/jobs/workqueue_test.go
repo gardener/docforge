@@ -14,6 +14,74 @@ func init() {
 	tests.SetKlogV(6)
 }
 
+func TestConcurrentStop(t *testing.T) {
+	wq := NewWorkQueue(1)
+	var wg sync.WaitGroup
+	wg.Add(100)
+	for i := 0; i < 100; i++ {
+		go func() {
+			time.Sleep(10 * time.Millisecond)
+			wq.Stop()
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+}
+
+func TestConcurrentAddGet(t *testing.T) {
+	wq := NewWorkQueue(1)
+	var wg sync.WaitGroup
+	wg.Add(2000)
+	go func() {
+		for i := 0; i < 1000; i++ {
+			go func() {
+				time.Sleep(10 * time.Millisecond)
+				wq.Add(struct{}{})
+				wg.Done()
+			}()
+		}
+	}()
+	go func() {
+		for i := 0; i < 1000; i++ {
+			go func() {
+				time.Sleep(10 * time.Millisecond)
+				wq.Get()
+				wg.Done()
+			}()
+		}
+	}()
+	wg.Wait()
+}
+
+func TestConcurrentAddGetStop(t *testing.T) {
+	wq := NewWorkQueue(1)
+	var wg sync.WaitGroup
+	wg.Add(2000)
+	go func() {
+		for i := 0; i < 1000; i++ {
+			go func() {
+				time.Sleep(10 * time.Millisecond)
+				wq.Add(struct{}{})
+				wg.Done()
+			}()
+		}
+	}()
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		wq.Stop()
+	}()
+	go func() {
+		for i := 0; i < 1000; i++ {
+			go func() {
+				time.Sleep(10 * time.Millisecond)
+				wq.Get()
+				wg.Done()
+			}()
+		}
+	}()
+	wg.Wait()
+}
+
 func Test(t *testing.T) {
 	wq := NewWorkQueue(1)
 	timeout := 1 * time.Second

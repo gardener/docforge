@@ -1,6 +1,7 @@
 package jobs
 
 import (
+	"sync"
 	"sync/atomic"
 )
 
@@ -22,6 +23,7 @@ type workQueue struct {
 	q      chan interface{}
 	stopCh chan struct{}
 	count  int32
+	rwlock sync.RWMutex
 }
 
 // NewWorkQueue creates new WorkQueue implementation object
@@ -34,11 +36,10 @@ func NewWorkQueue(buffer int) WorkQueue {
 
 func (w *workQueue) Get() (task interface{}) {
 	var ok bool
+	if w.q == nil {
+		return nil
+	}
 	select {
-	case <-w.stopCh:
-		{
-			return
-		}
 	case task, ok = <-w.q:
 		{
 			if ok {
@@ -50,19 +51,26 @@ func (w *workQueue) Get() (task interface{}) {
 }
 
 func (w *workQueue) Stop() bool {
+	defer w.rwlock.Unlock()
+	w.rwlock.Lock()
 	if w.q != nil {
 		defer func() {
 			close(w.stopCh)
+			w.stopCh = nil
 			close(w.q)
 			w.q = nil
 		}()
 		// make sure there's at least one consumer for the
 		// stopCh message or it will block waiting forever
 		go func() {
-			<-w.stopCh
+			if w.stopCh != nil {
+				<-w.stopCh
+			}
 		}()
-		w.stopCh <- struct{}{}
-		return true
+		if w.stopCh != nil {
+			w.stopCh <- struct{}{}
+			return true
+		}
 	}
 	return false
 }
