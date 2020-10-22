@@ -187,7 +187,6 @@ func (j *Job) Dispatch(ctx context.Context, tasks []interface{}) *WorkerError {
 		case err, ok := <-errCh:
 			{
 				if !ok {
-					loop = false
 					break
 				}
 				if err != nil {
@@ -256,7 +255,7 @@ func mergeErrors(channels ...<-chan *WorkerError) <-chan *WorkerError {
 	errCh := make(chan *WorkerError, len(channels))
 
 	// Start an outputF goroutine for each input channel in channels.  outputF
-	// copies values from ch to errCh until c is closed, then calls wg.Done.
+	// copies values from ch to errCh until ch is closed, then calls wg.Done.
 	outputF := func(ch <-chan *WorkerError) {
 		for err := range ch {
 			errCh <- err
