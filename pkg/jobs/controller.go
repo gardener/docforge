@@ -16,8 +16,8 @@ type Controller interface {
 	Start(ctx context.Context, errCh chan<- error, shutdownCh chan struct{})
 	// Enqueue adds a task to this controller's queue for workers to
 	// process. The function is non-blocking and can be interrupted by
-	// context.
-	Enqueue(ctx context.Context, task interface{})
+	// context. The returned flag is for the success of the operation.
+	Enqueue(ctx context.Context, task interface{}) bool
 	// Shutdown will singal a started controller to quit waiting continuously
 	// for task and work on tasks until its queue is drained, then exit.
 	// The shutdownCh parameter is an optional channel to notify when
@@ -66,17 +66,15 @@ func (c *controller) Start(ctx context.Context, errCh chan<- error, shutdownCh c
 	}
 }
 
-func (c *controller) Enqueue(ctx context.Context, task interface{}) {
-	go func() {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-			{
-				c.Queue.Add(task)
-			}
+func (c *controller) Enqueue(ctx context.Context, task interface{}) bool {
+	select {
+	case <-ctx.Done():
+		return false
+	default:
+		{
+			return c.Queue.Add(task)
 		}
-	}()
+	}
 }
 
 func (c *controller) Stop(shutdownCh chan struct{}) {

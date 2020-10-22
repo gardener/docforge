@@ -1,6 +1,7 @@
 package jobs
 
 import (
+	"sync"
 	"sync/atomic"
 )
 
@@ -12,33 +13,31 @@ type WorkQueue interface {
 	Get() interface{}
 	// Stops sends a stop signal to thework queue
 	Stop() bool
-	// Add adds a task to this workqueue
-	Add(task interface{})
+	// Add adds a task to this workqueue. The returned flag is for the operation success
+	Add(task interface{}) bool
 	// Count returns the current number of items in the queue
 	Count() int
 }
 
 type workQueue struct {
 	q      chan interface{}
-	stopCh chan struct{}
 	count  int32
+	rwlock sync.RWMutex
 }
 
 // NewWorkQueue creates new WorkQueue implementation object
 func NewWorkQueue(buffer int) WorkQueue {
 	return &workQueue{
-		q:      make(chan interface{}, buffer),
-		stopCh: make(chan struct{}),
+		q: make(chan interface{}, buffer),
 	}
 }
 
 func (w *workQueue) Get() (task interface{}) {
 	var ok bool
+	if w.q == nil {
+		return nil
+	}
 	select {
-	case <-w.stopCh:
-		{
-			return
-		}
 	case task, ok = <-w.q:
 		{
 			if ok {
@@ -50,35 +49,26 @@ func (w *workQueue) Get() (task interface{}) {
 }
 
 func (w *workQueue) Stop() bool {
+	defer w.rwlock.Unlock()
+	w.rwlock.Lock()
 	if w.q != nil {
-		defer func() {
-			close(w.stopCh)
-			close(w.q)
-			w.q = nil
-		}()
-		// make sure there's at least one consumer for the
-		// stopCh message or it will block waiting forever
-		go func() {
-			<-w.stopCh
-		}()
-		w.stopCh <- struct{}{}
-		return true
+		close(w.q)
+		w.q = nil
 	}
 	return false
 }
 
-func (w *workQueue) Add(task interface{}) {
+func (w *workQueue) Add(task interface{}) bool {
 	if w.q == nil {
-		panic("Trying to add to a not started workqueue")
+		return false
 	}
+	defer w.rwlock.Unlock()
+	w.rwlock.Lock()
 	select {
-	case <-w.stopCh:
-		{
-			return
-		}
 	case w.q <- task:
 		{
 			atomic.AddInt32(&w.count, 1)
+			return true
 		}
 	}
 }
