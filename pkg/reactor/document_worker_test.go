@@ -61,14 +61,9 @@ func TestDocumentWorkerWork(t *testing.T) {
 			}, &TestWriter{
 				make(map[string][]byte),
 			}, 1, false, rhRegistry),
-			// localityDomain: &localityDomain{
-			// 	mapping: map[string]*localityDomainValue{},
-			// },
 			resourceHandlers: rhRegistry,
 		},
-		// localityDomain{
-		// 	mapping: map[string]*localityDomainValue{},
-		// },
+		nil,
 	}
 
 	testCases := []struct {

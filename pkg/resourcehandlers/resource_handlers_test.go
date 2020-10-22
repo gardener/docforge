@@ -26,6 +26,9 @@ func (rh *TestResourceHandler) ResolveNodeSelector(ctx context.Context, node *ap
 func (rh *TestResourceHandler) Read(ctx context.Context, uri string) ([]byte, error) {
 	return nil, nil
 }
+func (rh *TestResourceHandler) ReadGitInfo(ctx context.Context, uri string) ([]byte, error) {
+	return nil, nil
+}
 func (rh *TestResourceHandler) Name(uri string) string {
 	return ""
 }

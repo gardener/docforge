@@ -1,0 +1,53 @@
+package github
+
+import (
+	"encoding/json"
+	"io/ioutil"
+	"path/filepath"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+
+	"github.com/gardener/docforge/pkg/git"
+	"github.com/google/go-github/v32/github"
+)
+
+func TestTransform(t *testing.T) {
+	testCases := []struct {
+		testFileNameIn  string
+		testFileNameOut string
+		want            *git.GitInfo
+	}{
+		{
+			"test_format_00_in.json",
+			"test_format_00_out.json",
+			&git.GitInfo{},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run("", func(t *testing.T) {
+			var (
+				blobIn, blobOut, b []byte
+				err                error
+			)
+			if blobIn, err = ioutil.ReadFile(filepath.Join("testdata", tc.testFileNameIn)); err != nil {
+				t.Fatalf(err.Error())
+			}
+			commits := []*github.RepositoryCommit{}
+			if err = json.Unmarshal(blobIn, &commits); err != nil {
+				t.Fatalf(err.Error())
+			}
+			got := transform(commits)
+
+			if blobOut, err = ioutil.ReadFile(filepath.Join("testdata", tc.testFileNameOut)); err != nil {
+				t.Fatalf(err.Error())
+			}
+
+			if b, err = json.MarshalIndent(got, "", "  "); err != nil {
+				t.Fatalf(err.Error())
+			}
+			assert.JSONEq(t, string(blobOut), string(b))
+		})
+	}
+
+}

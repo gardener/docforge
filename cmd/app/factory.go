@@ -32,6 +32,7 @@ type Options struct {
 	MarkdownFmt                  bool
 	RewriteEmbedded              bool
 	GitHubTokens                 map[string]string
+	GitHubInfoPath               string
 	Metering                     *Metering
 	DryRunWriter                 io.Writer
 	Resolve                      bool
@@ -71,6 +72,13 @@ func NewReactor(ctx context.Context, options *Options, globalLinksCfg *api.Links
 		}
 		o.ResourceDownloadWriter = &writers.FSWriter{
 			Root: filepath.Join(options.DestinationPath, options.ResourcesPath),
+		}
+	}
+
+	if len(options.GitHubInfoPath) > 0 {
+		o.GitInfoWriter = &writers.FSWriter{
+			Root: filepath.Join(options.DestinationPath, options.GitHubInfoPath),
+			Ext:  "json",
 		}
 	}
 

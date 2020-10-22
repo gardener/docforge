@@ -23,6 +23,7 @@ type cmdFlags struct {
 	markdownFmt                  bool
 	rewriteEmbedded              bool
 	ghOAuthToken                 string
+	ghInfoDestination            string
 	dryRun                       bool
 	resolve                      bool
 	clientMetering               bool
@@ -75,8 +76,10 @@ func (flags *cmdFlags) Configure(command *cobra.Command) {
 		"Resources download path.")
 	command.Flags().StringVar(&flags.ghOAuthToken, "github-oauth-token", "",
 		"GitHub personal token authorizing reading from GitHub repositories.")
+	command.Flags().StringVar(&flags.ghInfoDestination, "github-info-destination", "",
+		"If specified, docforge will download also additional github info for the files from the documentation structure into this destination.")
 	command.Flags().BoolVar(&flags.rewriteEmbedded, "rewrite-embedded-to-raw", true,
-		"Rewrites absolute link destinations for embedded resources (images) to reference embeddable media (e.g. for GitHub - reference to a 'raw' version of an image).")
+		"Rewrites absolute link destinations for embedded resources (images) to reference embedable media (e.g. for GitHub - reference to a 'raw' version of an image).")
 	command.Flags().BoolVar(&flags.failFast, "fail-fast", false,
 		"Fail-fast vs fault tolerant operation.")
 	command.Flags().BoolVar(&flags.markdownFmt, "markdownfmt", true,
@@ -146,6 +149,7 @@ func NewOptions(f *cmdFlags) *Options {
 		Metering:                     metering,
 		DryRunWriter:                 dryRunWriter,
 		Resolve:                      f.resolve,
+		GitHubInfoPath:               f.ghInfoDestination,
 		Hugo:                         hugoOptions,
 	}
 }

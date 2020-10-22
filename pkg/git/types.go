@@ -1,0 +1,14 @@
+package git
+
+import "github.com/google/go-github/v32/github"
+
+const (
+	DateFormat = "2006-01-02 15:04:05"
+)
+
+type GitInfo struct {
+	LastModifiedDate *string        `json:"lastmod,omitempty"`
+	PublishDate      *string        `json:"publishdate,omitempty"`
+	Author           *github.User   `json:"author,omitempty"`
+	Contributors     []*github.User `json:"contributors,omitempty"`
+}

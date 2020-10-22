@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"path/filepath"
 
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/jobs"
@@ -26,6 +27,7 @@ type DocumentWorker struct {
 	Reader
 	processors.Processor
 	NodeContentProcessor NodeContentProcessor
+	GitHubInfoController GitInfoController
 }
 
 // DocumentWorkTask implements jobs#Task
@@ -106,6 +108,10 @@ func (w *DocumentWorker) Work(ctx context.Context, task interface{}, wq jobs.Wor
 		path := utilnode.Path(task.Node, "/")
 		if err = w.Writer.Write(task.Node.Name, path, document, task.Node); err != nil {
 			return jobs.NewWorkerError(err, 0)
+		}
+
+		if w.GitHubInfoController != nil && len(document) > 0 {
+			w.GitHubInfoController.WriteGitInfo(ctx, filepath.Join(path, task.Node.Name), task.Node)
 		}
 	}
 	return nil
