@@ -67,9 +67,9 @@ func (c *nodeContentProcessor) GetDownloadController() DownloadController {
 }
 
 //convenience wrapper adding logging
-func (c *nodeContentProcessor) schedule(ctx context.Context, download *Download, from string) {
+func (c *nodeContentProcessor) schedule(ctx context.Context, download *Download, from string) error {
 	klog.V(6).Infof("[%s] Linked resource scheduled for download: %s\n", from, download.url)
-	c.downloadController.Schedule(ctx, download.url, download.resourceName)
+	return c.downloadController.Schedule(ctx, download.url, download.resourceName)
 }
 
 // ReconcileLinks analyzes a document referenced by a node's contentSourcePath
@@ -116,7 +116,9 @@ func (c *nodeContentProcessor) reconcileMDLinks(ctx context.Context, docNode *ap
 			}
 		}
 		if download != nil {
-			c.schedule(ctx, download, contentSourcePath)
+			if err := c.schedule(ctx, download, contentSourcePath); err != nil {
+				return destination, text, title, err
+			}
 		}
 		// rewrite abs links to embedded images to their raw format if necessary, to
 		// ensure they are embedable
@@ -178,7 +180,10 @@ func (c *nodeContentProcessor) reconcileHTMLLinks(ctx context.Context, docNode *
 				}
 			}
 			if download != nil {
-				c.schedule(ctx, download, contentSourcePath)
+				if err := c.schedule(ctx, download, contentSourcePath); err != nil {
+					errors = multierror.Append(err)
+					return match
+				}
 			}
 			if err != nil {
 				errors = multierror.Append(err)

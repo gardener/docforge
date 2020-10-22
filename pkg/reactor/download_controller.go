@@ -26,8 +26,9 @@ type worker interface {
 type DownloadController interface {
 	jobs.Controller
 	// Schedule is a typesafe wrapper around Controller#Enqueue
-	// for enqueuing download tasks
-	Schedule(ctx context.Context, link, resourceName string)
+	// for enqueuing download tasks. An error is returned if
+	// scheduling fails.
+	Schedule(ctx context.Context, link, resourceName string) error
 }
 
 // downloadController implements reactor#DownloadController
@@ -125,12 +126,15 @@ func (c *downloadController) setDownloaded(dt *DownloadTask) {
 }
 
 // Schedule enqueues and resource link for download
-func (c *downloadController) Schedule(ctx context.Context, link, resourceName string) {
+func (c *downloadController) Schedule(ctx context.Context, link, resourceName string) error {
 	task := &DownloadTask{
 		Source: link,
 		Target: resourceName,
 	}
-	c.Enqueue(ctx, task)
+	if !c.Enqueue(ctx, task) {
+		return fmt.Errorf("scheduling download of %s as %s failed", link, resourceName)
+	}
+	return nil
 }
 
 func (c *downloadController) Stop(shutdownCh chan struct{}) {
