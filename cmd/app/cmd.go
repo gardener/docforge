@@ -71,7 +71,7 @@ func (flags *cmdFlags) Configure(command *cobra.Command) {
 	command.Flags().StringVarP(&flags.documentationManifestPath, "manifest", "f", "",
 		"Manifest path.")
 	command.MarkFlagRequired("manifest")
-	command.Flags().StringVar(&flags.resourcesPath, "resources-download-path", "/__resources",
+	command.Flags().StringVar(&flags.resourcesPath, "resources-download-path", "__resources",
 		"Resources download path.")
 	command.Flags().StringVar(&flags.ghOAuthToken, "github-oauth-token", "",
 		"GitHub personal token authorizing reading from GitHub repositories.")
