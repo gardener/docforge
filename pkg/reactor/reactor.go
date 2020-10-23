@@ -39,9 +39,12 @@ type Options struct {
 
 // NewReactor creates a Reactor from Options
 func NewReactor(o *Options) *Reactor {
+	var gitInfoController GitInfoController
 	rhRegistry := resourcehandlers.NewRegistry(o.ResourceHandlers...)
 	downloadController := NewDownloadController(nil, o.ResourceDownloadWriter, o.ResourceDownloadWorkersCount, o.FailFast, rhRegistry)
-	gitInfoController := NewGitInfoController(nil, o.GitInfoWriter, o.ResourceDownloadWorkersCount, o.FailFast, rhRegistry)
+	if o.GitInfoWriter != nil {
+		gitInfoController = NewGitInfoController(nil, o.GitInfoWriter, o.ResourceDownloadWorkersCount, o.FailFast, rhRegistry)
+	}
 	worker := &DocumentWorker{
 		Writer:               o.Writer,
 		Reader:               &GenericReader{rhRegistry},

@@ -46,10 +46,13 @@ func (r *Reactor) Build(ctx context.Context, documentationStructure []*api.Node)
 		r.DownloadController.Start(ctx, errCh, downloadShutdownCh)
 	}()
 	// start githubinfo controller
-	go func() {
-		klog.V(6).Infoln("Starting GitHub Info controller")
-		r.GitInfoController.Start(ctx, errCh, gitInfoShutdownCh)
-	}()
+	if r.GitInfoController != nil {
+		go func() {
+			klog.V(6).Infoln("Starting GitHub Info controller")
+			r.GitInfoController.Start(ctx, errCh, gitInfoShutdownCh)
+		}()
+
+	}
 	// start document controller with download scope
 	// r.DocController.SetDownloadScope(localityDomain)
 	go func() {
@@ -61,7 +64,11 @@ func (r *Reactor) Build(ctx context.Context, documentationStructure []*api.Node)
 	// we are all done.
 	go func() {
 		stoppedControllers := 0
-		for stoppedControllers < 3 {
+		controllersCount := 2
+		if r.GitInfoController != nil {
+			controllersCount = controllersCount + 1
+		}
+		for stoppedControllers < controllersCount {
 			select {
 			case <-downloadShutdownCh:
 				{
@@ -80,7 +87,9 @@ func (r *Reactor) Build(ctx context.Context, documentationStructure []*api.Node)
 					// propagate the stop to the related download controller
 					r.DocController.GetDownloadController().Stop(nil)
 					// propagate the stop to the related download controller
-					r.GitInfoController.Stop(nil)
+					if r.GitInfoController != nil {
+						r.GitInfoController.Stop(nil)
+					}
 				}
 			}
 		}
