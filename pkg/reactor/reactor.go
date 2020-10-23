@@ -29,6 +29,7 @@ type Options struct {
 	RewriteEmbedded              bool
 	processors.Processor
 	ResourceDownloadWriter writers.Writer
+	GitInfoWriter          writers.Writer
 	Writer                 writers.Writer
 	ResourceHandlers       []resourcehandlers.ResourceHandler
 	DryRunWriter           writers.DryRunWriter
@@ -40,11 +41,13 @@ type Options struct {
 func NewReactor(o *Options) *Reactor {
 	rhRegistry := resourcehandlers.NewRegistry(o.ResourceHandlers...)
 	downloadController := NewDownloadController(nil, o.ResourceDownloadWriter, o.ResourceDownloadWorkersCount, o.FailFast, rhRegistry)
+	gitInfoController := NewGitInfoController(nil, o.GitInfoWriter, o.ResourceDownloadWorkersCount, o.FailFast, rhRegistry)
 	worker := &DocumentWorker{
 		Writer:               o.Writer,
 		Reader:               &GenericReader{rhRegistry},
 		NodeContentProcessor: NewNodeContentProcessor(o.ResourcesPath, o.GlobalLinksConfig, downloadController, o.FailFast, o.MarkdownFmt, o.RewriteEmbedded, rhRegistry),
 		Processor:            o.Processor,
+		GitHubInfoController: gitInfoController,
 	}
 	docController := NewDocumentController(worker, o.MaxWorkersCount, o.FailFast)
 	r := &Reactor{
@@ -52,6 +55,7 @@ func NewReactor(o *Options) *Reactor {
 		ResourceHandlers:   rhRegistry,
 		DocController:      docController,
 		DownloadController: downloadController,
+		GitInfoController:  gitInfoController,
 		DryRunWriter:       o.DryRunWriter,
 		Resolve:            o.Resolve,
 	}
@@ -60,11 +64,11 @@ func NewReactor(o *Options) *Reactor {
 
 // Reactor orchestrates the documentation build workflow
 type Reactor struct {
-	FailFast         bool
-	ResourceHandlers resourcehandlers.Registry
-	// localityDomain     *localityDomain
+	FailFast           bool
+	ResourceHandlers   resourcehandlers.Registry
 	DocController      DocumentController
 	DownloadController DownloadController
+	GitInfoController  GitInfoController
 	DryRunWriter       writers.DryRunWriter
 	Resolve            bool
 }

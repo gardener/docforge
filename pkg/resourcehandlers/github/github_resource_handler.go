@@ -394,6 +394,33 @@ func (gh *GitHub) Read(ctx context.Context, uri string) ([]byte, error) {
 	return blob, err
 }
 
+// ReadGitInfo implements resourcehandlers/ResourceHandler#ReadGitInfo
+func (gh *GitHub) ReadGitInfo(ctx context.Context, uri string) ([]byte, error) {
+	var (
+		rl      *ResourceLocator
+		commits []*github.RepositoryCommit
+		err     error
+		blob    []byte
+	)
+	if rl, err = parse(uri); err != nil {
+		return nil, err
+	}
+	opts := &github.CommitsListOptions{
+		Path: rl.Path,
+		SHA:  rl.SHAAlias,
+	}
+	if commits, _, err = gh.Client.Repositories.ListCommits(ctx, rl.Owner, rl.Repo, opts); err != nil {
+		return nil, err
+	}
+	if commits != nil {
+		gitInfo := transform(commits)
+		if blob, err = marshallGitInfo(gitInfo); err != nil {
+			return nil, err
+		}
+	}
+	return blob, nil
+}
+
 // ResourceName implements resourcehandlers/ResourceHandler#ResourceName
 func (gh *GitHub) ResourceName(uri string) (string, string) {
 	var (

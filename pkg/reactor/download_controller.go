@@ -17,7 +17,7 @@ type DownloadTask struct {
 	Target string
 }
 
-type worker interface {
+type downloadWorker interface {
 	download(ctx context.Context, dt *DownloadTask) error
 }
 
@@ -34,14 +34,14 @@ type DownloadController interface {
 // downloadController implements reactor#DownloadController
 type downloadController struct {
 	jobs.Controller
-	worker
+	downloadWorker
 	rwlock              sync.RWMutex
 	downloadedResources map[string]struct{}
 	job                 *jobs.Job
 	jobs.Worker
 }
 
-type downloadWorker struct {
+type _downloadWorker struct {
 	writers.Writer
 	Reader
 }
@@ -58,7 +58,7 @@ func NewDownloadController(reader Reader, writer writers.Writer, workersCount in
 		//writer = &writers.FSWriter{}
 	}
 
-	d := &downloadWorker{
+	d := &_downloadWorker{
 		Reader: reader,
 		Writer: writer,
 	}
@@ -73,15 +73,15 @@ func NewDownloadController(reader Reader, writer writers.Writer, workersCount in
 	}
 	controller := &downloadController{
 		Controller:          jobs.NewController(job),
-		worker:              d,
+		downloadWorker:      d,
 		downloadedResources: make(map[string]struct{}),
 		job:                 job,
 	}
-	controller.job.Worker = withController(d, controller)
+	controller.job.Worker = withDownloadController(d, controller)
 	return controller
 }
 
-func (d *downloadWorker) download(ctx context.Context, dt *DownloadTask) error {
+func (d *_downloadWorker) download(ctx context.Context, dt *DownloadTask) error {
 	klog.V(6).Infof("Downloading %s as %s\n", dt.Source, dt.Target)
 	blob, err := d.Reader.Read(ctx, dt.Source)
 	if err != nil {
@@ -94,13 +94,13 @@ func (d *downloadWorker) download(ctx context.Context, dt *DownloadTask) error {
 	return nil
 }
 
-func withController(downloadWorker *downloadWorker, ctrl *downloadController) jobs.WorkerFunc {
+func withDownloadController(downloadWorker *_downloadWorker, ctrl *downloadController) jobs.WorkerFunc {
 	return func(ctx context.Context, task interface{}, wq jobs.WorkQueue) *jobs.WorkerError {
 		return downloadWorker.Work(ctx, ctrl, task, wq)
 	}
 }
 
-func (d *downloadWorker) Work(ctx context.Context, ctrl *downloadController, task interface{}, wq jobs.WorkQueue) *jobs.WorkerError {
+func (d *_downloadWorker) Work(ctx context.Context, ctrl *downloadController, task interface{}, wq jobs.WorkQueue) *jobs.WorkerError {
 	if task, ok := task.(*DownloadTask); ok {
 		if !ctrl.isDownloaded(task) {
 			if err := d.download(ctx, task); err != nil {

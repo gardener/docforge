@@ -18,6 +18,8 @@ type ResourceHandler interface {
 	ResolveNodeSelector(ctx context.Context, node *api.Node, excludePaths []string, frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32) error
 	// Read a resource content at uri into a byte array
 	Read(ctx context.Context, uri string) ([]byte, error)
+	// Read git info
+	ReadGitInfo(ctx context.Context, uri string) ([]byte, error)
 	// ResourceName returns a breakdown of a resource name in the link, consisting
 	// of name and potentially and extention without the dot.
 	ResourceName(link string) (string, string)

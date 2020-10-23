@@ -66,6 +66,9 @@ func (f *FakeResourceHandler) ResolveNodeSelector(ctx context.Context, node *api
 func (f *FakeResourceHandler) Read(ctx context.Context, uri string) ([]byte, error) {
 	return []byte(uri), nil
 }
+func (f *FakeResourceHandler) ReadGitInfo(ctx context.Context, uri string) ([]byte, error) {
+	return []byte(""), nil
+}
 
 func (f *FakeResourceHandler) Name(uri string) string {
 	return uri
