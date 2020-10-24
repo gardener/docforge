@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"strings"
+	"text/template"
 
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/jobs"
@@ -28,6 +30,7 @@ type DocumentWorker struct {
 	processors.Processor
 	NodeContentProcessor NodeContentProcessor
 	GitHubInfoController GitInfoController
+	templates            map[string]*template.Template
 }
 
 // DocumentWorkTask implements jobs#Task
@@ -75,7 +78,44 @@ func (w *DocumentWorker) Work(ctx context.Context, task interface{}, wq jobs.Wor
 					b.Write(sourceBlob)
 				}
 			}
-			// TODO: implement read by template
+			if task.Node.Template != nil {
+				vars := map[string]string{}
+				for varName, content := range task.Node.Template.Sources {
+					if sourceBlob, err = w.Reader.Read(ctx, content.Source); err != nil {
+						return jobs.NewWorkerError(err, 0)
+					}
+					if len(sourceBlob) == 0 {
+						continue
+					}
+					if sourceBlob, err = w.NodeContentProcessor.ReconcileLinks(ctx, task.Node, content.Source, sourceBlob); err != nil {
+						return jobs.NewWorkerError(err, 0)
+					}
+					vars[varName] = string(sourceBlob)
+				}
+				var (
+					templateBlob []byte
+					tmpl         *template.Template
+				)
+				if tmpl, ok = w.templates[task.Node.Template.Path]; !ok {
+					// TODO: temporary solution for local templates
+					if !strings.HasPrefix(task.Node.Template.Path, "https") {
+						if templateBlob, err = ioutil.ReadFile(task.Node.Template.Path); err != nil {
+							return jobs.NewWorkerError(err, 0)
+						}
+					} else {
+						if templateBlob, err = w.Reader.Read(ctx, task.Node.Template.Path); err != nil {
+							return jobs.NewWorkerError(err, 0)
+						}
+					}
+					if tmpl, err = template.New("test").Parse(string(templateBlob)); err != nil {
+						return jobs.NewWorkerError(err, 0)
+					}
+					w.templates[task.Node.Template.Path] = tmpl
+				}
+				if err := tmpl.Execute(&b, vars); err != nil {
+					return jobs.NewWorkerError(err, 0)
+				}
+			}
 			if len(task.Node.Source) > 0 {
 				if sourceBlob, err = w.Reader.Read(ctx, task.Node.Source); err != nil {
 					return jobs.NewWorkerError(err, 0)

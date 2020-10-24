@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"text/template"
 
 	"github.com/gardener/docforge/pkg/processors"
 	"github.com/google/uuid"
@@ -51,6 +52,7 @@ func NewReactor(o *Options) *Reactor {
 		NodeContentProcessor: NewNodeContentProcessor(o.ResourcesPath, o.GlobalLinksConfig, downloadController, o.FailFast, o.MarkdownFmt, o.RewriteEmbedded, rhRegistry),
 		Processor:            o.Processor,
 		GitHubInfoController: gitInfoController,
+		templates:            map[string]*template.Template{},
 	}
 	docController := NewDocumentController(worker, o.MaxWorkersCount, o.FailFast)
 	r := &Reactor{

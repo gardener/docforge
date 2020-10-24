@@ -64,6 +64,7 @@ func TestDocumentWorkerWork(t *testing.T) {
 			resourceHandlers: rhRegistry,
 		},
 		nil,
+		nil,
 	}
 
 	testCases := []struct {
