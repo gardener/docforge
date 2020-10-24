@@ -44,18 +44,18 @@ func TestDocumentWorkerWork(t *testing.T) {
 	testOutput := "#Heading 1\n"
 	rhRegistry := resourcehandlers.NewRegistry(&FakeResourceHandler{})
 	testworker := &DocumentWorker{
-		&TestWriter{
+		Writer: &TestWriter{
 			make(map[string][]byte),
 		},
-		&TestReader{
+		Reader: &TestReader{
 			make(map[string][]byte),
 		},
-		&TestProcessor{
+		Processor: &TestProcessor{
 			func(documentBlob []byte, node *api.Node) ([]byte, error) {
 				return documentBlob, nil
 			},
 		},
-		&nodeContentProcessor{
+		NodeContentProcessor: &nodeContentProcessor{
 			downloadController: NewDownloadController(&TestReader{
 				make(map[string][]byte),
 			}, &TestWriter{
@@ -63,8 +63,8 @@ func TestDocumentWorkerWork(t *testing.T) {
 			}, 1, false, rhRegistry),
 			resourceHandlers: rhRegistry,
 		},
-		nil,
-		nil,
+		GitHubInfoController: nil,
+		templates:            nil,
 	}
 
 	testCases := []struct {

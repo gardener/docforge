@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
-	"strings"
+	"sync"
 	"text/template"
 
 	"github.com/gardener/docforge/pkg/api"
@@ -31,6 +31,7 @@ type DocumentWorker struct {
 	NodeContentProcessor NodeContentProcessor
 	GitHubInfoController GitInfoController
 	templates            map[string]*template.Template
+	rwLock               sync.RWMutex
 }
 
 // DocumentWorkTask implements jobs#Task
@@ -51,6 +52,20 @@ func (g *GenericReader) Read(ctx context.Context, source string) ([]byte, error)
 		return handler.Read(ctx, source)
 	}
 	return nil, fmt.Errorf("failed to get handler to read from %s", source)
+}
+
+func (w *DocumentWorker) getTemplate(name string) *template.Template {
+	defer w.rwLock.Unlock()
+	w.rwLock.Lock()
+	if tmpl, ok := w.templates[name]; ok {
+		return tmpl
+	}
+	return nil
+}
+func (w *DocumentWorker) setTemplate(name string, tmpl *template.Template) {
+	defer w.rwLock.Unlock()
+	w.rwLock.Lock()
+	w.templates[name] = tmpl
 }
 
 // Work implements Worker#Work function
@@ -96,21 +111,14 @@ func (w *DocumentWorker) Work(ctx context.Context, task interface{}, wq jobs.Wor
 					templateBlob []byte
 					tmpl         *template.Template
 				)
-				if tmpl, ok = w.templates[task.Node.Template.Path]; !ok {
-					// TODO: temporary solution for local templates
-					if !strings.HasPrefix(task.Node.Template.Path, "https") {
-						if templateBlob, err = ioutil.ReadFile(task.Node.Template.Path); err != nil {
-							return jobs.NewWorkerError(err, 0)
-						}
-					} else {
-						if templateBlob, err = w.Reader.Read(ctx, task.Node.Template.Path); err != nil {
-							return jobs.NewWorkerError(err, 0)
-						}
-					}
-					if tmpl, err = template.New("test").Parse(string(templateBlob)); err != nil {
+				if tmpl = w.getTemplate(task.Node.Template.Path); tmpl == nil {
+					if templateBlob, err = w.Reader.Read(ctx, task.Node.Template.Path); err != nil {
 						return jobs.NewWorkerError(err, 0)
 					}
-					w.templates[task.Node.Template.Path] = tmpl
+					if tmpl, err = template.New(task.Node.Template.Path).Parse(string(templateBlob)); err != nil {
+						return jobs.NewWorkerError(err, 0)
+					}
+					w.setTemplate(task.Node.Template.Path, tmpl)
 				}
 				if err := tmpl.Execute(&b, vars); err != nil {
 					return jobs.NewWorkerError(err, 0)

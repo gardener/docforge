@@ -171,7 +171,6 @@ func (c *nodeContentProcessor) reconcileHTMLLinks(ctx context.Context, docNode *
 				url = strings.TrimSuffix(url, "\"")
 			}
 			destination, _, _, download, err := c.resolveLink(ctx, docNode, url, contentSourcePath)
-			klog.V(6).Infof("[%s] %s -> %s\n", contentSourcePath, url, *destination)
 			if docNode != nil && destination != nil {
 				if url != *destination {
 					recordLinkStats(docNode, "Links", fmt.Sprintf("%s -> %s", url, *destination))
@@ -218,21 +217,24 @@ func (c *nodeContentProcessor) resolveLink(ctx context.Context, node *api.Node, 
 	if err != nil {
 		return nil, text, title, nil, err
 	}
-	// can we handle this destination?
-	if u.IsAbs() && c.resourceHandlers.Get(destination) == nil {
-		// It's a valid absolute link that is not in our scope. Leave it be.
-		return &destination, text, title, nil, err
+	if u.IsAbs() {
+		// can we handle changes to this destination?
+		if c.resourceHandlers.Get(destination) == nil {
+			// we don't have a handler for it. Leave it be.
+			return &destination, text, title, nil, err
+		}
+		absLink = destination
 	}
-	// force destination to absolute URL
-	handler := c.resourceHandlers.Get(contentSourcePath)
-	if handler == nil {
-		return &destination, text, title, nil, nil
+	if len(absLink) == 0 {
+		// build absolute path for the destination using contentSourcePath as base
+		handler := c.resourceHandlers.Get(contentSourcePath)
+		if handler == nil {
+			return &destination, text, title, nil, nil
+		}
+		if absLink, err = handler.BuildAbsLink(contentSourcePath, destination); err != nil {
+			return nil, text, title, nil, err
+		}
 	}
-	absLink, err = handler.BuildAbsLink(contentSourcePath, destination)
-	if err != nil {
-		return nil, text, title, nil, err
-	}
-
 	// rewrite link if required
 	if gLinks := c.globalLinksConfig; gLinks != nil {
 		globalRewrites = gLinks.Rewrites
@@ -244,7 +246,7 @@ func (c *nodeContentProcessor) resolveLink(ctx context.Context, node *api.Node, 
 				if len(*substituteDestination) == 0 {
 					// quit early. substitution is a request to remove this link
 					s := ""
-					return nil, substituteDestination, &s, nil, nil
+					return nil, &s, nil, nil, nil
 				}
 				absLink = *substituteDestination
 			}
