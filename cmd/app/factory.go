@@ -14,6 +14,7 @@ import (
 	//"github.com/gardener/docforge/pkg/metrics"
 	"github.com/gardener/docforge/pkg/processors"
 	"github.com/gardener/docforge/pkg/reactor"
+	"github.com/gardener/docforge/pkg/resourcehandlers/fs"
 	ghrs "github.com/gardener/docforge/pkg/resourcehandlers/github"
 
 	"github.com/google/go-github/v32/github"
@@ -112,7 +113,9 @@ func WithHugo(reactorOptions *reactor.Options, o *Options) {
 // initResourceHandlers initializes the resource handler
 // objects used by reactors
 func initResourceHandlers(ctx context.Context, o *Options) []resourcehandlers.ResourceHandler {
-	rhs := []resourcehandlers.ResourceHandler{}
+	rhs := []resourcehandlers.ResourceHandler{
+		fs.NewFSResourceHandler(),
+	}
 	if o.GitHubTokens != nil {
 		if token, ok := o.GitHubTokens["github.com"]; ok {
 			ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})

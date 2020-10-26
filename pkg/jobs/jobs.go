@@ -233,7 +233,6 @@ func (j *Job) startWorkers(ctx context.Context, workersCount int, quitCh chan st
 				klog.V(6).Infof("%s worker %d acquired task\n", j.ID, workerId)
 				if err := j.Worker.Work(ctx, task, wq); err != nil {
 					errCh <- err
-					continue
 				}
 				if !j.IsWorkerExitsOnEmptyQueue && wq.Count() == 0 {
 					return

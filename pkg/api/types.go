@@ -232,9 +232,9 @@ type Template struct {
 	// Mandatory
 	Path string `yaml:"path"`
 	// Sources maps variable names to ContentSelectors that will be
-	// used as specification for the content to fetch and assign ot that
+	// used as specification for the content to fetch and assign to
 	// these variables
-	Sources map[string]*ContentSelector `yaml:"path,omitempty"`
+	Sources map[string]*ContentSelector `yaml:"sources,omitempty"`
 }
 
 // Links defines how document links are processed.
