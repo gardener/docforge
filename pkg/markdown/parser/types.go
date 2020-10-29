@@ -29,4 +29,6 @@ type Link interface {
 	GetTitle() []byte
 	Remove(leaveText bool)
 	IsImage() bool
+	IsAutoLink() bool
+	IsNormalLink() bool
 }

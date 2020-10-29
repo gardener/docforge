@@ -15,6 +15,13 @@ func NewParser() Parser {
 	p := parser{}
 	p.inlineCallback['['] = parseLink
 	p.inlineCallback['!'] = maybeImage
+	p.inlineCallback['<'] = parseLeftAngle
+	p.inlineCallback['h'] = maybeAutoLink
+	p.inlineCallback['m'] = maybeAutoLink
+	p.inlineCallback['f'] = maybeAutoLink
+	p.inlineCallback['H'] = maybeAutoLink
+	p.inlineCallback['M'] = maybeAutoLink
+	p.inlineCallback['F'] = maybeAutoLink
 	p.refs = make(map[string]*link, 0)
 	return &p
 }

@@ -5,6 +5,7 @@ type linkType int
 const (
 	linkNormal linkType = iota
 	linkImg
+	linkAuto
 	linkDeferredFootnote
 	// linkInlineFootnote
 	// linkCitation
@@ -22,7 +23,7 @@ type link struct {
 	text        *bytesRange
 	destination *bytesRange
 	title       *bytesRange
-	isImage     bool
+	linkType    linkType
 }
 
 func offsetSiblingsByteRanges(l *link, offset int) {
@@ -114,7 +115,7 @@ func (l *link) GetTitle() []byte {
 
 func (l *link) Remove(leaveText bool) {
 	text := []byte("")
-	if !l.isImage && leaveText {
+	if l.linkType != linkImg && leaveText {
 		text = l.GetText()
 	}
 	doc1 := l.document.data[:l.start]
@@ -150,5 +151,13 @@ func remove(slice []Link, s int) []Link {
 }
 
 func (l *link) IsImage() bool {
-	return false
+	return l.linkType == linkImg
+}
+
+func (l *link) IsAutoLink() bool {
+	return l.linkType == linkAuto
+}
+
+func (l *link) IsNormalLink() bool {
+	return l.linkType == linkNormal
 }

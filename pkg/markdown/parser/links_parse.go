@@ -400,6 +400,7 @@ func parseLink(p *parser, data []byte, offset int) (int, Link) {
 				start: offset + txtB,
 				end:   offset + txtE,
 			},
+			linkType: linkNormal,
 			// &LiteralComponent{
 			// normalizeURI(uLink),
 			// },
@@ -436,7 +437,7 @@ func parseLink(p *parser, data []byte, offset int) (int, Link) {
 				start: offset + titleB,
 				end:   offset + titleE,
 			},
-			isImage: true,
+			linkType: linkImg,
 		}
 		return i + 1, image
 
@@ -457,57 +458,6 @@ func parseLink(p *parser, data []byte, offset int) (int, Link) {
 
 	default:
 		return 0, nil
-	}
-}
-
-func skipSpace(data []byte, i int) int {
-	n := len(data)
-	for i < n && isSpace(data[i]) {
-		i++
-	}
-	return i
-}
-
-// skipUntilChar advances i as long as data[i] != c
-func skipUntilChar(data []byte, i int, c byte) int {
-	n := len(data)
-	for i < n && data[i] != c {
-		i++
-	}
-	return i
-}
-
-// skipUntilCharBackwards traces back i as long as data[i] != c
-func skipUntilCharBackwards(data []byte, i int, c byte) int {
-	for i >= 0 && data[i] != c {
-		i--
-	}
-	return i
-}
-
-// isSpace returns true if c is a white-space character
-func isSpace(c byte) bool {
-	return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == '\v'
-}
-
-func unescapeText(ob *bytes.Buffer, src []byte) {
-	i := 0
-	for i < len(src) {
-		org := i
-		for i < len(src) && src[i] != '\\' {
-			i++
-		}
-
-		if i > org {
-			ob.Write(src[org:i])
-		}
-
-		if i+1 >= len(src) {
-			break
-		}
-
-		ob.WriteByte(src[i+1])
-		i += 2
 	}
 }
 
