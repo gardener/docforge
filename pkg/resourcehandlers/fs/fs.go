@@ -164,7 +164,8 @@ func (fs *fsHandler) BuildAbsLink(source, link string) (string, error) {
 	if filepath.IsAbs(link) {
 		return link, nil
 	}
-	p := filepath.Join(source, link)
+	dir, _ := filepath.Split(source)
+	p := filepath.Join(dir, link)
 	p = filepath.Clean(p)
 	if filepath.IsAbs(p) {
 		return p, nil
