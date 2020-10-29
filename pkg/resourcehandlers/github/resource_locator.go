@@ -2,6 +2,7 @@ package github
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/gardener/docforge/pkg/util/urls"
@@ -62,12 +63,12 @@ const (
 )
 
 var nonSHAPathPrefixes = map[string]struct{}{
-	Releases.String(): struct{}{},
-	Issues.String():   struct{}{},
-	Issue.String():    struct{}{},
-	Pulls.String():    struct{}{},
-	Pull.String():     struct{}{},
-	Wiki.String():     struct{}{},
+	Releases.String(): {},
+	Issues.String():   {},
+	Issue.String():    {},
+	Pulls.String():    {},
+	Pull.String():     {},
+	Wiki.String():     {},
 }
 
 // ResourceLocator is an abstraction for GitHub specific Universal Resource Locators (URLs)
@@ -85,21 +86,29 @@ type ResourceLocator struct {
 	Path   string
 	// branch name (master), tag (v1.2.3), commit hash (1j4h4jh...)
 	SHAAlias string
+	// IsRawAPI is used to determine if the located resource has to be transformed to
+	// a url of type https://host/raw/example/example during .String()
+	IsRawAPI bool
 }
 
 // String produces a GitHub website link to a resource from a ResourceLocator.
 // That's the format used to link а GitHub resource in the documentation structure and pages.
 // Example: https://github.com/gardener/gardener/blob/master/docs/README.md
 func (r *ResourceLocator) String() string {
-	s := fmt.Sprintf("%s://%s/%s", r.Scheme, r.Host, r.Owner)
+	s := fmt.Sprintf("%s://%s", r.Scheme, r.Host)
+	if r.IsRawAPI {
+		return fmt.Sprintf("%s/raw/%s/%s/%s/%s", s, r.Owner, r.Repo, r.SHAAlias, r.Path)
+	}
 	// example: https://github.com/gardener
+	s = fmt.Sprintf("%s/%s", s, r.Owner)
 	if len(r.Repo) == 0 {
 		return s
 	}
 	// example: https://raw.githubusercontent.com/gardener/gardener/master/logo/gardener-large.png
-	if isGitHubRawHost(r.Host) {
+	if strings.HasPrefix(r.Host, "raw.") {
 		return fmt.Sprintf("%s/%s/%s/%s", s, r.Repo, r.SHAAlias, r.Path)
 	}
+
 	// example: https://github.com/gardener/gardener
 	if r.Type < 0 {
 		return fmt.Sprintf("%s/%s", s, r.Repo)
@@ -143,8 +152,8 @@ func (r *ResourceLocator) GetName() string {
 	return p[len(p)-1]
 }
 
-func isGitHubRawHost(host string) bool {
-	return strings.HasPrefix(host, "raw.")
+func isRawURL(u *url.URL) bool {
+	return strings.HasPrefix(u.Host, "raw.") || strings.HasPrefix(u.Path, "/raw")
 }
 
 // Parse a GitHub URL into an incomplete ResourceLocator, without
@@ -175,13 +184,20 @@ func parse(urlString string) (*ResourceLocator, error) {
 	if len(sourceURLPathSegments) < 1 {
 		return nil, fmt.Errorf("Unsupported GitHub URL: %s. Need at least host and organization|owner", urlString)
 	}
+
+	var isRawAPI bool
+	if "raw" == sourceURLPathSegments[0] {
+		sourceURLPathSegments = sourceURLPathSegments[1:]
+		isRawAPI = true
+	}
+
 	owner := sourceURLPathSegments[0]
 	if len(sourceURLPathSegments) > 1 {
 		repo = sourceURLPathSegments[1]
 	}
 	if len(sourceURLPathSegments) > 2 {
 		// is this a raw.host content GitHub link?
-		if isGitHubRawHost(u.Host) {
+		if isRawURL(u.URL) {
 			resourceTypeString = "raw"
 		} else {
 			resourceTypeString = sourceURLPathSegments[2]
@@ -189,7 +205,7 @@ func parse(urlString string) (*ResourceLocator, error) {
 		// {blob|tree|wiki|...}
 		if resourceType, err = NewResourceType(resourceTypeString); err == nil {
 			urlPathPrefix := strings.Join([]string{owner, repo, resourceTypeString}, "/")
-			if isGitHubRawHost(u.Host) {
+			if isRawURL(u.URL) {
 				// raw.host links have no resource type path segment
 				urlPathPrefix = strings.Join([]string{owner, repo}, "/")
 				shaAlias = sourceURLPathSegments[2]
@@ -233,6 +249,7 @@ func parse(urlString string) (*ResourceLocator, error) {
 		resourceType,
 		path,
 		shaAlias,
+		isRawAPI,
 	}
 	return ghRL, nil
 }

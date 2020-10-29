@@ -2,14 +2,18 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"net/url"
 	"path/filepath"
+	"strings"
 
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/hugo"
 	"github.com/gardener/docforge/pkg/metrics"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/gardener/docforge/pkg/writers"
+	"github.com/hashicorp/go-multierror"
 
 	//"github.com/gardener/docforge/pkg/metrics"
 	"github.com/gardener/docforge/pkg/processors"
@@ -32,22 +36,28 @@ type Options struct {
 	ResourceDownloadWorkersCount int
 	RewriteEmbedded              bool
 	GitHubTokens                 map[string]string
-	GitHubInfoPath               string
 	Metering                     *Metering
+	GitHubInfoPath               string
 	DryRunWriter                 io.Writer
 	Resolve                      bool
 	Hugo                         *hugo.Options
 }
 
 // Metering encapsulates options for setting up client-side
-// mettering
+// metering
 type Metering struct {
 	Enabled bool
 }
 
 // NewReactor creates a Reactor from Options
-func NewReactor(ctx context.Context, options *Options, globalLinksCfg *api.Links) *reactor.Reactor {
+func NewReactor(ctx context.Context, options *Options, globalLinksCfg *api.Links) (*reactor.Reactor, error) {
 	dryRunWriters := writers.NewDryRunWritersFactory(options.DryRunWriter)
+
+	rhs, err := initResourceHandlers(ctx, options.GitHubTokens, options.Metering)
+	if err != nil {
+		return nil, err
+	}
+
 	o := &reactor.Options{
 		MaxWorkersCount:              options.MaxWorkersCount,
 		MinWorkersCount:              options.MinWorkersCount,
@@ -57,7 +67,7 @@ func NewReactor(ctx context.Context, options *Options, globalLinksCfg *api.Links
 		ResourceDownloadWorkersCount: options.ResourceDownloadWorkersCount,
 		RewriteEmbedded:              options.RewriteEmbedded,
 		Processor:                    nil,
-		ResourceHandlers:             initResourceHandlers(ctx, options),
+		ResourceHandlers:             rhs,
 		DryRunWriter:                 dryRunWriters,
 		Resolve:                      options.Resolve,
 		GlobalLinksConfig:            globalLinksCfg,
@@ -85,7 +95,7 @@ func NewReactor(ctx context.Context, options *Options, globalLinksCfg *api.Links
 		WithHugo(o, options)
 	}
 
-	return reactor.NewReactor(o)
+	return reactor.NewReactor(o), nil
 }
 
 // WithHugo adapts the reactor.Options object with Hugo-specific
@@ -110,22 +120,46 @@ func WithHugo(reactorOptions *reactor.Options, o *Options) {
 
 // initResourceHandlers initializes the resource handler
 // objects used by reactors
-func initResourceHandlers(ctx context.Context, o *Options) []resourcehandlers.ResourceHandler {
+func initResourceHandlers(ctx context.Context, githubTokens map[string]string, metering *Metering) ([]resourcehandlers.ResourceHandler, error) {
 	rhs := []resourcehandlers.ResourceHandler{
 		fs.NewFSResourceHandler(),
 	}
-	if o.GitHubTokens != nil {
-		if token, ok := o.GitHubTokens["github.com"]; ok {
-			ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
-			var client *github.Client
-			if o.Metering != nil {
-				client = github.NewClient(metrics.InstrumentClientRoundTripperDuration(oauth2.NewClient(ctx, ts)))
-			} else {
-				client = github.NewClient(oauth2.NewClient(ctx, ts))
+	var errs *multierror.Error
+	if githubTokens != nil {
+		for instance, token := range githubTokens {
+			if !strings.HasPrefix(instance, "https://") && !strings.HasPrefix(instance, "http://") {
+				instance = "https://" + instance
 			}
-			gh := ghrs.NewResourceHandler(client, []string{"github.com", "raw.githubusercontent.com"})
+
+			p, err := url.Parse(instance)
+			if err != nil {
+				errs = multierror.Append(errs, fmt.Errorf("couldn't parse url: %s", instance))
+				continue
+			}
+
+			ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
+			oauthClient := oauth2.NewClient(ctx, ts)
+			if metering != nil && metering.Enabled {
+				// Wrap client
+				oauthClient = metrics.InstrumentClientRoundTripperDuration(oauthClient)
+			}
+
+			if p.Host == "github.com" {
+				client := github.NewClient(oauthClient)
+				gh := ghrs.NewResourceHandler(client, []string{"github.com", "raw.githubusercontent.com"})
+				rhs = append(rhs, gh)
+				continue
+			}
+
+			client, err := github.NewEnterpriseClient(instance, "", oauthClient)
+			if err != nil {
+				errs = multierror.Append(errs, fmt.Errorf("cannot create GitHub enterprise client for instance %s", instance))
+				continue
+			}
+			defaultRawHost := "raw." + p.Host
+			gh := ghrs.NewResourceHandler(client, []string{p.Host, defaultRawHost})
 			rhs = append(rhs, gh)
 		}
 	}
-	return rhs
+	return rhs, errs.ErrorOrNil()
 }

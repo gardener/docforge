@@ -22,6 +22,7 @@ type cmdFlags struct {
 	resourceDownloadWorkersCount int
 	rewriteEmbedded              bool
 	ghOAuthToken                 string
+	ghOAuthTokens                map[string]string
 	ghInfoDestination            string
 	dryRun                       bool
 	resolve                      bool
@@ -44,7 +45,11 @@ func NewCommand(ctx context.Context, cancel context.CancelFunc) *cobra.Command {
 			if err := api.ValidateManifest(doc); err != nil {
 				return err
 			}
-			reactor := NewReactor(ctx, options, doc.Links)
+
+			reactor, err := NewReactor(ctx, options, doc.Links)
+			if err != nil {
+				return err
+			}
 			if err := reactor.Run(ctx, doc, flags.dryRun); err != nil {
 				return err
 			}
@@ -79,7 +84,8 @@ func (flags *cmdFlags) Configure(command *cobra.Command) {
 	command.Flags().StringVar(&flags.resourcesPath, "resources-download-path", "__resources",
 		"Resources download path.")
 	command.Flags().StringVar(&flags.ghOAuthToken, "github-oauth-token", "",
-		"GitHub personal token authorizing reading from GitHub repositories.")
+		"GitHub personal token authorizing read access from GitHub.com repositories. For authorization credentials for multiple GitHub instances, see --gtihub-oauth-token-map")
+	command.Flags().StringToStringVar(&flags.ghOAuthTokens, "github-oauth-token-map", map[string]string{}, "GitHub personal tokens authorizing read access from repositories per GitHub instance. Note that if the GitHub token is already provided by `github-oauth-token` it will be overrided by it.")
 	command.Flags().StringVar(&flags.ghInfoDestination, "github-info-destination", "",
 		"If specified, docforge will download also additional github info for the files from the documentation structure into this destination.")
 	command.Flags().BoolVar(&flags.rewriteEmbedded, "rewrite-embedded-to-raw", true,
@@ -110,22 +116,17 @@ func (flags *cmdFlags) Configure(command *cobra.Command) {
 // NewOptions creates an options object from flags
 func NewOptions(f *cmdFlags) *Options {
 	var (
-		tokens       map[string]string
-		metering     *Metering
 		hugoOptions  *hugo.Options
 		dryRunWriter io.Writer
+		metering     *Metering
 	)
-	if len(f.ghOAuthToken) > 0 {
-		tokens = map[string]string{
-			// TODO: Currently only github is passed and hardcoded, because there is no flag format supporting multiple tokens
-			"github.com": f.ghOAuthToken,
-		}
-	}
+
 	if f.clientMetering {
 		metering = &Metering{
 			Enabled: f.clientMetering,
 		}
 	}
+
 	if f.hugo {
 		hugoOptions = &hugo.Options{
 			PrettyUrls:     f.hugoPrettyUrls,
@@ -146,7 +147,7 @@ func NewOptions(f *cmdFlags) *Options {
 		ResourceDownloadWorkersCount: f.resourceDownloadWorkersCount,
 		ResourcesPath:                f.resourcesPath,
 		RewriteEmbedded:              f.rewriteEmbedded,
-		GitHubTokens:                 tokens,
+		GitHubTokens:                 gatherTokens(f),
 		Metering:                     metering,
 		DryRunWriter:                 dryRunWriter,
 		Resolve:                      f.resolve,
@@ -160,4 +161,19 @@ func AddFlags(rootCmd *cobra.Command) {
 	flag.CommandLine.VisitAll(func(gf *flag.Flag) {
 		rootCmd.Flags().AddGoFlag(gf)
 	})
+}
+
+func gatherTokens(flags *cmdFlags) map[string]string {
+	tokens := make(map[string]string)
+	for instance, token := range flags.ghOAuthTokens {
+		tokens[instance] = token
+	}
+	if len(flags.ghOAuthToken) > 0 {
+		if _, ok := tokens["github.com"]; ok {
+			klog.Warning("gihtub.com token is overriden by the provided token with `--github-oauth-token flag` ")
+		}
+		tokens["github.com"] = flags.ghOAuthToken
+	}
+
+	return tokens
 }
