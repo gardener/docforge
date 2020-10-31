@@ -30,7 +30,6 @@ type Options struct {
 	DestinationPath              string
 	ResourcesPath                string
 	ResourceDownloadWorkersCount int
-	MarkdownFmt                  bool
 	RewriteEmbedded              bool
 	GitHubTokens                 map[string]string
 	GitHubInfoPath               string
@@ -56,7 +55,6 @@ func NewReactor(ctx context.Context, options *Options, globalLinksCfg *api.Links
 		DestinationPath:              options.DestinationPath,
 		ResourcesPath:                options.ResourcesPath,
 		ResourceDownloadWorkersCount: options.ResourceDownloadWorkersCount,
-		MarkdownFmt:                  options.MarkdownFmt,
 		RewriteEmbedded:              options.RewriteEmbedded,
 		Processor:                    nil,
 		ResourceHandlers:             initResourceHandlers(ctx, options),

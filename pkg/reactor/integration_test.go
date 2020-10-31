@@ -98,7 +98,6 @@ func _TestReactorWithGitHub(t *testing.T) {
 		DestinationPath:              destination,
 		ResourcesPath:                resourcesRoot,
 		ResourceDownloadWorkersCount: 4,
-		MarkdownFmt:                  true,
 		Processor: &processors.ProcessorChain{
 			Processors: []processors.Processor{
 				&processors.FrontMatter{},

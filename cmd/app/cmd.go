@@ -20,7 +20,6 @@ type cmdFlags struct {
 	documentationManifestPath    string
 	resourcesPath                string
 	resourceDownloadWorkersCount int
-	markdownFmt                  bool
 	rewriteEmbedded              bool
 	ghOAuthToken                 string
 	ghInfoDestination            string
@@ -82,8 +81,6 @@ func (flags *cmdFlags) Configure(command *cobra.Command) {
 		"Rewrites absolute link destinations for embedded resources (images) to reference embedable media (e.g. for GitHub - reference to a 'raw' version of an image).")
 	command.Flags().BoolVar(&flags.failFast, "fail-fast", false,
 		"Fail-fast vs fault tolerant operation.")
-	command.Flags().BoolVar(&flags.markdownFmt, "markdownfmt", true,
-		"Applies formatting rules to source markdown.")
 	command.Flags().BoolVar(&flags.dryRun, "dry-run", false,
 		"Runs the command end-to-end but instead of writing files, it will output the projected file/folder hierarchy to the standard output and statistics for the processing of each file.")
 	command.Flags().BoolVar(&flags.resolve, "resolve", false,
@@ -143,7 +140,6 @@ func NewOptions(f *cmdFlags) *Options {
 		MinWorkersCount:              f.minWorkersCount,
 		ResourceDownloadWorkersCount: f.resourceDownloadWorkersCount,
 		ResourcesPath:                f.resourcesPath,
-		MarkdownFmt:                  f.markdownFmt,
 		RewriteEmbedded:              f.rewriteEmbedded,
 		GitHubTokens:                 tokens,
 		Metering:                     metering,

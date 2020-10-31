@@ -42,20 +42,18 @@ type nodeContentProcessor struct {
 	resourcesRoot      string
 	downloadController DownloadController
 	failFast           bool
-	markdownFmt        bool
 	rewriteEmbedded    bool
 	resourceHandlers   resourcehandlers.Registry
 }
 
 // NewNodeContentProcessor creates NodeContentProcessor objects
-func NewNodeContentProcessor(resourcesRoot string, globalLinksConfig *api.Links, downloadJob DownloadController, failFast bool, markdownFmt bool, rewriteEmbedded bool, resourceHandlers resourcehandlers.Registry) NodeContentProcessor {
+func NewNodeContentProcessor(resourcesRoot string, globalLinksConfig *api.Links, downloadJob DownloadController, failFast bool, rewriteEmbedded bool, resourceHandlers resourcehandlers.Registry) NodeContentProcessor {
 	c := &nodeContentProcessor{
 		resourceAbsLinks:   make(map[string]string),
 		globalLinksConfig:  globalLinksConfig,
 		resourcesRoot:      resourcesRoot,
 		downloadController: downloadJob,
 		failFast:           failFast,
-		markdownFmt:        markdownFmt,
 		rewriteEmbedded:    rewriteEmbedded,
 		resourceHandlers:   resourceHandlers,
 	}

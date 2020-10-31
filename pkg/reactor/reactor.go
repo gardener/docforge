@@ -26,7 +26,6 @@ type Options struct {
 	DestinationPath              string
 	ResourcesPath                string
 	ResourceDownloadWorkersCount int
-	MarkdownFmt                  bool
 	RewriteEmbedded              bool
 	processors.Processor
 	ResourceDownloadWriter writers.Writer
@@ -49,7 +48,7 @@ func NewReactor(o *Options) *Reactor {
 	worker := &DocumentWorker{
 		Writer:               o.Writer,
 		Reader:               &GenericReader{rhRegistry},
-		NodeContentProcessor: NewNodeContentProcessor(o.ResourcesPath, o.GlobalLinksConfig, downloadController, o.FailFast, o.MarkdownFmt, o.RewriteEmbedded, rhRegistry),
+		NodeContentProcessor: NewNodeContentProcessor(o.ResourcesPath, o.GlobalLinksConfig, downloadController, o.FailFast, o.RewriteEmbedded, rhRegistry),
 		Processor:            o.Processor,
 		GitHubInfoController: gitInfoController,
 		templates:            map[string]*template.Template{},
