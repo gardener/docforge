@@ -44,6 +44,7 @@ type Options struct {
 	GitHubInfoPath               string
 	DryRunWriter                 io.Writer
 	Resolve                      bool
+	ResourceHandlers             []resourcehandlers.URIValidator
 	Hugo                         *hugo.Options
 }
 
@@ -56,12 +57,6 @@ type Metering struct {
 // NewReactor creates a Reactor from Options
 func NewReactor(ctx context.Context, options *Options, globalLinksCfg *api.Links) (*reactor.Reactor, error) {
 	dryRunWriters := writers.NewDryRunWritersFactory(options.DryRunWriter)
-
-	rhs, err := initResourceHandlers(ctx, options.GitHubTokens, options.Metering)
-	if err != nil {
-		return nil, err
-	}
-
 	o := &reactor.Options{
 		MaxWorkersCount:              options.MaxWorkersCount,
 		MinWorkersCount:              options.MinWorkersCount,
@@ -71,7 +66,7 @@ func NewReactor(ctx context.Context, options *Options, globalLinksCfg *api.Links
 		ResourceDownloadWorkersCount: options.ResourceDownloadWorkersCount,
 		RewriteEmbedded:              options.RewriteEmbedded,
 		Processor:                    nil,
-		ResourceHandlers:             rhs,
+		ResourceHandlers:             options.ResourceHandlers,
 		DryRunWriter:                 dryRunWriters,
 		Resolve:                      options.Resolve,
 		GlobalLinksConfig:            globalLinksCfg,
@@ -124,8 +119,8 @@ func WithHugo(reactorOptions *reactor.Options, o *Options) {
 
 // initResourceHandlers initializes the resource handler
 // objects used by reactors
-func initResourceHandlers(ctx context.Context, githubTokens map[string]string, metering *Metering) ([]resourcehandlers.ResourceHandler, error) {
-	rhs := []resourcehandlers.ResourceHandler{
+func initResourceHandlers(ctx context.Context, githubTokens map[string]string, metering *Metering) ([]resourcehandlers.URIValidator, error) {
+	rhs := []resourcehandlers.URIValidator{
 		fs.NewFSResourceHandler(),
 	}
 	var errs *multierror.Error

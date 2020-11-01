@@ -16,6 +16,7 @@ import (
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/git"
 	"github.com/gardener/docforge/pkg/jobs"
+	"github.com/gardener/docforge/pkg/readers"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	nodeutil "github.com/gardener/docforge/pkg/util/node"
 	"github.com/gardener/docforge/pkg/writers"
@@ -52,7 +53,9 @@ type gitInfoReader struct {
 
 func (r *gitInfoReader) Read(ctx context.Context, source string) ([]byte, error) {
 	if handler := r.rhs.Get(source); handler != nil {
-		return handler.ReadGitInfo(ctx, source)
+		if reader, ok := handler.(readers.GitInfoReader); ok {
+			return reader.ReadGitInfo(ctx, source)
+		}
 	}
 	return nil, nil
 }

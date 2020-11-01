@@ -242,7 +242,12 @@ func (c *Cache) Set(path string, entry *ResourceLocator) *ResourceLocator {
 	return entry
 }
 
-// GitHub implements resourcehandlers/ResourceHandler
+// GitHub implements
+// - resourcehandlers/URIValidator
+// - resourcehandlers/NodeResolver
+// - resourcehandlers/LinkControl
+// - readers/ContextResourceReader
+// - readers/GitInfoReader
 type GitHub struct {
 	Client               *github.Client
 	cache                *Cache
@@ -251,7 +256,7 @@ type GitHub struct {
 }
 
 // NewResourceHandler creates new GitHub ResourceHandler objects
-func NewResourceHandler(client *github.Client, acceptedHosts []string) resourcehandlers.ResourceHandler {
+func NewResourceHandler(client *github.Client, acceptedHosts []string) resourcehandlers.URIValidator {
 	tr := &http.Transport{
 		MaxIdleConns:       10,
 		IdleConnTimeout:    30 * time.Second,
@@ -318,13 +323,18 @@ func (gh *GitHub) URLToGitHubLocator(ctx context.Context, urlString string, reso
 	return ghRL, nil
 }
 
-// Accept implements resourcehandlers/ResourceHandler#Accept
+// Accept implements resourcehandlers/URIValidator#Accept
 func (gh *GitHub) Accept(uri string) bool {
 	var (
 		url *url.URL
 		err error
 	)
 	if gh.acceptedHosts == nil {
+		return false
+	}
+	// Quick sanity check, preventing panic when trying top
+	// resolve relative paths in url.Parse
+	if !strings.HasPrefix(uri, "http") {
 		return false
 	}
 	if url, err = url.Parse(uri); err != nil {
@@ -386,7 +396,7 @@ func (gh *GitHub) ResolveDocumentation(ctx context.Context, path string) (*api.D
 	return api.Parse(blob)
 }
 
-// Read implements resourcehandlers/ResourceHandler#Read
+// Read implements readers/ContextResourceReader#Read
 func (gh *GitHub) Read(ctx context.Context, uri string) ([]byte, error) {
 	var (
 		blob []byte
@@ -437,7 +447,7 @@ func (gh *GitHub) Read(ctx context.Context, uri string) ([]byte, error) {
 	return blob, err
 }
 
-// ReadGitInfo implements resourcehandlers/ResourceHandler#ReadGitInfo
+// ReadGitInfo implements readers/GitInfoReader#ReadGitInfo
 func (gh *GitHub) ReadGitInfo(ctx context.Context, uri string) ([]byte, error) {
 	var (
 		rl      *ResourceLocator
@@ -467,7 +477,7 @@ func (gh *GitHub) ReadGitInfo(ctx context.Context, uri string) ([]byte, error) {
 	return blob, nil
 }
 
-// ResourceName implements resourcehandlers/ResourceHandler#ResourceName
+// ResourceName implements resourcehandlers/LinkControl#ResourceName
 func (gh *GitHub) ResourceName(uri string) (string, string) {
 	var (
 		rl  *ResourceLocator
@@ -485,7 +495,7 @@ func (gh *GitHub) ResourceName(uri string) (string, string) {
 }
 
 // BuildAbsLink builds the abs link from the source and the relative path
-// Implements resourcehandlers/ResourceHandler#BuildAbsLink
+// Implements resourcehandlers/LinkControl#BuildAbsLink
 func (gh *GitHub) BuildAbsLink(source, relPath string) (string, error) {
 	u, err := url.Parse(relPath)
 	if err != nil {
@@ -508,7 +518,7 @@ func (gh *GitHub) BuildAbsLink(source, relPath string) (string, error) {
 
 // SetVersion replaces the version segment in the path of GitHub URLs if
 // applicable or returns the original URL unchanged if not.
-// Implements resourcehandlers/ResourceHandler#SetVersion
+// Implements resourcehandlers/LinkControl#SetVersion
 func (gh *GitHub) SetVersion(absLink, version string) (string, error) {
 	var (
 		rl  *ResourceLocator
@@ -530,7 +540,7 @@ func (gh *GitHub) SetVersion(absLink, version string) (string, error) {
 	return absLink, nil
 }
 
-// GetRawFormatLink implements ResourceHandler#GetRawFormatLink
+// GetRawFormatLink implements resourcehandlers/LinkControl#GetRawFormatLink
 func (gh *GitHub) GetRawFormatLink(absLink string) (string, error) {
 	var (
 		rl  *ResourceLocator
