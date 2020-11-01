@@ -59,6 +59,8 @@ func NewCommand(ctx context.Context, cancel context.CancelFunc) *cobra.Command {
 
 	completion := NewCompletionCmd()
 	cmd.AddCommand(completion)
+	genCmdDocs := NewGenCmdDocs()
+	cmd.AddCommand(genCmdDocs)
 
 	klog.InitFlags(nil)
 	AddFlags(cmd)
