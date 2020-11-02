@@ -1,5 +1,7 @@
 # docforge
 
+[![reuse compliant](https://reuse.software/badge/reuse-compliant.svg)](https://reuse.software/)
+
 Docforge is a command-line tool that builds documentation bundles from markdown sources distributed across multiple repositories, using manifest for a desired structure and links management.
 
 ## Installation
@@ -7,6 +9,7 @@ Docforge is a command-line tool that builds documentation bundles from markdown 
 ### Users
 
 Go to project [releases](https://github.com/gardener/docforge/releases), select the [latest release](https://github.com/gardener/docforge/releases/latest) and pickup a download for your OS:
+
 - **Mac**: docforge-darwin-amd64
 - **Linux**: docforge-linux-amd64
 - **Windows**: docforge-windows-386.exe
@@ -68,6 +71,7 @@ docforge -d /tmp/docforge-docs -f example/simple/00.yaml --github-oauth-token $G
 - **All in one**   
    The `--dry-run` and `--resolve` flags can be combined for a full analytic overview.
 
-## What's next 
+## What's next
+
 - [User guide](docs/user_guide.md) - creating manifests, using the command line interface (WiP)
 - [Project documentation](docs/index.md) - scope, goals, managing document links consistency, downloads scope, resources version

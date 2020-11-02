@@ -1,0 +1,34 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: Gardener docforge
+Upstream-Contact: The Gardener project <gardener@googlegroups.com>
+Source: https://github.com/gardener/docforge
+
+# --------------------------------------------------
+# source code
+
+Files:
+  .github/*
+  example/hugo/layouts/_default/*
+  example/hugo/layouts/partials/*
+  *.json
+  .dockerignore
+  .gitignore
+  CODEOWNERS
+  go.mod
+  go.sum
+  VERSION
+Copyright: 2020 SAP SE or an SAP affiliate company and Gardener contributors
+License: Apache-2.0
+
+# --------------------------------------------------
+# documentation
+
+Files:
+  docs/*
+  *.md
+Copyright: 2020 SAP SE or an SAP affiliate company and Gardener contributors
+License: CC-BY-4.0
+
+# --------------------------------------------------
+# source dependencies
+
