@@ -217,6 +217,35 @@ func Test_parse(t *testing.T) {
 			wantResourceLocator: nil,
 			wantErr:             fmt.Errorf("Unsupported GitHub URL: https://github.com/gardener/gardener/abc/master/logo/gardener-large.png . %s", fmt.Errorf("Unknown resource type string '%s'. Must be one of %v", "abc", []string{"tree", "blob", "raw", "wiki", "releases", "issues", "issue", "pulls", "pull"})),
 		},
+		{
+			name: "enterprise raw url with host variant",
+			url:  "https://raw.github.enterprise/gardener/gardener/master/README.md",
+			wantResourceLocator: &ResourceLocator{
+				Scheme:   "https",
+				Host:     "raw.github.enterprise",
+				Owner:    "gardener",
+				Repo:     "gardener",
+				Path:     "README.md",
+				SHAAlias: "master",
+				Type:     Raw,
+			},
+			wantErr: nil,
+		},
+		{
+			name: "enterprise raw url with path variant",
+			url:  "https://github.enterprise/raw/gardener/gardener/master/README.md",
+			wantResourceLocator: &ResourceLocator{
+				Scheme:   "https",
+				Host:     "github.enterprise",
+				Owner:    "gardener",
+				Repo:     "gardener",
+				Path:     "README.md",
+				SHAAlias: "master",
+				Type:     Raw,
+				IsRawAPI: true,
+			},
+			wantErr: nil,
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -388,6 +417,20 @@ func Test_String(t *testing.T) {
 				Type:   Pulls,
 			},
 			wantURL: "https://github.com/gardener/gardener/pulls",
+		},
+		{
+			name: "",
+			rl: &ResourceLocator{
+				Scheme:   "https",
+				Host:     "github.enterprise",
+				Owner:    "gardener",
+				Repo:     "gardener",
+				Path:     "README.md",
+				SHAAlias: "master",
+				Type:     Raw,
+				IsRawAPI: true,
+			},
+			wantURL: "https://github.enterprise/raw/gardener/gardener/master/README.md",
 		},
 	}
 	for _, tc := range tests {

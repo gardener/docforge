@@ -49,23 +49,29 @@ func TreeEntryToGitHubLocator(treeEntry *github.TreeEntry, shaAlias string) *Res
 	if err != nil {
 		panic(fmt.Sprintf("failed to parse url %v: %v", treeEntry.GetURL(), err))
 	}
-	host := "github.com" //TODO convert api.domain to domain from url.Host
+
 	sourceURLSegments := strings.Split(url.Path, "/")
 	owner := sourceURLSegments[2]
 	repo := sourceURLSegments[3]
+
+	if url.Host != "api.github.com" {
+		owner = sourceURLSegments[4]
+		repo = sourceURLSegments[5]
+	}
+
 	resourceType, err := NewResourceType(treeEntry.GetType())
 	if err != nil {
 		panic(fmt.Sprintf("unexpected resource type %v: %v", treeEntry.GetType(), err))
 	}
 	return &ResourceLocator{
-		"https",
-		host,
-		owner,
-		repo,
-		treeEntry.GetSHA(),
-		resourceType,
-		treeEntry.GetPath(),
-		shaAlias,
+		Scheme:   url.Scheme,
+		Host:     url.Host,
+		Owner:    owner,
+		Path:     treeEntry.GetPath(),
+		Type:     resourceType,
+		Repo:     repo,
+		SHA:      treeEntry.GetSHA(),
+		SHAAlias: shaAlias,
 	}
 }
 
@@ -248,12 +254,12 @@ func NewResourceHandler(client *github.Client, acceptedHosts []string) resourceh
 	}
 
 	return &GitHub{
-		client,
-		&Cache{
+		Client: client,
+		cache: &Cache{
 			cache: map[string]*ResourceLocator{},
 		},
-		acceptedHosts,
-		&http.Client{Transport: tr},
+		acceptedHosts:        acceptedHosts,
+		rawusercontentClient: &http.Client{Transport: tr},
 	}
 }
 
@@ -291,6 +297,8 @@ func (gh *GitHub) URLToGitHubLocator(ctx context.Context, urlString string, reso
 			// populate cache wth this tree entries
 			for _, entry := range gitTree.Entries {
 				rl := TreeEntryToGitHubLocator(entry, ghRL.SHAAlias)
+				rl.Host = ghRL.Host
+				rl.IsRawAPI = ghRL.IsRawAPI
 				if HasURLPrefix(rl.String(), urlString) {
 					gh.cache.Set(rl.String(), rl)
 				}

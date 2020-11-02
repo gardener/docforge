@@ -106,7 +106,7 @@ func Test_processLink(t *testing.T) {
 			mutate: func(c *nodeContentProcessor) {
 				c.globalLinksConfig = &api.Links{
 					Rewrites: map[string]*api.LinkRewriteRule{
-						"/gardener/gardener/": &api.LinkRewriteRule{
+						"/gardener/gardener/": {
 							Version: tests.StrPtr("v1.10.0"),
 						},
 					},
@@ -160,7 +160,7 @@ func Test_processLink(t *testing.T) {
 			mutate: func(c *nodeContentProcessor) {
 				c.globalLinksConfig = &api.Links{
 					Rewrites: map[string]*api.LinkRewriteRule{
-						"/gardener/gardener/": &api.LinkRewriteRule{
+						"/gardener/gardener/": {
 							Version: tests.StrPtr("v1.10.0"),
 						},
 					},
@@ -197,7 +197,7 @@ func Test_processLink(t *testing.T) {
 			mutate: func(c *nodeContentProcessor) {
 				c.globalLinksConfig = &api.Links{
 					Rewrites: map[string]*api.LinkRewriteRule{
-						"/gardener/gardener/": &api.LinkRewriteRule{
+						"/gardener/gardener/": {
 							Version: tests.StrPtr("v1.10.0"),
 						},
 					},
@@ -233,7 +233,7 @@ func Test_processLink(t *testing.T) {
 			mutate: func(c *nodeContentProcessor) {
 				c.globalLinksConfig = &api.Links{
 					Rewrites: map[string]*api.LinkRewriteRule{
-						"/gardener/gardener/": &api.LinkRewriteRule{
+						"/gardener/gardener/": {
 							Version: tests.StrPtr("v1.10.0"),
 						},
 					},
@@ -259,7 +259,7 @@ func Test_processLink(t *testing.T) {
 			mutate: func(c *nodeContentProcessor) {
 				c.globalLinksConfig = &api.Links{
 					Rewrites: map[string]*api.LinkRewriteRule{
-						"/gardener/gardener/(blob)": &api.LinkRewriteRule{
+						"/gardener/gardener/(blob)": {
 							Version: tests.StrPtr("v1.10.0"),
 						},
 					},
@@ -282,7 +282,7 @@ func Test_processLink(t *testing.T) {
 			mutate: func(c *nodeContentProcessor) {
 				c.globalLinksConfig = &api.Links{
 					Rewrites: map[string]*api.LinkRewriteRule{
-						"/gardener/gardener/": &api.LinkRewriteRule{
+						"/gardener/gardener/": {
 							Version: tests.StrPtr("v1.10.0"),
 						},
 					},
@@ -300,7 +300,7 @@ func Test_processLink(t *testing.T) {
 				Source: "https://github.com/gardener/gardener/blob/v1.10.0/docs/README.md",
 				Links: &api.Links{
 					Rewrites: map[string]*api.LinkRewriteRule{
-						"https://github.com/gardener/gardener/blob/v1.10.0/docs/image.png": &api.LinkRewriteRule{
+						"https://github.com/gardener/gardener/blob/v1.10.0/docs/image.png": {
 							Text:  tests.StrPtr("Test text"),
 							Title: tests.StrPtr("Test title"),
 						},
@@ -320,7 +320,7 @@ func Test_processLink(t *testing.T) {
 			mutate: func(c *nodeContentProcessor) {
 				c.globalLinksConfig = &api.Links{
 					Rewrites: map[string]*api.LinkRewriteRule{
-						"/gardener/gardener/": &api.LinkRewriteRule{
+						"/gardener/gardener/": {
 							Version: tests.StrPtr("v1.10.0"),
 						},
 					},

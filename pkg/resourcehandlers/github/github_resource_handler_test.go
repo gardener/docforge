@@ -16,6 +16,7 @@ import (
 	"github.com/gardener/docforge/pkg/util/tests"
 	"github.com/google/go-github/v32/github"
 	"github.com/stretchr/testify/assert"
+	"k8s.io/utils/pointer"
 )
 
 const (
@@ -73,6 +74,7 @@ func TestUrlToGitHubLocator(t *testing.T) {
 		Blob,
 		"docs/README.md",
 		"master",
+		false,
 	}
 	ghrl2 := &ResourceLocator{
 		"https",
@@ -83,6 +85,7 @@ func TestUrlToGitHubLocator(t *testing.T) {
 		Blob,
 		"docs/README.md",
 		"master",
+		false,
 	}
 	cases := []struct {
 		description  string
@@ -281,6 +284,7 @@ func TestName(t *testing.T) {
 		Blob,
 		"docs/README.md",
 		"",
+		false,
 	}
 	ghrl2 := &ResourceLocator{
 		"https",
@@ -291,6 +295,7 @@ func TestName(t *testing.T) {
 		Tree,
 		"docs",
 		"",
+		false,
 	}
 	testCases := []struct {
 		description string
@@ -352,7 +357,7 @@ func TestRead(t *testing.T) {
 			},
 			&Cache{
 				cache: map[string]*ResourceLocator{
-					"https://github.com/gardener/gardener/blob/master/docs/README.md": &ResourceLocator{
+					"https://github.com/gardener/gardener/blob/master/docs/README.md": {
 						"https",
 						"github.com",
 						"gardener",
@@ -361,6 +366,7 @@ func TestRead(t *testing.T) {
 						Blob,
 						"docs/README.md",
 						"",
+						false,
 					},
 				},
 			},
@@ -446,21 +452,21 @@ func TestCleanupNodeTree(t *testing.T) {
 				Name:   "00",
 				Source: "https://github.com/gardener/gardener/tree/master/docs/00",
 				Nodes: []*api.Node{
-					&api.Node{
+					{
 						Name:   "01.md",
 						Source: "https://github.com/gardener/gardener/blob/master/docs/01.md",
 					},
-					&api.Node{
+					{
 						Name:   "02",
 						Source: "https://github.com/gardener/gardener/tree/master/docs/02",
 						Nodes: []*api.Node{
-							&api.Node{
+							{
 								Name:   "021.md",
 								Source: "https://github.com/gardener/gardener/blob/master/docs/021.md",
 							},
 						},
 					},
-					&api.Node{
+					{
 						Name:   "03",
 						Source: "https://github.com/gardener/gardener/tree/master/docs/03",
 						Nodes:  []*api.Node{},
@@ -470,14 +476,14 @@ func TestCleanupNodeTree(t *testing.T) {
 			wantNode: &api.Node{
 				Name: "00",
 				Nodes: []*api.Node{
-					&api.Node{
+					{
 						Name:   "01.md",
 						Source: "https://github.com/gardener/gardener/blob/master/docs/01.md",
 					},
-					&api.Node{
+					{
 						Name: "02",
 						Nodes: []*api.Node{
-							&api.Node{
+							{
 								Name:   "021.md",
 								Source: "https://github.com/gardener/gardener/blob/master/docs/021.md",
 							},
@@ -491,6 +497,122 @@ func TestCleanupNodeTree(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			cleanupNodeTree(tc.node)
 			assert.Equal(t, tc.wantNode, tc.node)
+		})
+	}
+}
+
+func TestTreeEntryToGitHubLocator(t *testing.T) {
+	type args struct {
+		treeEntry *github.TreeEntry
+		shaAlias  string
+	}
+	tests := []struct {
+		name       string
+		args       args
+		expectedRL *ResourceLocator
+	}{
+		{
+			name: "should return the expected ResourceLocator for a enterprise GitHub entry",
+			args: args{
+				treeEntry: &github.TreeEntry{
+					SHA:  pointer.StringPtr("b578f8f6cce210d44388e7136b9acce055da4d1b"),
+					Path: pointer.StringPtr("docs/cluster_resources.md"),
+					Mode: pointer.StringPtr("100644"),
+					Type: pointer.StringPtr("blob"),
+					Size: new(int),
+					URL:  pointer.StringPtr("https://github.enterprise/api/v3/repos/test-org/test-repo/git/blobs/b578f8f6cce210d44388e7136b9acce055da4d1b"),
+				},
+				shaAlias: "master",
+			},
+			expectedRL: &ResourceLocator{
+				Host:     "github.enterprise",
+				Owner:    "test-org",
+				Repo:     "test-repo",
+				Path:     "docs/cluster_resources.md",
+				SHA:      "b578f8f6cce210d44388e7136b9acce055da4d1b",
+				Scheme:   "https",
+				SHAAlias: "master",
+				Type:     Blob,
+			},
+		},
+		{
+			name: "should return the expected ResourceLocator for a enterprise GitHub raw entry",
+			args: args{
+				treeEntry: &github.TreeEntry{
+					SHA:  pointer.StringPtr("b578f8f6cce210d44388e7136b9acce055da4d1b"),
+					Path: pointer.StringPtr("docs/cluster_resources.md"),
+					Mode: pointer.StringPtr("100644"),
+					Type: pointer.StringPtr("blob"),
+					Size: new(int),
+					URL:  pointer.StringPtr("https://github.enterprise/api/v3/repos/test-org/test-repo/git/blobs/b578f8f6cce210d44388e7136b9acce055da4d1b"),
+				},
+				shaAlias: "master",
+			},
+			expectedRL: &ResourceLocator{
+				Host:     "github.enterprise",
+				Owner:    "test-org",
+				Repo:     "test-repo",
+				Path:     "docs/cluster_resources.md",
+				SHA:      "b578f8f6cce210d44388e7136b9acce055da4d1b",
+				Scheme:   "https",
+				SHAAlias: "master",
+				Type:     Blob,
+			},
+		},
+		{
+			name: "should return the expected ResourceLocator for a GitHub raw entry",
+			args: args{
+				treeEntry: &github.TreeEntry{
+					SHA:  pointer.StringPtr("b578f8f6cce210d44388e7136b9acce055da4d1b"),
+					Path: pointer.StringPtr("docs/cluster_resources.md"),
+					Mode: pointer.StringPtr("100644"),
+					Type: pointer.StringPtr("blob"),
+					Size: new(int),
+					URL:  pointer.StringPtr("https://api.github.com/repos/test-org/test-repo/git/blobs/b578f8f6cce210d44388e7136b9acce055da4d1b"),
+				},
+				shaAlias: "master",
+			},
+			expectedRL: &ResourceLocator{
+				Host:     "api.github.com",
+				Owner:    "test-org",
+				Repo:     "test-repo",
+				Path:     "docs/cluster_resources.md",
+				SHA:      "b578f8f6cce210d44388e7136b9acce055da4d1b",
+				Scheme:   "https",
+				SHAAlias: "master",
+				Type:     Blob,
+			},
+		},
+		{
+			name: "should return the expected ResourceLocator for a GitHub entry",
+			args: args{
+				treeEntry: &github.TreeEntry{
+					SHA:  pointer.StringPtr("b578f8f6cce210d44388e7136b9acce055da4d1b"),
+					Path: pointer.StringPtr("docs/cluster_resources.md"),
+					Mode: pointer.StringPtr("100644"),
+					Type: pointer.StringPtr("blob"),
+					Size: new(int),
+					URL:  pointer.StringPtr("https://api.github.com/repos/test-org/test-repo/git/blobs/b578f8f6cce210d44388e7136b9acce055da4d1b"),
+				},
+				shaAlias: "master",
+			},
+			expectedRL: &ResourceLocator{
+				Host:     "api.github.com",
+				Owner:    "test-org",
+				Repo:     "test-repo",
+				Path:     "docs/cluster_resources.md",
+				SHA:      "b578f8f6cce210d44388e7136b9acce055da4d1b",
+				Scheme:   "https",
+				SHAAlias: "master",
+				Type:     Blob,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := TreeEntryToGitHubLocator(tt.args.treeEntry, tt.args.shaAlias); !reflect.DeepEqual(got, tt.expectedRL) {
+				t.Errorf("TreeEntryToGitHubLocator() = %v, want %v", got, tt.expectedRL)
+			}
 		})
 	}
 }
