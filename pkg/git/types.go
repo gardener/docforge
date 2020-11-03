@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2020 SAP SE or an SAP affiliate company and Gardener contributors
+//
+// SPDX-License-Identifier: Apache-2.0
+
 package git
 
 import "github.com/google/go-github/v32/github"
