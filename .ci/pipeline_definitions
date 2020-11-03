@@ -51,6 +51,8 @@ docforge:
               channel_name: "G0170ECNADC" #gardener-space-sofia
               slack_cfg_name: "ti_workspace"
       steps:
+        docs-lint:
+          image: "eu.gcr.io/gardener-project/docs-toolbelt:latest"
         update-release:
           execute: 'update-release.py'
           inputs:

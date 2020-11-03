@@ -87,4 +87,8 @@ test-clean:
 
 .PHONY: check-compliance
 check-compliance:
-	@.ci/compliance
+	@bash .ci/compliance
+
+.PHONY: docs-lint
+docs-lint:
+	@.ci/docs-lint 
