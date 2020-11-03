@@ -4,12 +4,11 @@ Upstream-Contact: The Gardener project <gardener@googlegroups.com>
 Source: https://github.com/gardener/docforge
 
 # --------------------------------------------------
-# source code
+# examples and supplementary
 
 Files:
+  example/*
   .github/*
-  example/hugo/layouts/_default/*
-  example/hugo/layouts/partials/*
   *.json
   .dockerignore
   .gitignore

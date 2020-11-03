@@ -24,6 +24,8 @@ docforge:
     steps:
       check:
         image: "golang:1.14.4"
+      compliance:
+        image: "fsfe/reuse:latest"       
       test:
         image: "golang:1.14.4"
       build:
