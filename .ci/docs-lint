@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2020 SAP SE or an SAP affiliate company and Gardener contributors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+set -e
+
+if [[ $(uname) == 'Darwin' ]]; then
+  READLINK_BIN="greadlink"
+else
+  READLINK_BIN="readlink"
+fi
+
+if [[ -z "${SOURCE_PATH}" ]]; then
+  SOURCE_PATH="$(${READLINK_BIN} -f $(dirname ${0})/..)"
+  docker run --rm -v ${SOURCE_PATH}:/workdir eu.gcr.io/gardener-project/docs-toolbelt:latest liche -d . -r docs
+else
+  cd $SOURCE_PATH
+  liche -d . -r docs
+fi
