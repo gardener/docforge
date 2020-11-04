@@ -35,19 +35,19 @@ func (fs *fsHandler) Accept(uri string) bool {
 }
 
 // ResolveNodeSelector implements resourcehandlers.ResourceHandler#ResolveNodeSelector
-func (fs *fsHandler) ResolveNodeSelector(ctx context.Context, node *api.Node, excludePaths []string, frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32) error {
+func (fs *fsHandler) ResolveNodeSelector(ctx context.Context, node *api.Node, excludePaths []string, frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32) ([]*api.Node, error) {
 	var (
 		fileInfo os.FileInfo
 		err      error
 	)
 	if node.NodeSelector == nil {
-		return nil
+		return nil, nil
 	}
 	if fileInfo, err = os.Stat(node.NodeSelector.Path); err != nil {
-		return err
+		return nil, err
 	}
-	if !fileInfo.IsDir() {
-		return fmt.Errorf("nodeSelector path is not directory")
+	if !fileInfo.IsDir() && filepath.Ext(fileInfo.Name()) == ".md" {
+		return nil, fmt.Errorf("nodeSelector path is neither directory or module")
 	}
 	_node := &api.Node{
 		Nodes: []*api.Node{},
@@ -83,17 +83,33 @@ func (fs *fsHandler) ResolveNodeSelector(ctx context.Context, node *api.Node, ex
 		}
 	}(_node, node.NodeSelector.Path))
 	if len(_node.Nodes) > 0 && len(_node.Nodes[0].Nodes) > 0 {
-		node.Nodes = _node.Nodes[0].Nodes
-		for _, n := range node.Nodes {
-			n.SetParent(node)
+		for _, node := range _node.Nodes[0].Nodes {
+			node.SetParent(nil)
 		}
+		return _node.Nodes[0].Nodes, nil
 	}
-	return nil
+	return nil, nil
 }
 
 // Read implements resourcehandlers.ResourceHandler#Read
 func (fs *fsHandler) Read(ctx context.Context, uri string) ([]byte, error) {
 	return ioutil.ReadFile(uri)
+}
+
+func (fs *fsHandler) ResolveDocumentation(ctx context.Context, uri string) (*api.Documentation, error) {
+	fileInfo, err := os.Stat(uri)
+	if err != nil {
+		return nil, err
+	}
+	if fileInfo.IsDir() {
+		return nil, nil
+	}
+	blob, err := fs.Read(ctx, uri)
+	if err != nil {
+		return nil, err
+	}
+
+	return api.Parse(blob)
 }
 
 // ReadGitInfo implements resourcehandlers.ResourceHandler#ReadGitInfo

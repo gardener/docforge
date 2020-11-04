@@ -267,10 +267,12 @@ func TestResolveNodeSelector(t *testing.T) {
 			c.mux(mux)
 		}
 		gh.Client = client
-		gotError := gh.ResolveNodeSelector(ctx, c.inNode, c.excludePaths, c.frontMatter, c.excludeFrontMatter, c.depth)
+
+		nodes, gotError := gh.ResolveNodeSelector(ctx, c.inNode, c.excludePaths, c.frontMatter, c.excludeFrontMatter, c.depth)
 		if gotError != nil {
 			t.Errorf("error == %q, want %q", gotError, c.wantError)
 		}
+		c.inNode.Nodes = append(c.inNode.Nodes, nodes...)
 		c.want.SetParentsDownwards()
 		api.SortNodesByName(c.inNode)
 		api.SortNodesByName(c.want)

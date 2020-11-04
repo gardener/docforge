@@ -23,7 +23,7 @@ type ResourceHandler interface {
 	Accept(uri string) bool
 	// ResolveNodeSelector resolves the NodeSelector rules of a Node into subnodes
 	// hierarchy (Node.Nodes)
-	ResolveNodeSelector(ctx context.Context, node *api.Node, excludePaths []string, frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32) error
+	ResolveNodeSelector(ctx context.Context, node *api.Node, excludePaths []string, frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32) ([]*api.Node, error)
 	// Read a resource content at uri into a byte array
 	Read(ctx context.Context, uri string) ([]byte, error)
 	// Read git info
@@ -41,6 +41,8 @@ type ResourceHandler interface {
 	// SetVersion sets version to absLink according to the API scheme. For GitHub
 	// for example this would replace e.g. the 'master' segment in the path with version
 	SetVersion(absLink, version string) (string, error)
+	// ResolveDocumentation for a given uri
+	ResolveDocumentation(ctx context.Context, uri string) (*api.Documentation, error)
 }
 
 // Registry can register and return resource handlers

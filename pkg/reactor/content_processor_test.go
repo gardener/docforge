@@ -477,9 +477,15 @@ type testResourceHandler struct {
 func (rh *testResourceHandler) Accept(uri string) bool {
 	return true
 }
-func (rh *testResourceHandler) ResolveNodeSelector(ctx context.Context, node *api.Node, excludePaths []string, frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32) error {
-	return nil
+
+func (rh *testResourceHandler) ResolveNodeSelector(ctx context.Context, node *api.Node, excludePaths []string, frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32) ([]*api.Node, error) {
+	return nil, nil
 }
+
+func (rh *testResourceHandler) ResolveDocumentation(ctx context.Context, uri string) (*api.Documentation, error) {
+	return nil, nil
+}
+
 func (rh *testResourceHandler) Read(ctx context.Context, uri string) ([]byte, error) {
 	return nil, nil
 }

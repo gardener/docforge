@@ -45,9 +45,11 @@ func TestResolveNodeSelectorLive(t *testing.T) {
 			Path: "https://github.com/gardener/gardener/tree/master/docs",
 		},
 	}
-	if err := gh.ResolveNodeSelector(ctx, node, nil, nil, nil, 0); err != nil {
+	nodes, err := gh.ResolveNodeSelector(ctx, node, nil, nil, nil, 0)
+	if err != nil {
 		fmt.Printf("%v", err)
 	}
+	node.Nodes = nodes
 	b, _ := yaml.Marshal(node)
 	fmt.Println(string(b))
 }
