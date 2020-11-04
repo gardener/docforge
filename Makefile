@@ -87,4 +87,4 @@ test-clean:
 
 .PHONY: check-compliance
 check-compliance:
-	@hack/check-compliance
+	@.ci/compliance

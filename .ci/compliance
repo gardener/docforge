@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/env sh
 
 # SPDX-FileCopyrightText: 2020 SAP SE or an SAP affiliate company and Gardener contributors
 #
@@ -14,7 +14,8 @@ fi
 
 if [[ -z "${SOURCE_PATH}" ]]; then
   SOURCE_PATH="$(${READLINK_BIN} -f $(dirname ${0})/..)"
+  docker run -v ${SOURCE_PATH}:/data fsfe/reuse:latest lint
+else
+  cd $SOURCE_PATH
+  reuse lint
 fi
-
-cd $SOURCE_PATH
-reuse lint
