@@ -84,3 +84,7 @@ test-cov:
 test-clean:
 	@find . -name "*.coverprofile" -type f -delete
 	@rm -f docforge.coverage.html
+
+.PHONY: check-compliance
+check-compliance:
+	@hack/check-compliance
