@@ -75,6 +75,15 @@ func (l *link) SetText(text []byte) {
 	}
 	offset := len(text) - (l.text.end - l.text.start)
 	l.document.data = replaceBytes(l.document.data, l.text.start, l.text.end, text)
+	// offset next link components, if any
+	if l.destination != nil {
+		l.destination.start = offset + l.destination.start
+		l.destination.end = offset + l.destination.end
+	}
+	if l.title != nil {
+		l.title.start = offset + l.title.start
+		l.title.end = offset + l.title.end
+	}
 	offsetSiblingsByteRanges(l, offset)
 }
 
@@ -91,6 +100,11 @@ func (l *link) SetDestination(text []byte) {
 	}
 	offset := len(text) - (l.destination.end - l.destination.start)
 	l.document.data = replaceBytes(l.document.data, l.destination.start, l.destination.end, text)
+	// offset next link components, if any
+	if l.title != nil {
+		l.title.start = offset + l.title.start
+		l.title.end = offset + l.title.end
+	}
 	offsetSiblingsByteRanges(l, offset)
 }
 
