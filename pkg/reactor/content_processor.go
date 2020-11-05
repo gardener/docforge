@@ -23,10 +23,8 @@ import (
 )
 
 var (
-	htmlLinksRegexList = []*regexp.Regexp{
-		regexp.MustCompile(`href=["\']?([^"\'>]+)["\']?`),
-		regexp.MustCompile(`src=["\']?([^"\'>]+)["\']?`),
-	}
+	htmlTagLinkRegex    = regexp.MustCompile(`<\b[^>]*?\b((?i)href|(?i)src)\s*=\s*(\"([^"]*\")|'[^']*'|([^'">\s]+))`)
+	htmlTagLinkURLRegex = regexp.MustCompile(`((http|https|ftp|mailto):\/\/)?(\.?\/?[\w\.\-]+)+\/?([#?=&])?`)
 )
 
 // NodeContentProcessor operates on documents content to reconcile links and
@@ -163,36 +161,36 @@ func (c *nodeContentProcessor) reconcileMDLinks(ctx context.Context, docNode *ap
 // replace html raw links of any sorts.
 func (c *nodeContentProcessor) reconcileHTMLLinks(ctx context.Context, docNode *api.Node, documentBytes []byte, contentSourcePath string) ([]byte, error) {
 	var errors *multierror.Error
-	for _, regex := range htmlLinksRegexList {
-		documentBytes = regex.ReplaceAllFunc(documentBytes, func(match []byte) []byte {
-			attr := strings.Split(string(match), "=")
-			name := attr[0]
-			url := attr[1]
-			if len(url) > 0 {
-				url = strings.TrimPrefix(url, "\"")
-				url = strings.TrimSuffix(url, "\"")
+	documentBytes = htmlTagLinkRegex.ReplaceAllFunc(documentBytes, func(match []byte) []byte {
+		var prefix, suffix string
+		attrs := strings.SplitAfter(string(match), "=")
+		url := attrs[len(attrs)-1]
+		url = htmlTagLinkURLRegex.FindString(url)
+		splits := strings.Split(string(match), url)
+		prefix = splits[0]
+		if len(splits) > 1 {
+			suffix = strings.Split(string(match), url)[1]
+		}
+		destination, _, _, download, err := c.resolveLink(ctx, docNode, url, contentSourcePath)
+		if docNode != nil && destination != nil {
+			if url != *destination {
+				recordLinkStats(docNode, "Links", fmt.Sprintf("%s -> %s", url, *destination))
+			} else {
+				recordLinkStats(docNode, "Links", "")
 			}
-			destination, _, _, download, err := c.resolveLink(ctx, docNode, url, contentSourcePath)
-			if docNode != nil && destination != nil {
-				if url != *destination {
-					recordLinkStats(docNode, "Links", fmt.Sprintf("%s -> %s", url, *destination))
-				} else {
-					recordLinkStats(docNode, "Links", "")
-				}
-			}
-			if download != nil {
-				if err := c.schedule(ctx, download, contentSourcePath); err != nil {
-					errors = multierror.Append(err)
-					return match
-				}
-			}
-			if err != nil {
+		}
+		if download != nil {
+			if err := c.schedule(ctx, download, contentSourcePath); err != nil {
 				errors = multierror.Append(err)
 				return match
 			}
-			return []byte(fmt.Sprintf("%s=%s", name, *destination))
-		})
-	}
+		}
+		if err != nil {
+			errors = multierror.Append(err)
+			return match
+		}
+		return []byte(fmt.Sprintf("%s%s%s", prefix, *destination, suffix))
+	})
 	return documentBytes, errors.ErrorOrNil()
 }
 
