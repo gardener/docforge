@@ -15,6 +15,6 @@ Possible values:
 - category:       improvement|noteworthy|action
 - target_group:   user|operator|developer
 -->
-```improvement operator
+```noteworthy user
 
 ```

@@ -13,4 +13,12 @@ labels: kind/bug
 
 **Anything else we need to know**:
 
-**Environment**:
+**How to categorize this issue?**
+<!--
+Please select kind, and priority for this issue. This helps the community categorizing it.
+Replace below with those that fit best in your opinion.
+"/kind" identifiers:     bug|impediment|post-mortem|regression
+"/priority" identifiers: normal|critical|blocker
+-->
+/kind bug
+/priority normal
