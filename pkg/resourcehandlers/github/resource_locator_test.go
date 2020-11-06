@@ -219,7 +219,7 @@ func Test_parse(t *testing.T) {
 			name:                "unsupported url",
 			url:                 "https://github.com/gardener/gardener/abc/master/logo/gardener-large.png",
 			wantResourceLocator: nil,
-			wantErr:             fmt.Errorf("Unsupported GitHub URL: https://github.com/gardener/gardener/abc/master/logo/gardener-large.png . %s", fmt.Errorf("Unknown resource type string '%s'. Must be one of %v", "abc", []string{"tree", "blob", "raw", "wiki", "releases", "issues", "issue", "pulls", "pull"})),
+			wantErr:             fmt.Errorf("Unsupported GitHub URL: https://github.com/gardener/gardener/abc/master/logo/gardener-large.png . %s", fmt.Errorf("Unknown resource type string '%s'. Must be one of %v", "abc", []string{"tree", "blob", "raw", "wiki", "releases", "issues", "issue", "pulls", "pull", "commit", "commits"})),
 		},
 		{
 			name: "enterprise raw url with host variant",
