@@ -25,6 +25,7 @@ type cmdFlags struct {
 	resourcesPath                string
 	resourceDownloadWorkersCount int
 	rewriteEmbedded              bool
+	variables                    map[string]string
 	ghOAuthToken                 string
 	ghOAuthTokens                map[string]string
 	ghInfoDestination            string
@@ -45,7 +46,7 @@ func NewCommand(ctx context.Context, cancel context.CancelFunc) *cobra.Command {
 		Short: "Build documentation bundle",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			options := NewOptions(flags)
-			doc := Manifest(flags.documentationManifestPath)
+			doc := Manifest(flags.documentationManifestPath, flags.variables)
 			if err := api.ValidateManifest(doc); err != nil {
 				return err
 			}
@@ -89,11 +90,14 @@ func (flags *cmdFlags) Configure(command *cobra.Command) {
 		"Resources download path.")
 	command.Flags().StringVar(&flags.ghOAuthToken, "github-oauth-token", "",
 		"GitHub personal token authorizing read access from GitHub.com repositories. For authorization credentials for multiple GitHub instances, see --gtihub-oauth-token-map")
-	command.Flags().StringToStringVar(&flags.ghOAuthTokens, "github-oauth-token-map", map[string]string{}, "GitHub personal tokens authorizing read access from repositories per GitHub instance. Note that if the GitHub token is already provided by `github-oauth-token` it will be overrided by it.")
+	command.Flags().StringToStringVar(&flags.ghOAuthTokens, "github-oauth-token-map", map[string]string{},
+		"GitHub personal tokens authorizing read access from repositories per GitHub instance. Note that if the GitHub token is already provided by `github-oauth-token` it will be overridden by it.")
 	command.Flags().StringVar(&flags.ghInfoDestination, "github-info-destination", "",
 		"If specified, docforge will download also additional github info for the files from the documentation structure into this destination.")
 	command.Flags().BoolVar(&flags.rewriteEmbedded, "rewrite-embedded-to-raw", true,
 		"Rewrites absolute link destinations for embedded resources (images) to reference embedable media (e.g. for GitHub - reference to a 'raw' version of an image).")
+	command.Flags().StringToStringVar(&flags.variables, "variables", map[string]string{},
+		"Variables applied to parameterized (using Go template) manifest.")
 	command.Flags().BoolVar(&flags.failFast, "fail-fast", false,
 		"Fail-fast vs fault tolerant operation.")
 	command.Flags().BoolVar(&flags.dryRun, "dry-run", false,
@@ -174,7 +178,7 @@ func gatherTokens(flags *cmdFlags) map[string]string {
 	}
 	if len(flags.ghOAuthToken) > 0 {
 		if _, ok := tokens["github.com"]; ok {
-			klog.Warning("gihtub.com token is overriden by the provided token with `--github-oauth-token flag` ")
+			klog.Warning("gihtub.com token is overridden by the provided token with `--github-oauth-token flag` ")
 		}
 		tokens["github.com"] = flags.ghOAuthToken
 	}
