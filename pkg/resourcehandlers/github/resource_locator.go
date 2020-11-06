@@ -17,7 +17,7 @@ import (
 type ResourceType int
 
 func (s ResourceType) String() string {
-	return [...]string{"tree", "blob", "raw", "wiki", "releases", "issues", "issue", "pulls", "pull"}[s]
+	return [...]string{"tree", "blob", "raw", "wiki", "releases", "issues", "issue", "pulls", "pull", "commit", "commits"}[s]
 }
 
 // NewResourceType creates a ResourceType enum from string
@@ -41,8 +41,12 @@ func NewResourceType(resourceTypeString string) (ResourceType, error) {
 		return Pulls, nil
 	case "pull":
 		return Pull, nil
+	case "commit":
+		return Commit, nil
+	case "commits":
+		return Commit, nil
 	}
-	return 0, fmt.Errorf("Unknown resource type string '%s'. Must be one of %v", resourceTypeString, []string{"tree", "blob", "raw", "wiki", "releases", "issues", "issue", "pulls", "pull"})
+	return 0, fmt.Errorf("Unknown resource type string '%s'. Must be one of %v", resourceTypeString, []string{"tree", "blob", "raw", "wiki", "releases", "issues", "issue", "pulls", "pull", "commit", "commits"})
 }
 
 const (
@@ -64,6 +68,10 @@ const (
 	Pulls
 	// Pull is GitHub pull resource type
 	Pull
+	// Commit is GitHub commit resource type
+	Commit
+	// Commits is GitHub commits resource type
+	Commits
 )
 
 var nonSHAPathPrefixes = map[string]struct{}{
@@ -73,6 +81,8 @@ var nonSHAPathPrefixes = map[string]struct{}{
 	Pulls.String():    {},
 	Pull.String():     {},
 	Wiki.String():     {},
+	Commit.String():   {},
+	Commits.String():  {},
 }
 
 // ResourceLocator is an abstraction for GitHub specific Universal Resource Locators (URLs)
