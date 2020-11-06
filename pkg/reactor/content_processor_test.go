@@ -391,3 +391,114 @@ func Test_processLink(t *testing.T) {
 		})
 	}
 }
+
+func Test_matchHTMLLinks(t *testing.T) {
+	testCases := []struct {
+		in   []string
+		want []string
+	}{
+		{
+			in: []string{
+				`<script src="abc/a.js" />`,
+				`<script src=   "abc/a.js" />`,
+				`<script src="   abc/a.js" />`,
+				`<script SRC = "   abc/a.js" />`,
+				`<script SRC = '   abc/a.js' />`,
+				`<script SRC = '   abc/a.js  ' title="test" />`,
+				`<script src= abc/a.js />`,
+				`<script SRC = "   abc/a.js" `,
+				`<img src="abc/a.js">`,
+				`<a href="abc/a.js">A</a>`,
+			},
+			want: []string{
+				`<script src="cde" />`,
+				`<script src=   "cde" />`,
+				`<script src="   cde" />`,
+				`<script SRC = "   cde" />`,
+				`<script SRC = '   cde' />`,
+				`<script SRC = '   cde  ' title="test" />`,
+				`<script src= cde />`,
+				`<script SRC = "   cde" `,
+				`<img src="cde">`,
+				`<a href="cde">A</a>`,
+			},
+		},
+		{
+			in: []string{
+				`< src="abc/a.js" />`,
+				`<script src="   abc/a.js' />`,
+				// FIXME: unbalanced quotation marks break the regex
+				// `<script SRC = "   abc/a.js   title="test" />`,
+			},
+			want: []string{
+				`< src="abc/a.js" />`,
+				`<script src="   abc/a.js' />`,
+				// `<script SRC = "   abc/a.js   title="test" />`,
+			},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run("", func(t *testing.T) {
+			c := &nodeContentProcessor{
+				resourceAbsLinks: make(map[string]string),
+				resourcesRoot:    "/__resources",
+				resourceHandlers: resourcehandlers.NewRegistry(&testResourceHandler{}),
+				rewriteEmbedded:  true,
+				globalLinksConfig: &api.Links{
+					Rewrites: map[string]*api.LinkRewriteRule{
+						"abc": &api.LinkRewriteRule{
+							Destination: tests.StrPtr("cde"),
+						},
+					},
+				},
+			}
+			node := &api.Node{
+				Name:   "node_A.md",
+				Source: "https://github.com/gardener/gardener/blob/v1.10.0/docs/README.md",
+			}
+			var (
+				b   []byte
+				err error
+			)
+			for i, in := range tc.in {
+				if b, err = c.reconcileHTMLLinks(nil, node, []byte(in), ""); err != nil {
+					t.Fatal(err)
+				}
+				assert.Equal(t, tc.want[i], string(b))
+			}
+		})
+	}
+}
+
+type testResourceHandler struct {
+	hitCounter int
+}
+
+func (rh *testResourceHandler) Accept(uri string) bool {
+	return true
+}
+func (rh *testResourceHandler) ResolveNodeSelector(ctx context.Context, node *api.Node, excludePaths []string, frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32) error {
+	return nil
+}
+func (rh *testResourceHandler) Read(ctx context.Context, uri string) ([]byte, error) {
+	return nil, nil
+}
+func (rh *testResourceHandler) ReadGitInfo(ctx context.Context, uri string) ([]byte, error) {
+	return nil, nil
+}
+func (rh *testResourceHandler) Name(uri string) string {
+	return ""
+}
+func (rh *testResourceHandler) ResourceName(uri string) (string, string) {
+	return "", ""
+}
+func (rh *testResourceHandler) BuildAbsLink(source, relLink string) (string, error) {
+	return relLink, nil
+}
+func (rh *testResourceHandler) SetVersion(link, version string) (string, error) {
+	return link, nil
+}
+
+func (rh *testResourceHandler) GetRawFormatLink(absLink string) (string, error) {
+	return absLink, nil
+}
