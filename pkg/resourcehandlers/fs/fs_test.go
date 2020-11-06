@@ -62,35 +62,41 @@ func TestResolveNodeSelector(t *testing.T) {
 			Path: "testdata",
 		},
 		Nodes: []*api.Node{
-			&api.Node{
+			{
 				Name: "d00",
 				Nodes: []*api.Node{
-					&api.Node{
+					{
 						Name: "d02",
 						Nodes: []*api.Node{
-							&api.Node{
+							{
 								Name:   "f020.md",
 								Source: "testdata/d00/d02/f020.md",
 							},
 						},
 					},
-					&api.Node{
+					{
 						Name:   "f01.md",
 						Source: "testdata/d00/f01.md",
 					},
 				},
 			},
-			&api.Node{
+			{
 				Name:   "f00.md",
 				Source: "testdata/f00.md",
 			},
 		},
 	}
 	expected.SetParentsDownwards()
-	if err = fs.ResolveNodeSelector(nil, node, nil, nil, nil, 0); err != nil {
+	expectedNodes := expected.Nodes
+	for _, n := range expectedNodes {
+		n.SetParent(nil)
+	}
+	nodes, err := fs.ResolveNodeSelector(nil, node, nil, nil, nil, 0)
+	if err != nil {
 		t.Fatalf("%s", err.Error())
 	}
-	assert.Equal(t, expected, node)
+
+	assert.Equal(t, expected.Nodes, nodes)
 }
 
 func TestBuildAbsLink(t *testing.T) {

@@ -17,7 +17,7 @@ func ValidateManifest(manifest *Documentation) error {
 	var errs *multierror.Error
 	if manifest != nil {
 		if manifest.NodeSelector == nil && manifest.Structure == nil {
-			errs = multierror.Append(errs, fmt.Errorf("At least nodeSelector or structure must be present as top-level elements in a manifest"))
+			errs = multierror.Append(errs, fmt.Errorf("At least nodesSelector or structure must be present as top-level elements in a manifest"))
 		}
 		validateNodeSelector(manifest.NodeSelector, errs)
 		if manifest.NodeSelector != nil {

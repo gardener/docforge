@@ -44,7 +44,7 @@ var (
 func createNewDocumentation() *api.Documentation {
 	return &api.Documentation{
 		Structure: []*api.Node{
-			&api.Node{
+			{
 				Name:             "rootNode",
 				ContentSelectors: []api.ContentSelector{{Source: "https://github.com/org/repo/tree/master/docs"}},
 				Nodes: []*api.Node{
@@ -63,8 +63,12 @@ func (f *FakeResourceHandler) Accept(uri string) bool {
 	return true
 }
 
-func (f *FakeResourceHandler) ResolveNodeSelector(ctx context.Context, node *api.Node, excludePaths []string, frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32) error {
-	return nil
+func (f *FakeResourceHandler) ResolveNodeSelector(ctx context.Context, node *api.Node, excludePaths []string, frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32) ([]*api.Node, error) {
+	return nil, nil
+}
+
+func (f *FakeResourceHandler) ResolveDocumentation(ctx context.Context, uri string) (*api.Documentation, error) {
+	return nil, nil
 }
 
 func (f *FakeResourceHandler) Read(ctx context.Context, uri string) ([]byte, error) {

@@ -80,11 +80,11 @@ func TreeEntryToGitHubLocator(treeEntry *github.TreeEntry, shaAlias string) *Res
 }
 
 // Recursively adds or merges nodes built from flat ResourceLocators list to node.Nodes
-func buildNodes(node *api.Node, excludePaths []string, frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32, childResourceLocators []*ResourceLocator, cache *Cache, currentDepth int32) (err error) {
+func buildNodes(node *api.Node, excludePaths []string, frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32, childResourceLocators []*ResourceLocator, cache *Cache, currentDepth int32) ([]*api.Node, error) {
 	var (
+		nodesResult         []*api.Node
 		nodePath            string
 		nodeResourceLocator *ResourceLocator
-		regex               *regexp.Regexp
 	)
 	if node.NodeSelector != nil {
 		nodePath = node.NodeSelector.Path
@@ -102,8 +102,9 @@ func buildNodes(node *api.Node, excludePaths []string, frontMatter map[string]in
 		// check if this resource path has to be excluded
 		exclude := false
 		for _, excludePath := range excludePaths {
-			if regex, err = regexp.Compile(excludePath); err != nil {
-				return fmt.Errorf("invalid path exclude expression %s: %w", excludePath, err)
+			regex, err := regexp.Compile(excludePath)
+			if err != nil {
+				return nil, fmt.Errorf("invalid path exclude expression %s: %w", excludePath, err)
 			}
 			urlString := childResourceLocator.String()
 			if regex.Match([]byte(urlString)) {
@@ -125,12 +126,6 @@ func buildNodes(node *api.Node, excludePaths []string, frontMatter map[string]in
 					Source: childResourceLocator.String(),
 				}
 				n.SetParent(node)
-				if node.Nodes == nil {
-					node.Nodes = make([]*api.Node, 0)
-				}
-
-				node.Nodes = append(node.Nodes, n)
-
 				// recursively build subnodes if entry is sub-tree
 				if childResourceLocator.Type == Tree {
 					if depth > 0 && depth == currentDepth {
@@ -138,15 +133,21 @@ func buildNodes(node *api.Node, excludePaths []string, frontMatter map[string]in
 					}
 					currentDepth++
 					childResourceLocators = cache.GetSubset(childResourceLocator.String())
-					if err = buildNodes(n, excludePaths, frontMatter, excludeFrontMatter, depth, childResourceLocators, cache, currentDepth); err != nil {
-						return err
+					childNodes, err := buildNodes(n, excludePaths, frontMatter, excludeFrontMatter, depth, childResourceLocators, cache, currentDepth)
+					if err != nil {
+						return nil, err
 					}
+					if n.Nodes == nil {
+						n.Nodes = make([]*api.Node, 0)
+					}
+					n.Nodes = append(n.Nodes, childNodes...)
 					currentDepth--
 				}
+				nodesResult = append(nodesResult, n)
 			}
 		}
 	}
-	return
+	return nodesResult, nil
 }
 
 // - remove contentSources that reference tree objects. They are used
@@ -306,9 +307,7 @@ func (gh *GitHub) URLToGitHubLocator(ctx context.Context, urlString string, reso
 				rl := TreeEntryToGitHubLocator(entry, ghRL.SHAAlias)
 				rl.Host = ghRL.Host
 				rl.IsRawAPI = ghRL.IsRawAPI
-				if HasURLPrefix(rl.String(), urlString) {
-					gh.cache.Set(rl.String(), rl)
-				}
+				gh.cache.Set(rl.String(), rl)
 			}
 			ghRL = gh.cache.Get(urlString)
 			if ghRL == nil {
@@ -341,24 +340,50 @@ func (gh *GitHub) Accept(uri string) bool {
 
 // ResolveNodeSelector recursively adds nodes built from tree entries to node
 // ResolveNodeSelector implements resourcehandlers/ResourceHandler#ResolveNodeSelector
-func (gh *GitHub) ResolveNodeSelector(ctx context.Context, node *api.Node, excludePaths []string, frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32) error {
-	var (
-		rl  *ResourceLocator
-		err error
-	)
-	if rl, err = gh.URLToGitHubLocator(ctx, node.NodeSelector.Path, true); err != nil {
-		return err
+func (gh *GitHub) ResolveNodeSelector(ctx context.Context, node *api.Node, excludePaths []string, frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32) ([]*api.Node, error) {
+	rl, err := gh.URLToGitHubLocator(ctx, node.NodeSelector.Path, true)
+	if err != nil {
+		return nil, err
 	}
-	if rl != nil {
-		// build node subnodes hierarchy from cache (URLToGitHubLocator populates the cache)
-		childResourceLocators := gh.cache.GetSubset(rl.String())
-		if err = buildNodes(node, excludePaths, frontMatter, excludeFrontMatter, depth, childResourceLocators, gh.cache, 0); err != nil {
-			return err
-		}
-		// finally cleanup folder entries from contentSelectors
-		cleanupNodeTree(node)
+	if rl == nil {
+		return nil, nil
 	}
-	return nil
+
+	childResourceLocators := gh.cache.GetSubset(rl.String())
+	childNodes, err := buildNodes(node, excludePaths, frontMatter, excludeFrontMatter, depth, childResourceLocators, gh.cache, 0)
+	if err != nil {
+		return nil, err
+	}
+	// finally cleanup folder entries from contentSelectors
+	for _, child := range childNodes {
+		cleanupNodeTree(child)
+	}
+	if childNodes == nil {
+		return nil, nil
+	}
+
+	return childNodes, nil
+}
+
+// ResolveDocumentation for a given path and return it as a *api.Documentation
+func (gh *GitHub) ResolveDocumentation(ctx context.Context, path string) (*api.Documentation, error) {
+	rl, err := gh.URLToGitHubLocator(ctx, path, true)
+	if err != nil {
+		return nil, err
+	}
+	// TODO: In cases where nodesSelector.Path is set to an url poiting to a resource with .md extension, it's
+	// considered as invalid. This is to avoid downloading the resource twice. Contemplate logic that caches
+	// the resource once read for later downloads.
+	if !(rl.Type == Blob || rl.Type == Raw) || urls.Ext(rl.String()) == ".md" {
+		return nil, nil
+	}
+
+	blob, err := gh.Read(ctx, rl.String())
+	if err != nil {
+		return nil, err
+	}
+
+	return api.Parse(blob)
 }
 
 // Read implements resourcehandlers/ResourceHandler#Read
