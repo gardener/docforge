@@ -130,6 +130,9 @@ func (w *DocumentWorker) Work(ctx context.Context, task interface{}, wq jobs.Wor
 			}
 			if len(task.Node.Source) > 0 {
 				if sourceBlob, err = w.Reader.Read(ctx, task.Node.Source); err != nil {
+					if err == resourcehandlers.ErrResourceNotFound {
+						klog.Warningf("reading %s failed: %s\n", task.Node.Source, err.Error())
+					}
 					return jobs.NewWorkerError(err, 0)
 				}
 				if len(sourceBlob) == 0 {

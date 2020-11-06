@@ -89,6 +89,9 @@ func (d *_downloadWorker) download(ctx context.Context, dt *DownloadTask) error 
 	klog.V(6).Infof("Downloading %s as %s\n", dt.Source, dt.Target)
 	blob, err := d.Reader.Read(ctx, dt.Source)
 	if err != nil {
+		if err == resourcehandlers.ErrResourceNotFound {
+			klog.Warningf("Downloading %s as %s failed: %s\n", dt.Source, dt.Target, err.Error())
+		}
 		return err
 	}
 

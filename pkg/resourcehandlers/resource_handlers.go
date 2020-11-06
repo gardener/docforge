@@ -6,10 +6,14 @@ package resourcehandlers
 
 import (
 	"context"
+	"errors"
 	"reflect"
 
 	"github.com/gardener/docforge/pkg/api"
 )
+
+// ErrIsResourceNotFound indicated that a resource was not found
+var ErrResourceNotFound = errors.New("resource not found")
 
 // ResourceHandler does resource specific operations on a type of objects
 // identified by an uri schema that it accepts to handle

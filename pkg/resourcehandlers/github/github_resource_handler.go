@@ -294,9 +294,12 @@ func (gh *GitHub) URLToGitHubLocator(ctx context.Context, urlString string, reso
 				return ghRL, nil
 			}
 			// grab the index of this repo
-			gitTree, _, err := gh.Client.Git.GetTree(ctx, ghRL.Owner, ghRL.Repo, ghRL.SHAAlias, true)
+			gitTree, resp, err := gh.Client.Git.GetTree(ctx, ghRL.Owner, ghRL.Repo, ghRL.SHAAlias, true)
 			if err != nil {
 				return nil, err
+			}
+			if resp.StatusCode > 399 {
+				return nil, fmt.Errorf("request for %s failed: %s", urlString, resp.Status)
 			}
 			// populate cache wth this tree entries
 			for _, entry := range gitTree.Entries {
@@ -308,6 +311,9 @@ func (gh *GitHub) URLToGitHubLocator(ctx context.Context, urlString string, reso
 				}
 			}
 			ghRL = gh.cache.Get(urlString)
+			if ghRL == nil {
+				return nil, resourcehandlers.ErrResourceNotFound
+			}
 		}
 	}
 	return ghRL, nil
