@@ -10,10 +10,6 @@ IMAGE_TAG                                                := $(shell cat VERSION)
 # Rules related to binary build, Docker image build and release #
 #################################################################
 
-.PHONY: update-version
-update-version:
-	@./hack/update-version
-
 .PHONY: revendor
 revendor:
 	@GO111MODULE=on go mod tidy
@@ -91,4 +87,8 @@ check-compliance:
 
 .PHONY: docs-lint
 docs-lint:
-	@.ci/docs-lint 
+	@.ci/docs-lint
+
+.PHONY: docs-gen
+docs-gen:
+	@.ci/docs-gen

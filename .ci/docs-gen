@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2020 SAP SE or an SAP affiliate company and Gardener contributors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+set -e
+
+if [[ $(uname) == 'Darwin' ]]; then
+  READLINK_BIN="greadlink"
+else
+  READLINK_BIN="readlink"
+fi
+
+if [[ -z "${SOURCE_PATH}" ]]; then
+  SOURCE_PATH="$(${READLINK_BIN} -f $(dirname ${0})/..)"
+fi
+
+if [[ ! -d "${SOURCE_PATH}/bin/rel" ]]; then
+  echo "${SOURCE_PATH}/bin/rel does not exist. Forgot to build the binaries before running this?"
+  exit 1
+fi
+
+$SOURCE_PATH/bin/rel/docforge-linux-amd64 gen-cmd-docs -d $SOURCE_PATH/docs/cmd-ref
