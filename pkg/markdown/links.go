@@ -89,13 +89,13 @@ func updateLink(link parser.Link, destination, text, title []byte) {
 		link.Remove(text != nil && len(text) > 0)
 		return
 	}
-	if text != nil && bytes.Equal(link.GetText(), text) {
+	if text != nil && !bytes.Equal(link.GetText(), text) {
 		link.SetText(text)
 	}
 	if destination != nil && !bytes.Equal(link.GetDestination(), destination) {
 		link.SetDestination(destination)
 	}
-	if title != nil && bytes.Equal(link.GetTitle(), title) {
+	if title != nil && !bytes.Equal(link.GetTitle(), title) {
 		link.SetTitle(title)
 	}
 }
