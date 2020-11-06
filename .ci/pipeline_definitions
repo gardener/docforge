@@ -38,6 +38,15 @@ docforge:
     pull-request:
       traits:
         pull-request: ~
+      steps:
+        docs-gen:
+          image: "golang:1.14.4"
+          inputs:
+            BINARY_PATH: 'binary_path'
+        docs-lint:
+          image: "eu.gcr.io/gardener-project/docs-toolbelt:latest"
+          depends:
+          - docs-gen
     release:
       traits:
         version:
@@ -51,19 +60,9 @@ docforge:
               channel_name: "G0170ECNADC" #gardener-space-sofia
               slack_cfg_name: "ti_workspace"
       steps:
-        docs-gen:
-          image: "golang:1.14.4"
-          inputs:
-            BINARY_PATH: 'binary_path'
-          depends:
-          - release
-        docs-lint:
-          image: "eu.gcr.io/gardener-project/docs-toolbelt:latest"
-          depends:
-          - docs-gen
         update-release:
           execute: 'update-release.py'
           inputs:
             BINARY_PATH: 'binary_path'
           depends:
-          - docs-lint
+          - release
