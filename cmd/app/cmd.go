@@ -45,6 +45,7 @@ func NewCommand(ctx context.Context, cancel context.CancelFunc) *cobra.Command {
 		Use:   "docforge",
 		Short: "Build documentation bundle",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.SilenceUsage = true
 			options := NewOptions(flags)
 			doc := Manifest(flags.documentationManifestPath, flags.variables)
 			if err := api.ValidateManifest(doc); err != nil {
