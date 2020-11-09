@@ -254,4 +254,5 @@ You can be far more selective with nodeSelector han picking up a path to resolve
 
 
 ## References
+- [Manifest Reference](manifest-ref.md)
 - [Manifest examples](../example) in the project GitHub repository

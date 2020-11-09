@@ -72,6 +72,4 @@ docforge -d /tmp/docforge-docs -f example/simple/00.yaml --github-oauth-token $G
    The `--dry-run` and `--resolve` flags can be combined for a full analytic overview.
 
 ## What's next
-
-- [User guide](docs/user_guide.md) - creating manifests, using the command line interface (WiP)
-- [Project documentation](docs/index.md) - scope, goals, managing document links consistency, downloads scope, resources version
+- [ User Documentation](docs/user-index.md)
