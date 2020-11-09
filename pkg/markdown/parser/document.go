@@ -9,7 +9,7 @@ type document struct {
 	links []Link
 }
 
-func (d *document) ListLinks(cb OnLinkListed) {
+func (d *document) ListLinks(cb UpdateMarkdownLinkListed) {
 	if cb != nil && d.links != nil {
 		for _, l := range d.links {
 			cb(l)

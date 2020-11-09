@@ -12,17 +12,14 @@ import (
 
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/markdown"
-	"github.com/hashicorp/go-multierror"
 	"k8s.io/klog/v2"
 
 	mdutil "github.com/gardener/docforge/pkg/markdown"
 )
 
 var (
-	htmlLinksRegexList = []*regexp.Regexp{
-		regexp.MustCompile(`href=["\']?([^"\'>]+)["\']?`),
-		regexp.MustCompile(`src=["\']?([^"\'>]+)["\']?`),
-	}
+	htmlTagLinkRegex    = regexp.MustCompile(`<\b[^>]*?\b((?i)href|(?i)src)\s*=\s*(\"([^"]*\")|'[^']*'|([^'">\s]+))`)
+	htmlTagLinkURLRegex = regexp.MustCompile(`((http|https|ftp|mailto):\/\/)?(\.?\/?[\w\.\-]+)+\/?([#?=&])?`)
 )
 
 // Processor is a processor implementation responsible to rewrite links
@@ -47,19 +44,24 @@ func (f *Processor) Process(documentBlob []byte, node *api.Node) ([]byte, error)
 	if err != nil {
 		return nil, err
 	}
-	if documentBlob, err = mdutil.UpdateLinkRefs(contentBytes, func(markdownType mdutil.Type, destination, text, title []byte) ([]byte, []byte, []byte, error) {
+	if documentBlob, err = mdutil.UpdateMarkdownLinks(contentBytes, func(markdownType mdutil.Type, destination, text, title []byte) ([]byte, []byte, []byte, error) {
 		return f.rewriteDestination(destination, text, title, node.Name)
 	}); err != nil {
 		return nil, err
 	}
-	if documentBlob, err = f.rewriteHTMLLinks(documentBlob, node.Name); err != nil {
+	if documentBlob, err = mdutil.UpdateHTMLLinkRefsRefs(documentBlob, func(url []byte) ([]byte, error) {
+		destination, _, _, err := f.rewriteDestination([]byte(url), []byte(""), []byte(""), node.Name)
+		if err != nil {
+			return url, err
+		}
+		return destination, err
+	}); err != nil {
 		return nil, err
 	}
 	documentBlob, err = markdown.InsertFrontMatter(fm, documentBlob)
 	if err != nil {
 		return nil, err
 	}
-	// TODO: process also HTML links
 
 	return documentBlob, nil
 }
@@ -109,29 +111,4 @@ func (f *Processor) rewriteDestination(destination, text, title []byte, nodeName
 		return []byte(link), text, title, nil
 	}
 	return destination, text, title, nil
-}
-
-func (f *Processor) rewriteHTMLLinks(documentBytes []byte, nodeName string) ([]byte, error) {
-	var errs *multierror.Error
-	for _, regex := range htmlLinksRegexList {
-		documentBytes = regex.ReplaceAllFunc(documentBytes, func(match []byte) []byte {
-			var (
-				destination []byte
-				err         error
-			)
-			attr := strings.Split(string(match), "=")
-			name := attr[0]
-			url := attr[1]
-			if len(url) > 0 {
-				url = strings.TrimPrefix(url, "\"")
-				url = strings.TrimSuffix(url, "\"")
-			}
-			if destination, _, _, err = f.rewriteDestination([]byte(url), []byte(""), []byte(""), nodeName); err != nil {
-				errs = multierror.Append(err)
-				return match
-			}
-			return []byte(fmt.Sprintf("%s=\"%s\"", name, string(destination)))
-		})
-	}
-	return documentBytes, errs.ErrorOrNil()
 }

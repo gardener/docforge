@@ -103,7 +103,7 @@ func (c *nodeContentProcessor) ReconcileLinks(ctx context.Context, node *api.Nod
 
 func (c *nodeContentProcessor) reconcileMDLinks(ctx context.Context, docNode *api.Node, contentBytes []byte, contentSourcePath string) ([]byte, error) {
 	var errors *multierror.Error
-	contentBytes, _ = markdown.UpdateLinkRefs(contentBytes, func(markdownType markdown.Type, destination, text, title []byte) ([]byte, []byte, []byte, error) {
+	contentBytes, _ = markdown.UpdateMarkdownLinks(contentBytes, func(markdownType markdown.Type, destination, text, title []byte) ([]byte, []byte, []byte, error) {
 		var (
 			_destination, _text, _title *string
 			download                    *Download
@@ -161,19 +161,14 @@ func (c *nodeContentProcessor) reconcileMDLinks(ctx context.Context, docNode *ap
 // replace html raw links of any sorts.
 func (c *nodeContentProcessor) reconcileHTMLLinks(ctx context.Context, docNode *api.Node, documentBytes []byte, contentSourcePath string) ([]byte, error) {
 	var errors *multierror.Error
-	documentBytes = htmlTagLinkRegex.ReplaceAllFunc(documentBytes, func(match []byte) []byte {
-		var prefix, suffix string
-		attrs := strings.SplitAfter(string(match), "=")
-		url := attrs[len(attrs)-1]
-		url = htmlTagLinkURLRegex.FindString(url)
-		splits := strings.Split(string(match), url)
-		prefix = splits[0]
-		if len(splits) > 1 {
-			suffix = strings.Split(string(match), url)[1]
+	documentBytes, _ = markdown.UpdateHTMLLinkRefsRefs(documentBytes, func(url []byte) ([]byte, error) {
+		destination, _, _, download, err := c.resolveLink(ctx, docNode, string(url), contentSourcePath)
+		if err != nil {
+			errors = multierror.Append(err)
+			return url, nil
 		}
-		destination, _, _, download, err := c.resolveLink(ctx, docNode, url, contentSourcePath)
 		if docNode != nil && destination != nil {
-			if url != *destination {
+			if string(url) != *destination {
 				recordLinkStats(docNode, "Links", fmt.Sprintf("%s -> %s", url, *destination))
 			} else {
 				recordLinkStats(docNode, "Links", "")
@@ -182,14 +177,10 @@ func (c *nodeContentProcessor) reconcileHTMLLinks(ctx context.Context, docNode *
 		if download != nil {
 			if err := c.schedule(ctx, download, contentSourcePath); err != nil {
 				errors = multierror.Append(err)
-				return match
+				return []byte(*destination), nil
 			}
 		}
-		if err != nil {
-			errors = multierror.Append(err)
-			return match
-		}
-		return []byte(fmt.Sprintf("%s%s%s", prefix, *destination, suffix))
+		return []byte(*destination), nil
 	})
 	return documentBytes, errors.ErrorOrNil()
 }

@@ -10,10 +10,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestUpdateLinkRefs(t *testing.T) {
+func TestUpdateMarkdownLinks(t *testing.T) {
 	testCases := []struct {
 		in       []byte
-		cb       OnLink
+		cb       UpdateMarkdownLink
 		wantBlob []byte
 		wantErr  error
 	}{
@@ -52,7 +52,7 @@ func TestUpdateLinkRefs(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run("", func(t *testing.T) {
-			gotBlob, gotErr := UpdateLinkRefs([]byte(tc.in), tc.cb)
+			gotBlob, gotErr := UpdateMarkdownLinks([]byte(tc.in), tc.cb)
 			assert.Equal(t, string(tc.wantBlob), string(gotBlob))
 			if tc.wantErr != nil {
 				assert.Error(t, gotErr)
