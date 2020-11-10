@@ -25,7 +25,7 @@ docforge:
       check:
         image: "golang:1.14.4"
       compliance:
-        image: "fsfe/reuse:latest"       
+        image: "fsfe/reuse:latest"
       test:
         image: "golang:1.14.4"
       build:
@@ -41,8 +41,8 @@ docforge:
       steps:
         docs-gen:
           image: "golang:1.14.4"
-          inputs:
-            BINARY_PATH: 'binary_path'
+          depends:
+          - build
         docs-lint:
           image: "eu.gcr.io/gardener-project/docs-toolbelt:latest"
           depends:
