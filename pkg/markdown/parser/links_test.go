@@ -14,7 +14,7 @@ import (
 func TestListLinkRewrites(t *testing.T) {
 	testCases := []struct {
 		in     *document
-		listCb OnLinkListed
+		listCb UpdateMarkdownLinkListed
 		want   []byte
 	}{
 		{

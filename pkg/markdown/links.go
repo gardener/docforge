@@ -41,24 +41,24 @@ func NewType(markdownTypeString string) (Type, error) {
 	return 0, fmt.Errorf("Unknown markdown type string '%s'. Must be one of %v", markdownTypeString, []string{"link", "image"})
 }
 
-// OnLink is a callback function invoked on each link
-// by mardown#UpdateLinkRefs
-// It is supplied a link and is expected to return destination,
-// text, title or error.
+// UpdateMarkdownLink is a callback function invoked on each link
+// by mardown#UpdateMarkdownLinks
+// It is supplied link attributes and is expected to return them, potentially
+// updated, or error.
 // A nil destination will yield removing of this link/image markup,
 // leaving only the text component if it's a link
 // Nil text or title returned yield no change. Any other value replaces
 // the original. If a returned title is empty string an originally
 // existing title element will be completely removed
-type OnLink func(markdownType Type, destination, text, title []byte) ([]byte, []byte, []byte, error)
+type UpdateMarkdownLink func(markdownType Type, destination, text, title []byte) ([]byte, []byte, []byte, error)
 
-// UpdateLinkRefs changes document links destinations, consulting
+// UpdateMarkdownLinks changes document links destinations, consulting
 // with callback on the destination to use on each link or image in document.
 // If a callback returns "" for a destination, this is interpreted as
 // request to remove the link destination and leave only the link text or in
 // case it's an image - to remove it completely.
 // TODO: failfast vs fault tolerance support?
-func UpdateLinkRefs(documentBlob []byte, callback OnLink) ([]byte, error) {
+func UpdateMarkdownLinks(documentBlob []byte, callback UpdateMarkdownLink) ([]byte, error) {
 	p := parser.NewParser()
 	document := p.Parse(documentBlob)
 	if callback == nil {

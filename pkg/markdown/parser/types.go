@@ -9,15 +9,15 @@ type Parser interface {
 	Parse(data []byte) Document
 }
 
-// OnLinkListed is a callback function invoked by the
+// UpdateMarkdownLinkListed is a callback function invoked by the
 // ListLinks iterator in Document
-type OnLinkListed func(link Link)
+type UpdateMarkdownLinkListed func(link Link)
 
 // Document is the markdown model parsed from bytes data
 type Document interface {
 	// ListLinks iterates parsed links in this document
 	// and invokes cb on every link
-	ListLinks(cb OnLinkListed)
+	ListLinks(cb UpdateMarkdownLinkListed)
 	// Bytes returns the  parsed document content bytes
 	Bytes() []byte
 }
