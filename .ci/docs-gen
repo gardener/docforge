@@ -6,8 +6,10 @@
 
 set -ex
 
+binary=docforge-linux-amd64
 if [[ $(uname) == 'Darwin' ]]; then
   READLINK_BIN="greadlink"
+  binary=docforge-darwin-amd64
 else
   READLINK_BIN="readlink"
 fi
@@ -16,13 +18,15 @@ if [[ -z "${SOURCE_PATH}" ]]; then
   SOURCE_PATH="$(${READLINK_BIN} -f $(dirname ${0})/..)"
 fi
 
-if [[ ! -d "${BINARY_PATH}" ]]; then
+if [[ -z "${BINARY_PATH}" ]]; then
   BINARY_PATH="${SOURCE_PATH}/bin"
+else
+  BINARY_PATH="${BINARY_PATH}/bin"
 fi
 
 if [[ ! -d "${BINARY_PATH}/rel" ]]; then
-  echo "${BINARY_PATH}/rel does not exist. Forgot to build the binaries before running this?"
+  echo "${BINARY_PATH}/rel doesn\`t exist. Forgot to build the binaries before running this?"
   exit 1
 fi
 
-$BINARY_PATH/rel/docforge-linux-amd64 gen-cmd-docs -d $SOURCE_PATH/docs/cmd-ref
+$BINARY_PATH/rel/${binary} gen-cmd-docs -d $SOURCE_PATH/docs/cmd-ref

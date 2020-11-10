@@ -41,6 +41,8 @@ docforge:
       steps:
         docs-gen:
           image: "golang:1.14.4"
+          inputs:
+            BINARY_PATH: 'binary_path'
           depends:
           - build
         docs-lint:
