@@ -161,7 +161,7 @@ func (c *nodeContentProcessor) reconcileMDLinks(ctx context.Context, docNode *ap
 // replace html raw links of any sorts.
 func (c *nodeContentProcessor) reconcileHTMLLinks(ctx context.Context, docNode *api.Node, documentBytes []byte, contentSourcePath string) ([]byte, error) {
 	var errors *multierror.Error
-	documentBytes, _ = markdown.UpdateHTMLLinkRefsRefs(documentBytes, func(url []byte) ([]byte, error) {
+	documentBytes, _ = markdown.UpdateHTMLLinksRefs(documentBytes, func(url []byte) ([]byte, error) {
 		destination, _, _, download, err := c.resolveLink(ctx, docNode, string(url), contentSourcePath)
 		if err != nil {
 			errors = multierror.Append(err)
