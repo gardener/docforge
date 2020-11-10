@@ -50,7 +50,7 @@ func (w *FSWriter) Write(name, path string, docBlob []byte, node *api.Node) erro
 
 		// validate
 		if node.Parent() != nil {
-			if ns := getIndexNodes(node.Parent().Nodes); len(ns) > 0 {
+			if ns := getIndexNodes(node.Parent().Nodes); len(ns) > 1 {
 				names := []string{}
 				for _, n := range ns {
 					names = append(names, n.Name)
