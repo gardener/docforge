@@ -40,6 +40,7 @@ type Options struct {
 	FailFast                     bool
 	DestinationPath              string
 	ResourcesPath                string
+	ManifestDir                  string
 	ResourceDownloadWorkersCount int
 	RewriteEmbedded              bool
 	GitHubTokens                 map[string]string
@@ -60,7 +61,7 @@ type Metering struct {
 func NewReactor(ctx context.Context, options *Options, globalLinksCfg *api.Links) (*reactor.Reactor, error) {
 	dryRunWriters := writers.NewDryRunWritersFactory(options.DryRunWriter)
 
-	rhs, err := initResourceHandlers(ctx, options.GitHubTokens, options.Metering)
+	rhs, err := initResourceHandlers(ctx, options.GitHubTokens, options.Metering, options.ManifestDir)
 	if err != nil {
 		return nil, err
 	}
@@ -127,9 +128,9 @@ func WithHugo(reactorOptions *reactor.Options, o *Options) {
 
 // initResourceHandlers initializes the resource handler
 // objects used by reactors
-func initResourceHandlers(ctx context.Context, githubTokens map[string]string, metering *Metering) ([]resourcehandlers.ResourceHandler, error) {
+func initResourceHandlers(ctx context.Context, githubTokens map[string]string, metering *Metering, manifestDir string) ([]resourcehandlers.ResourceHandler, error) {
 	rhs := []resourcehandlers.ResourceHandler{
-		fs.NewFSResourceHandler(),
+		fs.NewFSResourceHandler(manifestDir),
 	}
 	var errs *multierror.Error
 	if githubTokens != nil {
