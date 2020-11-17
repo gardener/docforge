@@ -5,8 +5,6 @@
 package processors
 
 import (
-	"bytes"
-	"io/ioutil"
 	"strings"
 
 	"github.com/gardener/docforge/pkg/markdown"
@@ -25,6 +23,7 @@ func (f *FrontMatter) Process(documentBlob []byte, node *api.Node) ([]byte, erro
 		nodeFmBytes, fmBytes, content []byte
 		props, fm, docFm              map[string]interface{}
 		ok                            bool
+		err                           error
 	)
 	// Frontmatter from node
 	if props = node.Properties; props == nil {
@@ -45,11 +44,6 @@ func (f *FrontMatter) Process(documentBlob []byte, node *api.Node) ([]byte, erro
 		}
 	}
 
-	nodeFmBytes, err := yaml.Marshal(fm)
-	if err != nil {
-		return nil, err
-	}
-
 	// document front matter
 	if fmBytes, content, err = markdown.StripFrontMatter(documentBlob); err != nil {
 		return nil, err
@@ -59,21 +53,22 @@ func (f *FrontMatter) Process(documentBlob []byte, node *api.Node) ([]byte, erro
 		return nil, err
 	}
 
+	for propertyKey, propertyValue := range docFm {
+		if _, ok := fm[propertyKey]; !ok {
+			fm[propertyKey] = propertyValue
+		}
+	}
+
+	nodeFmBytes, err = yaml.Marshal(fm)
+	if err != nil {
+		return nil, err
+	}
+
 	// TODO: merge node + doc frontmatter per configurable strategy:
 	// - merge where node frontmatter entries win over document frontmatter
 	// - merge where document frontmatter entries win over node frontmatter
 	// - merge where document frontmatter are merged with node frontmatter ignoring duplicates (currently impl.)
-	buf := bytes.NewBuffer([]byte{})
-	if fmBytes != nil {
-		buf.Write(fmBytes)
-	}
-	if nodeFmBytes != nil {
-		buf.Write(nodeFmBytes)
-	}
-	if fmBytes, err = ioutil.ReadAll(buf); err != nil {
-		return nil, err
-	}
-	if documentBlob, err = markdown.InsertFrontMatter(fmBytes, content); err != nil {
+	if documentBlob, err = markdown.InsertFrontMatter(nodeFmBytes, content); err != nil {
 		return nil, err
 	}
 	return documentBlob, nil
