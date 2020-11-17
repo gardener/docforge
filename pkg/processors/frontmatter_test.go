@@ -81,7 +81,6 @@ title: Test1
 			},
 			wantErr: nil,
 			wantDocument: `---
-title: Test1
 title: Test2
 ---
 `,
