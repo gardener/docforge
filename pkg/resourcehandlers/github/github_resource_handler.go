@@ -457,6 +457,9 @@ func (gh *GitHub) ReadGitInfo(ctx context.Context, uri string) ([]byte, error) {
 	}
 	if commits != nil {
 		gitInfo := transform(commits)
+		if gitInfo == nil {
+			return nil, nil
+		}
 		if blob, err = marshallGitInfo(gitInfo); err != nil {
 			return nil, err
 		}

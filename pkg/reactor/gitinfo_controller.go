@@ -57,7 +57,7 @@ func (r *gitInfoReader) Read(ctx context.Context, source string) ([]byte, error)
 	return nil, nil
 }
 
-// NewGitInfoController creates Controller object for wokring with GitHub info
+// NewGitInfoController creates Controller object for wokring with Git info
 func NewGitInfoController(reader Reader, writer writers.Writer, workersCount int, failFast bool, rhs resourcehandlers.Registry) GitInfoController {
 	if reader == nil {
 		reader = &gitInfoReader{
@@ -75,7 +75,7 @@ func NewGitInfoController(reader Reader, writer writers.Writer, workersCount int
 	}
 
 	job := &jobs.Job{
-		ID:                        "GitHubInfo",
+		ID:                        "GitInfo",
 		FailFast:                  failFast,
 		MaxWorkers:                workersCount,
 		MinWorkers:                workersCount,
@@ -117,9 +117,10 @@ func (d *gitInfoWorker) Work(ctx context.Context, ctrl *gitInfoController, task 
 			if info, err = d.Read(ctx, s); err != nil {
 				return jobs.NewWorkerError(err, 0)
 			}
-			if info != nil {
-				b.Write(info)
+			if info == nil {
+				continue
 			}
+			b.Write(info)
 			if err := ctrl.updateContributors(info); err != nil {
 				return jobs.NewWorkerError(err, 0)
 			}

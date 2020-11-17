@@ -128,7 +128,7 @@ func (fs *fsHandler) ReadGitInfo(ctx context.Context, uri string) ([]byte, error
 	}
 
 	if len(log) == 0 {
-		return []byte(""), nil
+		return nil, nil
 	}
 
 	for _, logEntry := range log {
