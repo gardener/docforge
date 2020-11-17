@@ -39,9 +39,7 @@ func (f *FrontMatter) Process(documentBlob []byte, node *api.Node) ([]byte, erro
 		// Minimal standard front matter, injected by default
 		// if no other has been defined on a node
 		// TODO: make this configurable option, incl. the default frontmatter we inject
-		fm = map[string]interface{}{
-			"title": strings.Title(node.Name),
-		}
+		fm = map[string]interface{}{}
 	}
 
 	// document front matter
@@ -57,6 +55,10 @@ func (f *FrontMatter) Process(documentBlob []byte, node *api.Node) ([]byte, erro
 		if _, ok := fm[propertyKey]; !ok {
 			fm[propertyKey] = propertyValue
 		}
+	}
+
+	if _, ok := fm["title"]; !ok {
+		fm["title"] = strings.Title(node.Name)
 	}
 
 	nodeFmBytes, err = yaml.Marshal(fm)
