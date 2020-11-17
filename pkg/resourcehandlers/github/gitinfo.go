@@ -16,6 +16,9 @@ import (
 )
 
 func transform(commits []*github.RepositoryCommit) *git.GitInfo {
+	if commits == nil {
+		return nil
+	}
 	gitInfo := &git.GitInfo{}
 	nonInternalCommits := []*github.RepositoryCommit{}
 	// skip internal commits
@@ -24,7 +27,7 @@ func transform(commits []*github.RepositoryCommit) *git.GitInfo {
 			nonInternalCommits = append(nonInternalCommits, commit)
 		}
 	}
-	if len(commits) == 0 {
+	if len(nonInternalCommits) == 0 {
 		return nil
 	}
 	sort.Slice(nonInternalCommits, func(i, j int) bool {
