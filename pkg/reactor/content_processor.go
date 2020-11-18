@@ -90,7 +90,7 @@ func (c *nodeContentProcessor) ReconcileLinks(ctx context.Context, node *api.Nod
 	if err != nil {
 		return nil, err
 	}
-	if _, err := c.reconcileHTMLLinks(ctx, node, documentBytes, contentSourcePath); err != nil {
+	if documentBytes, err = c.reconcileHTMLLinks(ctx, node, documentBytes, contentSourcePath); err != nil {
 		return nil, err
 	}
 
