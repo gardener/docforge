@@ -12,6 +12,7 @@ import (
 
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/hugo"
+	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/spf13/cobra"
 	"k8s.io/klog/v2"
 )
@@ -43,15 +44,24 @@ func NewCommand(ctx context.Context, cancel context.CancelFunc) *cobra.Command {
 	flags := &cmdFlags{}
 	cmd := &cobra.Command{
 		Use:   "docforge",
-		Short: "Build documentation bundle",
+		Short: "Forge a documentation bundle",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
+			var (
+				doc *api.Documentation
+				rhs []resourcehandlers.ResourceHandler
+				err error
+			)
 			options := NewOptions(flags)
-			doc := Manifest(flags.documentationManifestPath, flags.variables)
+			if rhs, err = initResourceHandlers(ctx, options.GitHubTokens, options.Metering); err != nil {
+				return err
+			}
+			if doc, err = manifest(ctx, flags.documentationManifestPath, rhs, flags.variables); err != nil {
+				return err
+			}
 			if err := api.ValidateManifest(doc); err != nil {
 				return err
 			}
-
 			reactor, err := NewReactor(ctx, options, doc.Links)
 			if err != nil {
 				return err
@@ -90,7 +100,7 @@ func (flags *cmdFlags) Configure(command *cobra.Command) {
 	command.Flags().StringVar(&flags.resourcesPath, "resources-download-path", "__resources",
 		"Resources download path.")
 	command.Flags().StringVar(&flags.ghOAuthToken, "github-oauth-token", "",
-		"GitHub personal token authorizing read access from GitHub.com repositories. For authorization credentials for multiple GitHub instances, see --gtihub-oauth-token-map")
+		"GitHub personal token authorizing read access from GitHub.com repositories. For authorization credentials for multiple GitHub instances, see --github-oauth-token-map")
 	command.Flags().StringToStringVar(&flags.ghOAuthTokens, "github-oauth-token-map", map[string]string{},
 		"GitHub personal tokens authorizing read access from repositories per GitHub instance. Note that if the GitHub token is already provided by `github-oauth-token` it will be overridden by it.")
 	command.Flags().StringVar(&flags.ghInfoDestination, "github-info-destination", "",
