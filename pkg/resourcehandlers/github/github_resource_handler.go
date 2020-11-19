@@ -327,7 +327,16 @@ func (gh *GitHub) Accept(uri string) bool {
 	if gh.acceptedHosts == nil {
 		return false
 	}
+	// Quick sanity check, preventing panic when trying to
+	// resolve relative paths in url.Parse
+	if !strings.HasPrefix(uri, "http") {
+		return false
+	}
 	if url, err = url.Parse(uri); err != nil {
+		return false
+	}
+	// check if this is a GitHub URL
+	if rl, err := parse(uri); rl == nil || err != nil {
 		return false
 	}
 	for _, s := range gh.acceptedHosts {
