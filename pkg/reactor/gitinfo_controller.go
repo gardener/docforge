@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"sync"
 
 	"k8s.io/klog/v2"
 
@@ -38,6 +39,7 @@ type gitInfoController struct {
 	jobs.Controller
 	job *jobs.Job
 	writers.Writer
+	rwLock       sync.RWMutex
 	contributors map[string]*github.User
 }
 
@@ -167,6 +169,8 @@ func (g *gitInfoController) updateContributors(info []byte) error {
 	}
 	for _, c := range contributors {
 		if len(c.GetEmail()) > 0 {
+			defer g.rwLock.Unlock()
+			g.rwLock.Lock()
 			g.contributors[c.GetEmail()] = c
 		}
 	}
@@ -178,6 +182,8 @@ func (g *gitInfoController) finalize() {
 		blob []byte
 		err  error
 	)
+	defer g.rwLock.Unlock()
+	g.rwLock.Lock()
 	if blob, err = json.MarshalIndent(g.contributors, "", "  "); err != nil {
 		klog.Errorf("writing contributors.json failed: %s", err.Error())
 	}
