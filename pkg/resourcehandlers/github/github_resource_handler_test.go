@@ -280,7 +280,7 @@ func TestResolveNodeSelector(t *testing.T) {
 	}
 }
 
-func TestName(t *testing.T) {
+func TestResourceName(t *testing.T) {
 	ghrl1 := &ResourceLocator{
 		"https",
 		"github.com",

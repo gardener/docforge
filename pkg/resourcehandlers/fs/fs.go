@@ -21,14 +21,20 @@ import (
 	"github.com/google/go-github/v32/github"
 )
 
+// fsHandler implements
+// - resourcehandlers/URIValidator
+// - resourcehandlers/NodeResolver
+// - resourcehandlers/LinkControl
+// - readers/ContextResourceReader
+// - readers/GitInfoReader
 type fsHandler struct{}
 
-// NewFSResourceHandler create file system ResourceHandler
-func NewFSResourceHandler() resourcehandlers.ResourceHandler {
+// NewFSResourceHandler create file system resource handler
+func NewFSResourceHandler() resourcehandlers.URIValidator {
 	return &fsHandler{}
 }
 
-// Accept implements resourcehandlers.ResourceHandler#Accept
+// Accept implements resourcehandlers.URIValidator#Accept
 func (fs *fsHandler) Accept(uri string) bool {
 	_, err := os.Stat(uri)
 	return err == nil
@@ -91,7 +97,7 @@ func (fs *fsHandler) ResolveNodeSelector(ctx context.Context, node *api.Node, ex
 	return nil, nil
 }
 
-// Read implements resourcehandlers.ResourceHandler#Read
+// Read implements readers.ContextResourceReader#Read
 func (fs *fsHandler) Read(ctx context.Context, uri string) ([]byte, error) {
 	return ioutil.ReadFile(uri)
 }
@@ -167,7 +173,7 @@ func (fs *fsHandler) ReadGitInfo(ctx context.Context, uri string) ([]byte, error
 	return blob, nil
 }
 
-// ResourceName implements resourcehandlers.ResourceHandler#ResourceName
+// ResourceName implements resourcehandlers.LinkControl#ResourceName
 func (fs *fsHandler) ResourceName(link string) (name string, extension string) {
 	_, name = filepath.Split(link)
 	if len(name) > 0 {
@@ -179,7 +185,7 @@ func (fs *fsHandler) ResourceName(link string) (name string, extension string) {
 	return
 }
 
-// BuildAbsLink implements resourcehandlers.ResourceHandler#BuildAbsLink
+// BuildAbsLink implements resourcehandlers.LinkControl#BuildAbsLink
 func (fs *fsHandler) BuildAbsLink(source, link string) (string, error) {
 	if filepath.IsAbs(link) {
 		return link, nil
@@ -193,12 +199,12 @@ func (fs *fsHandler) BuildAbsLink(source, link string) (string, error) {
 	return filepath.Abs(p)
 }
 
-// GetRawFormatLink implements resourcehandlers.ResourceHandler#GetRawFormatLink
+// GetRawFormatLink implements resourcehandlers.LinkControl#GetRawFormatLink
 func (fs *fsHandler) GetRawFormatLink(absLink string) (string, error) {
 	return absLink, nil
 }
 
-// SetVersion implements resourcehandlers.ResourceHandler#SetVersion
+// SetVersion implements resourcehandlers.LinkControl#SetVersion
 func (fs *fsHandler) SetVersion(absLink, version string) (string, error) {
 	return absLink, nil
 }

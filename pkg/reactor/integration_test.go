@@ -112,7 +112,7 @@ func _TestReactorWithGitHub(t *testing.T) {
 			Root: filepath.Join(destination, resourcesRoot),
 		},
 		Writer:           hugo.NewWriter(hugoOptions),
-		ResourceHandlers: []resourcehandlers.ResourceHandler{gh},
+		ResourceHandlers: []resourcehandlers.URIValidator{gh},
 	}
 	r := NewReactor(options)
 

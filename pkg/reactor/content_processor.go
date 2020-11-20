@@ -222,8 +222,10 @@ func (c *nodeContentProcessor) resolveLink(ctx context.Context, node *api.Node, 
 		if handler == nil {
 			return &destination, text, title, nil, nil
 		}
-		if absLink, err = handler.BuildAbsLink(contentSourcePath, destination); err != nil {
-			return nil, text, title, nil, err
+		if linkControl, ok := handler.(resourcehandlers.LinkControl); ok {
+			if absLink, err = linkControl.BuildAbsLink(contentSourcePath, destination); err != nil {
+				return nil, text, title, nil, err
+			}
 		}
 	}
 	// rewrite link if required
@@ -246,9 +248,11 @@ func (c *nodeContentProcessor) resolveLink(ctx context.Context, node *api.Node, 
 				if handler == nil {
 					return &absLink, text, title, nil, nil
 				}
-				if absLink, err = handler.SetVersion(absLink, *version); err != nil {
-					klog.Warningf("Failed to set version %s to %s: %s\n", *version, absLink, err.Error())
-					return &absLink, text, title, nil, nil
+				if linkControl, ok := handler.(resourcehandlers.LinkControl); ok {
+					if absLink, err = linkControl.SetVersion(absLink, *version); err != nil {
+						klog.Warningf("Failed to set version %s to %s: %s\n", *version, absLink, err.Error())
+						return &absLink, text, title, nil, nil
+					}
 				}
 			}
 		}
@@ -320,8 +324,10 @@ func (c *nodeContentProcessor) rawImage(link *string) (err error) {
 	if handler == nil {
 		return nil
 	}
-	if *link, err = handler.GetRawFormatLink(*link); err != nil {
-		return
+	if linkControl, ok := handler.(resourcehandlers.LinkControl); ok {
+		if *link, err = linkControl.GetRawFormatLink(*link); err != nil {
+			return
+		}
 	}
 	return nil
 }

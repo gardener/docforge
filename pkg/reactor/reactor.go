@@ -36,7 +36,7 @@ type Options struct {
 	ResourceDownloadWriter writers.Writer
 	GitInfoWriter          writers.Writer
 	Writer                 writers.Writer
-	ResourceHandlers       []resourcehandlers.ResourceHandler
+	ResourceHandlers       []resourcehandlers.URIValidator
 	DryRunWriter           writers.DryRunWriter
 	Resolve                bool
 	GlobalLinksConfig      *api.Links
@@ -203,55 +203,57 @@ func (r *Reactor) resolveNodeSelector(ctx context.Context, node *api.Node, globa
 	if handler == nil {
 		return nil, fmt.Errorf("No suitable handler registered for path %s", node.NodeSelector.Path)
 	}
-
-	moduleDocumentation, err := handler.ResolveDocumentation(ctx, node.NodeSelector.Path)
-	if err != nil {
-		return nil, err
-	}
-
-	if moduleDocumentation != nil {
-		newNode.Nodes = moduleDocumentation.Structure
-		if moduleLinks := moduleDocumentation.Links; moduleLinks != nil {
-			globalNode := &api.Node{
-				Links: globalLinksConfig,
-			}
-			pruneModuleLinks(moduleLinks.Rewrites, node, getNodeRewrites)
-			pruneModuleLinks(moduleLinks.Rewrites, globalNode, getNodeRewrites)
-			if moduleLinks.Downloads != nil {
-				pruneModuleLinks(moduleLinks.Downloads.Renames, node, getNodeDownloadsRenamesKeys)
-				pruneModuleLinks(moduleLinks.Downloads.Renames, globalNode, getNodeDownloadsRenamesKeys)
-				pruneModuleLinks(moduleLinks.Downloads.Scope, node, getNodeDownloadsScopeKeys)
-				pruneModuleLinks(moduleLinks.Downloads.Scope, globalNode, getNodeDownloadsScopeKeys)
-			}
+	if nodeResolver, ok := handler.(resourcehandlers.NodeResolver); ok {
+		moduleDocumentation, err := nodeResolver.ResolveDocumentation(ctx, node.NodeSelector.Path)
+		if err != nil {
+			return nil, err
 		}
-		newNode.Links = moduleDocumentation.Links
-		if moduleDocumentation.NodeSelector != nil {
-			childNode := &api.Node{
-				NodeSelector: moduleDocumentation.NodeSelector,
-			}
-			childNode.SetParent(node)
-			res, err := r.resolveNodeSelector(ctx, childNode, globalLinksConfig)
-			if err != nil {
-				return nil, err
-			}
-			for _, n := range res.Nodes {
-				n.SetParent(node)
-				n.SetParentsDownwards()
-			}
 
-			pruneChildNodesLinks(node, res.Nodes, globalLinksConfig)
-			newNode.Nodes = append(newNode.Nodes, res.Nodes...)
+		if moduleDocumentation != nil {
+			newNode.Nodes = moduleDocumentation.Structure
+			if moduleLinks := moduleDocumentation.Links; moduleLinks != nil {
+				globalNode := &api.Node{
+					Links: globalLinksConfig,
+				}
+				pruneModuleLinks(moduleLinks.Rewrites, node, getNodeRewrites)
+				pruneModuleLinks(moduleLinks.Rewrites, globalNode, getNodeRewrites)
+				if moduleLinks.Downloads != nil {
+					pruneModuleLinks(moduleLinks.Downloads.Renames, node, getNodeDownloadsRenamesKeys)
+					pruneModuleLinks(moduleLinks.Downloads.Renames, globalNode, getNodeDownloadsRenamesKeys)
+					pruneModuleLinks(moduleLinks.Downloads.Scope, node, getNodeDownloadsScopeKeys)
+					pruneModuleLinks(moduleLinks.Downloads.Scope, globalNode, getNodeDownloadsScopeKeys)
+				}
+			}
+			newNode.Links = moduleDocumentation.Links
+			if moduleDocumentation.NodeSelector != nil {
+				childNode := &api.Node{
+					NodeSelector: moduleDocumentation.NodeSelector,
+				}
+				childNode.SetParent(node)
+				res, err := r.resolveNodeSelector(ctx, childNode, globalLinksConfig)
+				if err != nil {
+					return nil, err
+				}
+				for _, n := range res.Nodes {
+					n.SetParent(node)
+					n.SetParentsDownwards()
+				}
+
+				pruneChildNodesLinks(node, res.Nodes, globalLinksConfig)
+				newNode.Nodes = append(newNode.Nodes, res.Nodes...)
+			}
+			return newNode, nil
 		}
+
+		nodes, err := nodeResolver.ResolveNodeSelector(ctx, node, node.NodeSelector.ExcludePaths, node.NodeSelector.ExcludeFrontMatter, node.NodeSelector.FrontMatter, node.NodeSelector.Depth)
+		if err != nil {
+			return nil, err
+		}
+
+		newNode.Nodes = nodes
 		return newNode, nil
 	}
-
-	nodes, err := handler.ResolveNodeSelector(ctx, node, node.NodeSelector.ExcludePaths, node.NodeSelector.ExcludeFrontMatter, node.NodeSelector.FrontMatter, node.NodeSelector.Depth)
-	if err != nil {
-		return nil, err
-	}
-
-	newNode.Nodes = nodes
-	return newNode, nil
+	return nil, fmt.Errorf("no node resolver for %s", node.NodeSelector.Path)
 }
 
 func (r *Reactor) resolveNodeName(ctx context.Context, node *api.Node) (string, error) {
@@ -260,14 +262,16 @@ func (r *Reactor) resolveNodeName(ctx context.Context, node *api.Node) (string, 
 	if handler == nil {
 		return "", fmt.Errorf("No suitable handler registered for URL %s", node.Source)
 	}
-	if len(node.Name) == 0 {
-		name = "$name"
+	if linkControl, ok := handler.(resourcehandlers.LinkControl); ok {
+		if len(node.Name) == 0 {
+			name = "$name"
+		}
+		resourceName, ext := linkControl.ResourceName(node.Source)
+		id := uuid.New().String()
+		name = strings.ReplaceAll(name, "$name", resourceName)
+		name = strings.ReplaceAll(name, "$uuid", id)
+		name = strings.ReplaceAll(name, "$ext", fmt.Sprintf(".%s", ext))
 	}
-	resourceName, ext := handler.ResourceName(node.Source)
-	id := uuid.New().String()
-	name = strings.ReplaceAll(name, "$name", resourceName)
-	name = strings.ReplaceAll(name, "$uuid", id)
-	name = strings.ReplaceAll(name, "$ext", fmt.Sprintf(".%s", ext))
 	return name, nil
 }
 

@@ -53,9 +53,11 @@ type GenericReader struct {
 // the actual operation to a suitable resource handler
 func (g *GenericReader) Read(ctx context.Context, source string) ([]byte, error) {
 	if handler := g.ResourceHandlers.Get(source); handler != nil {
-		return handler.Read(ctx, source)
+		if reader, ok := handler.(Reader); ok {
+			return reader.Read(ctx, source)
+		}
 	}
-	return nil, fmt.Errorf("failed to get handler to read from %s", source)
+	return nil, fmt.Errorf("failed to get reader for %s", source)
 }
 
 func (w *DocumentWorker) getTemplate(name string) *template.Template {

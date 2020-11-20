@@ -47,7 +47,17 @@ func NewCommand(ctx context.Context, cancel context.CancelFunc) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 			options := NewOptions(flags)
-			doc := Manifest(flags.documentationManifestPath, flags.variables)
+			handlers, err := initResourceHandlers(ctx, options.GitHubTokens, options.Metering)
+			if err != nil {
+				return err
+			}
+			options.ResourceHandlers = handlers
+			// TODO initialize HttpClientOptions fom flags
+			manifestReadersRegistry := WithManifestReaders(&HttpClientOptions{}, handlers...)
+			doc, err := Manifest(ctx, flags.documentationManifestPath, manifestReadersRegistry)
+			if err != nil {
+				return err
+			}
 			if err := api.ValidateManifest(doc); err != nil {
 				return err
 			}
