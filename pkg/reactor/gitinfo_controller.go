@@ -115,7 +115,12 @@ func (d *gitInfoWorker) Work(ctx context.Context, ctrl *gitInfoController, task 
 			info, infoBytes []byte
 			err             error
 		)
+		if len(sources) == 0 {
+			klog.V(6).Infof("skip git info for container nodes\n")
+			return nil
+		}
 		for _, s := range sources {
+			klog.V(6).Infof("reading git info for %s\n", s)
 			if info, err = d.Read(ctx, s); err != nil {
 				return jobs.NewWorkerError(err, 0)
 			}
@@ -131,7 +136,9 @@ func (d *gitInfoWorker) Work(ctx context.Context, ctrl *gitInfoController, task 
 		if infoBytes, err = ioutil.ReadAll(&b); err != nil {
 			return jobs.NewWorkerError(err, 0)
 		}
-		if err = d.Write(node.Name, nodeutil.Path(node, "/"), infoBytes, node); err != nil {
+		nodepath := nodeutil.Path(node, "/")
+		klog.V(6).Infof("writing git info for node %s/%s\n", nodepath, node.Name)
+		if err = d.Write(node.Name, nodepath, infoBytes, node); err != nil {
 			return jobs.NewWorkerError(err, 0)
 		}
 	}
@@ -155,6 +162,12 @@ func (g *gitInfoController) Stop(shutdownCh chan struct{}) {
 	g.Controller.Stop(shutdownCh)
 }
 
+func (g *gitInfoController) setContributor(email string, user *github.User) {
+	defer g.rwLock.Unlock()
+	g.rwLock.Lock()
+	g.contributors[email] = user
+}
+
 func (g *gitInfoController) updateContributors(info []byte) error {
 	var contributors []*github.User
 	gitInfo := &git.GitInfo{}
@@ -169,9 +182,7 @@ func (g *gitInfoController) updateContributors(info []byte) error {
 	}
 	for _, c := range contributors {
 		if len(c.GetEmail()) > 0 {
-			defer g.rwLock.Unlock()
-			g.rwLock.Lock()
-			g.contributors[c.GetEmail()] = c
+			g.setContributor(c.GetEmail(), c)
 		}
 	}
 	return nil
