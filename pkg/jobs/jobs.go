@@ -179,7 +179,7 @@ func (j *Job) Dispatch(ctx context.Context, tasks []interface{}) *WorkerError {
 					break
 				}
 				if err != nil {
-					errors = multierror.Append(err)
+					errors = multierror.Append(errors, err)
 					if j.FailFast {
 						if stopped := j.Queue.Stop(); stopped {
 							// klog.V(6).Infof("Workqueue stopped\n")

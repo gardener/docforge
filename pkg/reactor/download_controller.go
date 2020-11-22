@@ -17,8 +17,10 @@ import (
 
 // DownloadTask holds information for source and target of linked document resources
 type DownloadTask struct {
-	Source string
-	Target string
+	Source    string
+	Target    string
+	Referer   string
+	Reference string
 }
 
 type downloadWorker interface {
@@ -32,7 +34,7 @@ type DownloadController interface {
 	// Schedule is a typesafe wrapper around Controller#Enqueue
 	// for enqueuing download tasks. An error is returned if
 	// scheduling fails.
-	Schedule(ctx context.Context, link, resourceName string) error
+	Schedule(ctx context.Context, task *DownloadTask) error
 }
 
 // downloadController implements reactor#DownloadController
@@ -40,7 +42,7 @@ type downloadController struct {
 	jobs.Controller
 	downloadWorker
 	rwlock              sync.RWMutex
-	downloadedResources map[string]struct{}
+	downloadedResources map[string][]*DownloadTask
 	job                 *jobs.Job
 	jobs.Worker
 }
@@ -78,7 +80,7 @@ func NewDownloadController(reader Reader, writer writers.Writer, workersCount in
 	controller := &downloadController{
 		Controller:          jobs.NewController(job),
 		downloadWorker:      d,
-		downloadedResources: make(map[string]struct{}),
+		downloadedResources: make(map[string][]*DownloadTask),
 		job:                 job,
 	}
 	controller.job.Worker = withDownloadController(d, controller)
@@ -89,10 +91,7 @@ func (d *_downloadWorker) download(ctx context.Context, dt *DownloadTask) error 
 	klog.V(6).Infof("Downloading %s as %s\n", dt.Source, dt.Target)
 	blob, err := d.Reader.Read(ctx, dt.Source)
 	if err != nil {
-		if err == resourcehandlers.ErrResourceNotFound {
-			klog.Warningf("Downloading %s as %s failed: %s\n", dt.Source, dt.Target, err.Error())
-		}
-		return err
+		return fmt.Errorf("downloading %s as %s failed: %w", dt.Source, dt.Target, err)
 	}
 
 	if err := d.Writer.Write(dt.Target, "", blob, nil); err != nil {
@@ -111,10 +110,22 @@ func (d *_downloadWorker) Work(ctx context.Context, ctrl *downloadController, ta
 	if task, ok := task.(*DownloadTask); ok {
 		if !ctrl.isDownloaded(task) {
 			if err := d.download(ctx, task); err != nil {
+				// find out any other recorded references that will fail
+				var refs string
+				if tasks, ok := ctrl.downloadedResources[task.Source]; ok {
+					for _, t := range tasks {
+						refs = fmt.Sprintf("%sReference %s from referer %s\n", refs, t.Reference, t.Referer)
+					}
+				}
+				refs = fmt.Sprintf("%sReference %s from referer %s", refs, task.Reference, task.Referer)
+				klog.Warningf("%s : %s\n", refs, err.Error())
+				err = fmt.Errorf("%s : %w", refs, err)
 				return jobs.NewWorkerError(err, 0)
 			}
 			ctrl.setDownloaded(task)
+			return nil
 		}
+		ctrl.setDownloaded(task)
 	}
 	return nil
 }
@@ -129,17 +140,20 @@ func (c *downloadController) isDownloaded(dt *DownloadTask) bool {
 func (c *downloadController) setDownloaded(dt *DownloadTask) {
 	c.rwlock.Lock()
 	defer c.rwlock.Unlock()
-	c.downloadedResources[dt.Source] = struct{}{}
+	tasks := c.downloadedResources[dt.Source]
+	if len(tasks) == 0 {
+		tasks = []*DownloadTask{dt}
+	} else {
+		tasks = append(tasks, dt)
+	}
+	c.downloadedResources[dt.Source] = tasks
 }
 
 // Schedule enqueues and resource link for download
-func (c *downloadController) Schedule(ctx context.Context, link, resourceName string) error {
-	task := &DownloadTask{
-		Source: link,
-		Target: resourceName,
-	}
-	if !c.Enqueue(ctx, task) {
-		return fmt.Errorf("scheduling download of %s as %s failed", link, resourceName)
+func (c *downloadController) Schedule(ctx context.Context, downloadTask *DownloadTask) error {
+	klog.V(6).Infof("[%s] Linked resource %s scheduled for download as %s\n", downloadTask.Referer, downloadTask.Reference, downloadTask.Target)
+	if !c.Enqueue(ctx, downloadTask) {
+		return fmt.Errorf("scheduling download of %s referenced by %s failed", downloadTask.Reference, downloadTask.Referer)
 	}
 	return nil
 }

@@ -189,7 +189,7 @@ func gatherTokens(flags *cmdFlags) map[string]string {
 	}
 	if len(flags.ghOAuthToken) > 0 {
 		if _, ok := tokens["github.com"]; ok {
-			klog.Warning("gihtub.com token is overridden by the provided token with `--github-oauth-token flag` ")
+			klog.Warning("github.com token is overridden by the provided token with `--github-oauth-token flag` ")
 		}
 		tokens["github.com"] = flags.ghOAuthToken
 	}

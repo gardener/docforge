@@ -38,8 +38,7 @@ type nodeContentProcessor struct {
 	resourceAbsLinks  map[string]string
 	rwlock            sync.RWMutex
 	globalLinksConfig *api.Links
-	// localityDomain   *localityDomain
-	// ResourcesRoot specifies the root location for downloaded resource.
+	// resourcesRoot specifies the root location for downloaded resource.
 	// It is used to rewrite resource links in documents to relative paths.
 	resourcesRoot      string
 	downloadController DownloadController
@@ -66,10 +65,9 @@ func (c *nodeContentProcessor) GetDownloadController() DownloadController {
 	return c.downloadController
 }
 
-//convenience wrapper adding logging
-func (c *nodeContentProcessor) schedule(ctx context.Context, download *Download, from string) error {
-	klog.V(6).Infof("[%s] Linked resource scheduled for download: %s\n", from, download.url)
-	return c.downloadController.Schedule(ctx, download.url, download.resourceName)
+//convenience wrapper
+func (c *nodeContentProcessor) schedule(ctx context.Context, download *DownloadTask) error {
+	return c.downloadController.Schedule(ctx, download)
 }
 
 // ReconcileLinks analyzes a document referenced by a node's contentSourcePath
@@ -106,7 +104,7 @@ func (c *nodeContentProcessor) reconcileMDLinks(ctx context.Context, docNode *ap
 	contentBytes, _ = markdown.UpdateMarkdownLinks(contentBytes, func(markdownType markdown.Type, destination, text, title []byte) ([]byte, []byte, []byte, error) {
 		var (
 			_destination, _text, _title *string
-			download                    *Download
+			download                    *DownloadTask
 			err                         error
 		)
 		if _destination, _text, _title, download, err = c.resolveLink(ctx, docNode, string(destination), contentSourcePath); err != nil {
@@ -116,7 +114,7 @@ func (c *nodeContentProcessor) reconcileMDLinks(ctx context.Context, docNode *ap
 			}
 		}
 		if download != nil {
-			if err := c.schedule(ctx, download, contentSourcePath); err != nil {
+			if err := c.schedule(ctx, download); err != nil {
 				return destination, text, title, err
 			}
 		}
@@ -175,7 +173,7 @@ func (c *nodeContentProcessor) reconcileHTMLLinks(ctx context.Context, docNode *
 			}
 		}
 		if download != nil {
-			if err := c.schedule(ctx, download, contentSourcePath); err != nil {
+			if err := c.schedule(ctx, download); err != nil {
 				errors = multierror.Append(err)
 				return []byte(*destination), nil
 			}
@@ -185,14 +183,8 @@ func (c *nodeContentProcessor) reconcileHTMLLinks(ctx context.Context, docNode *
 	return documentBytes, errors.ErrorOrNil()
 }
 
-// Download represents a resource that can be downloaded
-type Download struct {
-	url          string
-	resourceName string
-}
-
 // returns destination, text (alt-text for images), title, download(url, downloadName), err
-func (c *nodeContentProcessor) resolveLink(ctx context.Context, node *api.Node, destination string, contentSourcePath string) (*string, *string, *string, *Download, error) {
+func (c *nodeContentProcessor) resolveLink(ctx context.Context, node *api.Node, destination string, contentSourcePath string) (*string, *string, *string, *DownloadTask, error) {
 	var (
 		substituteDestination, version, text, title *string
 		downloadResourceName, absLink               string
@@ -293,7 +285,12 @@ func (c *nodeContentProcessor) resolveLink(ctx context.Context, node *api.Node, 
 			if _d != destination {
 				klog.V(6).Infof("[%s] %s -> %s\n", contentSourcePath, _d, destination)
 			}
-			return &destination, text, title, &Download{absLink, resourceName}, nil
+			return &destination, text, title, &DownloadTask{
+				absLink,
+				resourceName,
+				contentSourcePath,
+				_d,
+			}, nil
 		}
 	}
 

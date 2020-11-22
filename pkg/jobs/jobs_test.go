@@ -302,7 +302,7 @@ func TestDispatchError(t *testing.T) {
 	actualError := job.Dispatch(ctx, newTasksList(tasksCount, "", false))
 
 	assert.Error(t, actualError)
-	assert.Equal(t, expectedError, errors.Unwrap((errors.Unwrap(actualError))))
+	assert.True(t, errors.Is(actualError, expectedError))
 	//Did we fail early?
 	actualCallCount := int(atomic.LoadInt32(&worker.faultySenderCallsCount))
 	assert.True(t, actualCallCount < tasksCount)
