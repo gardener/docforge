@@ -86,6 +86,7 @@ func (w *DocumentWorker) Work(ctx context.Context, task interface{}, wq jobs.Wor
 			if len(task.Node.ContentSelectors) > 0 {
 				for _, content := range task.Node.ContentSelectors {
 					if sourceBlob, err = w.Reader.Read(ctx, content.Source); err != nil {
+						err = fmt.Errorf("unable to read source contents for %s: %w", content.Source, err)
 						return jobs.NewWorkerError(err, 0)
 					}
 					if len(sourceBlob) == 0 {
