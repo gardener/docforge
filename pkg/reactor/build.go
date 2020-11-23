@@ -90,7 +90,7 @@ func (r *Reactor) Build(ctx context.Context, documentationStructure []*api.Node)
 					stoppedControllers++
 					// propagate the stop to the related download controller
 					r.DocController.GetDownloadController().Stop(nil)
-					// propagate the stop to the related download controller
+					// propagate the stop to the related git info controller
 					if r.GitInfoController != nil {
 						r.GitInfoController.Stop(nil)
 					}
