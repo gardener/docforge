@@ -8,9 +8,12 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
 	"net/url"
 	"path/filepath"
 	"strings"
+
+	"k8s.io/klog/v2"
 
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/hugo"
@@ -144,9 +147,12 @@ func initResourceHandlers(ctx context.Context, githubTokens map[string]string, m
 			ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
 			oauthClient := oauth2.NewClient(ctx, ts)
 			if metering != nil && metering.Enabled {
-				// Wrap client
+				// Wrap client transport layer with middleware instrumenting it for
+				// Prometheus metrics
 				oauthClient = metrics.InstrumentClientRoundTripperDuration(oauthClient)
 			}
+			// Wrap client transport instrumenting it for request/response logging
+			oauthClient.Transport = WithClientHTTPLogging(oauthClient.Transport)
 
 			if p.Host == "github.com" {
 				client := github.NewClient(oauthClient)
@@ -166,4 +172,24 @@ func initResourceHandlers(ctx context.Context, githubTokens map[string]string, m
 		}
 	}
 	return rhs, errs.ErrorOrNil()
+}
+
+type RoundTripperFunc func(req *http.Request) (*http.Response, error)
+
+// RoundTrip implements the RoundTripper interface.
+func (rt RoundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) {
+	return rt(r)
+}
+
+func WithClientHTTPLogging(next http.RoundTripper) RoundTripperFunc {
+	return RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
+		var respStatus string
+		resp, err := next.RoundTrip(r)
+		requestLog := fmt.Sprintf("HTTP %s %s", r.Method, r.URL)
+		if err == nil {
+			respStatus = resp.Status
+		}
+		klog.V(6).Infof("%s %s", requestLog, respStatus)
+		return resp, err
+	})
 }
