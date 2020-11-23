@@ -36,7 +36,7 @@ func Test_processLink(t *testing.T) {
 		wantDestination   *string
 		wantText          *string
 		wantTitle         *string
-		wantDownload      *Download
+		wantDownload      *DownloadTask
 		wantErr           error
 		mutate            func(c *nodeContentProcessor)
 	}{
@@ -102,9 +102,11 @@ func Test_processLink(t *testing.T) {
 			wantDestination:   tests.StrPtr("/__resources"),
 			wantText:          nil,
 			wantTitle:         nil,
-			wantDownload: &Download{
-				"https://github.com/gardener/gardener/blob/v1.10.0/docs/image.png",
-				"",
+			wantDownload: &DownloadTask{
+				Source:    "https://github.com/gardener/gardener/blob/v1.10.0/docs/image.png",
+				Target:    "",
+				Referer:   "https://github.com/gardener/gardener/blob/v1.10.0/docs/README.md",
+				Reference: "./image.png",
 			},
 			wantErr: nil,
 			mutate: func(c *nodeContentProcessor) {
@@ -156,9 +158,11 @@ func Test_processLink(t *testing.T) {
 			wantDestination:   tests.StrPtr("/__resources"),
 			wantText:          nil,
 			wantTitle:         nil,
-			wantDownload: &Download{
-				"https://github.com/gardener/gardener/blob/v1.10.0/docs/image.png",
-				"",
+			wantDownload: &DownloadTask{
+				Source:    "https://github.com/gardener/gardener/blob/v1.10.0/docs/image.png",
+				Target:    "",
+				Referer:   "https://github.com/gardener/gardener/blob/v1.10.0/docs/README.md",
+				Reference: "https://github.com/gardener/gardener/blob/v1.10.0/docs/image.png",
 			},
 			wantErr: nil,
 			mutate: func(c *nodeContentProcessor) {
@@ -278,9 +282,11 @@ func Test_processLink(t *testing.T) {
 			wantDestination:   tests.StrPtr("/__resources"),
 			wantText:          nil,
 			wantTitle:         nil,
-			wantDownload: &Download{
-				"https://github.com/gardener/gardener/blob/v1.10.0/docs/image.png",
-				"",
+			wantDownload: &DownloadTask{
+				Source:    "https://github.com/gardener/gardener/blob/v1.10.0/docs/image.png",
+				Target:    "",
+				Referer:   "https://github.com/gardener/gardener/blob/v1.10.0/docs/README.md",
+				Reference: "https://github.com/gardener/gardener/blob/master/docs/image.png",
 			},
 			wantErr: nil,
 			mutate: func(c *nodeContentProcessor) {
@@ -316,9 +322,11 @@ func Test_processLink(t *testing.T) {
 			wantDestination:   tests.StrPtr("/__resources"),
 			wantText:          tests.StrPtr("Test text"),
 			wantTitle:         tests.StrPtr("Test title"),
-			wantDownload: &Download{
-				"https://github.com/gardener/gardener/blob/v1.10.0/docs/image.png",
-				"",
+			wantDownload: &DownloadTask{
+				Source:    "https://github.com/gardener/gardener/blob/v1.10.0/docs/image.png",
+				Target:    "",
+				Referer:   "https://github.com/gardener/gardener/blob/v1.10.0/docs/README.md",
+				Reference: "./image.png",
 			},
 			wantErr: nil,
 			mutate: func(c *nodeContentProcessor) {
@@ -356,7 +364,7 @@ func Test_processLink(t *testing.T) {
 			assert.Equal(t, tc.wantErr, gotErr)
 			if gotDownload != nil {
 				if tc.wantDownload != nil {
-					tc.wantDownload.resourceName = gotDownload.resourceName
+					tc.wantDownload.Target = gotDownload.Target
 				}
 			}
 			assert.Equal(t, tc.wantDownload, gotDownload)
