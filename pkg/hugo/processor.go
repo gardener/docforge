@@ -45,6 +45,10 @@ func (f *Processor) Process(documentBlob []byte, node *api.Node) ([]byte, error)
 		return nil, err
 	}
 	if documentBlob, err = mdutil.UpdateMarkdownLinks(contentBytes, func(markdownType mdutil.Type, destination, text, title []byte) ([]byte, []byte, []byte, error) {
+		// quick sanity check for ill-parsed links if any
+		if destination == nil {
+			return destination, text, title, nil
+		}
 		return f.rewriteDestination(destination, text, title, node.Name)
 	}); err != nil {
 		return nil, err

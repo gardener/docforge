@@ -107,8 +107,13 @@ func (c *nodeContentProcessor) reconcileMDLinks(ctx context.Context, docNode *ap
 			download                    *DownloadTask
 			err                         error
 		)
+		// quick sanity check for ill-parsed links if any
+		if destination == nil {
+			klog.Warningf("[%s] skipping ill parsed link: destination[%s] text[%s] title[%s]", contentSourcePath, string(destination), string(text), string(title))
+			return destination, text, title, nil
+		}
 		if _destination, _text, _title, download, err = c.resolveLink(ctx, docNode, string(destination), contentSourcePath); err != nil {
-			errors = multierror.Append(err)
+			errors = multierror.Append(errors, err)
 			if c.failFast {
 				return destination, text, title, err
 			}
@@ -162,7 +167,7 @@ func (c *nodeContentProcessor) reconcileHTMLLinks(ctx context.Context, docNode *
 	documentBytes, _ = markdown.UpdateHTMLLinksRefs(documentBytes, func(url []byte) ([]byte, error) {
 		destination, _, _, download, err := c.resolveLink(ctx, docNode, string(url), contentSourcePath)
 		if err != nil {
-			errors = multierror.Append(err)
+			errors = multierror.Append(errors, err)
 			return url, nil
 		}
 		if docNode != nil && destination != nil {
@@ -174,7 +179,7 @@ func (c *nodeContentProcessor) reconcileHTMLLinks(ctx context.Context, docNode *
 		}
 		if download != nil {
 			if err := c.schedule(ctx, download); err != nil {
-				errors = multierror.Append(err)
+				errors = multierror.Append(errors, err)
 				return []byte(*destination), nil
 			}
 		}

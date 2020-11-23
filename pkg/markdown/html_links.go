@@ -44,7 +44,7 @@ func UpdateHTMLLinksRefs(documentBytes []byte, updateRef UpdateHTMLLinkRef) ([]b
 		}
 		destination, err := updateRef([]byte(url))
 		if err != nil {
-			errors = multierror.Append(err)
+			errors = multierror.Append(errors, err)
 			return match
 		}
 		return []byte(fmt.Sprintf("%s%s%s", prefix, destination, suffix))
