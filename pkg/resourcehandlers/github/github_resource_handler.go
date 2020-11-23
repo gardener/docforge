@@ -416,10 +416,10 @@ func (gh *GitHub) Accept(uri string) bool {
 func (gh *GitHub) ResolveNodeSelector(ctx context.Context, node *api.Node, excludePaths []string, frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32) ([]*api.Node, error) {
 	rl, err := gh.URLToGitHubLocator(ctx, node.NodeSelector.Path, true)
 	if err != nil {
+		if _, ok := err.(resourcehandlers.ErrResourceNotFound); ok {
+			return []*api.Node{}, nil
+		}
 		return nil, err
-	}
-	if rl == nil {
-		return nil, nil
 	}
 
 	childResourceLocators, err := gh.cache.GetSubset(rl.String())
@@ -435,7 +435,7 @@ func (gh *GitHub) ResolveNodeSelector(ctx context.Context, node *api.Node, exclu
 		cleanupNodeTree(child)
 	}
 	if childNodes == nil {
-		return nil, nil
+		return []*api.Node{}, nil
 	}
 
 	return childNodes, nil
