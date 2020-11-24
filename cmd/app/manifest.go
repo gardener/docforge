@@ -48,7 +48,9 @@ func resolveVariables(manifestContent []byte, vars map[string]string) ([]byte, e
 		err  error
 		b    bytes.Buffer
 	)
-	if tmpl, err = template.New("").Parse(string(manifestContent)); err != nil {
+	tplFuncMap := make(template.FuncMap)
+	tplFuncMap["Split"] = strings.Split
+	if tmpl, err = template.New("").Funcs(tplFuncMap).Parse(string(manifestContent)); err != nil {
 		return nil, err
 	}
 	if err := tmpl.Execute(&b, vars); err != nil {
