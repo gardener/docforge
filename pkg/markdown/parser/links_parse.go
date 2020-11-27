@@ -383,6 +383,12 @@ func parseLink(p *parser, data []byte, offset int) (int, Link) {
 	// call the relevant rendering function
 	switch t {
 	case linkNormal:
+		if txtE-txtB <= 0 {
+			return i, nil
+		}
+		if linkE-linkB <= 0 {
+			return i, nil
+		}
 		maybeTitle := &bytesRange{
 			start: offset + titleB,
 			end:   offset + titleE,
@@ -426,6 +432,9 @@ func parseLink(p *parser, data []byte, offset int) (int, Link) {
 		return i, link
 
 	case linkImg:
+		if linkE-linkB <= 0 {
+			return i, nil
+		}
 		image := &link{
 			start: start,
 			end:   offset + end,
