@@ -74,17 +74,6 @@ const (
 	Commits
 )
 
-var nonSHAPathPrefixes = map[string]struct{}{
-	Releases.String(): {},
-	Issues.String():   {},
-	Issue.String():    {},
-	Pulls.String():    {},
-	Pull.String():     {},
-	Wiki.String():     {},
-	Commit.String():   {},
-	Commits.String():  {},
-}
-
 // ResourceLocator is an abstraction for GitHub specific Universal Resource Locators (URLs)
 // It is an internal structure breaking down the GitHub URLs into more segment types such as
 // Repo, Owner or SHA.
