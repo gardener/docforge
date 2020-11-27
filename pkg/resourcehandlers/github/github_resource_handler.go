@@ -290,8 +290,7 @@ func (gh *GitHub) URLToGitHubLocator(ctx context.Context, urlString string, reso
 			return nil, err
 		}
 		if ghRL.Type != Wiki && resolveAPIUrl {
-			_p := strings.Split(ghRL.Path, "/")[0]
-			if _, found := nonSHAPathPrefixes[_p]; found {
+			if len(ghRL.SHAAlias) == 0 {
 				return ghRL, nil
 			}
 			// grab the index of this repo
@@ -527,11 +526,7 @@ func (gh *GitHub) SetVersion(absLink, version string) (string, error) {
 		return "", err
 	}
 
-	if len(rl.Path) > 0 {
-		pathSegments := strings.Split(rl.Path, "/")
-		if _, found := nonSHAPathPrefixes[pathSegments[0]]; found {
-			return absLink, nil
-		}
+	if len(rl.SHAAlias) > 0 {
 		rl.SHAAlias = version
 		return rl.String(), nil
 	}

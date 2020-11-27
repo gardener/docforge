@@ -91,6 +91,17 @@ func TestUrlToGitHubLocator(t *testing.T) {
 		"master",
 		false,
 	}
+	ghrl3 := &ResourceLocator{
+		"https",
+		"github.com",
+		"gardener",
+		"gardener",
+		"",
+		Pull,
+		"123",
+		"",
+		false,
+	}
 	cases := []struct {
 		description  string
 		inURL        string
@@ -139,29 +150,41 @@ func TestUrlToGitHubLocator(t *testing.T) {
 			},
 			ghrl2,
 		},
+		{
+			"cached non-SHAAlias url should return valid GitHubResourceLocator",
+			"https://github.com/gardener/gardener/pull/123",
+			false,
+			&Cache{
+				cache: map[string]*ResourceLocator{
+					"https://github.com/gardener/gardener/pull/123": ghrl3,
+				},
+			},
+			nil,
+			ghrl3,
+		},
 	}
 	for _, c := range cases {
-		fmt.Println(c.description)
-		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
-		defer cancel()
-		gh := &GitHub{
-			cache: c.cache,
-		}
-		if c.inResolveAPI {
-			client, mux, _, teardown := setup()
-			defer teardown()
-			if c.mux != nil {
-				c.mux(mux)
+		t.Run("", func(t *testing.T) {
+			fmt.Println(c.description)
+			ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+			defer cancel()
+			gh := &GitHub{
+				cache: c.cache,
 			}
-			gh.Client = client
-		}
-		got, err := gh.URLToGitHubLocator(ctx, c.inURL, c.inResolveAPI)
-		if err != nil {
-			t.Errorf("Test failed %s", err.Error())
-		}
-		if !reflect.DeepEqual(got, c.want) {
-			t.Errorf("URLToGitHubLocator(%q) == %q, want %q", c.inURL, got, c.want)
-		}
+			if c.inResolveAPI {
+				client, mux, _, teardown := setup()
+				defer teardown()
+				if c.mux != nil {
+					c.mux(mux)
+				}
+				gh.Client = client
+			}
+			got, err := gh.URLToGitHubLocator(ctx, c.inURL, c.inResolveAPI)
+			if err != nil {
+				t.Errorf("Test failed %s", err.Error())
+			}
+			assert.Equal(t, c.want, got)
+		})
 	}
 }
 
@@ -619,6 +642,46 @@ func TestTreeEntryToGitHubLocator(t *testing.T) {
 			if got := TreeEntryToGitHubLocator(tt.args.treeEntry, tt.args.shaAlias); !reflect.DeepEqual(got, tt.expectedRL) {
 				t.Errorf("TreeEntryToGitHubLocator() = %v, want %v", got, tt.expectedRL)
 			}
+		})
+	}
+}
+
+func TestSetVersion(t *testing.T) {
+	tests := []struct {
+		url         string
+		version     string
+		expectedURL string
+		expectedErr bool
+	}{
+		{
+			"https://github.com/gardener/gardener/blob/master/docs/README.md",
+			"v1.12.0",
+			"https://github.com/gardener/gardener/blob/v1.12.0/docs/README.md",
+			false,
+		},
+		{
+			"https://github.com/gardener/gardener/pull/1234",
+			"v1.12.0",
+			"https://github.com/gardener/gardener/pull/1234",
+			false,
+		},
+		{
+			"https://kubernetes.io",
+			"v1.12.0",
+			"",
+			true,
+		},
+	}
+	for _, tc := range tests {
+		t.Run("", func(t *testing.T) {
+			gh := GitHub{}
+			gotURL, gotErr := gh.SetVersion(tc.url, tc.version)
+			if tc.expectedErr {
+				assert.Error(t, gotErr)
+			} else {
+				assert.Nil(t, gotErr)
+			}
+			assert.Equal(t, tc.expectedURL, gotURL)
 		})
 	}
 }
