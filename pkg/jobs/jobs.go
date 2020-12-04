@@ -38,7 +38,9 @@ type Job struct {
 	// can be interrupted only by the workqueue with a task or stop signal. However, after a task
 	// is processed it will be consulted whether to continue or exit before block waiting for
 	// another.
-	IsWorkerExitsOnEmptyQueue bool
+	isWorkerExitsOnEmptyQueue bool
+
+	rwlock sync.RWMutex
 }
 
 // WorkerError wraps an underlying error struct and adds optional code
@@ -130,12 +132,6 @@ func (j *Job) Dispatch(ctx context.Context, tasks []interface{}) *WorkerError {
 		quitCh              = make(chan struct{})
 	)
 
-	// cleanup on exit
-	defer func() {
-		close(quitCh)
-		klog.V(6).Infoln("Job done.")
-	}()
-
 	// add tasks
 	for i := 0; i < len(tasks); i++ {
 		j.Queue.Add(tasks[i])
@@ -149,8 +145,8 @@ func (j *Job) Dispatch(ctx context.Context, tasks []interface{}) *WorkerError {
 		select {
 		case <-ctx.Done():
 			{
-				if stopped := j.Queue.Stop(); stopped {
-					// klog.V(6).Infof("Workqueue stopped\n")
+				if j.Queue.Stop() {
+					klog.V(1).Infof("Context canceled -> workqueue stopped\n")
 				}
 				break
 			}
@@ -160,16 +156,16 @@ func (j *Job) Dispatch(ctx context.Context, tasks []interface{}) *WorkerError {
 				if stoppedWorkersCount == 1 {
 					// at least one worker exited - we are done
 					// Unlock all others waiting to get a task
-					if stopped := j.Queue.Stop(); stopped {
-						// klog.V(6).Infof("Workqueue stopped\n")
+					if j.Queue.Stop() {
+						klog.V(1).Infof("Workqueue stopped\n")
 					}
 				}
 				if stoppedWorkersCount == workersCount {
-					var s string
 					if j.Queue.Count() > 0 {
-						s = fmt.Sprintf("%d unprocessed items in queue. ", j.Queue.Count())
+						klog.Warningf(
+							fmt.Sprintf("%d unprocessed items in queue. ", j.Queue.Count()),
+						)
 					}
-					klog.V(6).Infoln(s)
 					loop = false
 				}
 			}
@@ -181,8 +177,8 @@ func (j *Job) Dispatch(ctx context.Context, tasks []interface{}) *WorkerError {
 				if err != nil {
 					errors = multierror.Append(errors, err)
 					if j.FailFast {
-						if stopped := j.Queue.Stop(); stopped {
-							// klog.V(6).Infof("Workqueue stopped\n")
+						if j.Queue.Stop() {
+							klog.V(1).Infof("Workqueue stopped\n")
 						}
 						break
 					}
@@ -201,37 +197,63 @@ func (j *Job) startWorkers(ctx context.Context, workersCount int, quitCh chan st
 	var (
 		errcList = make([]<-chan *WorkerError, 0)
 		wg       sync.WaitGroup
+		// rwLock   sync.RWMutex
 	)
+	// appendToErrChClist := func(errcList []<-chan *WorkerError, errCh chan *WorkerError) {
+	// 	defer rwLock.Unlock()
+	// 	rwLock.Lock()
+	// 	errcList = append(errcList, errCh)
+	// }
+
 	wg.Add(workersCount)
 	for i := 0; i < workersCount; i++ {
 		go func(ctx context.Context, workerId int, wq WorkQueue, quitCh chan struct{}) {
 			errCh := make(chan *WorkerError, 1)
-			errcList = append(errcList, errCh)
-			defer func() {
+			defer func(errCh chan *WorkerError) {
 				quitCh <- struct{}{}
 				close(errCh)
-				klog.V(6).Infof("%s worker %d stopped\n", j.ID, workerId)
-			}()
-			klog.V(6).Infof("%s worker %d started\n", j.ID, workerId)
+				klog.V(1).Infof("%s worker %d stopped\n", j.ID, workerId)
+			}(errCh)
+			errcList = append(errcList, errCh)
+			// appendToErrChClist(errcList, errCh)
+
 			wg.Done()
+			klog.V(1).Infof("%s worker %d started\n", j.ID, workerId)
 			for {
 				var task interface{}
+				if !j.GetIsWorkerExitsOnEmptyQueue() && wq.Count() == 0 {
+					return
+				}
+				klog.V(1).Infof("%s worker %d waiting for task \n", j.ID, workerId)
 				if task = wq.Get(); task == nil {
 					return
 				}
-				klog.V(6).Infof("%s worker %d acquired task\n", j.ID, workerId)
+				klog.V(1).Infof("%s worker %d acquired task\n", j.ID, workerId)
 				if err := j.Worker.Work(ctx, task, wq); err != nil {
 					errCh <- err
 				}
-				if !j.IsWorkerExitsOnEmptyQueue && wq.Count() == 0 {
-					return
-				}
+				klog.V(1).Infof("%s worker %d finished task: %v \n", j.ID, workerId, task)
 			}
 		}(ctx, i, j.Queue, quitCh)
 	}
+	// Wait for all error channels to be populated
 	wg.Wait()
 	errCh := mergeErrors(errcList...)
 	return errCh
+}
+
+// GetIsWorkerExitsOnEmptyQueue .. TODO:
+func (j *Job) GetIsWorkerExitsOnEmptyQueue() bool {
+	defer j.rwlock.Unlock()
+	j.rwlock.Lock()
+	return j.isWorkerExitsOnEmptyQueue
+}
+
+// SetIsWorkerExitsOnEmptyQueue .. TODO:
+func (j *Job) SetIsWorkerExitsOnEmptyQueue(isWorkerExitsOnEmptyQueue bool) {
+	defer j.rwlock.Unlock()
+	j.rwlock.Lock()
+	j.isWorkerExitsOnEmptyQueue = isWorkerExitsOnEmptyQueue
 }
 
 // merges asynchronously produced errors from multiple error channels into a single channel

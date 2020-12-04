@@ -71,6 +71,7 @@ if [[ -z "$LOCAL_BUILD" ]]; then
 # If the LOCAL_BUILD environment variable is set, we simply run `go build`.
 else
   go build \
+    -race \
     -v \
     -o ${BINARY_PATH}/docforge \
     -ldflags "-w -X github.com/gardener/docforge/pkg/version.Version=$(git rev-parse HEAD)" \

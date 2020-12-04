@@ -35,15 +35,6 @@ func (r *Reactor) Build(ctx context.Context, documentationStructure []*api.Node)
 	gitInfoShutdownCh := make(chan struct{})
 	loop := true
 
-	defer func() {
-		close(errCh)
-		close(downloadShutdownCh)
-		close(gitInfoShutdownCh)
-		close(documentShutdownCh)
-		close(doneCh)
-		klog.V(2).Infoln("Build finished")
-	}()
-
 	// start download controller
 	go func() {
 		klog.V(6).Infoln("Starting download controller")
@@ -76,17 +67,17 @@ func (r *Reactor) Build(ctx context.Context, documentationStructure []*api.Node)
 			select {
 			case <-downloadShutdownCh:
 				{
-					klog.V(6).Infoln("Download controller stopped")
+					klog.V(1).Infoln("Download controller stopped")
 					stoppedControllers++
 				}
 			case <-gitInfoShutdownCh:
 				{
-					klog.V(6).Infoln("GitHub Info controller stopped")
+					klog.V(1).Infoln("GitHub Info controller stopped")
 					stoppedControllers++
 				}
 			case <-documentShutdownCh:
 				{
-					klog.V(6).Infoln("Document controller stopped")
+					klog.V(1).Infoln("Document controller stopped")
 					stoppedControllers++
 					// propagate the stop to the related download controller
 					r.DocController.GetDownloadController().Stop(nil)

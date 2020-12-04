@@ -70,13 +70,14 @@ func NewDownloadController(reader Reader, writer writers.Writer, workersCount in
 	}
 
 	job := &jobs.Job{
-		ID:                        "Download",
-		FailFast:                  failFast,
-		MaxWorkers:                workersCount,
-		MinWorkers:                workersCount,
-		Queue:                     jobs.NewWorkQueue(100),
-		IsWorkerExitsOnEmptyQueue: true,
+		ID:         "Download",
+		FailFast:   failFast,
+		MaxWorkers: workersCount,
+		MinWorkers: workersCount,
+		Queue:      jobs.NewWorkQueue(100),
 	}
+	job.SetIsWorkerExitsOnEmptyQueue(true)
+
 	controller := &downloadController{
 		Controller:          jobs.NewController(job),
 		downloadWorker:      d,
@@ -110,14 +111,7 @@ func (d *_downloadWorker) Work(ctx context.Context, ctrl *downloadController, ta
 	if task, ok := task.(*DownloadTask); ok {
 		if !ctrl.isDownloaded(task) {
 			if err := d.download(ctx, task); err != nil {
-				// find out any other recorded references that will fail
-				var refs string
-				if tasks, ok := ctrl.downloadedResources[task.Source]; ok {
-					for _, t := range tasks {
-						refs = fmt.Sprintf("%sReference %s from referer %s\n", refs, t.Reference, t.Referer)
-					}
-				}
-				refs = fmt.Sprintf("%sReference %s from referer %s", refs, task.Reference, task.Referer)
+				refs := fmt.Sprintf("Reference %s from referer %s", task.Reference, task.Referer)
 				klog.Warningf("%s : %s\n", refs, err.Error())
 				err = fmt.Errorf("%s : %w", refs, err)
 				return jobs.NewWorkerError(err, 0)

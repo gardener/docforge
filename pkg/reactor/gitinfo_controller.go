@@ -77,13 +77,14 @@ func NewGitInfoController(reader Reader, writer writers.Writer, workersCount int
 	}
 
 	job := &jobs.Job{
-		ID:                        "GitInfo",
-		FailFast:                  failFast,
-		MaxWorkers:                workersCount,
-		MinWorkers:                workersCount,
-		Queue:                     jobs.NewWorkQueue(100),
-		IsWorkerExitsOnEmptyQueue: true,
+		ID:         "GitInfo",
+		FailFast:   failFast,
+		MaxWorkers: workersCount,
+		MinWorkers: workersCount,
+		Queue:      jobs.NewWorkQueue(100),
 	}
+	job.SetIsWorkerExitsOnEmptyQueue(true)
+
 	controller := &gitInfoController{
 		Controller:   jobs.NewController(job),
 		job:          job,

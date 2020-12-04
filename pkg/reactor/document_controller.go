@@ -6,6 +6,7 @@ package reactor
 
 import (
 	"github.com/gardener/docforge/pkg/jobs"
+	"k8s.io/klog/v2"
 )
 
 // DocumentController is the functional interface for a controller
@@ -29,28 +30,25 @@ type docController struct {
 // NewDocumentController creates a controller for processing documents.
 func NewDocumentController(worker *DocumentWorker, workersCount int, failfast bool) DocumentController {
 	job := &jobs.Job{
-		ID:                        "Document",
-		MinWorkers:                workersCount,
-		MaxWorkers:                workersCount,
-		FailFast:                  failfast,
-		Worker:                    worker,
-		Queue:                     jobs.NewWorkQueue(2 * workersCount),
-		IsWorkerExitsOnEmptyQueue: true,
+		ID:         "Document",
+		MinWorkers: workersCount,
+		MaxWorkers: workersCount,
+		FailFast:   failfast,
+		Worker:     worker,
+		Queue:      jobs.NewWorkQueue(2 * workersCount),
 	}
+	job.SetIsWorkerExitsOnEmptyQueue(true)
 	return &docController{
 		jobs.NewController(job),
 		job,
 	}
 }
 func (d *docController) Shutdown() {
-	d.Controller.Shutdown()
 	// propagate the shutdown to the related download controller
-	d.Worker.(*DocumentWorker).NodeContentProcessor.GetDownloadController().Shutdown()
+	defer d.Worker.(*DocumentWorker).NodeContentProcessor.GetDownloadController().Shutdown()
+	klog.Warning("Shutting down Doc controller")
+	d.Controller.Shutdown()
 }
-
-// func (d *docController) SetDownloadScope(scope *localityDomain) {
-// 	d.Worker.(*DocumentWorker).NodeContentProcessor.localityDomain = scope
-// }
 func (d *docController) GetDownloadController() DownloadController {
 	return d.Worker.(*DocumentWorker).NodeContentProcessor.GetDownloadController()
 }
