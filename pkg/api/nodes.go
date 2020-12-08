@@ -5,6 +5,8 @@
 package api
 
 import (
+	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 )
@@ -212,4 +214,79 @@ func SortNodesByName(node *Node) {
 			SortNodesByName(n)
 		}
 	}
+}
+
+// Union merges the Node`s list of nodes, with the provided list by skipping exact duplicates,
+// or uses the provided genearteNewName function to change nodes` names in the list
+// before appending it, to avoid 2+ nodes with the same name.
+func (n *Node) Union(nodes []*Node, generateNewName func(node *Node) string) {
+	if len(nodes) == 0 || generateNewName == nil {
+		return
+	}
+
+	if n.Nodes == nil {
+		n.Nodes = make([]*Node, 0)
+	}
+
+	nodesByName := make(map[string]*Node)
+	for _, node := range n.Nodes {
+		nodesByName[node.Name] = node
+	}
+
+	for _, node := range nodes {
+		if existingNode, ok := nodesByName[node.Name]; ok {
+			if reflect.DeepEqual(existingNode, node) {
+				continue
+			}
+
+			newName := generateNewName(node)
+			if len(newName) == 0 || newName == node.Name {
+				continue
+			}
+			node.Name = newName
+		}
+
+		n.Nodes = append(n.Nodes, node)
+	}
+}
+
+// GenerateNewName generates new name based on the provided node. It is used when two lists has
+// different nodes with conflicting names
+func GenerateNewName(node *Node) string {
+	var newName string
+	if node == nil {
+		return newName
+	}
+	if len(node.Source) > 0 {
+		elements := strings.Split(node.Source, "/")
+		elementsCount := len(elements)
+		newName = elements[elementsCount-1]
+		if newName != node.Name {
+			return newName
+		}
+		if elementsCount >= 2 {
+			el := elements[elementsCount-2]
+			newName = newName + "/" + el
+			return newName
+		}
+		return ""
+	} else if nodeCSList := node.ContentSelectors; nodeCSList != nil && len(nodeCSList) > 0 {
+
+		for _, nodeCS := range nodeCSList {
+			if len(nodeCS.Source) > 0 {
+				elements := strings.Split(node.Source, "/")
+				fileName := elements[len(elements)-1]
+				newName += strings.TrimSuffix(fileName, filepath.Ext(fileName))
+			}
+		}
+		if len(newName) == 0 {
+			return ""
+		}
+
+		newName += filepath.Ext(node.Name)
+		if newName == node.Name {
+			return ""
+		}
+	}
+	return newName
 }

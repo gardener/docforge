@@ -33,8 +33,10 @@ func ResolveManifest(ctx context.Context, manifest *api.Documentation, rhRegistr
 	if structure == nil {
 		structure = manifest.Structure
 	} else {
-		// TODO: this should be rather merge than append
-		structure = append(manifest.Structure, structure...)
+		node := &api.Node{
+			Nodes: manifest.Structure,
+		}
+		node.Union(structure, api.GenerateNewName)
 	}
 
 	if structure == nil {
@@ -76,7 +78,7 @@ func resolveStructure(ctx context.Context, rhRegistry resourcehandlers.Registry,
 				return err
 			}
 			if len(newNode.Nodes) > 0 {
-				node.Nodes = append(node.Nodes, newNode.Nodes...)
+				node.Union(newNode.Nodes, api.GenerateNewName)
 			}
 			node.Links = mergeLinks(node.Links, newNode.Links)
 			node.NodeSelector = nil
