@@ -190,12 +190,12 @@ func TestParseLinks(t *testing.T) {
 			},
 		},
 		{
-			`  [ a 
+			`  [ a
  ](  b.com)`,
 			[][]int{
-				[]int{2, 18},
+				[]int{2, 17},
 				[]int{4, 5},
-				[]int{12, 17},
+				[]int{11, 16},
 			},
 		},
 		{

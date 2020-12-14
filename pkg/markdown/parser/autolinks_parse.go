@@ -166,6 +166,40 @@ func maybeAutoLink(p *parser, data []byte, offset int) (int, Link) {
 	return 0, nil
 }
 
+func codeSpan(p *parser, data []byte, offset int) (int, Link) {
+	var backtickCount, i, end int
+	data = data[offset:]
+
+	for backtickCount < len(data) && data[backtickCount] == '`' {
+		backtickCount++
+	}
+
+	for end = backtickCount; end < len(data) && i < backtickCount; end++ {
+		if data[end] == '`' {
+			i++
+		} else {
+			i = 0
+		}
+	}
+
+	// no matching delimiter?
+	if i < backtickCount && end >= len(data) {
+		return 0, nil
+	}
+
+	// trim outside whitespace
+	fBegin := backtickCount
+	for fBegin < end && data[fBegin] == ' ' {
+		fBegin++
+	}
+
+	fEnd := end - backtickCount
+	for fEnd > fBegin && data[fEnd-1] == ' ' {
+		fEnd--
+	}
+	return end, nil
+}
+
 func parseAutoLink(p *parser, data []byte, offset int) (int, Link) {
 	// Now a more expensive check to see if we're not inside an anchor element
 	anchorStart := offset

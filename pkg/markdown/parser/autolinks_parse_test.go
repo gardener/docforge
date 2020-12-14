@@ -181,7 +181,8 @@ func TestParseAutoLinksExtended(t *testing.T) {
 				}
 				offset++
 			}
-			_, got := parseAutoLink(p.(*parser), []byte(tc.in), offset)
+			data := []byte(tc.in)
+			_, got := parseAutoLink(p.(*parser), data, offset)
 			if tc.want == nil && assert.Nil(t, got) {
 				return
 			}
@@ -192,6 +193,51 @@ func TestParseAutoLinksExtended(t *testing.T) {
 					l := got.(*link)
 					fmt.Printf("|%s|\n", string([]byte(tc.in)[l.start:l.end]))
 				}
+			}
+		})
+	}
+}
+
+func Test_codeSpan(t *testing.T) {
+	type args struct {
+		data   string
+		offset int
+	}
+	tests := []struct {
+		name         string
+		args         args
+		wantConsumed int
+	}{
+		{
+			name: "single_backtick_tuple",
+			args: args{
+				"Configure the client to have a callback url of `http://localhost:8000`.",
+				47,
+			},
+			wantConsumed: 23,
+		},
+		{
+			name: "tripple_backtick_tuple",
+			args: args{
+				"Configure the client to have a callback url of ```http://localhost:8000```.",
+				47,
+			},
+			wantConsumed: 27,
+		},
+		{
+			name: "zero_when_closing_backtick_is_missing",
+			args: args{
+				"`callback url of.",
+				0,
+			},
+			wantConsumed: 0,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			consumed, _ := codeSpan(nil, []byte(tt.args.data), tt.args.offset)
+			if consumed != tt.wantConsumed {
+				t.Errorf("codeSpan() got = %v, want %v", consumed, tt.wantConsumed)
 			}
 		})
 	}

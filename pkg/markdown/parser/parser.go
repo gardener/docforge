@@ -26,6 +26,7 @@ func NewParser() Parser {
 	p.inlineCallback['H'] = maybeAutoLink
 	p.inlineCallback['M'] = maybeAutoLink
 	p.inlineCallback['F'] = maybeAutoLink
+	p.inlineCallback['`'] = codeSpan
 	p.refs = make(map[string]*link, 0)
 	return &p
 }
@@ -33,11 +34,11 @@ func NewParser() Parser {
 // Parse scans data and applies callbacks to character patterns
 // to model a parsed Document
 func (p *parser) Parse(data []byte) Document {
+	var end int
 	doc := &document{
 		data:  data,
 		links: []Link{},
 	}
-	beg, end := 0, 0
 
 	n := len(data)
 	for end < n {
@@ -52,8 +53,7 @@ func (p *parser) Parse(data []byte) Document {
 			end++
 			continue
 		}
-		beg = end + consumed
-		end = beg
+		end += consumed
 		if node != nil {
 			switch v := node.(type) {
 			case *link:
@@ -63,13 +63,6 @@ func (p *parser) Parse(data []byte) Document {
 				}
 			}
 		}
-	}
-	// TODO: leftover block from the original parser.
-	if beg < n {
-		if data[end-1] == '\n' {
-			end--
-		}
-		// 	ast.AppendChild(currBlock, newTextNode(data[beg:end]))
 	}
 	return doc
 }
