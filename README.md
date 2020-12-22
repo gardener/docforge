@@ -4,7 +4,35 @@
 
 [![reuse compliant](https://reuse.software/badge/reuse-compliant.svg)](https://reuse.software/)
 
-Docforge is a command-line tool that builds documentation bundles from markdown sources distributed across multiple repositories, using manifest for a desired structure and links management.
+Docforge is a *Documentation-As-Code* enabling command-line tool that reproducibly *forges* source documentation into publishable documentation bundles, using desired documentation state declarations called *documentation manifests*. A documentation manifest includes structured references to source documentation files and rules for fetching sources,  rewriting resource references (absolute vs relative and version), rewriting all markdown link components and resource downloads. Along with the powerful link control that abstracts original sources, the declarative approach, combined with features, such as manifest templates, allows to parameterize and completely automate documentation releases considering resources versions reliably.
+
+Docforge is not limited to, but is particularly well suited to using GitHub as distributed storage and version control system for source documentation. It was designed to solve the outstanding issue for multi-repo projects that want to maintain documentation in a distributed manner and yet release aggregated, coherent bundles out of it with minimal effort. 
+
+Docforge is designed to support the re-purposing of documentation sources. Instead of designing documentation structures for a particular tool or platform, a single one is sufficient to produce multiple documentation bundles from it, each described in its own manifest, and targeting a particular publishing channel or purpose. The tool goes even further supporting the creation of completely new documents from existing sources by templates or aggregations.
+
+Docforge manifests are modular, supporting references to other manifests that are included recursively for maintaining potentially complex structures, e.g. for large documentation portals.
+
+![](./docs/images/docforge-overview.svg)
+<figcaption>Figure 1: Docforge overview</figcaption>
+
+From Documentation-as-Code tool chain perspective, Docforge is the tool that makes source documentation available for further transformation, processing and publishing. 
+
+Figure 2 shows one of many options to build a Documentation-as-Code automated process, orchestrated by CI/CD, focusing on the role of Docforge. In this particular example, source documentation resides in multiple repositories and needs to be built as a static HTML website with HUGO, and then pushed to a repository configured to be served by GitHub Pages. When a new release is triggered, Docforge will use the released version of the documentation manifest dedicated to publishing with GitHub Pages to forge a bundle for this release. The bundle will then be used as input content by the next tool in the build process - HUGO.
+
+
+![](./docs/images/docforge-step.svg)
+<figcaption>Figure 2: Sample documentation-as-code tool chain, including Docforge as step 1 in the documentation build process</figcaption>
+
+At a glance:
+- Declarative
+- Extensive link and version control
+- Rules, template and scripting support
+- Composable manifests that can include references to other manifests recursively
+- Designed to forge from distributed, remote documentation sources
+- Abstracts source documentation to re-purpose it into documentation bundles targeting various platforms and tools
+- Efficient operation 
+- out-of-the-box, optional support for HUGO
+- out-of-the-box, support for GitHub and GitHub Enterprise
 
 ## Installation
 
@@ -20,17 +48,17 @@ Go to project [releases](https://github.com/gardener/docforge/releases), select 
 
 For convenience, copy the docforge executable somewhere on your PATH. For Linux/Mac `/usr/local/bin` is usually a good spot.
 
-### Developers
-
-``` sh
-go get github.com/gardener/docforge
-```
-
 ### Operators
 
 Docker images with all docforge releases are public at [Google Cloud Registry](https://console.cloud.google.com/gcr/images/gardener-project/EU/docforge?project=gardener-project&gcrImageListsize=30). To pull a docforge image for a release use the release as image tag, e.g. for docforge version [`v0.5.1`](https://github.com/gardener/docforge/releases/tag/v0.5.1):
 ```sh
 docker pull eu.gcr.io/gardener-project/docforge:v0.5.1
+```
+
+### Developers
+
+``` sh
+go get github.com/gardener/docforge
 ```
 
 ## Usage
@@ -74,4 +102,4 @@ docforge -d /tmp/docforge-docs -f example/simple/00.yaml --github-oauth-token $G
    The `--dry-run` and `--resolve` flags can be combined for a full analytic overview.
 
 ## What's next
-- [ User Documentation](docs/user-index.md)
+- [User Documentation](docs/user-index.md)
