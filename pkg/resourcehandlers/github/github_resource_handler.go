@@ -170,21 +170,13 @@ func cleanupNodeTree(node *api.Node) {
 		}
 		cleanupNodeTree(n)
 	}
-	childrenCopy := make([]*api.Node, len(node.Nodes))
-	if len(node.Nodes) > 0 {
-		copy(childrenCopy, node.Nodes)
-	}
-	for i, n := range node.Nodes {
-		if len(n.Nodes) == 0 {
-			if n.NodeSelector != nil {
-				continue
-			}
-			if len(n.Source) == 0 && len(n.Nodes) == 0 {
-				childrenCopy = removeNode(childrenCopy, i)
-			}
-			node.Nodes = childrenCopy
+	children := node.Nodes[:0]
+	for _, n := range node.Nodes {
+		if len(n.Nodes) != 0 || n.NodeSelector != nil || len(n.Source) != 0 {
+			children = append(children, n)
 		}
 	}
+	node.Nodes = children
 }
 
 func removeNode(n []*api.Node, i int) []*api.Node {
