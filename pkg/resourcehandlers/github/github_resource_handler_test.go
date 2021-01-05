@@ -478,8 +478,7 @@ func TestCleanupNodeTree(t *testing.T) {
 		{
 			name: "",
 			node: &api.Node{
-				Name:   "00",
-				Source: "https://github.com/gardener/gardener/tree/master/docs/00",
+				Name: "00",
 				Nodes: []*api.Node{
 					{
 						Name:   "01.md",
@@ -498,6 +497,11 @@ func TestCleanupNodeTree(t *testing.T) {
 					{
 						Name:   "03",
 						Source: "https://github.com/gardener/gardener/tree/master/docs/03",
+						Nodes:  []*api.Node{},
+					},
+					{
+						Name:   "04",
+						Source: "https://github.com/gardener/gardener/tree/master/docs/04",
 						Nodes:  []*api.Node{},
 					},
 				},

@@ -154,7 +154,7 @@ func buildNodes(node *api.Node, excludePaths []string, frontMatter map[string]in
 //   internally to build the structure but are not a valid contentSource
 // - remove empty nodes that do not contain markdown. The build algorithm
 //   is blind for the content of a node and leaves nodes that are folders
-//   containing for example images only adn thus irrelevant to the
+//   containing for example images only and thus irrelevant to the
 //   documentation structure
 func cleanupNodeTree(node *api.Node) {
 	if len(node.Source) > 0 {
@@ -170,25 +170,13 @@ func cleanupNodeTree(node *api.Node) {
 		}
 		cleanupNodeTree(n)
 	}
-	childrenCopy := make([]*api.Node, len(node.Nodes))
-	if len(node.Nodes) > 0 {
-		copy(childrenCopy, node.Nodes)
-	}
-	for i, n := range node.Nodes {
-		if len(n.Nodes) == 0 {
-			if n.NodeSelector != nil {
-				continue
-			}
-			if len(n.Source) == 0 && len(n.Nodes) == 0 {
-				childrenCopy = removeNode(childrenCopy, i)
-			}
-			node.Nodes = childrenCopy
+	children := node.Nodes[:0]
+	for _, n := range node.Nodes {
+		if len(n.Nodes) != 0 || n.NodeSelector != nil || len(n.Source) != 0 {
+			children = append(children, n)
 		}
 	}
-}
-
-func removeNode(n []*api.Node, i int) []*api.Node {
-	return append(n[:i], n[i+1:]...)
+	node.Nodes = children
 }
 
 // Cache is indexes GitHub TreeEntries by website resource URLs as keys,
