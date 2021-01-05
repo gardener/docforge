@@ -478,54 +478,7 @@ func TestCleanupNodeTree(t *testing.T) {
 		{
 			name: "",
 			node: &api.Node{
-				Name:   "00",
-				Source: "https://github.com/gardener/gardener/tree/master/docs/00",
-				Nodes: []*api.Node{
-					{
-						Name:   "01.md",
-						Source: "https://github.com/gardener/gardener/blob/master/docs/01.md",
-					},
-					{
-						Name:   "02",
-						Source: "https://github.com/gardener/gardener/tree/master/docs/02",
-						Nodes: []*api.Node{
-							{
-								Name:   "021.md",
-								Source: "https://github.com/gardener/gardener/blob/master/docs/021.md",
-							},
-						},
-					},
-					{
-						Name:   "03",
-						Source: "https://github.com/gardener/gardener/tree/master/docs/03",
-						Nodes:  []*api.Node{},
-					},
-				},
-			},
-			wantNode: &api.Node{
 				Name: "00",
-				Nodes: []*api.Node{
-					{
-						Name:   "01.md",
-						Source: "https://github.com/gardener/gardener/blob/master/docs/01.md",
-					},
-					{
-						Name: "02",
-						Nodes: []*api.Node{
-							{
-								Name:   "021.md",
-								Source: "https://github.com/gardener/gardener/blob/master/docs/021.md",
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "",
-			node: &api.Node{
-				Name:   "00",
-				Source: "https://github.com/gardener/gardener/tree/master/docs/00",
 				Nodes: []*api.Node{
 					{
 						Name:   "01.md",
