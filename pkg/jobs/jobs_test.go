@@ -251,14 +251,13 @@ func TestDispatchWaitAfterWorkDoneTrue(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	job := &Job{
-		MinWorkers:                minWorkers,
-		MaxWorkers:                maxWorkers,
-		Worker:                    WorkerFunc(shortSender.work),
-		FailFast:                  true,
-		Queue:                     NewWorkQueue(tasksCount),
-		IsWorkerExitsOnEmptyQueue: true,
+		MinWorkers: minWorkers,
+		MaxWorkers: maxWorkers,
+		Worker:     WorkerFunc(shortSender.work),
+		FailFast:   true,
+		Queue:      NewWorkQueue(tasksCount),
 	}
-
+	job.SetIsWorkerExitsOnEmptyQueue(true)
 	actualError := job.Dispatch(ctx, newTasksList(tasksCount, "", false))
 
 	assert.Error(t, actualError)

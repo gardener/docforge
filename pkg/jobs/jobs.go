@@ -32,13 +32,14 @@ type Job struct {
 	// method will feed its tasks argument elements to the queue, and it may be fed
 	// from other sources in parallel, including the workers.
 	Queue WorkQueue
-	// IsWorkerExitsOnEmptyQueue controls whether a worker exits right after its Work function is
+	// isWorkerExitsOnEmptyQueue controls whether a worker exits right after its Work function is
 	// done and no more tasks are available in the queue, or will loop waiting for more tasks.
 	// Note that this flag does not prevent the worker from block waiting for a task. This
 	// can be interrupted only by the workqueue with a task or stop signal. However, after a task
 	// is processed it will be consulted whether to continue or exit before block waiting for
 	// another.
-	IsWorkerExitsOnEmptyQueue bool
+	isWorkerExitsOnEmptyQueue bool
+	exitOnEmptylock           sync.RWMutex
 
 	rwLock   sync.RWMutex
 	errcList []<-chan *WorkerError
@@ -152,8 +153,8 @@ func (j *Job) Dispatch(ctx context.Context, tasks []interface{}) *WorkerError {
 		select {
 		case <-ctx.Done():
 			{
-				if stopped := j.Queue.Stop(); stopped {
-					// klog.V(6).Infof("Workqueue stopped\n")
+				if j.Queue.Stop() {
+					klog.V(6).Infof("Context canceled -> workqueue stopped\n")
 				}
 				break
 			}
@@ -163,16 +164,25 @@ func (j *Job) Dispatch(ctx context.Context, tasks []interface{}) *WorkerError {
 				if stoppedWorkersCount == 1 {
 					// at least one worker exited - we are done
 					// Unlock all others waiting to get a task
-					if stopped := j.Queue.Stop(); stopped {
-						// klog.V(6).Infof("Workqueue stopped\n")
+					if j.Queue.Stop() {
+						klog.V(6).Infof("Workqueue stopped\n")
 					}
 				}
 				if stoppedWorkersCount == workersCount {
-					var s string
 					if j.Queue.Count() > 0 {
-						s = fmt.Sprintf("%d unprocessed items in queue. ", j.Queue.Count())
+						// TODO: Ideally, the type of log (level) will depend on the situation.
+						// If an error that occurred in a worker of a job configured for fail-fast
+						// having some unprocessed items in the queue is expected situation, i.e.
+						// the log is simply informative. If other cases, that's most likely a program
+						// fault (bug), because except for fail-fast jobs the queues are gracefully
+						// drained before stopping the controllers. Warning is a safe option
+						// in most cases. A future improvement could be to account in a more
+						// fine-grained manner for the situation discussed above and raise and
+						// error accordingly.
+						klog.V(6).Info(
+							fmt.Sprintf("%d unprocessed items in queue. ", j.Queue.Count()),
+						)
 					}
-					klog.V(6).Infoln(s)
 					loop = false
 				}
 			}
@@ -184,8 +194,8 @@ func (j *Job) Dispatch(ctx context.Context, tasks []interface{}) *WorkerError {
 				if err != nil {
 					errors = multierror.Append(errors, err)
 					if j.FailFast {
-						if stopped := j.Queue.Stop(); stopped {
-							// klog.V(6).Infof("Workqueue stopped\n")
+						if j.Queue.Stop() {
+							klog.V(6).Infof("Workqueue stopped\n")
 						}
 						break
 					}
@@ -204,6 +214,7 @@ func (j *Job) addWorkerErrChannel(errCh <-chan *WorkerError) {
 	j.rwLock.Lock()
 	j.errcList = append(j.errcList, errCh)
 }
+
 func (j *Job) getWorkerErrChannels() []<-chan *WorkerError {
 	defer j.rwLock.Unlock()
 	j.rwLock.Lock()
@@ -237,7 +248,7 @@ func (j *Job) startWorkers(ctx context.Context, workersCount int, quitCh chan st
 				if err := j.Worker.Work(ctx, task, wq); err != nil {
 					errCh <- err
 				}
-				if !j.IsWorkerExitsOnEmptyQueue && wq.Count() == 0 {
+				if !j.GetIsWorkerExitsOnEmptyQueue() && wq.Count() == 0 {
 					return
 				}
 			}
@@ -246,6 +257,20 @@ func (j *Job) startWorkers(ctx context.Context, workersCount int, quitCh chan st
 	wg.Wait()
 	errCh := mergeErrors(j.getWorkerErrChannels()...)
 	return errCh
+}
+
+// GetIsWorkerExitsOnEmptyQueue .. TODO:
+func (j *Job) GetIsWorkerExitsOnEmptyQueue() bool {
+	defer j.exitOnEmptylock.Unlock()
+	j.exitOnEmptylock.Lock()
+	return j.isWorkerExitsOnEmptyQueue
+}
+
+// SetIsWorkerExitsOnEmptyQueue .. TODO:
+func (j *Job) SetIsWorkerExitsOnEmptyQueue(isWorkerExitsOnEmptyQueue bool) {
+	defer j.exitOnEmptylock.Unlock()
+	j.exitOnEmptylock.Lock()
+	j.isWorkerExitsOnEmptyQueue = isWorkerExitsOnEmptyQueue
 }
 
 // merges asynchronously produced errors from multiple error channels into a single channel
