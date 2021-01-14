@@ -109,7 +109,7 @@ func (c *nodeContentProcessor) reconcileMDLinks(ctx context.Context, docNode *ap
 		)
 		// quick sanity check for ill-parsed links if any
 		if destination == nil {
-			klog.Warningf("[%s] skipping ill parsed link: destination[%s] text[%s] title[%s]", contentSourcePath, string(destination), string(text), string(title))
+			klog.V(6).Infof("[%s] skipping ill parsed link: destination[%s] text[%s] title[%s]", contentSourcePath, string(destination), string(text), string(title))
 			return destination, text, title, nil
 		}
 		if _destination, _text, _title, download, err = c.resolveLink(ctx, docNode, string(destination), contentSourcePath); err != nil {

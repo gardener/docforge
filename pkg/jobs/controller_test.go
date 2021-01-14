@@ -86,14 +86,15 @@ func TestController(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), tc.timeout)
 			defer cancel()
 			job := &Job{
-				FailFast:                  tc.failFast,
-				ID:                        "Test",
-				MaxWorkers:                tc.workersCount,
-				MinWorkers:                tc.workersCount,
-				IsWorkerExitsOnEmptyQueue: true,
-				Worker:                    WorkerFunc(tc.worker.work),
-				Queue:                     NewWorkQueue(tc.tasksCount),
+				FailFast:   tc.failFast,
+				ID:         "Test",
+				MaxWorkers: tc.workersCount,
+				MinWorkers: tc.workersCount,
+
+				Worker: WorkerFunc(tc.worker.work),
+				Queue:  NewWorkQueue(tc.tasksCount),
 			}
+			job.SetIsWorkerExitsOnEmptyQueue(true)
 
 			c := NewController(job)
 			tc.run(ctx, job, c)

@@ -6,7 +6,6 @@ package jobs
 
 import (
 	"context"
-	"sync"
 )
 
 // Controller is the functional interface of worker controllers for work queue.
@@ -39,7 +38,7 @@ type controller struct {
 
 // NewController creates new Controller instances
 func NewController(job *Job) Controller {
-	job.IsWorkerExitsOnEmptyQueue = true
+	job.SetIsWorkerExitsOnEmptyQueue(true)
 	c := &controller{
 		Job: job,
 	}
@@ -48,19 +47,10 @@ func NewController(job *Job) Controller {
 }
 
 func (c *controller) Start(ctx context.Context, errCh chan<- error, shutdownCh chan struct{}) {
-	var wg sync.WaitGroup
 	c.registerShutdownChannel(shutdownCh)
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		if err := c.Dispatch(ctx, make([]interface{}, 0)); err != nil {
-			errCh <- err
-		}
-	}()
-
-	wg.Wait()
-
+	if err := c.Dispatch(ctx, make([]interface{}, 0)); err != nil {
+		errCh <- err
+	}
 	if len(c.shutdownChs) > 0 {
 		for _, ch := range c.shutdownChs {
 			go func(ch chan struct{}) {
@@ -83,7 +73,7 @@ func (c *controller) Enqueue(ctx context.Context, task interface{}) bool {
 
 func (c *controller) Stop(shutdownCh chan struct{}) {
 	defer func() {
-		c.IsWorkerExitsOnEmptyQueue = false
+		c.SetIsWorkerExitsOnEmptyQueue(false)
 	}()
 	c.registerShutdownChannel(shutdownCh)
 }

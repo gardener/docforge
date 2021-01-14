@@ -37,19 +37,15 @@ func NewWorkQueue(buffer int) WorkQueue {
 }
 
 func (w *workQueue) Get() (task interface{}) {
-	var ok bool
-	if w.q == nil {
-		return nil
+	if w.qChannelIsNil() {
+		return
 	}
-	select {
-	case task, ok = <-w.q:
-		{
-			if ok {
-				atomic.AddInt32(&w.count, -1)
-			}
-			return
-		}
+
+	if task, ok := <-w.q; ok {
+		atomic.AddInt32(&w.count, -1)
+		return task
 	}
+	return
 }
 
 func (w *workQueue) Stop() bool {
@@ -63,20 +59,20 @@ func (w *workQueue) Stop() bool {
 }
 
 func (w *workQueue) Add(task interface{}) bool {
-	if w.q == nil {
+	if w.qChannelIsNil() {
 		return false
 	}
-	defer w.rwlock.Unlock()
-	w.rwlock.Lock()
-	select {
-	case w.q <- task:
-		{
-			atomic.AddInt32(&w.count, 1)
-			return true
-		}
-	}
+	w.q <- task
+	atomic.AddInt32(&w.count, 1)
+	return true
 }
 
 func (w *workQueue) Count() int {
 	return int(atomic.LoadInt32(&w.count))
+}
+
+func (w *workQueue) qChannelIsNil() bool {
+	defer w.rwlock.Unlock()
+	w.rwlock.Lock()
+	return w.q == nil
 }
