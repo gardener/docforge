@@ -39,6 +39,9 @@ type Job struct {
 	// is processed it will be consulted whether to continue or exit before block waiting for
 	// another.
 	IsWorkerExitsOnEmptyQueue bool
+
+	rwLock   sync.RWMutex
+	errcList []<-chan *WorkerError
 }
 
 // WorkerError wraps an underlying error struct and adds optional code
@@ -196,17 +199,28 @@ func (j *Job) Dispatch(ctx context.Context, tasks []interface{}) *WorkerError {
 	return workerError
 }
 
+func (j *Job) addWorkerErrChannel(errCh <-chan *WorkerError) {
+	defer j.rwLock.Unlock()
+	j.rwLock.Lock()
+	j.errcList = append(j.errcList, errCh)
+}
+func (j *Job) getWorkerErrChannels() []<-chan *WorkerError {
+	defer j.rwLock.Unlock()
+	j.rwLock.Lock()
+	return j.errcList
+}
+
 // blocks waiting until the required amount of workers are started
 func (j *Job) startWorkers(ctx context.Context, workersCount int, quitCh chan struct{}) <-chan *WorkerError {
 	var (
-		errcList = make([]<-chan *WorkerError, 0)
-		wg       sync.WaitGroup
+		wg sync.WaitGroup
 	)
+	j.errcList = make([]<-chan *WorkerError, workersCount)
 	wg.Add(workersCount)
 	for i := 0; i < workersCount; i++ {
 		go func(ctx context.Context, workerId int, wq WorkQueue, quitCh chan struct{}) {
 			errCh := make(chan *WorkerError, 1)
-			errcList = append(errcList, errCh)
+			j.addWorkerErrChannel(errCh)
 			defer func() {
 				quitCh <- struct{}{}
 				close(errCh)
@@ -230,7 +244,7 @@ func (j *Job) startWorkers(ctx context.Context, workersCount int, quitCh chan st
 		}(ctx, i, j.Queue, quitCh)
 	}
 	wg.Wait()
-	errCh := mergeErrors(errcList...)
+	errCh := mergeErrors(j.getWorkerErrChannels()...)
 	return errCh
 }
 
@@ -245,7 +259,15 @@ func mergeErrors(channels ...<-chan *WorkerError) <-chan *WorkerError {
 	// Start an outputF goroutine for each input channel in channels.  outputF
 	// copies values from ch to errCh until ch is closed, then calls wg.Done.
 	outputF := func(ch <-chan *WorkerError) {
-		for err := range ch {
+		for {
+			var (
+				err *WorkerError
+				ok  bool
+			)
+
+			if err, ok = <-ch; !ok {
+				break
+			}
 			errCh <- err
 		}
 		wg.Done()

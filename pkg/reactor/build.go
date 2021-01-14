@@ -41,7 +41,7 @@ func (r *Reactor) Build(ctx context.Context, documentationStructure []*api.Node)
 		close(gitInfoShutdownCh)
 		close(documentShutdownCh)
 		close(doneCh)
-		klog.V(2).Infoln("Build finished")
+		klog.V(1).Infoln("Build finished")
 	}()
 
 	// start download controller

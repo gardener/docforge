@@ -309,9 +309,9 @@ func TestDispatchError(t *testing.T) {
 }
 
 func TestDispatchFaultTolerantOnError(t *testing.T) {
-	tasksCount := 10
+	tasksCount := 200
 	minWorkers := 0
-	maxWorkers := 5
+	maxWorkers := 25
 	timeout := 1 * time.Second
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
