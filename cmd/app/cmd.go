@@ -9,6 +9,7 @@ import (
 	"flag"
 	"io"
 	"os"
+	"path/filepath"
 
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/hugo"
@@ -53,7 +54,7 @@ func NewCommand(ctx context.Context, cancel context.CancelFunc) *cobra.Command {
 				err error
 			)
 			options := NewOptions(flags)
-			if rhs, err = initResourceHandlers(ctx, options.GitHubTokens, options.Metering); err != nil {
+			if rhs, err = initResourceHandlers(ctx, options.GitHubTokens, options.Metering, options.ManifestDir); err != nil {
 				return err
 			}
 			if doc, err = manifest(ctx, flags.documentationManifestPath, rhs, flags.variables); err != nil {
@@ -165,6 +166,7 @@ func NewOptions(f *cmdFlags) *Options {
 		MinWorkersCount:              f.minWorkersCount,
 		ResourceDownloadWorkersCount: f.resourceDownloadWorkersCount,
 		ResourcesPath:                f.resourcesPath,
+		ManifestDir:                  filepath.Dir(f.documentationManifestPath),
 		RewriteEmbedded:              f.rewriteEmbedded,
 		GitHubTokens:                 gatherTokens(f),
 		Metering:                     metering,

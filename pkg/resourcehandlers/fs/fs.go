@@ -21,16 +21,24 @@ import (
 	"github.com/google/go-github/v32/github"
 )
 
-type fsHandler struct{}
+type fsHandler struct {
+	manifestDir string
+}
 
 // NewFSResourceHandler create file system ResourceHandler
-func NewFSResourceHandler() resourcehandlers.ResourceHandler {
-	return &fsHandler{}
+func NewFSResourceHandler(manifestDir string) resourcehandlers.ResourceHandler {
+	return &fsHandler{
+		manifestDir,
+	}
 }
 
 // Accept implements resourcehandlers.ResourceHandler#Accept
 func (fs *fsHandler) Accept(uri string) bool {
-	_, err := os.Stat(uri)
+	if _, err := os.Stat(uri); err == nil {
+		return true
+	}
+	path := filepath.Join(fs.manifestDir, uri)
+	_, err := os.Stat(path)
 	return err == nil
 }
 
@@ -43,6 +51,7 @@ func (fs *fsHandler) ResolveNodeSelector(ctx context.Context, node *api.Node, ex
 	if node.NodeSelector == nil {
 		return nil, nil
 	}
+	node.NodeSelector.Path = filepath.Join(fs.manifestDir, node.NodeSelector.Path)
 	if fileInfo, err = os.Stat(node.NodeSelector.Path); err != nil {
 		return nil, err
 	}
@@ -97,6 +106,7 @@ func (fs *fsHandler) Read(ctx context.Context, uri string) ([]byte, error) {
 }
 
 func (fs *fsHandler) ResolveDocumentation(ctx context.Context, uri string) (*api.Documentation, error) {
+	uri = filepath.Join(filepath.Dir(fs.manifestDir), uri)
 	fileInfo, err := os.Stat(uri)
 	if err != nil {
 		return nil, err
