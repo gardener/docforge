@@ -54,17 +54,11 @@ func TestParseLinks(t *testing.T) {
 		// },
 		{
 			`[link]()`,
-			[][]int{
-				[]int{0, 8},
-				[]int{1, 5},
-			},
+			nil,
 		},
 		{
 			`[link](<>)`,
-			[][]int{
-				[]int{0, 10},
-				[]int{1, 5},
-			},
+			nil,
 		},
 		{
 			`[link](</my uri>)`,
@@ -277,9 +271,10 @@ func TestParseLinks(t *testing.T) {
 					}
 				}
 			}
+			var expected Link = want
 			zeroValue := &link{}
 			if *want == *zeroValue {
-				want = nil
+				expected = *new(Link)
 			}
 			s := strings.Split(tc.in, " ")
 			offset := 0
@@ -289,8 +284,10 @@ func TestParseLinks(t *testing.T) {
 				}
 				offset++
 			}
+
 			_, got := parseLink(p.(*parser), []byte(tc.in), offset)
-			if assert.Equal(t, want, got) {
+
+			if assert.Equal(t, expected, got) {
 				if got == nil {
 					fmt.Println("|nil|")
 				} else {
