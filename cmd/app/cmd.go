@@ -30,6 +30,7 @@ type cmdFlags struct {
 	ghOAuthToken                 string
 	ghOAuthTokens                map[string]string
 	ghInfoDestination            string
+	ghThrottling                 bool
 	dryRun                       bool
 	resolve                      bool
 	clientMetering               bool
@@ -53,7 +54,7 @@ func NewCommand(ctx context.Context, cancel context.CancelFunc) *cobra.Command {
 				err error
 			)
 			options := NewOptions(flags)
-			if rhs, err = initResourceHandlers(ctx, options.GitHubTokens, options.Metering); err != nil {
+			if rhs, err = initResourceHandlers(ctx, options.GitHubTokens, options.GitHubClientThrottling, options.Metering); err != nil {
 				return err
 			}
 			if doc, err = manifest(ctx, flags.documentationManifestPath, rhs, flags.variables); err != nil {
@@ -103,6 +104,8 @@ func (flags *cmdFlags) Configure(command *cobra.Command) {
 		"GitHub personal token authorizing read access from GitHub.com repositories. For authorization credentials for multiple GitHub instances, see --github-oauth-token-map")
 	command.Flags().StringToStringVar(&flags.ghOAuthTokens, "github-oauth-token-map", map[string]string{},
 		"GitHub personal tokens authorizing read access from repositories per GitHub instance. Note that if the GitHub token is already provided by `github-oauth-token` it will be overridden by it.")
+	command.Flags().BoolVar(&flags.ghThrottling, "github-throttling", false,
+		"Enable throttling of requests to GitHub API. The throttling is adaptive and will slow down execution with the approaching rate limit. Use to improve continuity. Disable to maximise performance.")
 	command.Flags().StringVar(&flags.ghInfoDestination, "github-info-destination", "",
 		"If specified, docforge will download also additional github info for the files from the documentation structure into this destination.")
 	command.Flags().BoolVar(&flags.rewriteEmbedded, "rewrite-embedded-to-raw", true,
@@ -167,6 +170,7 @@ func NewOptions(f *cmdFlags) *Options {
 		ResourcesPath:                f.resourcesPath,
 		RewriteEmbedded:              f.rewriteEmbedded,
 		GitHubTokens:                 gatherTokens(f),
+		GitHubClientThrottling:       f.ghThrottling,
 		Metering:                     metering,
 		DryRunWriter:                 dryRunWriter,
 		Resolve:                      f.resolve,

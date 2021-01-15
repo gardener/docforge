@@ -11,7 +11,9 @@ import (
 	"net/http"
 	"net/url"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
 
 	"k8s.io/klog/v2"
 
@@ -30,6 +32,13 @@ import (
 
 	"github.com/google/go-github/v32/github"
 	"golang.org/x/oauth2"
+	"golang.org/x/time/rate"
+)
+
+const (
+	headerRateLimit     = "X-RateLimit-Limit"
+	headerRateRemaining = "X-RateLimit-Remaining"
+	headerRateReset     = "X-RateLimit-Reset"
 )
 
 // Options is the set of parameters for creating
@@ -43,6 +52,7 @@ type Options struct {
 	ResourceDownloadWorkersCount int
 	RewriteEmbedded              bool
 	GitHubTokens                 map[string]string
+	GitHubClientThrottling       bool
 	Metering                     *Metering
 	GitHubInfoPath               string
 	DryRunWriter                 io.Writer
@@ -60,7 +70,7 @@ type Metering struct {
 func NewReactor(ctx context.Context, options *Options, globalLinksCfg *api.Links) (*reactor.Reactor, error) {
 	dryRunWriters := writers.NewDryRunWritersFactory(options.DryRunWriter)
 
-	rhs, err := initResourceHandlers(ctx, options.GitHubTokens, options.Metering)
+	rhs, err := initResourceHandlers(ctx, options.GitHubTokens, options.GitHubClientThrottling, options.Metering)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +137,7 @@ func WithHugo(reactorOptions *reactor.Options, o *Options) {
 
 // initResourceHandlers initializes the resource handler
 // objects used by reactors
-func initResourceHandlers(ctx context.Context, githubTokens map[string]string, metering *Metering) ([]resourcehandlers.ResourceHandler, error) {
+func initResourceHandlers(ctx context.Context, githubTokens map[string]string, githubClientThrottling bool, metering *Metering) ([]resourcehandlers.ResourceHandler, error) {
 	rhs := []resourcehandlers.ResourceHandler{
 		fs.NewFSResourceHandler(),
 	}
@@ -150,6 +160,28 @@ func initResourceHandlers(ctx context.Context, githubTokens map[string]string, m
 				// Wrap client transport layer with middleware instrumenting it for
 				// Prometheus metrics
 				oauthClient = metrics.InstrumentClientRoundTripperDuration(oauthClient)
+			}
+			var (
+				rl      *rate.Limiter
+				apiHost string
+			)
+
+			if githubClientThrottling {
+				if p.Host == "github.com" {
+					apiHost = "https://api.github.com"
+				} else {
+					apiHost = fmt.Sprintf("%s/%s", instance, "api")
+				}
+				if rl, err = rateLimitForClient(oauthClient, apiHost); err != nil {
+					errs = multierror.Append(errs, fmt.Errorf("cannot create rate-limited client for GitHub instance %s: %w", instance, err))
+					continue
+				}
+				if rl == nil {
+					errs = multierror.Append(errs, fmt.Errorf("cannot create rate-limited client for GitHub instance %s: rate limit exceeded", instance))
+					continue
+				}
+				// Wrap client transport instrumenting it for rate-limited requests
+				oauthClient.Transport = WithClientRateLimit(oauthClient.Transport, rl)
 			}
 			// Wrap client transport instrumenting it for request/response logging
 			oauthClient.Transport = WithClientHTTPLogging(oauthClient.Transport)
@@ -192,4 +224,59 @@ func WithClientHTTPLogging(next http.RoundTripper) RoundTripperFunc {
 		klog.V(6).Infof("%s %s", requestLog, respStatus)
 		return resp, err
 	})
+}
+
+func WithClientRateLimit(next http.RoundTripper, ratelimiter *rate.Limiter) RoundTripperFunc {
+	ctx := context.Background()
+	return RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
+		ratelimiter.Wait(ctx)
+		resp, err := next.RoundTrip(r)
+		return resp, err
+	})
+}
+
+func rateLimitForClient(client *http.Client, host string) (*rate.Limiter, error) {
+	var (
+		req *http.Request
+		err error
+	)
+	rateEndpointURL := fmt.Sprintf("%s/%s", host, "rate_limit")
+	if req, err = http.NewRequest("GET", rateEndpointURL, nil); err != nil {
+		return nil, err
+	}
+	res, err := client.Do(req)
+	if res == nil {
+		return nil, err
+	}
+	r := parseRate(res)
+	rT1 := time.Now()
+	rD := r.Reset.Sub(rT1)
+	klog.V(6).Infof("client rate limiting reset in %f seconds", rD.Seconds())
+	klog.V(6).Infof("client rate limiting remaining requests %d", r.Remaining)
+	if r.Remaining > 0 {
+		reqRate := float64(r.Remaining) / rD.Seconds()
+		klog.V(6).Infof("client rate limiting requests interval for %s: %v", host, time.Duration(reqRate*float64(time.Second)).Truncate(time.Second))
+		rl := rate.NewLimiter(rate.Limit(reqRate), 1)
+		return rl, nil
+	}
+	return nil, nil
+}
+
+// parseRate parses the rate related headers.
+func parseRate(r *http.Response) github.Rate {
+	var rate github.Rate
+	if limit := r.Header.Get(headerRateLimit); limit != "" {
+		rate.Limit, _ = strconv.Atoi(limit)
+	}
+	if remaining := r.Header.Get(headerRateRemaining); remaining != "" {
+		rate.Remaining, _ = strconv.Atoi(remaining)
+	}
+	if reset := r.Header.Get(headerRateReset); reset != "" {
+		if v, _ := strconv.ParseInt(reset, 10, 64); v != 0 {
+			rate.Reset = github.Timestamp{
+				Time: time.Unix(v, 0),
+			}
+		}
+	}
+	return rate
 }
