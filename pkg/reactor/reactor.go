@@ -138,6 +138,14 @@ func (r *Reactor) ResolveManifest(ctx context.Context, manifest *api.Documentati
 		return err
 	}
 
+	rootNode := &api.Node{
+		Nodes: []*api.Node{},
+	}
+	for _, n := range structure {
+		n.SetParent(rootNode)
+		rootNode.Nodes = append(rootNode.Nodes, n)
+	}
+
 	manifest.Structure = structure
 	return nil
 }

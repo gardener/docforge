@@ -14,7 +14,7 @@ func (n *Node) Parent() *Node {
 	return n.parent
 }
 
-// SetParent returns the parent node (if any) of this node n
+// SetParent assigns a parent node reference to node n to form upstream hierarchy
 func (n *Node) SetParent(node *Node) {
 	n.parent = node
 }

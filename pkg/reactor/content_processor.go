@@ -340,7 +340,7 @@ func buildDownloadDestination(node *api.Node, resourceName, root string) string 
 	}
 	resourceRelPath := fmt.Sprintf("%s/%s", root, resourceName)
 	parentsSize := len(node.Parents())
-	for ; parentsSize > 0; parentsSize-- {
+	for ; parentsSize > 1; parentsSize-- {
 		resourceRelPath = "../" + resourceRelPath
 	}
 	return resourceRelPath
