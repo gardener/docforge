@@ -44,17 +44,18 @@ func (f *Processor) Process(documentBlob []byte, node *api.Node) ([]byte, error)
 	if err != nil {
 		return nil, err
 	}
+	isNodeIndexFile := f.nodeIsIndexFile(node.Name)
 	if documentBlob, err = mdutil.UpdateMarkdownLinks(contentBytes, func(markdownType mdutil.Type, destination, text, title []byte) ([]byte, []byte, []byte, error) {
 		// quick sanity check for ill-parsed links if any
 		if destination == nil {
 			return destination, text, title, nil
 		}
-		return f.rewriteDestination(destination, text, title, node.Name)
+		return f.rewriteDestination(destination, text, title, node.Name, isNodeIndexFile)
 	}); err != nil {
 		return nil, err
 	}
 	if documentBlob, err = mdutil.UpdateHTMLLinksRefs(documentBlob, func(url []byte) ([]byte, error) {
-		destination, _, _, err := f.rewriteDestination([]byte(url), []byte(""), []byte(""), node.Name)
+		destination, _, _, err := f.rewriteDestination([]byte(url), []byte(""), []byte(""), node.Name, isNodeIndexFile)
 		if err != nil {
 			return url, err
 		}
@@ -70,7 +71,7 @@ func (f *Processor) Process(documentBlob []byte, node *api.Node) ([]byte, error)
 	return documentBlob, nil
 }
 
-func (f *Processor) rewriteDestination(destination, text, title []byte, nodeName string) ([]byte, []byte, []byte, error) {
+func (f *Processor) rewriteDestination(destination, text, title []byte, nodeName string, isNodeIndexFile bool) ([]byte, []byte, []byte, error) {
 	if len(destination) == 0 {
 		return destination, nil, nil, nil
 	}
@@ -101,7 +102,9 @@ func (f *Processor) rewriteDestination(destination, text, title []byte, nodeName
 					break
 				}
 			}
-			link = fmt.Sprintf("../%s", link)
+			if !isNodeIndexFile {
+				link = fmt.Sprintf("../%s", link)
+			}
 		} else {
 			if strings.HasSuffix(u.Path, ".md") {
 				link = strings.TrimSuffix(u.Path, ".md")
@@ -115,4 +118,13 @@ func (f *Processor) rewriteDestination(destination, text, title []byte, nodeName
 		return []byte(link), text, title, nil
 	}
 	return destination, text, title, nil
+}
+
+func (f *Processor) nodeIsIndexFile(name string) bool {
+	for _, s := range f.IndexFileNames {
+		if strings.HasSuffix(strings.ToLower(name), s) {
+			return true
+		}
+	}
+	return "_index.md" == name
 }

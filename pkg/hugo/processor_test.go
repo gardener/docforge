@@ -62,6 +62,7 @@ func TestRewriteDestination(t *testing.T) {
 		text            string
 		title           string
 		nodeName        string
+		isNodeIndexFile bool
 		wantDestination string
 		wantText        string
 		wantTitle       string
@@ -74,6 +75,7 @@ func TestRewriteDestination(t *testing.T) {
 			"",
 			"",
 			"testnode",
+			false,
 			"#fragment-id",
 			"",
 			"",
@@ -86,6 +88,7 @@ func TestRewriteDestination(t *testing.T) {
 			"",
 			"",
 			"testnode",
+			false,
 			"https://github.com/a/b/sample.md",
 			"",
 			"",
@@ -98,6 +101,7 @@ func TestRewriteDestination(t *testing.T) {
 			"",
 			"",
 			"testnode",
+			false,
 			"../a/b/sample",
 			"",
 			"",
@@ -112,6 +116,7 @@ func TestRewriteDestination(t *testing.T) {
 			"",
 			"",
 			"testnode",
+			false,
 			"../a/b",
 			"",
 			"",
@@ -127,11 +132,30 @@ func TestRewriteDestination(t *testing.T) {
 			"",
 			"",
 			"testnode",
+			false,
 			"./a/b/README.html",
 			"",
 			"",
 			nil,
 			nil,
+		},
+		{
+			isNodeIndexFile: true,
+			destination:     "images/1.png",
+			nodeName:        "_index.md",
+			wantDestination: "images/1.png",
+			mutate: func(h *Processor) {
+				h.PrettyUrls = true
+			},
+		},
+		{
+			isNodeIndexFile: false,
+			destination:     "images/1.png",
+			nodeName:        "_index.md",
+			wantDestination: "../images/1.png",
+			mutate: func(h *Processor) {
+				h.PrettyUrls = true
+			},
 		},
 	}
 	for _, tc := range testCases {
@@ -141,19 +165,19 @@ func TestRewriteDestination(t *testing.T) {
 				tc.mutate(p)
 			}
 
-			gotDestination, gotText, gotTitle, gotErr := p.rewriteDestination([]byte(tc.destination), []byte(tc.text), []byte(tc.title), tc.nodeName)
+			gotDestination, gotText, gotTitle, gotErr := p.rewriteDestination([]byte(tc.destination), []byte(tc.text), []byte(tc.title), tc.nodeName, tc.isNodeIndexFile)
 
 			if gotErr != tc.wantError {
-				t.Errorf("want error %v != %v", gotErr, tc.wantError)
+				t.Errorf("want error %v != %v", tc.wantError, gotErr)
 			}
 			if !bytes.Equal(gotDestination, []byte(tc.wantDestination)) {
-				t.Errorf("want destination %v != %v", string(gotDestination), tc.wantDestination)
+				t.Errorf("want destination %v != %v", tc.wantDestination, string(gotDestination))
 			}
 			if !bytes.Equal(gotText, []byte(tc.wantText)) {
-				t.Errorf("want text %v != %v", string(gotText), tc.wantText)
+				t.Errorf("want text %v != %v", tc.wantText, string(gotText))
 			}
 			if !bytes.Equal(gotTitle, []byte(tc.wantTitle)) {
-				t.Errorf("want title %v != %v", string(gotTitle), tc.wantTitle)
+				t.Errorf("want title %v != %v", tc.wantTitle, string(gotTitle))
 			}
 		})
 	}
