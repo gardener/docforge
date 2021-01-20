@@ -12,7 +12,7 @@ import (
 	"github.com/gardener/docforge/pkg/api"
 )
 
-// ErrIsResourceNotFound indicated that a resource was not found
+// ErrResourceNotFound indicated that a resource was not found
 var ErrResourceNotFound = errors.New("resource not found")
 
 // ResourceHandler does resource specific operations on a type of objects

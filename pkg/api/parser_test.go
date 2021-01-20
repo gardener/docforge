@@ -32,7 +32,7 @@ structure:
           github.com/gardener/gardener: ~
     nodes:
     - name: subnode
-      contentSelectors:	
+      contentSelectors:
       - source: path/a
 links:
   rewrites:
@@ -79,7 +79,7 @@ func TestSerialize(t *testing.T) {
 		{
 			&Documentation{
 				Structure: []*Node{
-					&Node{
+					{
 						Name: "A Title",
 						Nodes: []*Node{
 							{
@@ -122,7 +122,7 @@ func TestSerialize(t *testing.T) {
 func TestMe(t *testing.T) {
 	d := &Documentation{
 		Structure: []*Node{
-			&Node{
+			{
 				Name: "docs",
 				NodeSelector: &NodeSelector{
 					Path: "https://github.com/gardener/gardener/tree/master/docs",
@@ -160,15 +160,15 @@ func TestFile(t *testing.T) {
 	)
 	expected := &Documentation{
 		Structure: []*Node{
-			&Node{
+			{
 				Name: "00",
 				Nodes: []*Node{
-					&Node{
+					{
 						Name:   "01",
 						Source: "https://github.com/gardener/gardener/blob/master/docs/concepts/gardenlet.md",
 						Links: &Links{
 							Rewrites: map[string]*LinkRewriteRule{
-								"github.com/gardener/gardener": &LinkRewriteRule{
+								"github.com/gardener/gardener": {
 									Version: tests.StrPtr("v1.11.1"),
 								},
 							},
@@ -179,10 +179,10 @@ func TestFile(t *testing.T) {
 							},
 						},
 					},
-					&Node{
+					{
 						Name: "02",
 						ContentSelectors: []ContentSelector{
-							ContentSelector{
+							{
 								Source: "https://github.com/gardener/gardener/blob/master/docs/deployment/deploy_gardenlet.md",
 							},
 						},
@@ -192,7 +192,7 @@ func TestFile(t *testing.T) {
 		},
 		Links: &Links{
 			Rewrites: map[string]*LinkRewriteRule{
-				"github.com/gardener/gardener": &LinkRewriteRule{
+				"github.com/gardener/gardener": {
 					Version: tests.StrPtr("v1.10.0"),
 				},
 			},

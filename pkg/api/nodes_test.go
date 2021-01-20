@@ -7,6 +7,8 @@ package api
 import (
 	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 //       A
@@ -208,6 +210,210 @@ func TestIntersect(t *testing.T) {
 			got := intersect(tc.a, tc.b)
 			if !reflect.DeepEqual(got, tc.expected) {
 				t.Errorf("expected %v !=  %v", tc.expected, got)
+			}
+		})
+	}
+}
+
+func TestNode_Union(t *testing.T) {
+	type fields struct {
+		Name             string
+		Source           string
+		ContentSelectors []ContentSelector
+		Template         *Template
+		Nodes            []*Node
+		NodeSelector     *NodeSelector
+		Properties       map[string]interface{}
+		Links            *Links
+		parent           *Node
+		stats            []*Stat
+	}
+	type args struct {
+		nodes           []*Node
+		generateNewName func(node *Node) string
+	}
+	tests := []struct {
+		name          string
+		fields        fields
+		args          args
+		expectedNodes []*Node
+	}{
+		{
+			name:   "node_without_nodes_appends_new_successsfully",
+			fields: fields{},
+			args: args{
+				nodes: []*Node{
+					{
+						Name:   "newNode.md",
+						Source: "github.com/ga/ku/blob/main/node.md",
+					},
+				},
+				generateNewName: GenerateNewName,
+			},
+			expectedNodes: []*Node{
+				{
+					Name:   "newNode.md",
+					Source: "github.com/ga/ku/blob/main/node.md",
+				},
+			},
+		},
+		{
+			name: "union_skips_duplicates",
+			fields: fields{
+				Nodes: []*Node{
+					{
+						Name:   "newNode.md",
+						Source: "github.com/ga/ku/blob/main/node.md",
+					},
+				},
+			},
+			args: args{
+				nodes: []*Node{
+					{
+						Name:   "newNode.md",
+						Source: "github.com/ga/ku/blob/main/node.md",
+					},
+				},
+				generateNewName: GenerateNewName,
+			},
+			expectedNodes: []*Node{
+				{
+					Name:   "newNode.md",
+					Source: "github.com/ga/ku/blob/main/node.md",
+				},
+			},
+		},
+		{
+			name: "successfully_merges_nodes_from_both_lists_skips_duplicates",
+			fields: fields{
+				Nodes: []*Node{
+					{
+						Name:   "newNode.md",
+						Source: "github.com/ga/ku/blob/main/node.md",
+					},
+					{
+						Name:   "node_01.md",
+						Source: "github.com/ga/ku/blob/main/node_01.md",
+					},
+				},
+			},
+			args: args{
+				nodes: []*Node{
+					{
+						Name:   "newNode.md",
+						Source: "github.com/ga/ku/blob/main/node.md",
+					},
+					{
+						Name:   "node_02.md",
+						Source: "github.com/ga/ku/blob/main/node_02.md",
+					},
+				},
+				generateNewName: GenerateNewName,
+			},
+			expectedNodes: []*Node{
+				{
+					Name:   "newNode.md",
+					Source: "github.com/ga/ku/blob/main/node.md",
+				},
+				{
+					Name:   "node_01.md",
+					Source: "github.com/ga/ku/blob/main/node_01.md",
+				},
+				{
+					Name:   "node_02.md",
+					Source: "github.com/ga/ku/blob/main/node_02.md",
+				},
+			},
+		},
+		{
+			name: "successfully_generates_name_for_duplicate_node",
+			fields: fields{
+				Nodes: []*Node{
+					{
+						Name:   "newNode.md",
+						Source: "github.com/ga/ku/blob/main/node.md",
+					},
+					{
+						Name:   "node_01.md",
+						Source: "github.com/ga/ku/blob/main/node_01.md",
+					},
+				},
+			},
+			args: args{
+				nodes: []*Node{
+					{
+						Name:   "newNode.md",
+						Source: "github.com/ga/ku/blob/main/not_equal_node.md",
+					},
+					{
+						Name:   "node_02.md",
+						Source: "github.com/ga/ku/blob/main/node_02.md",
+					},
+				},
+				generateNewName: func(node *Node) string {
+					return "mocknode.md"
+				},
+			},
+			expectedNodes: []*Node{
+				{
+					Name:   "mocknode.md",
+					Source: "github.com/ga/ku/blob/main/not_equal_node.md",
+				},
+				{
+					Name:   "newNode.md",
+					Source: "github.com/ga/ku/blob/main/node.md",
+				},
+				{
+					Name:   "node_01.md",
+					Source: "github.com/ga/ku/blob/main/node_01.md",
+				},
+				{
+					Name:   "node_02.md",
+					Source: "github.com/ga/ku/blob/main/node_02.md",
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			n := &Node{
+				Name:             tt.fields.Name,
+				Source:           tt.fields.Source,
+				ContentSelectors: tt.fields.ContentSelectors,
+				Template:         tt.fields.Template,
+				Nodes:            tt.fields.Nodes,
+				NodeSelector:     tt.fields.NodeSelector,
+				Properties:       tt.fields.Properties,
+				Links:            tt.fields.Links,
+				parent:           tt.fields.parent,
+				stats:            tt.fields.stats,
+			}
+
+			n.Union(tt.args.nodes, tt.args.generateNewName)
+
+			assert.Equal(t, len(tt.expectedNodes), len(n.Nodes))
+			for _, node := range tt.expectedNodes {
+				assert.Contains(t, n.Nodes, node)
+			}
+		})
+	}
+}
+
+func TestGenerateNewName(t *testing.T) {
+	type args struct {
+		node *Node
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := GenerateNewName(tt.args.node); got != tt.want {
+				t.Errorf("GenerateNewName() = %v, want %v", got, tt.want)
 			}
 		})
 	}
