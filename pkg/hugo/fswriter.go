@@ -68,9 +68,10 @@ func (w *FSWriter) Write(name, path string, docBlob []byte, node *api.Node) erro
 		peerNodes := node.Peers()
 		if len(w.IndexFileNames) > 0 && name != "_index" && name != "_index.md" && !hasIndexNode(peerNodes) {
 			for _, s := range w.IndexFileNames {
-				if strings.ToLower(name) == s {
+				if strings.ToLower(name) == strings.ToLower(s) {
 					klog.V(6).Infof("Renaming %s -> _index.md\n", filepath.Join(path, name))
 					name = "_index"
+					break
 				}
 			}
 		}
@@ -79,7 +80,6 @@ func (w *FSWriter) Write(name, path string, docBlob []byte, node *api.Node) erro
 	if err := w.Writer.Write(name, path, docBlob, node); err != nil {
 		return err
 	}
-
 	return nil
 }
 
