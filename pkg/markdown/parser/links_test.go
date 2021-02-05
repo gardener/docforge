@@ -14,7 +14,7 @@ import (
 func TestListLinkRewrites(t *testing.T) {
 	testCases := []struct {
 		in     *document
-		listCb UpdateMarkdownLinkListed
+		listCb OnLinkListed
 		want   []byte
 	}{
 		{
@@ -47,7 +47,7 @@ func TestListLinkRewrites(t *testing.T) {
 					},
 				},
 			},
-			func(l Link) {
+			func(l Link) (Link, error) {
 				if bytes.Equal(l.GetText(), []byte("b")) {
 					l.SetDestination([]byte("e.com"))
 					l.SetText([]byte("d"))
@@ -55,6 +55,7 @@ func TestListLinkRewrites(t *testing.T) {
 				if bytes.Equal(l.GetText(), []byte("b1")) {
 					l.SetDestination([]byte("c2.com"))
 				}
+				return l, nil
 			},
 			[]byte("some intro [d](e.com) some text [b1](c2.com)"),
 		},
@@ -88,7 +89,7 @@ func TestListLinkRewrites(t *testing.T) {
 					},
 				},
 			},
-			func(l Link) {
+			func(l Link) (Link, error) {
 				if bytes.Equal(l.GetText(), []byte("b")) {
 					l.SetDestination([]byte("e.com"))
 					l.SetText([]byte("d"))
@@ -96,6 +97,7 @@ func TestListLinkRewrites(t *testing.T) {
 				if bytes.Equal(l.GetText(), []byte("b1")) {
 					l.SetDestination([]byte("c2.com"))
 				}
+				return l, nil
 			},
 			[]byte("some intro [d](e.com)\n`x`some text [b1](c2.com)"),
 		},
@@ -130,7 +132,7 @@ func TestListLinkRewrites(t *testing.T) {
 					},
 				},
 			},
-			func(l Link) {
+			func(l Link) (Link, error) {
 				if bytes.Equal(l.GetText(), []byte("b")) {
 					l.SetDestination([]byte("e.com"))
 					l.SetText([]byte("d"))
@@ -138,13 +140,14 @@ func TestListLinkRewrites(t *testing.T) {
 				if bytes.Equal(l.GetText(), []byte("b1")) {
 					l.SetDestination([]byte("c2.com"))
 				}
+				return l, nil
 			},
 			[]byte(`some intro [d](e.com)
    some text [b1](c2.com)`),
 		},
 		{
 			&document{
-				[]byte("some intro [b](c.com)\n`x`some text [b1](c1.com)"),
+				[]byte("some intro [b](c.com)\n`x`some text [b1](c1.com)\n[b2](c2.com)"),
 				[]Link{
 					&link{
 						start: 11,
@@ -170,18 +173,32 @@ func TestListLinkRewrites(t *testing.T) {
 							end:   46,
 						},
 					},
+					&link{
+						start: 48,
+						end:   60,
+						text: &bytesRange{
+							start: 49,
+							end:   51,
+						},
+						destination: &bytesRange{
+							start: 53,
+							end:   59,
+						},
+					},
 				},
 			},
-			func(l Link) {
-				if bytes.Equal(l.GetText(), []byte("b")) {
+			func(l Link) (Link, error) {
+				if !bytes.Equal(l.GetText(), []byte("b")) {
 					l.Remove(false)
+					return nil, nil
 				}
+				return l, nil
 			},
-			[]byte("some intro \n`x`some text [b1](c1.com)"),
+			[]byte("some intro [b](c.com)\n`x`some text \n"),
 		},
 		{
 			&document{
-				[]byte("some intro [b](c.com)\n`x`some text [b1](c1.com)"),
+				[]byte("some intro [b](c.com)\n`x`some text [b1](c1.com)\n[b2](c2.com)"),
 				[]Link{
 					&link{
 						start: 11,
@@ -207,14 +224,28 @@ func TestListLinkRewrites(t *testing.T) {
 							end:   46,
 						},
 					},
+					&link{
+						start: 48,
+						end:   60,
+						text: &bytesRange{
+							start: 49,
+							end:   51,
+						},
+						destination: &bytesRange{
+							start: 53,
+							end:   59,
+						},
+					},
 				},
 			},
-			func(l Link) {
-				if bytes.Equal(l.GetText(), []byte("b")) {
+			func(l Link) (Link, error) {
+				if !bytes.Equal(l.GetText(), []byte("b")) {
 					l.Remove(true)
+					return nil, nil
 				}
+				return l, nil
 			},
-			[]byte("some intro b\n`x`some text [b1](c1.com)"),
+			[]byte("some intro [b](c.com)\n`x`some text b1\nb2"),
 		},
 	}
 	for _, tc := range testCases {
@@ -224,7 +255,7 @@ func TestListLinkRewrites(t *testing.T) {
 			}
 			tc.in.ListLinks(tc.listCb)
 			got := tc.in.Bytes()
-			assert.Equal(t, tc.want, got)
+			assert.Equal(t, string(tc.want), string(got))
 		})
 	}
 }

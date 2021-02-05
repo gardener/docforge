@@ -142,9 +142,9 @@ func (l *link) Remove(leaveText bool) {
 	l.document.data = append(l.document.data, text...)
 	l.document.data = append(l.document.data, doc2...)
 	var (
-		needsOffset         bool
-		offset              int
-		removedElementIndex int
+		offset int
+		_l     *link
+		ok     bool
 	)
 	if len(text) > 0 {
 		offset = len(text) - (l.end - l.start)
@@ -152,20 +152,14 @@ func (l *link) Remove(leaveText bool) {
 		offset = l.start - l.end
 	}
 	for i := 0; i < len(l.document.links); i++ {
-		if l.document.links[i] == l {
-			removedElementIndex = i
-			needsOffset = true
+		if _l, ok = l.document.links[i].(*link); !ok {
 			continue
 		}
-		if needsOffset {
-			offsetLinkByteRanges(l.document.links[i].(*link), offset)
+		// links positioned after the removed one get offset
+		if l.end < _l.start {
+			offsetLinkByteRanges(_l, offset)
 		}
 	}
-	l.document.links = remove(l.document.links, removedElementIndex)
-}
-
-func remove(slice []Link, s int) []Link {
-	return append(slice[:s], slice[s+1:]...)
 }
 
 func (l *link) IsImage() bool {

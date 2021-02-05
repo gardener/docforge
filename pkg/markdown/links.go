@@ -64,7 +64,7 @@ func UpdateMarkdownLinks(documentBlob []byte, callback UpdateMarkdownLink) ([]by
 	if callback == nil {
 		return nil, nil
 	}
-	document.ListLinks(func(l parser.Link) {
+	err := document.ListLinks(func(l parser.Link) (parser.Link, error) {
 		var (
 			destination, text, title []byte
 			err                      error
@@ -77,17 +77,20 @@ func UpdateMarkdownLinks(documentBlob []byte, callback UpdateMarkdownLink) ([]by
 		}
 		text = l.GetText()
 		if destination, text, title, err = callback(t, l.GetDestination(), text, l.GetTitle()); err != nil {
-			return
+			return nil, err
 		}
-		updateLink(l, destination, text, title)
+		return updateLink(l, destination, text, title), nil
 	})
-	return document.Bytes(), nil
+	if err != nil {
+		return nil, err
+	}
+	return document.Bytes(), err
 }
 
-func updateLink(link parser.Link, destination, text, title []byte) {
+func updateLink(link parser.Link, destination, text, title []byte) parser.Link {
 	if destination == nil {
 		link.Remove(text != nil && len(text) > 0)
-		return
+		return nil
 	}
 	if text != nil && !bytes.Equal(link.GetText(), text) {
 		link.SetText(text)
@@ -98,4 +101,5 @@ func updateLink(link parser.Link, destination, text, title []byte) {
 	if title != nil && !bytes.Equal(link.GetTitle(), title) {
 		link.SetTitle(title)
 	}
+	return link
 }
