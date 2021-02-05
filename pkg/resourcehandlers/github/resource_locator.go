@@ -244,15 +244,14 @@ func parse(urlString string) (*ResourceLocator, error) {
 		path = fmt.Sprintf("%s?%s", path, u.RawQuery)
 	}
 	ghRL := &ResourceLocator{
-		u.Scheme,
-		host,
-		owner,
-		repo,
-		"",
-		resourceType,
-		path,
-		shaAlias,
-		isRawAPI,
+		Scheme:   u.Scheme,
+		Host:     host,
+		Owner:    owner,
+		Repo:     repo,
+		Type:     resourceType,
+		Path:     path,
+		SHAAlias: shaAlias,
+		IsRawAPI: isRawAPI,
 	}
 	return ghRL, nil
 }

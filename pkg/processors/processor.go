@@ -24,6 +24,9 @@ func (p *ProcessorChain) Process(documentBlob []byte, node *api.Node) ([]byte, e
 	var err error
 	for _, p := range p.Processors {
 		documentBlob, err = p.Process(documentBlob, node)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return documentBlob, err
 }

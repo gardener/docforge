@@ -116,7 +116,7 @@ func TestUrlToGitHubLocator(t *testing.T) {
 			false,
 			&Cache{
 				cache: map[string]*ResourceLocator{
-					"https://github.com/gardener/gardener/blob/master/docs/README.md": ghrl1,
+					"github.com:gardener:gardener:docs/readme.md:master": ghrl1,
 				},
 			},
 			nil,
@@ -290,7 +290,6 @@ func TestResolveNodeSelector(t *testing.T) {
 			c.mux(mux)
 		}
 		gh.Client = client
-
 		nodes, gotError := gh.ResolveNodeSelector(ctx, c.inNode, c.excludePaths, c.frontMatter, c.excludeFrontMatter, c.depth)
 		if gotError != nil {
 			t.Errorf("error == %q, want %q", gotError, c.wantError)
@@ -338,7 +337,7 @@ func TestName(t *testing.T) {
 			"https://github.com/gardener/gardener/blob/master/docs/README.md",
 			&Cache{
 				cache: map[string]*ResourceLocator{
-					"https://github.com/gardener/gardener/blob/master/docs/README.md": ghrl1,
+					"github.com:gardener:gardener:docs/readme.md:master": ghrl1,
 				},
 			},
 			"README",
@@ -349,7 +348,7 @@ func TestName(t *testing.T) {
 			"https://github.com/gardener/gardener/tree/master/docs",
 			&Cache{
 				cache: map[string]*ResourceLocator{
-					"https://github.com/gardener/gardener/tree/master/docs": ghrl2,
+					"github.com:gardener:gardener:docs:master": ghrl2,
 				},
 			},
 			"docs",
@@ -386,7 +385,7 @@ func TestRead(t *testing.T) {
 			},
 			&Cache{
 				cache: map[string]*ResourceLocator{
-					"https://github.com/gardener/gardener/blob/master/docs/README.md": {
+					"github.com:gardener:gardener:docs/readme.md:master": {
 						"https",
 						"github.com",
 						"gardener",
@@ -410,9 +409,7 @@ func TestRead(t *testing.T) {
 		client, mux, serverURL, teardown := setup()
 		defer teardown()
 		// rewrite cached url keys host to match the mock server
-		for k, v := range c.cache.cache {
-			c.cache.cache[strings.Replace(k, "https://github.com", serverURL, 1)] = v
-		}
+
 		gh := &GitHub{
 			cache: c.cache,
 		}
@@ -606,7 +603,7 @@ func TestTreeEntryToGitHubLocator(t *testing.T) {
 				shaAlias: "master",
 			},
 			expectedRL: &ResourceLocator{
-				Host:     "api.github.com",
+				Host:     "github.com",
 				Owner:    "test-org",
 				Repo:     "test-repo",
 				Path:     "docs/cluster_resources.md",
@@ -630,7 +627,7 @@ func TestTreeEntryToGitHubLocator(t *testing.T) {
 				shaAlias: "master",
 			},
 			expectedRL: &ResourceLocator{
-				Host:     "api.github.com",
+				Host:     "github.com",
 				Owner:    "test-org",
 				Repo:     "test-repo",
 				Path:     "docs/cluster_resources.md",
