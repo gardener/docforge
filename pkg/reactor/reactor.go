@@ -253,7 +253,7 @@ func (r *Reactor) resolveNodeSelector(ctx context.Context, node *api.Node, globa
 		return newNode, nil
 	}
 
-	nodes, err := handler.ResolveNodeSelector(ctx, node, node.NodeSelector.ExcludePaths, node.NodeSelector.ExcludeFrontMatter, node.NodeSelector.FrontMatter, node.NodeSelector.Depth)
+	nodes, err := handler.ResolveNodeSelector(ctx, node, node.NodeSelector.ExcludePaths, node.NodeSelector.FrontMatter, node.NodeSelector.ExcludeFrontMatter, node.NodeSelector.Depth)
 	if err != nil {
 		return nil, err
 	}

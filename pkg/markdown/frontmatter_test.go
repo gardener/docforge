@@ -77,3 +77,147 @@ title: Core Components
 		})
 	}
 }
+
+func TestMatchFrontMatterRule(t *testing.T) {
+	testCases := []struct {
+		path      string
+		value     interface{}
+		data      map[string]interface{}
+		wantMatch bool
+	}{
+		{
+			path:  ".A.B",
+			value: 5,
+			data: map[string]interface{}{
+				"A": map[string]interface{}{
+					"B": 5,
+				},
+			},
+			wantMatch: true,
+		},
+		{
+			path:  ".A.B",
+			value: true,
+			data: map[string]interface{}{
+				"A": map[string]interface{}{
+					"B": true,
+				},
+			},
+			wantMatch: true,
+		},
+		{
+			path:  ".A.B",
+			value: "a",
+			data: map[string]interface{}{
+				"A": map[string]interface{}{
+					"B": "a",
+				},
+			},
+			wantMatch: true,
+		},
+		{
+			path:  ".A.**.C",
+			value: 5,
+			data: map[string]interface{}{
+				"A": map[string]interface{}{
+					"B": map[string]interface{}{
+						"C": 5,
+					},
+				},
+			},
+			wantMatch: true,
+		},
+		{
+			path:  ".**",
+			value: 5,
+			data: map[string]interface{}{
+				"A": map[string]interface{}{
+					"B": map[string]interface{}{
+						"C": 5,
+					},
+				},
+			},
+			wantMatch: true,
+		},
+		{
+			path:  ".A.B[1]",
+			value: "b",
+			data: map[string]interface{}{
+				"A": map[string]interface{}{
+					"B": []interface{}{"a", "b", "c"},
+				},
+			},
+			wantMatch: true,
+		},
+		{
+			path:  ".A.B[1].C2",
+			value: 2,
+			data: map[string]interface{}{
+				"A": map[string]interface{}{
+					"B": []interface{}{
+						map[string]interface{}{
+							"C1": 1,
+						},
+						map[string]interface{}{
+							"C2": 2,
+						},
+						map[string]interface{}{
+							"C3": 3,
+						},
+					},
+				},
+			},
+			wantMatch: true,
+		},
+		{
+			path:  ".A.**.C2",
+			value: 2,
+			data: map[string]interface{}{
+				"A": map[string]interface{}{
+					"B": []interface{}{
+						map[string]interface{}{
+							"C1": 1,
+						},
+						map[string]interface{}{
+							"C2": 2,
+						},
+						map[string]interface{}{
+							"C3": 3,
+						},
+					},
+				},
+			},
+			wantMatch: true,
+		},
+		{
+			path:  ".A.B",
+			value: 2,
+			data: map[string]interface{}{
+				"A": map[string]interface{}{
+					"B": 5,
+				},
+			},
+			wantMatch: false,
+		},
+		{
+			path: ".A",
+			value: map[string]interface{}{
+				"B": []interface{}{"a", "b", "c"},
+			},
+			data: map[string]interface{}{
+				"A": map[string]interface{}{
+					"B": []interface{}{"a", "b", "c"},
+				},
+			},
+			wantMatch: true,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run("", func(t *testing.T) {
+			matched := MatchFrontMatterRule(tc.path, tc.value, tc.data)
+			if tc.wantMatch && !matched {
+				t.Errorf("expected a match for path %s, got no match", tc.path)
+			}
+		})
+	}
+}

@@ -4,7 +4,6 @@ go 1.14
 
 require (
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
-	github.com/google/go-github v17.0.0+incompatible
 	github.com/google/go-github/v32 v32.1.0
 	github.com/google/uuid v1.1.1
 	github.com/hashicorp/go-multierror v1.1.0
