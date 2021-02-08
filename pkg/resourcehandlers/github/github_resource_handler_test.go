@@ -144,6 +144,18 @@ func TestUrlToGitHubLocator(t *testing.T) {
 			ghrl2,
 		},
 		{
+			"GitHub url should return valid GitHubResourceLocator from cache raw as query parameter",
+			"https://github.com/gardener/gardener/blob/master/docs/README.md?raw=true",
+			false,
+			&Cache{
+				cache: map[string]*ResourceLocator{
+					"github.com:gardener:gardener:master:docs/readme.md": ghrl2,
+				},
+			},
+			nil,
+			ghrl2,
+		},
+		{
 			"non-cached url should resolve a valid GitHubResourceLocator from API",
 			"https://github.com/gardener/gardener/blob/master/docs/README.md",
 			true,
@@ -320,8 +332,8 @@ func TestResolveNodeSelector(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		// ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
-		// defer cancel()
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		defer cancel()
 		gh := &GitHub{
 			cache: &Cache{
 				cache: map[string]*ResourceLocator{},
@@ -333,7 +345,7 @@ func TestResolveNodeSelector(t *testing.T) {
 			c.mux(mux)
 		}
 		gh.Client = client
-		nodes, gotError := gh.ResolveNodeSelector(context.TODO(), c.inNode, c.excludePaths, c.frontMatter, c.excludeFrontMatter, c.depth)
+		nodes, gotError := gh.ResolveNodeSelector(ctx, c.inNode, c.excludePaths, c.frontMatter, c.excludeFrontMatter, c.depth)
 		if gotError != nil {
 			t.Errorf("error == %q, want %q", gotError, c.wantError)
 		}
