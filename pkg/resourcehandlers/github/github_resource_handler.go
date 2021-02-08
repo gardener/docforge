@@ -224,7 +224,7 @@ func (c *Cache) Key(rl *ResourceLocator) string {
 		path = path[:strings.IndexRune(path, '?')]
 	}
 
-	return fmt.Sprintf("%s:%s:%s:%s:%s", host, owner, repo, path, shaAlias)
+	return fmt.Sprintf("%s:%s:%s:%s:%s", host, owner, repo, shaAlias, path)
 }
 
 // HasURLPrefix returns true if pathPrefix tests true as prefix for path,
@@ -250,7 +250,7 @@ func (c *Cache) GetSubset(pathPrefix string) []*ResourceLocator {
 		if k == c.Key(rl) {
 			continue
 		}
-		if HasURLPrefix(k, c.Key(rl)) {
+		if strings.HasPrefix(k, c.Key(rl)) {
 			entries = append(entries, v)
 		}
 	}

@@ -102,6 +102,17 @@ func TestUrlToGitHubLocator(t *testing.T) {
 		"",
 		false,
 	}
+	ghrl4 := &ResourceLocator{
+		"https",
+		"github.com",
+		"gardener",
+		"gardener",
+		"s9n39h1bdc89nbv",
+		Blob,
+		"docs/img/image.png",
+		"master",
+		false,
+	}
 	cases := []struct {
 		description  string
 		inURL        string
@@ -111,16 +122,26 @@ func TestUrlToGitHubLocator(t *testing.T) {
 		want         *ResourceLocator
 	}{
 		{
-			"cached url should return valid GitHubResourceLocator",
+			"GitHub url should return valid GitHubResourceLocator",
+			"https://github.com/gardener/gardener/blob/master/docs/README.md",
+			false,
+			&Cache{
+				cache: map[string]*ResourceLocator{},
+			},
+			nil,
+			ghrl1,
+		},
+		{
+			"GitHub url should return valid GitHubResourceLocator from cache",
 			"https://github.com/gardener/gardener/blob/master/docs/README.md",
 			false,
 			&Cache{
 				cache: map[string]*ResourceLocator{
-					"github.com:gardener:gardener:docs/readme.md:master": ghrl1,
+					"github.com:gardener:gardener:master:docs/readme.md": ghrl2,
 				},
 			},
 			nil,
-			ghrl1,
+			ghrl2,
 		},
 		{
 			"non-cached url should resolve a valid GitHubResourceLocator from API",
@@ -151,16 +172,38 @@ func TestUrlToGitHubLocator(t *testing.T) {
 			ghrl2,
 		},
 		{
-			"cached non-SHAAlias url should return valid GitHubResourceLocator",
+			"non-SHAAlias GitHub url should return valid GitHubResourceLocator",
 			"https://github.com/gardener/gardener/pull/123",
 			false,
 			&Cache{
-				cache: map[string]*ResourceLocator{
-					"https://github.com/gardener/gardener/pull/123": ghrl3,
-				},
+				cache: map[string]*ResourceLocator{},
 			},
 			nil,
 			ghrl3,
+		},
+		{
+			"cached url with raw host should return valid GitHubResourceLocator",
+			"https://raw.github.enterprise/org/repo/master/docs/img/img.png",
+			false,
+			&Cache{
+				cache: map[string]*ResourceLocator{
+					"github.enterprise:org:repo:master:docs/img/img.png": ghrl4,
+				},
+			},
+			nil,
+			ghrl4,
+		},
+		{
+			"cached url with raw api should return valid GitHubResourceLocator",
+			"https://github.enterprise/raw/org/repo/master/docs/img/image.png",
+			true,
+			&Cache{
+				cache: map[string]*ResourceLocator{
+					"github.enterprise:org:repo:master:docs/img/image.png": ghrl4,
+				},
+			},
+			nil,
+			ghrl4,
 		},
 	}
 	for _, c := range cases {
@@ -277,8 +320,8 @@ func TestResolveNodeSelector(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
-		defer cancel()
+		// ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		// defer cancel()
 		gh := &GitHub{
 			cache: &Cache{
 				cache: map[string]*ResourceLocator{},
@@ -290,7 +333,7 @@ func TestResolveNodeSelector(t *testing.T) {
 			c.mux(mux)
 		}
 		gh.Client = client
-		nodes, gotError := gh.ResolveNodeSelector(ctx, c.inNode, c.excludePaths, c.frontMatter, c.excludeFrontMatter, c.depth)
+		nodes, gotError := gh.ResolveNodeSelector(context.TODO(), c.inNode, c.excludePaths, c.frontMatter, c.excludeFrontMatter, c.depth)
 		if gotError != nil {
 			t.Errorf("error == %q, want %q", gotError, c.wantError)
 		}
@@ -337,7 +380,7 @@ func TestName(t *testing.T) {
 			"https://github.com/gardener/gardener/blob/master/docs/README.md",
 			&Cache{
 				cache: map[string]*ResourceLocator{
-					"github.com:gardener:gardener:docs/readme.md:master": ghrl1,
+					"github.com:gardener:gardener:master:docs/readme.md": ghrl1,
 				},
 			},
 			"README",
@@ -348,7 +391,7 @@ func TestName(t *testing.T) {
 			"https://github.com/gardener/gardener/tree/master/docs",
 			&Cache{
 				cache: map[string]*ResourceLocator{
-					"github.com:gardener:gardener:docs:master": ghrl2,
+					"github.com:gardener:gardener:master:docs": ghrl2,
 				},
 			},
 			"docs",
@@ -385,7 +428,7 @@ func TestRead(t *testing.T) {
 			},
 			&Cache{
 				cache: map[string]*ResourceLocator{
-					"github.com:gardener:gardener:docs/readme.md:master": {
+					"github.com:gardener:gardener:master:docs/readme.md": {
 						"https",
 						"github.com",
 						"gardener",
