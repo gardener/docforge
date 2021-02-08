@@ -9,12 +9,27 @@ type document struct {
 	links []Link
 }
 
-func (d *document) ListLinks(cb UpdateMarkdownLinkListed) {
+func (d *document) ListLinks(cb OnLinkListed) error {
 	if cb != nil && d.links != nil {
+		i := 0
 		for _, l := range d.links {
-			cb(l)
+			_l, err := cb(l)
+			if err != nil {
+				return err
+			}
+			if _l != nil {
+				// Copy over only links that were not removed
+				d.links[i] = _l
+				i++
+			}
 		}
+		// Erase truncated values
+		for j := i; j < len(d.links); j++ {
+			d.links[j] = nil
+		}
+		d.links = d.links[:i]
 	}
+	return nil
 }
 
 func (d *document) Bytes() []byte {
