@@ -20,22 +20,34 @@ func init() {
 func TestHugoProcess(t *testing.T) {
 	testCases := []struct {
 		in      []byte
+		node    *api.Node
 		want    []byte
 		wantErr error
-		mutate  func(p *Processor)
+		mutate  func(p *Processor, node *api.Node)
 	}{
 		{
 			in:   []byte(`[GitHub](./a/b.md) [anyresource](./a/b.ppt) ![img](./images/img.png) <a href="a.md">A</a> <a href="https://a.com/b.md">B</a> <style src="a.css"/> <style src="https://a.com/b.css"/>`),
+			node: &api.Node{Name: "Test"},
 			want: []byte("[GitHub](../a/b) [anyresource](../a/b.ppt) ![img](../images/img.png) <a href=\"../a\">A</a> <a href=\"https://a.com/b.md\">B</a> <style src=\"../a.css\"/> <style src=\"https://a.com/b.css\"/>"),
-			mutate: func(p *Processor) {
+			mutate: func(p *Processor, node *api.Node) {
 				p.PrettyUrls = true
 			},
 		},
 		{
 			in:   []byte(`[GitHub](./a/b.md) [anyresource](./a/b.ppt) ![img](./images/img.png) <a href="a.md">A</a> <a href="https://a.com/b.md">B</a> <style src="a.css"/> <style src="https://a.com/b.css"/>`),
+			node: &api.Node{Name: "Test"},
 			want: []byte("[GitHub](./a/b.html) [anyresource](./a/b.ppt) ![img](./images/img.png) <a href=\"a.html\">A</a> <a href=\"https://a.com/b.md\">B</a> <style src=\"a.css\"/> <style src=\"https://a.com/b.css\"/>"),
-			mutate: func(p *Processor) {
+			mutate: func(p *Processor, node *api.Node) {
 				p.PrettyUrls = false
+			},
+		},
+		{
+			in:   []byte(`[GitHub](./a/b.md) [anyresource](./a/b.ppt) ![img](./images/img.png) <a href="a.md">A</a> <a href="https://a.com/b.md">B</a> <style src="a.css"/> <style src="https://a.com/b.css"/>`),
+			node: &api.Node{Name: "README.md"},
+			want: []byte("[GitHub](a/b) [anyresource](a/b.ppt) ![img](images/img.png) <a href=\"a\">A</a> <a href=\"https://a.com/b.md\">B</a> <style src=\"a.css\"/> <style src=\"https://a.com/b.css\"/>"),
+			mutate: func(p *Processor, node *api.Node) {
+				p.PrettyUrls = true
+				p.IndexFileNames = []string{"README.md"}
 			},
 		},
 	}
@@ -43,9 +55,9 @@ func TestHugoProcess(t *testing.T) {
 		t.Run("", func(t *testing.T) {
 			p := &Processor{}
 			if tc.mutate != nil {
-				tc.mutate(p)
+				tc.mutate(p, tc.node)
 			}
-			got, err := p.Process(tc.in, &api.Node{Name: "Test"})
+			got, err := p.Process(tc.in, tc.node)
 
 			if tc.wantErr != err {
 				t.Errorf("want err %v != %v", tc.wantErr, err)

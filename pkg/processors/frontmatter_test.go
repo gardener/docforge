@@ -17,15 +17,17 @@ func TestFrontmatterProcess(t *testing.T) {
 		node         *api.Node
 		wantErr      error
 		wantDocument string
+		mutate       func(node *api.Node)
 	}{
 		{
 			document: "",
 			node: &api.Node{
-				Name: "test",
+				Source: "whatever",
+				Name:   "test-1_2.md",
 			},
 			wantErr: nil,
 			wantDocument: `---
-title: Test
+title: Test 1 2
 ---
 `,
 		},
@@ -38,6 +40,7 @@ title: Test
 						"title": "Test1",
 					},
 				},
+				Source: "whatever",
 			},
 			wantErr: nil,
 			wantDocument: `---
@@ -58,6 +61,7 @@ prop1: A
 						"title": "Test",
 					},
 				},
+				Source: "whatever",
 			},
 			wantErr: nil,
 			wantDocument: `---
@@ -78,6 +82,7 @@ title: Test1
 						"title": "Test2",
 					},
 				},
+				Source: "whatever",
 			},
 			wantErr: nil,
 			wantDocument: `---
@@ -85,10 +90,32 @@ title: Test2
 ---
 `,
 		},
+		{
+			document: `# heading 1`,
+			node: &api.Node{
+				Name:   "README.md",
+				Source: "whatever",
+			},
+			wantErr: nil,
+			wantDocument: `---
+title: Content
+---
+# heading 1`,
+			mutate: func(node *api.Node) {
+				node.SetParent(&api.Node{
+					Name: "content",
+				})
+			},
+		},
 	}
 	for _, tc := range testCases {
 		t.Run("", func(t *testing.T) {
-			fm := &FrontMatter{}
+			fm := &FrontMatter{
+				IndexFileNames: []string{"README.md"},
+			}
+			if tc.mutate != nil {
+				tc.mutate(tc.node)
+			}
 			gotDocumentBlob, err := fm.Process([]byte(tc.document), tc.node)
 			if err != tc.wantErr {
 				t.Errorf("expected err %v!=%v", tc.wantErr, err)

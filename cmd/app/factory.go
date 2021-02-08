@@ -121,7 +121,9 @@ func WithHugo(reactorOptions *reactor.Options, o *Options) {
 	hugoOptions := o.Hugo
 	reactorOptions.Processor = &processors.ProcessorChain{
 		Processors: []processors.Processor{
-			&processors.FrontMatter{},
+			&processors.FrontMatter{
+				IndexFileNames: hugoOptions.IndexFileNames,
+			},
 			hugo.NewProcessor(hugoOptions),
 		},
 	}
