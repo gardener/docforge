@@ -102,6 +102,17 @@ func TestUrlToGitHubLocator(t *testing.T) {
 		"",
 		false,
 	}
+	ghrl4 := &ResourceLocator{
+		"https",
+		"github.com",
+		"gardener",
+		"gardener",
+		"s9n39h1bdc89nbv",
+		Blob,
+		"docs/img/image.png",
+		"master",
+		false,
+	}
 	cases := []struct {
 		description  string
 		inURL        string
@@ -111,16 +122,38 @@ func TestUrlToGitHubLocator(t *testing.T) {
 		want         *ResourceLocator
 	}{
 		{
-			"cached url should return valid GitHubResourceLocator",
+			"GitHub url should return valid GitHubResourceLocator",
+			"https://github.com/gardener/gardener/blob/master/docs/README.md",
+			false,
+			&Cache{
+				cache: map[string]*ResourceLocator{},
+			},
+			nil,
+			ghrl1,
+		},
+		{
+			"GitHub url should return valid GitHubResourceLocator from cache",
 			"https://github.com/gardener/gardener/blob/master/docs/README.md",
 			false,
 			&Cache{
 				cache: map[string]*ResourceLocator{
-					"https://github.com/gardener/gardener/blob/master/docs/README.md": ghrl1,
+					"github.com:gardener:gardener:master:docs/readme.md": ghrl2,
 				},
 			},
 			nil,
-			ghrl1,
+			ghrl2,
+		},
+		{
+			"GitHub url should return valid GitHubResourceLocator from cache raw as query parameter",
+			"https://github.com/gardener/gardener/blob/master/docs/README.md?raw=true",
+			false,
+			&Cache{
+				cache: map[string]*ResourceLocator{
+					"github.com:gardener:gardener:master:docs/readme.md": ghrl2,
+				},
+			},
+			nil,
+			ghrl2,
 		},
 		{
 			"non-cached url should resolve a valid GitHubResourceLocator from API",
@@ -151,16 +184,38 @@ func TestUrlToGitHubLocator(t *testing.T) {
 			ghrl2,
 		},
 		{
-			"cached non-SHAAlias url should return valid GitHubResourceLocator",
+			"non-SHAAlias GitHub url should return valid GitHubResourceLocator",
 			"https://github.com/gardener/gardener/pull/123",
 			false,
 			&Cache{
-				cache: map[string]*ResourceLocator{
-					"https://github.com/gardener/gardener/pull/123": ghrl3,
-				},
+				cache: map[string]*ResourceLocator{},
 			},
 			nil,
 			ghrl3,
+		},
+		{
+			"cached url with raw host should return valid GitHubResourceLocator",
+			"https://raw.github.enterprise/org/repo/master/docs/img/img.png",
+			false,
+			&Cache{
+				cache: map[string]*ResourceLocator{
+					"github.enterprise:org:repo:master:docs/img/img.png": ghrl4,
+				},
+			},
+			nil,
+			ghrl4,
+		},
+		{
+			"cached url with raw api should return valid GitHubResourceLocator",
+			"https://github.enterprise/raw/org/repo/master/docs/img/image.png",
+			true,
+			&Cache{
+				cache: map[string]*ResourceLocator{
+					"github.enterprise:org:repo:master:docs/img/image.png": ghrl4,
+				},
+			},
+			nil,
+			ghrl4,
 		},
 	}
 	for _, c := range cases {
@@ -290,7 +345,6 @@ func TestResolveNodeSelector(t *testing.T) {
 			c.mux(mux)
 		}
 		gh.Client = client
-
 		nodes, gotError := gh.ResolveNodeSelector(ctx, c.inNode, c.excludePaths, c.frontMatter, c.excludeFrontMatter, c.depth)
 		if gotError != nil {
 			t.Errorf("error == %q, want %q", gotError, c.wantError)
@@ -338,7 +392,7 @@ func TestName(t *testing.T) {
 			"https://github.com/gardener/gardener/blob/master/docs/README.md",
 			&Cache{
 				cache: map[string]*ResourceLocator{
-					"https://github.com/gardener/gardener/blob/master/docs/README.md": ghrl1,
+					"github.com:gardener:gardener:master:docs/readme.md": ghrl1,
 				},
 			},
 			"README",
@@ -349,7 +403,7 @@ func TestName(t *testing.T) {
 			"https://github.com/gardener/gardener/tree/master/docs",
 			&Cache{
 				cache: map[string]*ResourceLocator{
-					"https://github.com/gardener/gardener/tree/master/docs": ghrl2,
+					"github.com:gardener:gardener:master:docs": ghrl2,
 				},
 			},
 			"docs",
@@ -386,7 +440,7 @@ func TestRead(t *testing.T) {
 			},
 			&Cache{
 				cache: map[string]*ResourceLocator{
-					"https://github.com/gardener/gardener/blob/master/docs/README.md": {
+					"github.com:gardener:gardener:master:docs/readme.md": {
 						"https",
 						"github.com",
 						"gardener",
@@ -410,9 +464,7 @@ func TestRead(t *testing.T) {
 		client, mux, serverURL, teardown := setup()
 		defer teardown()
 		// rewrite cached url keys host to match the mock server
-		for k, v := range c.cache.cache {
-			c.cache.cache[strings.Replace(k, "https://github.com", serverURL, 1)] = v
-		}
+
 		gh := &GitHub{
 			cache: c.cache,
 		}
@@ -606,7 +658,7 @@ func TestTreeEntryToGitHubLocator(t *testing.T) {
 				shaAlias: "master",
 			},
 			expectedRL: &ResourceLocator{
-				Host:     "api.github.com",
+				Host:     "github.com",
 				Owner:    "test-org",
 				Repo:     "test-repo",
 				Path:     "docs/cluster_resources.md",
@@ -630,7 +682,7 @@ func TestTreeEntryToGitHubLocator(t *testing.T) {
 				shaAlias: "master",
 			},
 			expectedRL: &ResourceLocator{
-				Host:     "api.github.com",
+				Host:     "github.com",
 				Owner:    "test-org",
 				Repo:     "test-repo",
 				Path:     "docs/cluster_resources.md",

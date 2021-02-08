@@ -6,6 +6,7 @@ package github
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -57,10 +58,12 @@ func TreeEntryToGitHubLocator(treeEntry *github.TreeEntry, shaAlias string) *Res
 	sourceURLSegments := strings.Split(url.Path, "/")
 	owner := sourceURLSegments[2]
 	repo := sourceURLSegments[3]
-
-	if url.Host != "api.github.com" {
+	host := url.Host
+	if host != "api.github.com" {
 		owner = sourceURLSegments[4]
 		repo = sourceURLSegments[5]
+	} else {
+		host = "github.com"
 	}
 
 	resourceType, err := NewResourceType(treeEntry.GetType())
@@ -69,7 +72,7 @@ func TreeEntryToGitHubLocator(treeEntry *github.TreeEntry, shaAlias string) *Res
 	}
 	return &ResourceLocator{
 		Scheme:   url.Scheme,
-		Host:     url.Host,
+		Host:     host,
 		Owner:    owner,
 		Path:     treeEntry.GetPath(),
 		Type:     resourceType,
@@ -82,17 +85,21 @@ func TreeEntryToGitHubLocator(treeEntry *github.TreeEntry, shaAlias string) *Res
 // Recursively adds or merges nodes built from flat ResourceLocators list to node.Nodes
 func buildNodes(node *api.Node, excludePaths []string, frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32, childResourceLocators []*ResourceLocator, cache *Cache, currentDepth int32) ([]*api.Node, error) {
 	var (
-		nodesResult         []*api.Node
-		nodePath            string
-		nodeResourceLocator *ResourceLocator
+		nodesResult []*api.Node
+		nodePath    string
 	)
 	if node.NodeSelector != nil {
 		nodePath = node.NodeSelector.Path
 	} else if len(node.Source) > 0 {
 		nodePath = node.Source
 	}
-	if nodeResourceLocator = cache.Get(nodePath); nodeResourceLocator == nil {
-		panic(fmt.Sprintf("Node is not available as ResourceLocator %v", nodePath))
+	nodePathRL, err := parse(nodePath)
+	if err != nil {
+		return nil, err
+	}
+	nodeResourceLocator, err := cache.Get(nodePathRL)
+	if nodeResourceLocator == nil || err != nil {
+		panic(fmt.Sprintf("Node is not available as ResourceLocator %v: %v", nodePath, err))
 	}
 	nodePathSegmentsCount := len(strings.Split(nodeResourceLocator.Path, "/"))
 	for _, childResourceLocator := range childResourceLocators {
@@ -132,7 +139,9 @@ func buildNodes(node *api.Node, excludePaths []string, frontMatter map[string]in
 						continue
 					}
 					currentDepth++
-					childResourceLocators = cache.GetSubset(childResourceLocator.String())
+					if childResourceLocators, err = cache.GetSubset(childResourceLocator.String()); err != nil {
+						return nil, err
+					}
 					childNodes, err := buildNodes(n, excludePaths, frontMatter, excludeFrontMatter, depth, childResourceLocators, cache, currentDepth)
 					if err != nil {
 						return nil, err
@@ -184,14 +193,39 @@ func cleanupNodeTree(node *api.Node) {
 // TODO: implement me efficiently and for parallel use
 type Cache struct {
 	cache map[string]*ResourceLocator
-	mux   sync.Mutex
+	mux   sync.RWMutex
 }
 
 // Get returns a ResourceLocator object mapped to the path (URL)
-func (c *Cache) Get(path string) *ResourceLocator {
+func (c *Cache) Get(entry *ResourceLocator) (*ResourceLocator, error) {
 	defer c.mux.Unlock()
 	c.mux.Lock()
-	return c.cache[path]
+	path, err := c.Key(entry)
+	if err != nil {
+		return nil, err
+	}
+	return c.cache[path], nil
+}
+
+// Key converts a ResourceLocator to a string that could be used for a cache key
+func (c *Cache) Key(rl *ResourceLocator) (string, error) {
+	host := strings.ToLower(rl.Host)
+	if strings.HasPrefix(rl.Host, "raw.") {
+		if rl.Host == "raw.githubusercontent.com" {
+			host = "github.com"
+		} else {
+			host = rl.Host[len("raw."):]
+		}
+	} else if host == "api.github.com" {
+		host = "github.com"
+	}
+
+	u, err := url.Parse(rl.Path)
+	if err != nil {
+		return "", err
+	}
+
+	return strings.ToLower(fmt.Sprintf("%s:%s:%s:%s:%s", host, rl.Owner, rl.Repo, rl.SHAAlias, u.Path)), nil
 }
 
 // HasURLPrefix returns true if pathPrefix tests true as prefix for path,
@@ -207,27 +241,37 @@ func HasURLPrefix(path, pathPrefix string) bool {
 
 // GetSubset returns a subset of the ResourceLocator objects mapped to keys
 // with this pathPrefix
-func (c *Cache) GetSubset(pathPrefix string) []*ResourceLocator {
+func (c *Cache) GetSubset(pathPrefix string) ([]*ResourceLocator, error) {
 	defer c.mux.Unlock()
 	c.mux.Lock()
+	rl, _ := parse(pathPrefix)
+
 	var entries = make([]*ResourceLocator, 0)
 	for k, v := range c.cache {
-		if k == pathPrefix {
+		key, err := c.Key(rl)
+		if err != nil {
+			return nil, err
+		}
+		if k == key {
 			continue
 		}
-		if HasURLPrefix(k, pathPrefix) {
+		if strings.HasPrefix(k, key) {
 			entries = append(entries, v)
 		}
 	}
-	return entries
+	return entries, nil
 }
 
 // Set adds a mapping between a path (URL) and a ResourceLocator to the cache
-func (c *Cache) Set(path string, entry *ResourceLocator) *ResourceLocator {
+func (c *Cache) Set(entry *ResourceLocator) (*ResourceLocator, error) {
 	defer c.mux.Unlock()
 	c.mux.Lock()
+	path, err := c.Key(entry)
+	if err != nil {
+		return nil, err
+	}
 	c.cache[path] = entry
-	return entry
+	return entry, nil
 }
 
 // GitHub implements resourcehandlers/ResourceHandler
@@ -263,7 +307,11 @@ func NewResourceHandler(client *github.Client, acceptedHosts []string) resourceh
 // Examples:
 // - https://github.com/gardener/gardener/tree/master/docs
 // - https://github.com/gardener/gardener/blob/master/docs/README.md
-//
+// - https://raw.githubusercontent.com/gardener/docforge/master/README.md
+// - https://github.com/gardener/docforge/blob/master/README.md?raw=true
+// - https://github.enterprise/org/repo/blob/master/docs/img/image.png?raw=true
+// - https://github.enterprise/raw/org/repo/master/docs/img/image.png
+// - https://raw.github.enterprise/org/repo/master/docs/img/img.png
 // If resolveAPIUrl is true, GitHub API will be queried to populate the API URL for
 // that resource (its SHA cannot be inferred from the url). If it's false the APIUrl
 // property will be nil. In this case ctx can be omitted too.
@@ -272,35 +320,41 @@ func (gh *GitHub) URLToGitHubLocator(ctx context.Context, urlString string, reso
 		ghRL *ResourceLocator
 		err  error
 	)
-	// try cache first
-	if ghRL = gh.cache.Get(urlString); ghRL == nil {
-		if ghRL, err = parse(urlString); err != nil {
+	if ghRL, err = parse(urlString); err != nil {
+		return nil, err
+	}
+	if ghRL.Type == Wiki || len(ghRL.SHAAlias) == 0 {
+		return ghRL, nil
+	}
+	cachedRL, err := gh.cache.Get(ghRL)
+	if err != nil {
+		return nil, err
+	}
+	if cachedRL != nil {
+		return cachedRL, nil
+	}
+	if resolveAPIUrl {
+		// grab the index of this repo
+		gitTree, resp, err := gh.Client.Git.GetTree(ctx, ghRL.Owner, ghRL.Repo, ghRL.SHAAlias, true)
+		if err != nil {
 			return nil, err
 		}
-		if ghRL.Type != Wiki && resolveAPIUrl {
-			if len(ghRL.SHAAlias) == 0 {
-				return ghRL, nil
-			}
-			// grab the index of this repo
-			gitTree, resp, err := gh.Client.Git.GetTree(ctx, ghRL.Owner, ghRL.Repo, ghRL.SHAAlias, true)
-			if err != nil {
-				return nil, err
-			}
-			if resp.StatusCode > 399 {
-				return nil, fmt.Errorf("request for %s failed: %s", urlString, resp.Status)
-			}
-			// populate cache wth this tree entries
-			for _, entry := range gitTree.Entries {
-				rl := TreeEntryToGitHubLocator(entry, ghRL.SHAAlias)
-				rl.Host = ghRL.Host
-				rl.IsRawAPI = ghRL.IsRawAPI
-				gh.cache.Set(rl.String(), rl)
-			}
-			ghRL = gh.cache.Get(urlString)
-			if ghRL == nil {
-				return nil, resourcehandlers.ErrResourceNotFound
-			}
+		if resp.StatusCode > 399 {
+			return nil, fmt.Errorf("request for %s failed: %s", urlString, resp.Status)
 		}
+		// populate cache wth this tree entries
+		for _, entry := range gitTree.Entries {
+			rl := TreeEntryToGitHubLocator(entry, ghRL.SHAAlias)
+			gh.cache.Set(rl)
+		}
+		cachedRL, err := gh.cache.Get(ghRL)
+		if err != nil {
+			return nil, err
+		}
+		if cachedRL == nil {
+			return nil, resourcehandlers.ErrResourceNotFound(urlString)
+		}
+		return cachedRL, nil
 	}
 	return ghRL, nil
 }
@@ -345,7 +399,10 @@ func (gh *GitHub) ResolveNodeSelector(ctx context.Context, node *api.Node, exclu
 		return nil, nil
 	}
 
-	childResourceLocators := gh.cache.GetSubset(rl.String())
+	childResourceLocators, err := gh.cache.GetSubset(rl.String())
+	if err != nil {
+		return nil, err
+	}
 	childNodes, err := buildNodes(node, excludePaths, frontMatter, excludeFrontMatter, depth, childResourceLocators, gh.cache, 0)
 	if err != nil {
 		return nil, err
@@ -469,10 +526,13 @@ func (gh *GitHub) ResourceName(uri string) (string, string) {
 		rl  *ResourceLocator
 		err error
 	)
-	if rl, err = gh.URLToGitHubLocator(nil, uri, false); err != nil {
+	if rl, err = gh.URLToGitHubLocator(context.TODO(), uri, false); err != nil {
 		panic(err)
 	}
-	if gh != nil {
+	if rl == nil {
+		panic(errors.New(uri))
+	}
+	if rl != nil {
 		if u, err := urls.Parse(rl.String()); err == nil {
 			return u.ResourceName, u.Extension
 		}
