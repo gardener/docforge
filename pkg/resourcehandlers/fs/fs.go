@@ -17,6 +17,7 @@ import (
 
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/git"
+	"github.com/gardener/docforge/pkg/markdown"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/google/go-github/v32/github"
 )
@@ -64,6 +65,23 @@ func (fs *fsHandler) ResolveNodeSelector(ctx context.Context, node *api.Node, ex
 					if len(pathSegments) > 0 {
 						pathSegments = pathSegments[:len(pathSegments)-1]
 						parentPath = filepath.Join(pathSegments...)
+					}
+				}
+			}
+			if !info.IsDir() {
+				// check for frontMatter filter compliance
+				if frontMatter != nil || excludeFrontMatter != nil {
+					// TODO: cache and reuse to avoid redundant reads when the structure nodes are processed
+					b, err := fs.Read(ctx, path)
+					if err != nil {
+						return err
+					}
+					selected, err := markdown.MatchFrontMatterRules(b, frontMatter, excludeFrontMatter)
+					if err != nil {
+						return err
+					}
+					if !selected {
+						return nil
 					}
 				}
 			}

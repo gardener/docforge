@@ -19,6 +19,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/gardener/docforge/pkg/api"
+	"github.com/gardener/docforge/pkg/markdown"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/gardener/docforge/pkg/util/urls"
 	"github.com/google/go-github/v32/github"
@@ -83,7 +84,7 @@ func TreeEntryToGitHubLocator(treeEntry *github.TreeEntry, shaAlias string) *Res
 }
 
 // Recursively adds or merges nodes built from flat ResourceLocators list to node.Nodes
-func buildNodes(node *api.Node, excludePaths []string, frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32, childResourceLocators []*ResourceLocator, cache *Cache, currentDepth int32) ([]*api.Node, error) {
+func (gh *GitHub) buildNodes(ctx context.Context, node *api.Node, excludePaths []string, frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32, childResourceLocators []*ResourceLocator, currentDepth int32) ([]*api.Node, error) {
 	var (
 		nodesResult []*api.Node
 		nodePath    string
@@ -97,7 +98,7 @@ func buildNodes(node *api.Node, excludePaths []string, frontMatter map[string]in
 	if err != nil {
 		return nil, err
 	}
-	nodeResourceLocator, err := cache.Get(nodePathRL)
+	nodeResourceLocator, err := gh.cache.Get(nodePathRL)
 	if nodeResourceLocator == nil || err != nil {
 		panic(fmt.Sprintf("Node is not available as ResourceLocator %v: %v", nodePath, err))
 	}
@@ -125,8 +126,25 @@ func buildNodes(node *api.Node, excludePaths []string, frontMatter map[string]in
 			// 1 sublevel only
 			if (childPathSegmentsCount - nodePathSegmentsCount) == 1 {
 				// folders and .md files only
-				if childResourceLocator.Type == Blob && !strings.HasSuffix(strings.ToLower(childName), ".md") {
-					continue
+				if childResourceLocator.Type == Blob {
+					if !strings.HasSuffix(strings.ToLower(childName), ".md") {
+						continue
+					}
+					// check for frontMatter filter compliance
+					if frontMatter != nil || excludeFrontMatter != nil {
+						// TODO: cache and reuse to avoid redundant reads when the structure nodes are processed
+						b, err := gh.Read(ctx, childResourceLocator.String())
+						if err != nil {
+							return nil, err
+						}
+						selected, err := markdown.MatchFrontMatterRules(b, frontMatter, excludeFrontMatter)
+						if err != nil {
+							return nil, err
+						}
+						if !selected {
+							continue
+						}
+					}
 				}
 				n := &api.Node{
 					Name:   childName,
@@ -139,10 +157,10 @@ func buildNodes(node *api.Node, excludePaths []string, frontMatter map[string]in
 						continue
 					}
 					currentDepth++
-					if childResourceLocators, err = cache.GetSubset(childResourceLocator.String()); err != nil {
+					if childResourceLocators, err = gh.cache.GetSubset(childResourceLocator.String()); err != nil {
 						return nil, err
 					}
-					childNodes, err := buildNodes(n, excludePaths, frontMatter, excludeFrontMatter, depth, childResourceLocators, cache, currentDepth)
+					childNodes, err := gh.buildNodes(ctx, n, excludePaths, frontMatter, excludeFrontMatter, depth, childResourceLocators, currentDepth)
 					if err != nil {
 						return nil, err
 					}
@@ -342,7 +360,7 @@ func (gh *GitHub) URLToGitHubLocator(ctx context.Context, urlString string, reso
 		if resp.StatusCode > 399 {
 			return nil, fmt.Errorf("request for %s failed: %s", urlString, resp.Status)
 		}
-		// populate cache wth this tree entries
+		// populate cache with this tree entries
 		for _, entry := range gitTree.Entries {
 			rl := TreeEntryToGitHubLocator(entry, ghRL.SHAAlias)
 			gh.cache.Set(rl)
@@ -403,7 +421,7 @@ func (gh *GitHub) ResolveNodeSelector(ctx context.Context, node *api.Node, exclu
 	if err != nil {
 		return nil, err
 	}
-	childNodes, err := buildNodes(node, excludePaths, frontMatter, excludeFrontMatter, depth, childResourceLocators, gh.cache, 0)
+	childNodes, err := gh.buildNodes(ctx, node, excludePaths, frontMatter, excludeFrontMatter, depth, childResourceLocators, 0)
 	if err != nil {
 		return nil, err
 	}

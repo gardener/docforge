@@ -153,23 +153,61 @@ type NodeSelector struct {
 	//
 	// Optional
 	Depth int32 `yaml:"depth,omitempty"`
-	// ExcludeFrontMatter is an optional expression, filtering documents located at `Path`
-	// by their metadata properties. Markdown metadata is commonly provisioned as
-	// `front-matter` block at the head of the document delimited by comment
-	// tags (`---`).
-	// Documents with front matter that matches all map entries of this field
-	// are not selected.
-	// Note: WiP - proposed, not implemented yet.
+	// ExcludeFrontMatter is a set of rules for a `nodesSelector` to **exclude** nodes
+	// with compliant front-matter. The compliance is positive if a node matches one or
+	// more rules. Applies to document nodes only.
+
+	// If a node is evaluated to be compliant with both `FrontMatter` and
+	// `ExcludeFrontMatter` rules, it will be excluded.
+
+	// Markdown metadata is commonly provisioned as `front-matter` block at the head
+	// of the document delimited by comment tags (`---`). The supported format of the
+	// metadata is YAML.
+
+	// The `ExcludeFrontMatter` rules are mappings between path patterns identifying an
+	// element in the front-matter and a value. If the path matches an actual path
+	// to an element in the front-matter and the value of this element matches the
+	// rule value, there is a positive match.
+
+	// The path patterns are a very simplified form of JSONPath notation.
+	// An object in path is modeled as dot (`.`). Paths start with the root object,
+	// i.e. the most minimal path is `.`.
+	// An object element value is referenced by its name (key) in the object map:
+	// `.a.b.c` is path to element `c` in map `b` in map `a` in root object map.
+	// Element values can be scalar, object maps or arrays.
+	// An element in an array is referenced by its index: `.a.b[1]` references `b`
+	//   array element with index 1.
+	// Paths can include up to one wildcard `**` symbol that models *any* path node.
+	// A `.a.**.c` models any path starting with	`.a.` and ending with `.c`.
 	//
 	// Optional
 	ExcludeFrontMatter map[string]interface{} `yaml:"excludeFrontMatter,omitempty"`
-	// FrontMatter is an optional expression, filtering documents located at `Path`
-	// by their metadata properties. Markdown metadata is commonly provisioned as
-	// `front-matter` block at the head of the document delimited by comment
-	// tags (`---`).
-	// Documents with front matter that matches all map entries of this field
-	// are selected.
-	// Note: WiP - proposed, not implemented yet.
+	// FrontMatter is a set of rules for a `nodesSelector` to **include** nodes with
+	// compliant front-matter. The compliance is positive if a node matches one or
+	// more rules. Applies to document nodes only.
+
+	// If a node is evaluated to be compliant with both `FrontMatter` and
+	// `ExcludeFrontMatter` rules, it will be excluded.
+
+	// Markdown metadata is commonly provisioned as `front-matter` block at the head
+	// of the document delimited by comment tags (`---`). The supported format of the
+	// metadata is YAML.
+
+	// The `FrontMatter` rules are mappings between path patterns identifying an
+	// element in the front-matter and a value. If the path matches an actual path
+	// to an element in the front-matter and the value of this element matches the
+	// rule value, there is a positive match.
+
+	// The path patterns are a very simplified form of JSONPath notation.
+	// An object in path is modeled as dot (`.`). Paths start with the root object,
+	// i.e. the most minimal path is `.`.
+	// An object element value is referenced by its name (key) in the object map:
+	// `.a.b.c` is path to element `c` in map `b` in map `a` in root object map.
+	// Element values can be scalar, object maps or arrays.
+	// An element in an array is referenced by its index: `.a.b[1]` references `b`
+	// array element with index 1.
+	// Paths can include up to one wildcard `**` symbol that models *any* path node.
+	// A `.a.**.c` models any path starting with	`.a.` and ending with `.c`.
 	//
 	// Optional
 	FrontMatter map[string]interface{} `yaml:"frontMatter,omitempty"`
