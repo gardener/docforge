@@ -111,10 +111,6 @@ func (fs *fsHandler) ResolveNodeSelector(ctx context.Context, node *api.Node, ex
 
 // Read implements resourcehandlers.ResourceHandler#Read
 func (fs *fsHandler) Read(ctx context.Context, uri string) ([]byte, error) {
-	return ioutil.ReadFile(uri)
-}
-
-func (fs *fsHandler) ResolveDocumentation(ctx context.Context, uri string) (*api.Documentation, error) {
 	fileInfo, err := os.Stat(uri)
 	if err != nil {
 		return nil, err
@@ -122,6 +118,10 @@ func (fs *fsHandler) ResolveDocumentation(ctx context.Context, uri string) (*api
 	if fileInfo.IsDir() {
 		return nil, nil
 	}
+	return ioutil.ReadFile(uri)
+}
+
+func (fs *fsHandler) ResolveDocumentation(ctx context.Context, uri string) (*api.Documentation, error) {
 	blob, err := fs.Read(ctx, uri)
 	if err != nil {
 		return nil, err
