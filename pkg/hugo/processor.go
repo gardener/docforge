@@ -120,9 +120,12 @@ func (f *Processor) rewriteDestination(destination, text, title []byte, nodeName
 	return destination, text, title, nil
 }
 
+// Compares a node name to the configured list of index file
+// and a default name '_index.md' to determine if this node
+// is an index document node.
 func (f *Processor) nodeIsIndexFile(name string) bool {
 	for _, s := range f.IndexFileNames {
-		if strings.HasSuffix(strings.ToLower(name), s) {
+		if strings.ToLower(name) == strings.ToLower(s) {
 			return true
 		}
 	}

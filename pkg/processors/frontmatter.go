@@ -14,11 +14,19 @@ import (
 )
 
 // FrontMatter is a processor implementation responsible to inject front-matter
-// properties defined on nodes
-type FrontMatter struct{}
+// properties defined on nodes and default front-matter
+type FrontMatter struct {
+	// IndexFileNames defines a list of file names that indicate
+	// their content can be used as section files.
+	IndexFileNames []string
+}
 
 // Process implements Processor#Process
 func (f *FrontMatter) Process(documentBlob []byte, node *api.Node) ([]byte, error) {
+	// Process only document nodes
+	if len(node.Source) == 0 && len(node.ContentSelectors) == 0 && node.Template == nil {
+		return documentBlob, nil
+	}
 	var (
 		nodeFmBytes, fmBytes, content []byte
 		props, fm, docFm              map[string]interface{}
@@ -58,7 +66,7 @@ func (f *FrontMatter) Process(documentBlob []byte, node *api.Node) ([]byte, erro
 	}
 
 	if _, ok := fm["title"]; !ok {
-		fm["title"] = strings.Title(node.Name)
+		fm["title"] = f.getNodeTitle(node)
 	}
 
 	nodeFmBytes, err = yaml.Marshal(fm)
@@ -74,4 +82,32 @@ func (f *FrontMatter) Process(documentBlob []byte, node *api.Node) ([]byte, erro
 		return nil, err
 	}
 	return documentBlob, nil
+}
+
+// Determines node title from its name or its parent name if
+// it is eligible to be index file, and then normalizes either
+// as a title - removing `-`, `_`, `.md` and converting to title
+// case.
+func (f *FrontMatter) getNodeTitle(node *api.Node) string {
+	title := node.Name
+	if node.Parent() != nil && f.nodeIsIndexFile(node.Name) {
+		title = node.Parent().Name
+	}
+	title = strings.TrimRight(title, ".md")
+	title = strings.ReplaceAll(title, "_", " ")
+	title = strings.ReplaceAll(title, "-", " ")
+	title = strings.Title(title)
+	return title
+}
+
+// Compares a node name to the configured list of index file
+// and a default name '_index.md' to determin if this node
+// is an index document node.
+func (f *FrontMatter) nodeIsIndexFile(name string) bool {
+	for _, s := range f.IndexFileNames {
+		if strings.ToLower(name) == strings.ToLower(s) {
+			return true
+		}
+	}
+	return "_index.md" == name
 }
