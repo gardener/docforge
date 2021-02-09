@@ -23,8 +23,9 @@ import (
 )
 
 var (
-	htmlTagLinkRegex    = regexp.MustCompile(`<\b[^>]*?\b((?i)href|(?i)src)\s*=\s*(\"([^"]*\")|'[^']*'|([^'">\s]+))`)
-	htmlTagLinkURLRegex = regexp.MustCompile(`((http|https|ftp|mailto):\/\/)?(\.?\/?[\w\.\-]+)+\/?([#?=&])?`)
+	htmlTagLinkRegex     = regexp.MustCompile(`<\b[^>]*?\b((?i)href|(?i)src)\s*=\s*(\"([^"]*\")|'[^']*'|([^'">\s]+))`)
+	htmlTagLinkURLRegex  = regexp.MustCompile(`((http|https|ftp|mailto):\/\/)?(\.?\/?[\w\.\-]+)+\/?([#?=&])?`)
+	githubBlobURLMatcher = regexp.MustCompile("^(.*?)blob(.*)$")
 )
 
 // NodeContentProcessor operates on documents content to reconcile links and
@@ -264,7 +265,7 @@ func (c *nodeContentProcessor) resolveLink(ctx context.Context, node *api.Node, 
 		// Links to other documents are enforced relative when
 		// linking documents from the node structure.
 		// Check if md extension to reduce the walkthroughs
-		if u.Extension == "md" {
+		if u.Extension == "md" || u.Extension == "" {
 			if existingNode := api.FindNodeBySource(absLink, node); existingNode != nil {
 				relPathBetweenNodes := node.RelativePath(existingNode)
 				if destination != relPathBetweenNodes {
@@ -272,6 +273,19 @@ func (c *nodeContentProcessor) resolveLink(ctx context.Context, node *api.Node, 
 				}
 				return &relPathBetweenNodes, text, title, nil, nil
 			}
+
+			if u.Extension == "" {
+				repStr := "${1}tree$2"
+				absLinkAsTree := githubBlobURLMatcher.ReplaceAllString(absLink, repStr)
+				rh := c.resourceHandlers.Get(absLinkAsTree)
+				if rh != nil {
+					blob, err := rh.Read(ctx, absLinkAsTree)
+					if err == nil && blob == nil {
+						return &absLinkAsTree, text, title, nil, nil
+					}
+				}
+			}
+
 			return &absLink, text, title, nil, nil
 		}
 
