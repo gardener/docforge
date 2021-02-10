@@ -36,6 +36,9 @@ func transform(commits []*github.RepositoryCommit) *git.GitInfo {
 
 	lastModifiedDate := nonInternalCommits[0].GetCommit().GetCommitter().GetDate().Format(git.DateFormat)
 	gitInfo.LastModifiedDate = &lastModifiedDate
+	webURL := nonInternalCommits[0].GetHTMLURL()
+	webURL = strings.Split(webURL, "/commit/")[0]
+	gitInfo.WebURL = &webURL
 
 	publishDate := commits[len(nonInternalCommits)-1].GetCommit().GetCommitter().GetDate().Format(git.DateFormat)
 	gitInfo.PublishDate = &publishDate
