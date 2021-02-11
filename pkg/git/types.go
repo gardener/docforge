@@ -15,4 +15,5 @@ type GitInfo struct {
 	PublishDate      *string        `json:"publishdate,omitempty"`
 	Author           *github.User   `json:"author,omitempty"`
 	Contributors     []*github.User `json:"contributors,omitempty"`
+	WebURL           *string        `json:"weburl,omitempty"`
 }
