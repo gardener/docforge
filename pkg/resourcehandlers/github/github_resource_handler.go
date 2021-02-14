@@ -531,6 +531,15 @@ func (gh *GitHub) ReadGitInfo(ctx context.Context, uri string) ([]byte, error) {
 		if gitInfo == nil {
 			return nil, nil
 		}
+		if len(rl.SHA) > 0 {
+			gitInfo.SHA = &rl.SHA
+		}
+		if len(rl.SHAAlias) > 0 {
+			gitInfo.SHAAlias = &rl.SHAAlias
+		}
+		if len(rl.Path) > 0 {
+			gitInfo.Path = &rl.Path
+		}
 		if blob, err = marshallGitInfo(gitInfo); err != nil {
 			return nil, err
 		}

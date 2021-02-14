@@ -16,4 +16,7 @@ type GitInfo struct {
 	Author           *github.User   `json:"author,omitempty"`
 	Contributors     []*github.User `json:"contributors,omitempty"`
 	WebURL           *string        `json:"weburl,omitempty"`
+	SHA              *string        `json:"sha,omitempty"`
+	SHAAlias         *string        `json:"shaalias,omitempty"`
+	Path             *string        `json:"path,omitempty"`
 }
