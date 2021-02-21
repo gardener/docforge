@@ -30,7 +30,7 @@ var (
 )
 
 // TreeEntryToGitHubLocator creates a ResourceLocator from a github.TreeEntry and shaAlias.
-// The shaAlias is the name of e.g. a branch or a tag that should resolve to this resource
+// The shaAlias is a ref i.e. the name of e.g. a branch or a tag that should resolve to this resource
 // in the git database. It binds the formats of a GitHub website URLs to the GitHub API URLs.
 //
 // Example tree entries:
@@ -51,6 +51,11 @@ var (
 //	"url": "https://api.github.com/repos/gardener/gardener/git/blobs/91776959202ec10db883c5cfc05c51e78403f02c"
 //}
 func TreeEntryToGitHubLocator(treeEntry *github.TreeEntry, shaAlias string) *ResourceLocator {
+	// Tree entries such as (submodule) `commit` objects do not have URL
+	// and cannot be converted to ResourceLocator
+	if treeEntry.URL == nil {
+		return nil
+	}
 	url, err := url.Parse(treeEntry.GetURL())
 	if err != nil {
 		panic(fmt.Sprintf("failed to parse url %v: %v", treeEntry.GetURL(), err))
