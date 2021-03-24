@@ -13,8 +13,7 @@ import (
 )
 
 var (
-	htmlTagLinkRegex    = regexp.MustCompile(`<\b[^>]*?\b((?i)href|(?i)src)\s*=\s*(\"([^"]*\")|'[^']*'|([^'">\s]+))`)
-	htmlTagLinkURLRegex = regexp.MustCompile(`((http|https|ftp|mailto):\/\/)?(\.?\/?[\w\.\-]+)+\/?([#?=&])?`)
+	htmlLinkTagPattern = regexp.MustCompile(`(?P<Prefix><\b[^>]*?\b((?i)href|(?i)src)\s*=\s*)((\"(?P<Link>[^"]*)\")|('(?P<Link>[^']*)')|(?P<Link>[^'">\s]+))`)
 )
 
 // UpdateHTMLLinkRef is a callback function invoked by UpdateHTMLLinksRefs on
@@ -32,22 +31,43 @@ func UpdateHTMLLinksRefs(documentBytes []byte, updateRef UpdateHTMLLinkRef) ([]b
 		return documentBytes, nil
 	}
 	var errors *multierror.Error
-	documentBytes = htmlTagLinkRegex.ReplaceAllFunc(documentBytes, func(match []byte) []byte {
+	documentBytes = htmlLinkTagPattern.ReplaceAllFunc(documentBytes, func(match []byte) []byte {
+		matchedLink := string(match)
+		url := extractLink(matchedLink)
+		if len(url) == 0 {
+			return match
+		}
 		var prefix, suffix string
-		attrs := strings.SplitAfter(string(match), "=")
-		url := attrs[len(attrs)-1]
-		url = htmlTagLinkURLRegex.FindString(url)
-		splits := strings.Split(string(match), url)
-		prefix = splits[0]
-		if len(splits) > 1 {
-			suffix = strings.Split(string(match), url)[1]
+		prefixSufix := strings.Split(matchedLink, url)
+		prefix = prefixSufix[0]
+		if len(prefixSufix) > 1 {
+			suffix = prefixSufix[1]
 		}
 		destination, err := updateRef([]byte(url))
 		if err != nil {
 			errors = multierror.Append(errors, err)
 			return match
 		}
-		return []byte(fmt.Sprintf("%s%s%s", prefix, destination, suffix))
+		newLinkTag := fmt.Sprintf("%s%s%s", prefix, destination, suffix)
+		return []byte(newLinkTag)
 	})
 	return documentBytes, errors.ErrorOrNil()
+}
+
+func extractLink(matchedLink string) string {
+	subMatch := htmlLinkTagPattern.FindStringSubmatch(matchedLink)
+	var linkIndecies []int
+	for i, name := range htmlLinkTagPattern.SubexpNames() {
+		if name == "Link" {
+			linkIndecies = append(linkIndecies, i)
+		}
+	}
+
+	for _, linkIndex := range linkIndecies {
+		if len(subMatch[linkIndex]) != 0 {
+			return subMatch[linkIndex]
+		}
+	}
+
+	return ""
 }

@@ -402,51 +402,73 @@ func Test_processLink(t *testing.T) {
 
 func Test_matchHTMLLinks(t *testing.T) {
 	testCases := []struct {
-		in   []string
-		want []string
+		name string
+		in   string
+		want string
 	}{
 		{
-			in: []string{
-				`<script src="abc/a.js" />`,
-				`<script src=   "abc/a.js" />`,
-				`<script src="   abc/a.js" />`,
-				`<script SRC = "   abc/a.js" />`,
-				`<script SRC = '   abc/a.js' />`,
-				`<script SRC = '   abc/a.js  ' title="test" />`,
-				`<script src= abc/a.js />`,
-				`<script SRC = "   abc/a.js" `,
-				`<img src="abc/a.js">`,
-				`<a href="abc/a.js">A</a>`,
-			},
-			want: []string{
-				`<script src="cde" />`,
-				`<script src=   "cde" />`,
-				`<script src="   cde" />`,
-				`<script SRC = "   cde" />`,
-				`<script SRC = '   cde' />`,
-				`<script SRC = '   cde  ' title="test" />`,
-				`<script src= cde />`,
-				`<script SRC = "   cde" `,
-				`<img src="cde">`,
-				`<a href="cde">A</a>`,
-			},
+			name: "rewrite_to_cde",
+			in:   `<script src="abc/a.js" />`,
+			want: `<script src="cde" />`,
 		},
 		{
-			in: []string{
-				`< src="abc/a.js" />`,
-				`<script src="   abc/a.js' />`,
-				// FIXME: unbalanced quotation marks break the regex
-				// `<script SRC = "   abc/a.js   title="test" />`,
-			},
-			want: []string{
-				`< src="abc/a.js" />`,
-				`<script src="   abc/a.js' />`,
-				// `<script SRC = "   abc/a.js   title="test" />`,
-			},
+			name: "rewrite_to_cde_leave_whitespace_in_tag",
+			in:   `<script src=   "abc/a.js" />`,
+			want: `<script src=   "cde" />`,
+		},
+		{
+			name: "rewrite_to_cde_trim_whitespace_in_link",
+			in:   `<script src="   abc/a.js" />`,
+			want: `<script src="cde" />`,
+		},
+		{
+			name: "rewrite_to_cde_trim_whitespace_in_link",
+			in:   `<script SRC = "   abc/a.js" />`,
+			want: `<script SRC = "cde" />`,
+		},
+		{
+			name: "rewrite_to_cde_trim_white_space_in_link_leave_whitespace_in_html_tag_single_quatation",
+			in:   `<script SRC = '   abc/a.js' />`,
+			want: `<script SRC = 'cde' />`,
+		},
+		{
+			name: "successful_rewrite_with_html_attributes",
+			in:   `<script SRC = '   abc/a.js  ' title="test" />`,
+			want: `<script SRC = 'cde' title="test" />`,
+		},
+		{
+			name: "successful_rewrite_without_quatation",
+			in:   `<script src= abc/a.js />`,
+			want: `<script src= cde />`,
+		},
+		{
+			name: "rewrite_script_src",
+			in:   `<script SRC = "   abc/a.js" `,
+			want: `<script SRC = "cde" `,
+		},
+		{
+			name: "rewrite_img_tags",
+			in:   `<img src="abc/a.js">`,
+			want: `<img src="cde">`,
+		},
+		{
+			name: "rewrite_href_with_surrounding_tag",
+			in:   `<a href="abc/a.js">A</a>`,
+			want: `<a href="cde">A</a>`,
+		},
+		{
+			name: "unmodified_if_no_tag",
+			in:   `< src="abc/a.js" />`,
+			want: `< src="abc/a.js" />`,
+		},
+		{
+			name: "unmodified_different_beggining_and_end_quatation",
+			in:   `<script src="   abc/a.js' />`,
+			want: `<script src="   abc/a.js' />`,
 		},
 	}
 	for _, tc := range testCases {
-		t.Run("", func(t *testing.T) {
+		t.Run(tc.name, func(t *testing.T) {
 			c := &nodeContentProcessor{
 				resourceAbsLinks: make(map[string]string),
 				resourcesRoot:    "/__resources",
@@ -454,7 +476,7 @@ func Test_matchHTMLLinks(t *testing.T) {
 				rewriteEmbedded:  true,
 				globalLinksConfig: &api.Links{
 					Rewrites: map[string]*api.LinkRewriteRule{
-						"abc": &api.LinkRewriteRule{
+						"abc": {
 							Destination: tests.StrPtr("cde"),
 						},
 					},
@@ -468,12 +490,10 @@ func Test_matchHTMLLinks(t *testing.T) {
 				b   []byte
 				err error
 			)
-			for i, in := range tc.in {
-				if b, err = c.reconcileHTMLLinks(nil, node, []byte(in), ""); err != nil {
-					t.Fatal(err)
-				}
-				assert.Equal(t, tc.want[i], string(b))
+			if b, err = c.reconcileHTMLLinks(nil, node, []byte(tc.in), ""); err != nil {
+				t.Fatal(err)
 			}
+			assert.Equal(t, tc.want, string(b))
 		})
 	}
 }
