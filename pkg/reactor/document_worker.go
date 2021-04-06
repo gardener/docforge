@@ -15,6 +15,7 @@ import (
 
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/jobs"
+	"github.com/gardener/docforge/pkg/markdown"
 	"github.com/gardener/docforge/pkg/processors"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	utilnode "github.com/gardener/docforge/pkg/util/node"
@@ -41,7 +42,6 @@ type DocumentWorker struct {
 // DocumentWorkTask implements jobs#Task
 type DocumentWorkTask struct {
 	Node *api.Node
-	// localityDomain localityDomain
 }
 
 // GenericReader is generic implementation for Reader interface
@@ -74,40 +74,54 @@ func (w *DocumentWorker) setTemplate(name string, tmpl *template.Template) {
 
 // Work implements Worker#Work function
 func (w *DocumentWorker) Work(ctx context.Context, task interface{}, wq jobs.WorkQueue) *jobs.WorkerError {
+	var (
+		documentBytes []byte
+		err           error
+	)
 	if task, ok := task.(*DocumentWorkTask); ok {
-
-		var (
-			b                    bytes.Buffer
-			sourceBlob, document []byte
-			err                  error
-		)
-
 		if len(task.Node.Nodes) == 0 {
+			// Node is considered a `Document Node`
+			var bytesBuff bytes.Buffer
+			doc := &processors.Document{
+				Node: task.Node,
+			}
+			// TODO: separate the logic of Document Processing out of the DocumentWorker
 			if len(task.Node.ContentSelectors) > 0 {
 				for _, content := range task.Node.ContentSelectors {
-					if sourceBlob, err = w.Reader.Read(ctx, content.Source); err != nil {
-						err = fmt.Errorf("unable to read source contents for %s: %w", content.Source, err)
+					sourceBlob, err := w.Reader.Read(ctx, content.Source)
+					if err != nil {
 						return jobs.NewWorkerError(err, 0)
 					}
 					if len(sourceBlob) == 0 {
 						continue
 					}
-					if sourceBlob, err = w.NodeContentProcessor.ReconcileLinks(ctx, task.Node, content.Source, sourceBlob); err != nil {
+					fm, sourceBlob, err := markdown.StripFrontMatter(sourceBlob)
+					if err != nil {
 						return jobs.NewWorkerError(err, 0)
 					}
-					b.Write(sourceBlob)
+					doc.AddFrontMatter(fm)
+					if sourceBlob, err = w.NodeContentProcessor.ReconcileLinks(ctx, doc, content.Source, sourceBlob); err != nil {
+						return jobs.NewWorkerError(err, 0)
+					}
+					bytesBuff.Write(sourceBlob)
 				}
 			}
 			if task.Node.Template != nil {
 				vars := map[string]string{}
 				for varName, content := range task.Node.Template.Sources {
-					if sourceBlob, err = w.Reader.Read(ctx, content.Source); err != nil {
+					sourceBlob, err := w.Reader.Read(ctx, content.Source)
+					if err != nil {
 						return jobs.NewWorkerError(err, 0)
 					}
 					if len(sourceBlob) == 0 {
 						continue
 					}
-					if sourceBlob, err = w.NodeContentProcessor.ReconcileLinks(ctx, task.Node, content.Source, sourceBlob); err != nil {
+					fm, sourceBlob, err := markdown.StripFrontMatter(sourceBlob)
+					if err != nil {
+						return jobs.NewWorkerError(err, 0)
+					}
+					doc.AddFrontMatter(fm)
+					if sourceBlob, err = w.NodeContentProcessor.ReconcileLinks(ctx, doc, content.Source, sourceBlob); err != nil {
 						return jobs.NewWorkerError(err, 0)
 					}
 					vars[varName] = string(sourceBlob)
@@ -115,6 +129,7 @@ func (w *DocumentWorker) Work(ctx context.Context, task interface{}, wq jobs.Wor
 				var (
 					templateBlob []byte
 					tmpl         *template.Template
+					err          error
 				)
 				if tmpl = w.getTemplate(task.Node.Template.Path); tmpl == nil {
 					if templateBlob, err = w.Reader.Read(ctx, task.Node.Template.Path); err != nil {
@@ -125,12 +140,13 @@ func (w *DocumentWorker) Work(ctx context.Context, task interface{}, wq jobs.Wor
 					}
 					w.setTemplate(task.Node.Template.Path, tmpl)
 				}
-				if err := tmpl.Execute(&b, vars); err != nil {
+				if err := tmpl.Execute(&bytesBuff, vars); err != nil {
 					return jobs.NewWorkerError(err, 0)
 				}
 			}
 			if len(task.Node.Source) > 0 {
-				if sourceBlob, err = w.Reader.Read(ctx, task.Node.Source); err != nil {
+				sourceBlob, err := w.Reader.Read(ctx, task.Node.Source)
+				if err != nil {
 					if resourceNotFound, ok := err.(resourcehandlers.ErrResourceNotFound); ok {
 						klog.Warningf("reading %s failed: %s\n", task.Node.Source, resourceNotFound)
 					}
@@ -140,33 +156,42 @@ func (w *DocumentWorker) Work(ctx context.Context, task interface{}, wq jobs.Wor
 					klog.Warningf("No content read from node %s source %s:", task.Node.Name, task.Node.Source)
 					return nil
 				}
-				if sourceBlob, err = w.NodeContentProcessor.ReconcileLinks(ctx, task.Node, task.Node.Source, sourceBlob); err != nil {
+				fm, sourceBlob, err := markdown.StripFrontMatter(sourceBlob)
+				if err != nil {
 					return jobs.NewWorkerError(err, 0)
 				}
-				b.Write(sourceBlob)
+				doc.AddFrontMatter(fm)
+				if sourceBlob, err = w.NodeContentProcessor.ReconcileLinks(ctx, doc, task.Node.Source, sourceBlob); err != nil {
+					return jobs.NewWorkerError(err, 0)
+				}
+				bytesBuff.Write(sourceBlob)
 			}
-			if b.Len() == 0 {
+			if bytesBuff.Len() == 0 && len(doc.FrontMatter) == 0 {
 				klog.Warningf("Document node processing halted: No content assigned to document node %s", task.Node.Name)
 				return nil
 			}
-
-			if document, err = ioutil.ReadAll(&b); err != nil {
+			documentBytes, err = ioutil.ReadAll(&bytesBuff)
+			if err != nil {
 				return jobs.NewWorkerError(err, 0)
 			}
-
+			doc.Append(documentBytes)
 			if w.Processor != nil {
-				if document, err = w.Processor.Process(document, task.Node); err != nil {
+				if err := w.Processor.Process(doc); err != nil {
 					return jobs.NewWorkerError(err, 0)
 				}
+			}
+			documentBytes = doc.DocumentBytes
+			if documentBytes, err = markdown.InsertFrontMatter(doc.FrontMatter, documentBytes); err != nil {
+				return jobs.NewWorkerError(err, 0)
 			}
 		}
 
 		path := utilnode.Path(task.Node, "/")
-		if err = w.Writer.Write(task.Node.Name, path, document, task.Node); err != nil {
+		if err := w.Writer.Write(task.Node.Name, path, documentBytes, task.Node); err != nil {
 			return jobs.NewWorkerError(err, 0)
 		}
 
-		if w.GitHubInfoController != nil && len(document) > 0 {
+		if w.GitHubInfoController != nil && len(documentBytes) > 0 {
 			w.GitHubInfoController.WriteGitInfo(ctx, filepath.Join(path, task.Node.Name), task.Node)
 		}
 	}

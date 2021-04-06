@@ -24,6 +24,8 @@ type Options struct {
 	// Writer is the underlying writer used by hugo#FSWriter to serialize
 	// content
 	Writer writers.Writer
+	// baseURL is used from the Hugo processor to rewrite relative links to root-relative
+	BaseURL string
 }
 
 // NewWriter creates a new Hugo Writer implementing writers#Writer
@@ -39,5 +41,6 @@ func NewProcessor(opts *Options) processors.Processor {
 	return &Processor{
 		opts.PrettyUrls,
 		opts.IndexFileNames,
+		opts.BaseURL,
 	}
 }

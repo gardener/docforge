@@ -54,7 +54,7 @@ func offsetLinkByteRanges(link *link, offset int) {
 		link.destination.start = offset + link.destination.start
 		link.destination.end = offset + link.destination.end
 	}
-	if link.title != nil {
+	if link.title != nil && link.title.start != link.title.end {
 		link.title.start = offset + link.title.start
 		link.title.end = offset + link.title.end
 	}
@@ -80,7 +80,7 @@ func (l *link) SetText(text []byte) {
 		l.destination.start = offset + l.destination.start
 		l.destination.end = offset + l.destination.end
 	}
-	if l.title != nil {
+	if l.title != nil && l.title.start != l.title.end {
 		l.title.start = offset + l.title.start
 		l.title.end = offset + l.title.end
 	}
@@ -101,7 +101,7 @@ func (l *link) SetDestination(text []byte) {
 	offset := len(text) - (l.destination.end - l.destination.start)
 	l.document.data = replaceBytes(l.document.data, l.destination.start, l.destination.end, text)
 	// offset next link components, if any
-	if l.title != nil {
+	if l.title != nil && l.title.start != l.title.end {
 		l.title.start = offset + l.title.start
 		l.title.end = offset + l.title.end
 	}

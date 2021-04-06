@@ -58,9 +58,7 @@ type UpdateMarkdownLink func(markdownType Type, destination, text, title []byte)
 // request to remove the link destination and leave only the link text or in
 // case it's an image - to remove it completely.
 // TODO: failfast vs fault tolerance support?
-func UpdateMarkdownLinks(documentBlob []byte, callback UpdateMarkdownLink) ([]byte, error) {
-	p := parser.NewParser()
-	document := p.Parse(documentBlob)
+func UpdateMarkdownLinks(document parser.Document, callback UpdateMarkdownLink) ([]byte, error) {
 	if callback == nil {
 		return nil, nil
 	}
