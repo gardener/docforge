@@ -24,7 +24,7 @@ type Options struct {
 	// Writer is the underlying writer used by hugo#FSWriter to serialize
 	// content
 	Writer writers.Writer
-	// baseURL is used from the Hugo processor to rewrite relative links to root-relative
+	// BaseURL is used from the Hugo processor to rewrite relative links to root-relative
 	BaseURL string
 }
 

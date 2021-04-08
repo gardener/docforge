@@ -78,7 +78,7 @@ title: Test1
 					"index": true,
 				},
 				ContentSelectors: []api.ContentSelector{
-					api.ContentSelector{
+					{
 						Source: "github.com",
 					},
 				},

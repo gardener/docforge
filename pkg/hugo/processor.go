@@ -7,7 +7,6 @@ package hugo
 import (
 	"fmt"
 	"net/url"
-	"regexp"
 	"strings"
 
 	"github.com/gardener/docforge/pkg/markdown"
@@ -16,11 +15,6 @@ import (
 	utilnode "github.com/gardener/docforge/pkg/util/node"
 
 	"k8s.io/klog/v2"
-)
-
-var (
-	htmlTagLinkRegex    = regexp.MustCompile(`<\b[^>]*?\b((?i)href|(?i)src)\s*=\s*(\"([^"]*\")|'[^']*'|([^'">\s]+))`)
-	htmlTagLinkURLRegex = regexp.MustCompile(`((http|https|ftp|mailto):\/\/)?(\.?\/?[\w\.\-]+)+\/?([#?=&])?`)
 )
 
 // Processor is a processor implementation responsible to rewrite links
@@ -64,13 +58,10 @@ func (f *Processor) Process(document *processors.Document) error {
 		return err
 	}
 	if contentBytes, err = markdown.UpdateHTMLLinksRefs(contentBytes, func(url []byte) ([]byte, error) {
-		var link *processors.Link
-		for _, l := range document.Links {
-			if *l.Destination == string(url) {
-				link = l
-			}
+		link := document.GetLinkByDestination(string(url))
+		if link == nil {
+			return url, nil
 		}
-
 		destination, _, _, err := f.rewriteDestination([]byte(url), []byte(""), []byte(""), document.Node.Name, isNodeIndexFile, link)
 		if err != nil {
 			return url, err
@@ -103,16 +94,16 @@ func (f *Processor) rewriteDestination(destination, text, title []byte, nodeName
 			absPath := utilnode.Path(l.DestinationNode, "/")
 			link = fmt.Sprintf("%s/%s/%s", f.BaseURL, absPath, strings.ToLower(l.DestinationNode.Name))
 		}
-		if l.Resource {
+		if l.IsResource {
 			for strings.HasPrefix(link, "../") {
-				link = strings.TrimLeft(link, "../")
+				link = strings.TrimPrefix(link, "../")
 			}
 			link = fmt.Sprintf("%s/%s", f.BaseURL, link)
 		}
 
+		link = strings.TrimPrefix(link, "./")
 		if f.PrettyUrls {
 			link = strings.TrimSuffix(link, ".md")
-			link = strings.TrimPrefix(link, "./")
 			// Remove the last path segment if it is readme, index or _index
 			// The Hugo writer will rename those files to _index.md and runtime
 			// references will be to the sections in which they reside.
@@ -127,8 +118,8 @@ func (f *Processor) rewriteDestination(destination, text, title []byte, nodeName
 				}
 			}
 		} else {
-			if strings.HasSuffix(u.Path, ".md") {
-				link = strings.TrimSuffix(u.Path, ".md")
+			if strings.HasSuffix(link, ".md") {
+				link = strings.TrimSuffix(link, ".md")
 				// TODO: propagate fragment and query if any
 				link = fmt.Sprintf("%s.html", link)
 			}
@@ -146,9 +137,9 @@ func (f *Processor) rewriteDestination(destination, text, title []byte, nodeName
 // is an index document node.
 func (f *Processor) nodeIsIndexFile(name string) bool {
 	for _, s := range f.IndexFileNames {
-		if strings.ToLower(name) == strings.ToLower(s) {
+		if strings.EqualFold(name, s) {
 			return true
 		}
 	}
-	return "_index.md" == name
+	return name == "_index.md"
 }

@@ -114,7 +114,7 @@ func (c *nodeContentProcessor) reconcileMDLinks(ctx context.Context, document *p
 		}
 
 		if download != nil {
-			link.Resource = true
+			link.IsResource = true
 			if err := c.schedule(ctx, download); err != nil {
 				return destination, text, title, err
 			}
@@ -180,7 +180,7 @@ func (c *nodeContentProcessor) reconcileHTMLLinks(ctx context.Context, document 
 			}
 		}
 		if download != nil {
-			link.Resource = true
+			link.IsResource = true
 			if err := c.schedule(ctx, download); err != nil {
 				errors = multierror.Append(errors, err)
 				return []byte(*destination), nil
@@ -399,14 +399,13 @@ func recordLinkStats(node *api.Node, title, details string) {
 		stat *api.Stat
 	)
 	nodeStats := node.GetStats()
-	if nodeStats != nil {
-		for _, _stat := range nodeStats {
-			if _stat.Title == title {
-				stat = _stat
-				break
-			}
+	for _, _stat := range nodeStats {
+		if _stat.Title == title {
+			stat = _stat
+			break
 		}
 	}
+
 	if stat == nil {
 		stat = &api.Stat{
 			Title: title,

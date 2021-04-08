@@ -17,7 +17,7 @@ type Document struct {
 
 type Link struct {
 	DestinationNode     *api.Node
-	Resource            bool
+	IsResource          bool
 	OriginalDestination string
 	AbsLink             *string
 	Destination         *string

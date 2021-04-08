@@ -10,11 +10,11 @@ require (
 	github.com/howeyc/fsnotify v0.9.0
 	github.com/kr/pretty v0.2.0 // indirect
 	github.com/kr/text v0.2.0 // indirect
-	github.com/onsi/ginkgo v1.15.2
+	github.com/onsi/ginkgo v1.16.1
 	github.com/onsi/gomega v1.10.1
 	github.com/prometheus/client_golang v1.7.1
 	github.com/spf13/cobra v1.1.1
-	github.com/stretchr/testify v1.4.0
+	github.com/stretchr/testify v1.5.1
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
 	golang.org/x/sys v0.0.0-20210119212857-b64e53b001e4 // indirect
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
