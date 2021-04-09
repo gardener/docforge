@@ -79,9 +79,15 @@ func resolveStructure(ctx context.Context, rhRegistry resourcehandlers.Registry,
 			if err != nil {
 				return err
 			}
+
 			if len(newNode.Nodes) > 0 {
-				node.Nodes = append(node.Nodes, newNode.Nodes...)
+				if node.Parent() != nil {
+					node.Parent().Nodes = append(node.Nodes, newNode.Nodes...)
+				} else {
+					node.Nodes = append(node.Nodes, newNode.Nodes...)
+				}
 			}
+
 			node.Links = mergeLinks(node.Links, newNode.Links)
 			node.NodeSelector = nil
 		}
@@ -100,7 +106,7 @@ func resolveNodeSelector(ctx context.Context, rhRegistry resourcehandlers.Regist
 	newNode := &api.Node{}
 	handler := rhRegistry.Get(node.NodeSelector.Path)
 	if handler == nil {
-		return nil, fmt.Errorf("No suitable handler registered for path %s", node.NodeSelector.Path)
+		return nil, fmt.Errorf("no suitable handler registered for path %s", node.NodeSelector.Path)
 	}
 
 	moduleDocumentation, err := handler.ResolveDocumentation(ctx, node.NodeSelector.Path)
@@ -172,7 +178,7 @@ func resolveNodeName(ctx context.Context, node *api.Node, rhRegistry resourcehan
 	name := node.Name
 	handler := rhRegistry.Get(node.Source)
 	if handler == nil {
-		return "", fmt.Errorf("No suitable handler registered for URL %s", node.Source)
+		return "", fmt.Errorf("no suitable handler registered for URL %s", node.Source)
 	}
 	if len(node.Name) == 0 {
 		name = "$name"

@@ -628,3 +628,22 @@ func (gh *GitHub) GetRawFormatLink(absLink string) (string, error) {
 	}
 	return absLink, nil
 }
+
+func (gh *GitHub) TreeExists(ctx context.Context, absLink string) (bool, error) {
+	ghLocator, err := gh.URLToGitHubLocator(ctx, absLink, false)
+	if err != nil {
+		return false, err
+	}
+
+	if ghLocator != nil && ghLocator.Type == Tree {
+		ghTrees, response, err := gh.Client.Git.GetTree(ctx, ghLocator.Owner, ghLocator.Repo, ghLocator.SHA, false)
+		if err != nil && response.StatusCode != http.StatusNotFound {
+			return false, err
+		}
+		if response.StatusCode == http.StatusOK && ghTrees != nil {
+			return true, nil
+		}
+
+	}
+	return false, nil
+}

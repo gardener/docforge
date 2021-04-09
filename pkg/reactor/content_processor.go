@@ -16,6 +16,7 @@ import (
 
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
+	"github.com/gardener/docforge/pkg/resourcehandlers/github"
 	"github.com/gardener/docforge/pkg/util/urls"
 	"github.com/hashicorp/go-multierror"
 
@@ -23,8 +24,6 @@ import (
 )
 
 var (
-	htmlTagLinkRegex     = regexp.MustCompile(`<\b[^>]*?\b((?i)href|(?i)src)\s*=\s*(\"([^"]*\")|'[^']*'|([^'">\s]+))`)
-	htmlTagLinkURLRegex  = regexp.MustCompile(`((http|https|ftp|mailto):\/\/)?(\.?\/?[\w\.\-]+)+\/?([#?=&])?`)
 	githubBlobURLMatcher = regexp.MustCompile("^(.*?)blob(.*)$")
 )
 
@@ -279,9 +278,14 @@ func (c *nodeContentProcessor) resolveLink(ctx context.Context, node *api.Node, 
 				absLinkAsTree := githubBlobURLMatcher.ReplaceAllString(absLink, repStr)
 				rh := c.resourceHandlers.Get(absLinkAsTree)
 				if rh != nil {
-					blob, err := rh.Read(ctx, absLinkAsTree)
-					if err == nil && blob == nil {
-						return &absLinkAsTree, text, title, nil, nil
+					if gh, ok := rh.(*github.GitHub); ok {
+						doesTreeExist, err := gh.TreeExists(ctx, absLinkAsTree)
+						if err != nil {
+							return &absLink, text, title, nil, err
+						}
+						if doesTreeExist {
+							return &absLinkAsTree, text, title, nil, nil
+						}
 					}
 				}
 			}
