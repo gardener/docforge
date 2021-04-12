@@ -9,6 +9,7 @@ import (
 	"flag"
 	"io"
 	"os"
+	"path/filepath"
 
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/hugo"
@@ -161,6 +162,13 @@ func NewOptions(f *cmdFlags) *Options {
 		dryRunWriter = os.Stdout
 	}
 
+	path, err := os.Getwd()
+	if err != nil {
+		//TODO:
+	}
+
+	manifestAbsPath := filepath.Join(path, (f.documentationManifestPath))
+
 	return &Options{
 		DestinationPath:              f.destinationPath,
 		FailFast:                     f.failFast,
@@ -176,6 +184,7 @@ func NewOptions(f *cmdFlags) *Options {
 		Resolve:                      f.resolve,
 		GitHubInfoPath:               f.ghInfoDestination,
 		Hugo:                         hugoOptions,
+		ManifestAbsPath:              manifestAbsPath,
 	}
 }
 

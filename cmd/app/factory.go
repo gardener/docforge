@@ -49,6 +49,7 @@ type Options struct {
 	FailFast                     bool
 	DestinationPath              string
 	ResourcesPath                string
+	ManifestAbsPath              string
 	ResourceDownloadWorkersCount int
 	RewriteEmbedded              bool
 	GitHubTokens                 map[string]string
@@ -88,6 +89,7 @@ func NewReactor(ctx context.Context, options *Options, globalLinksCfg *api.Links
 		DryRunWriter:                 dryRunWriters,
 		Resolve:                      options.Resolve,
 		GlobalLinksConfig:            globalLinksCfg,
+		ManifestAbsPath:              options.ManifestAbsPath,
 	}
 	if options.DryRunWriter != nil {
 		o.Writer = dryRunWriters.GetWriter(options.DestinationPath)

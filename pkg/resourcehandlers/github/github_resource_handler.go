@@ -416,10 +416,10 @@ func (gh *GitHub) Accept(uri string) bool {
 func (gh *GitHub) ResolveNodeSelector(ctx context.Context, node *api.Node, excludePaths []string, frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32) ([]*api.Node, error) {
 	rl, err := gh.URLToGitHubLocator(ctx, node.NodeSelector.Path, true)
 	if err != nil {
+		if _, ok := err.(resourcehandlers.ErrResourceNotFound); ok {
+			return []*api.Node{}, nil
+		}
 		return nil, err
-	}
-	if rl == nil {
-		return nil, nil
 	}
 
 	childResourceLocators, err := gh.cache.GetSubset(rl.String())
@@ -435,7 +435,7 @@ func (gh *GitHub) ResolveNodeSelector(ctx context.Context, node *api.Node, exclu
 		cleanupNodeTree(child)
 	}
 	if childNodes == nil {
-		return nil, nil
+		return []*api.Node{}, nil
 	}
 
 	return childNodes, nil
@@ -627,4 +627,23 @@ func (gh *GitHub) GetRawFormatLink(absLink string) (string, error) {
 		return l, nil
 	}
 	return absLink, nil
+}
+
+func (gh *GitHub) TreeExists(ctx context.Context, absLink string) (bool, error) {
+	ghLocator, err := gh.URLToGitHubLocator(ctx, absLink, false)
+	if err != nil {
+		return false, err
+	}
+
+	if ghLocator != nil && ghLocator.Type == Tree {
+		ghTrees, response, err := gh.Client.Git.GetTree(ctx, ghLocator.Owner, ghLocator.Repo, ghLocator.SHA, false)
+		if err != nil && response.StatusCode != http.StatusNotFound {
+			return false, err
+		}
+		if response.StatusCode == http.StatusOK && ghTrees != nil {
+			return true, nil
+		}
+
+	}
+	return false, nil
 }

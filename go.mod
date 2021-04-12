@@ -10,7 +10,7 @@ require (
 	github.com/howeyc/fsnotify v0.9.0
 	github.com/kr/pretty v0.2.0 // indirect
 	github.com/kr/text v0.2.0 // indirect
-	github.com/onsi/ginkgo v1.15.0
+	github.com/onsi/ginkgo v1.15.2
 	github.com/onsi/gomega v1.10.1
 	github.com/prometheus/client_golang v1.7.1
 	github.com/spf13/cobra v1.1.1
