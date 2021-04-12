@@ -38,6 +38,7 @@ type cmdFlags struct {
 	hugo                         bool
 	hugoPrettyUrls               bool
 	hugoSectionFiles             []string
+	hugoBaseURL                  string
 }
 
 // NewCommand creates a new root command and propagates
@@ -132,6 +133,7 @@ func (flags *cmdFlags) Configure(command *cobra.Command) {
 		"Build documentation bundle for hugo.")
 	command.Flags().BoolVar(&flags.hugoPrettyUrls, "hugo-pretty-urls", true,
 		"Build documentation bundle for hugo with pretty URLs (./sample.md -> ../sample). Only useful with --hugo=true")
+	command.Flags().StringVar(&flags.hugoBaseURL, "hugo-base-url", "", "Rewrites the raltive links of documentation files to root-relative where possible.")
 	command.Flags().StringSliceVar(&flags.hugoSectionFiles, "hugo-section-files", []string{"readme", "read.me", "index"},
 		"When building a Hugo-compliant documentaton bundle, files with filename matching one form this list (in that order) will be renamed to _index.md. Only useful with --hugo=true")
 }
@@ -155,6 +157,7 @@ func NewOptions(f *cmdFlags) *Options {
 			PrettyUrls:     f.hugoPrettyUrls,
 			IndexFileNames: f.hugoSectionFiles,
 			Writer:         nil,
+			BaseURL:        f.hugoBaseURL,
 		}
 	}
 

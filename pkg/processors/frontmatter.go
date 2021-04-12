@@ -7,8 +7,6 @@ package processors
 import (
 	"strings"
 
-	"github.com/gardener/docforge/pkg/markdown"
-
 	"github.com/gardener/docforge/pkg/api"
 	"gopkg.in/yaml.v3"
 )
@@ -22,17 +20,20 @@ type FrontMatter struct {
 }
 
 // Process implements Processor#Process
-func (f *FrontMatter) Process(documentBlob []byte, node *api.Node) ([]byte, error) {
+func (f *FrontMatter) Process(document *Document) error {
+	var (
+		node = document.Node
+
+		fmBytes          []byte
+		props, fm, docFm map[string]interface{}
+		ok               bool
+		err              error
+	)
+
 	// Process only document nodes
 	if len(node.Source) == 0 && len(node.ContentSelectors) == 0 && node.Template == nil {
-		return documentBlob, nil
+		return nil
 	}
-	var (
-		nodeFmBytes, fmBytes, content []byte
-		props, fm, docFm              map[string]interface{}
-		ok                            bool
-		err                           error
-	)
 	// Frontmatter from node
 	if props = node.Properties; props == nil {
 		props = map[string]interface{}{}
@@ -50,13 +51,15 @@ func (f *FrontMatter) Process(documentBlob []byte, node *api.Node) ([]byte, erro
 		fm = map[string]interface{}{}
 	}
 
-	// document front matter
-	if fmBytes, content, err = markdown.StripFrontMatter(documentBlob); err != nil {
-		return nil, err
-	}
+	// This should be stripped earlier
+	// // document front matter
+	// if fmBytes, content, err = markdown.StripFrontMatter(documentBlob); err != nil {
+	// 	return nil, err
+	// }
+	fmBytes = document.FrontMatter
 	docFm = map[string]interface{}{}
 	if err := yaml.Unmarshal(fmBytes, docFm); err != nil {
-		return nil, err
+		return err
 	}
 
 	for propertyKey, propertyValue := range docFm {
@@ -65,23 +68,21 @@ func (f *FrontMatter) Process(documentBlob []byte, node *api.Node) ([]byte, erro
 		}
 	}
 
-	if _, ok := fm["title"]; !ok {
-		fm["title"] = f.getNodeTitle(node)
-	}
-
-	nodeFmBytes, err = yaml.Marshal(fm)
-	if err != nil {
-		return nil, err
-	}
-
 	// TODO: merge node + doc frontmatter per configurable strategy:
 	// - merge where node frontmatter entries win over document frontmatter
 	// - merge where document frontmatter entries win over node frontmatter
 	// - merge where document frontmatter are merged with node frontmatter ignoring duplicates (currently impl.)
-	if documentBlob, err = markdown.InsertFrontMatter(nodeFmBytes, content); err != nil {
-		return nil, err
+
+	if _, ok := fm["title"]; !ok {
+		fm["title"] = f.getNodeTitle(node)
 	}
-	return documentBlob, nil
+
+	document.FrontMatter, err = yaml.Marshal(fm)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Determines node title from its name or its parent name if

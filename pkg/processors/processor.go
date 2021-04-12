@@ -4,13 +4,9 @@
 
 package processors
 
-import (
-	"github.com/gardener/docforge/pkg/api"
-)
-
 // Processor is used by extensions to transform a document
 type Processor interface {
-	Process(documentBlob []byte, node *api.Node) ([]byte, error)
+	Process(document *Document) error
 }
 
 // ProcessorChain is a registry of ordered document processors
@@ -20,13 +16,12 @@ type ProcessorChain struct {
 }
 
 // Process implements Processor#Process invoking the registered chain of Processors sequentially
-func (p *ProcessorChain) Process(documentBlob []byte, node *api.Node) ([]byte, error) {
+func (p *ProcessorChain) Process(document *Document) error {
 	var err error
 	for _, p := range p.Processors {
-		documentBlob, err = p.Process(documentBlob, node)
-		if err != nil {
-			return nil, err
+		if err := p.Process(document); err != nil {
+			return err
 		}
 	}
-	return documentBlob, err
+	return err
 }

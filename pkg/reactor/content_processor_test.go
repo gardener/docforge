@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/gardener/docforge/pkg/api"
+	"github.com/gardener/docforge/pkg/processors"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/gardener/docforge/pkg/resourcehandlers/github"
 	"github.com/gardener/docforge/pkg/util/tests"
@@ -359,7 +360,10 @@ func Test_processLink(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			gotDestination, gotText, gotTitle, gotDownload, gotErr := c.resolveLink(ctx, tc.node, tc.destination, tc.contentSourcePath)
+			document := &processors.Document{
+				Node: tc.node,
+			}
+			link, gotDownload, gotErr := c.resolveLink(ctx, document, tc.destination, tc.contentSourcePath)
 
 			assert.Equal(t, tc.wantErr, gotErr)
 			if gotDownload != nil {
@@ -369,8 +373,8 @@ func Test_processLink(t *testing.T) {
 			}
 			assert.Equal(t, tc.wantDownload, gotDownload)
 			var destination, text, title string
-			if gotDestination != nil {
-				destination = *gotDestination
+			if link.Destination != nil {
+				destination = *link.Destination
 			}
 			if tc.wantDestination != nil {
 				if !strings.HasPrefix(destination, *tc.wantDestination) {
@@ -378,23 +382,23 @@ func Test_processLink(t *testing.T) {
 					return
 				}
 			} else {
-				assert.Equal(t, tc.wantDestination, gotDestination)
+				assert.Equal(t, tc.wantDestination, link.Destination)
 			}
-			if gotText != nil {
-				text = *gotText
+			if link.Text != nil {
+				text = *link.Text
 			}
 			if tc.wantText != nil {
 				assert.Equal(t, *tc.wantText, text)
 			} else {
-				assert.Equal(t, tc.wantText, gotText)
+				assert.Equal(t, tc.wantText, link.Text)
 			}
-			if gotTitle != nil {
-				title = *gotTitle
+			if link.Title != nil {
+				title = *link.Title
 			}
 			if tc.wantText != nil {
 				assert.Equal(t, *tc.wantTitle, title)
 			} else {
-				assert.Equal(t, tc.wantTitle, gotTitle)
+				assert.Equal(t, tc.wantTitle, link.Title)
 			}
 		})
 	}
@@ -490,7 +494,10 @@ func Test_matchHTMLLinks(t *testing.T) {
 				b   []byte
 				err error
 			)
-			if b, err = c.reconcileHTMLLinks(nil, node, []byte(tc.in), ""); err != nil {
+			doc := &processors.Document{
+				Node: node,
+			}
+			if b, err = c.reconcileHTMLLinks(context.TODO(), doc, []byte(tc.in), ""); err != nil {
 				t.Fatal(err)
 			}
 			assert.Equal(t, tc.want, string(b))
@@ -499,7 +506,6 @@ func Test_matchHTMLLinks(t *testing.T) {
 }
 
 type testResourceHandler struct {
-	hitCounter int
 }
 
 func (rh *testResourceHandler) Accept(uri string) bool {

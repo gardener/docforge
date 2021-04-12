@@ -5,7 +5,6 @@
 package processors
 
 import (
-	"reflect"
 	"testing"
 
 	"github.com/gardener/docforge/pkg/api"
@@ -13,68 +12,45 @@ import (
 
 func TestFrontmatterProcess(t *testing.T) {
 	testCases := []struct {
-		document     string
-		node         *api.Node
-		wantErr      error
-		wantDocument string
-		mutate       func(node *api.Node)
+		name                string
+		strippedFrontMatter string
+		node                *api.Node
+		wantErr             error
+		wantDocument        string
+		mutate              func(node *api.Node)
 	}{
 		{
-			document: "",
+			name:                "adds_missing_title_to_document_front_matter",
+			strippedFrontMatter: "",
 			node: &api.Node{
 				Source: "whatever",
 				Name:   "test-1_2.md",
 			},
-			wantErr: nil,
-			wantDocument: `---
-title: Test 1 2
----
-`,
+			wantErr:      nil,
+			wantDocument: `title: Test 1 2`,
 		},
 		{
-			document: "# Heading",
-			node: &api.Node{
-				Name: "test",
-				Properties: map[string]interface{}{
-					"frontmatter": map[string]interface{}{
-						"title": "Test1",
-					},
-				},
-				Source: "whatever",
+			name:                "reuses_defined_title_in_document",
+			strippedFrontMatter: "# Heading",
+			node:                &api.Node{Name: "test", Properties: map[string]interface{}{"frontmatter": map[string]interface{}{"title": "Test1"}}, Source: "whatever"},
+			wantErr:             nil,
+			wantDocument:        `title: Test1`,
+			mutate: func(node *api.Node) {
 			},
-			wantErr: nil,
-			wantDocument: `---
-title: Test1
----
-# Heading`,
 		},
 		{
-			document: `---
-prop1: A
----
-
-# Heading`,
-			node: &api.Node{
-				Name: "test",
-				Properties: map[string]interface{}{
-					"frontmatter": map[string]interface{}{
-						"title": "Test",
-					},
-				},
-				Source: "whatever",
+			name:                "merge_front_matter_from_doc_and_node",
+			strippedFrontMatter: `prop1: A`,
+			node:                &api.Node{Name: "test", Properties: map[string]interface{}{"frontmatter": map[string]interface{}{"title": "Test"}}, Source: "whatever"},
+			wantErr:             nil,
+			wantDocument: `prop1: A
+title: Test`,
+			mutate: func(node *api.Node) {
 			},
-			wantErr: nil,
-			wantDocument: `---
-prop1: A
-title: Test
----
-
-# Heading`,
 		},
 		{
-			document: `---
-title: Test1
----`,
+			name:                "rewrite_title_defined_in_the_stripped_fm",
+			strippedFrontMatter: `title: Test1`,
 			node: &api.Node{
 				Name: "test3",
 				Properties: map[string]interface{}{
@@ -84,28 +60,8 @@ title: Test1
 				},
 				Source: "whatever",
 			},
-			wantErr: nil,
-			wantDocument: `---
-title: Test2
----
-`,
-		},
-		{
-			document: `# heading 1`,
-			node: &api.Node{
-				Name:   "README.md",
-				Source: "whatever",
-			},
-			wantErr: nil,
-			wantDocument: `---
-title: Content
----
-# heading 1`,
-			mutate: func(node *api.Node) {
-				node.SetParent(&api.Node{
-					Name: "content",
-				})
-			},
+			wantErr:      nil,
+			wantDocument: `title: Test2`,
 		},
 	}
 	for _, tc := range testCases {
@@ -116,12 +72,16 @@ title: Content
 			if tc.mutate != nil {
 				tc.mutate(tc.node)
 			}
-			gotDocumentBlob, err := fm.Process([]byte(tc.document), tc.node)
+			document := &Document{
+				Node:        tc.node,
+				FrontMatter: []byte(tc.strippedFrontMatter),
+			}
+			err := fm.Process(document)
 			if err != tc.wantErr {
 				t.Errorf("expected err %v!=%v", tc.wantErr, err)
 			}
-			if !reflect.DeepEqual(string(gotDocumentBlob), tc.wantDocument) {
-				t.Errorf("expected bytes \n%s\n!=\n%s\n", tc.wantDocument, string(gotDocumentBlob))
+			if string(document.FrontMatter) == tc.wantDocument {
+				t.Errorf("expected bytes \n%s\n!=\n%s\n", tc.wantDocument, string(document.FrontMatter))
 			}
 		})
 	}

@@ -27,7 +27,7 @@ func Test_MatchForLinkRewrite(t *testing.T) {
 		{
 			"abc",
 			map[string]*api.LinkRewriteRule{
-				"abc": &api.LinkRewriteRule{
+				"abc": {
 					Destination: tests.StrPtr("cda"),
 				},
 			},
@@ -63,7 +63,7 @@ func Test_MatchForLinkRewrite(t *testing.T) {
 		{
 			"abc",
 			map[string]*api.LinkRewriteRule{
-				"abc": &api.LinkRewriteRule{
+				"abc": {
 					Version:     tests.StrPtr("v1.10.1"),
 					Destination: tests.StrPtr("cda"),
 					Text:        tests.StrPtr("Test"),
@@ -80,7 +80,7 @@ func Test_MatchForLinkRewrite(t *testing.T) {
 		{
 			"abc",
 			map[string]*api.LinkRewriteRule{
-				"abc": &api.LinkRewriteRule{
+				"abc": {
 					Destination: tests.StrPtr("abc"),
 				},
 			},
@@ -92,7 +92,7 @@ func Test_MatchForLinkRewrite(t *testing.T) {
 			func(n *api.Node) {
 				n.Links = &api.Links{
 					Rewrites: map[string]*api.LinkRewriteRule{
-						"abc": &api.LinkRewriteRule{
+						"abc": {
 							Destination: tests.StrPtr("cda"),
 						},
 					},
@@ -102,7 +102,7 @@ func Test_MatchForLinkRewrite(t *testing.T) {
 		{
 			"abc",
 			map[string]*api.LinkRewriteRule{
-				"abc": &api.LinkRewriteRule{
+				"abc": {
 					Version:     tests.StrPtr("v1.10.1"),
 					Destination: tests.StrPtr("abc"),
 					Text:        tests.StrPtr("Test"),
@@ -117,7 +117,7 @@ func Test_MatchForLinkRewrite(t *testing.T) {
 			func(n *api.Node) {
 				n.Links = &api.Links{
 					Rewrites: map[string]*api.LinkRewriteRule{
-						"abc": &api.LinkRewriteRule{
+						"abc": {
 							Destination: tests.StrPtr("cda"),
 						},
 					},
@@ -127,7 +127,7 @@ func Test_MatchForLinkRewrite(t *testing.T) {
 		{
 			"abc",
 			map[string]*api.LinkRewriteRule{
-				"abc": &api.LinkRewriteRule{
+				"abc": {
 					Version: tests.StrPtr("v1.10.1"),
 				},
 			},
@@ -139,7 +139,7 @@ func Test_MatchForLinkRewrite(t *testing.T) {
 			func(n *api.Node) {
 				n.Links = &api.Links{
 					Rewrites: map[string]*api.LinkRewriteRule{
-						"abc": &api.LinkRewriteRule{
+						"abc": {
 							Text:        tests.StrPtr("Test"),
 							Destination: tests.StrPtr("cda"),
 						},
@@ -152,7 +152,7 @@ func Test_MatchForLinkRewrite(t *testing.T) {
 				n2 := &api.Node{
 					Links: &api.Links{
 						Rewrites: map[string]*api.LinkRewriteRule{
-							"abc": &api.LinkRewriteRule{
+							"abc": {
 								Title: tests.StrPtr("Test Title"),
 							},
 						},
@@ -223,7 +223,7 @@ func Test_MatchForDownload(t *testing.T) {
 			"abc",
 			&api.Downloads{
 				Scope: map[string]api.ResourceRenameRules{
-					"abc": api.ResourceRenameRules{
+					"abc": {
 						"abc": "cda",
 					},
 				},
@@ -236,7 +236,7 @@ func Test_MatchForDownload(t *testing.T) {
 			"abc",
 			&api.Downloads{
 				Scope: map[string]api.ResourceRenameRules{
-					"ABC": api.ResourceRenameRules{
+					"ABC": {
 						"abc": "cda",
 					},
 				},
@@ -249,7 +249,7 @@ func Test_MatchForDownload(t *testing.T) {
 			"abc",
 			&api.Downloads{
 				Scope: map[string]api.ResourceRenameRules{
-					"abc": api.ResourceRenameRules{
+					"abc": {
 						"abc": "cda",
 					},
 				},
@@ -260,7 +260,7 @@ func Test_MatchForDownload(t *testing.T) {
 				n.Links = &api.Links{
 					Downloads: &api.Downloads{
 						Scope: map[string]api.ResourceRenameRules{
-							"abc": api.ResourceRenameRules{
+							"abc": {
 								"abc": "def",
 							},
 						},
@@ -272,7 +272,7 @@ func Test_MatchForDownload(t *testing.T) {
 			"abc/a.md",
 			&api.Downloads{
 				Scope: map[string]api.ResourceRenameRules{
-					"abc": api.ResourceRenameRules{
+					"abc": {
 						"abc": "$name-test",
 					},
 				},
@@ -285,7 +285,7 @@ func Test_MatchForDownload(t *testing.T) {
 			"abc/a.md",
 			&api.Downloads{
 				Scope: map[string]api.ResourceRenameRules{
-					"abc": api.ResourceRenameRules{
+					"abc": {
 						"abc": "$name-test$ext",
 					},
 				},
@@ -298,7 +298,7 @@ func Test_MatchForDownload(t *testing.T) {
 			"abc/a.md",
 			&api.Downloads{
 				Scope: map[string]api.ResourceRenameRules{
-					"abc": api.ResourceRenameRules{
+					"abc": {
 						"abc": "$name-0$ext",
 					},
 				},

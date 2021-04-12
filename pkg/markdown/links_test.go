@@ -7,6 +7,7 @@ package markdown
 import (
 	"testing"
 
+	"github.com/gardener/docforge/pkg/markdown/parser"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -52,7 +53,10 @@ func TestUpdateMarkdownLinks(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run("", func(t *testing.T) {
-			gotBlob, gotErr := UpdateMarkdownLinks([]byte(tc.in), tc.cb)
+
+			p := parser.NewParser()
+			document := p.Parse(tc.in)
+			gotBlob, gotErr := UpdateMarkdownLinks(document, tc.cb)
 			assert.Equal(t, string(tc.wantBlob), string(gotBlob))
 			if tc.wantErr != nil {
 				assert.Error(t, gotErr)

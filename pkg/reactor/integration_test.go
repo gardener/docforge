@@ -39,7 +39,7 @@ func _TestReactorWithGitHub(t *testing.T) {
 
 	docs := &api.Documentation{
 		Structure: []*api.Node{
-			&api.Node{
+			{
 				Name: "docs",
 				NodeSelector: &api.NodeSelector{
 					Path: "https://github.com/gardener/gardener/tree/v1.10.0/docs",
@@ -62,13 +62,13 @@ func _TestReactorWithGitHub(t *testing.T) {
 		},
 		Links: &api.Links{
 			Rewrites: map[string]*api.LinkRewriteRule{
-				"gardener/gardener/(blob|tree|raw)": &api.LinkRewriteRule{
+				"gardener/gardener/(blob|tree|raw)": {
 					Version: tests.StrPtr("v1.10.0"),
 				},
-				"gardener/gardener-extension-provider-aws/(blob|tree|raw)": &api.LinkRewriteRule{
+				"gardener/gardener-extension-provider-aws/(blob|tree|raw)": {
 					Version: tests.StrPtr("v1.15.3"),
 				},
-				"gardener/gardener-extension-networking-calico/(blob|tree|raw)": &api.LinkRewriteRule{
+				"gardener/gardener-extension-networking-calico/(blob|tree|raw)": {
 					Version: tests.StrPtr("v1.10.0"),
 				},
 			},

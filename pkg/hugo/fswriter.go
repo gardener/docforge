@@ -56,7 +56,7 @@ func (w *FSWriter) Write(name, path string, docBlob []byte, node *api.Node) erro
 					names = append(names, n.Name)
 				}
 				p := nodeutil.Path(node, "/")
-				return fmt.Errorf("Multiple peer nodes with property index: true detected in %s: %s", p, strings.Join(names, ","))
+				return fmt.Errorf("multiple peer nodes with property index: true detected in %s: %s", p, strings.Join(names, ","))
 			}
 		}
 
@@ -68,7 +68,7 @@ func (w *FSWriter) Write(name, path string, docBlob []byte, node *api.Node) erro
 		peerNodes := node.Peers()
 		if len(w.IndexFileNames) > 0 && name != "_index" && name != "_index.md" && !hasIndexNode(peerNodes) {
 			for _, s := range w.IndexFileNames {
-				if strings.ToLower(name) == strings.ToLower(s) {
+				if strings.EqualFold(name, s) {
 					klog.V(6).Infof("Renaming %s -> _index.md\n", filepath.Join(path, name))
 					name = "_index"
 					break

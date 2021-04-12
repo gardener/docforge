@@ -13,6 +13,7 @@ import (
 
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/jobs"
+	"github.com/gardener/docforge/pkg/processors"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 )
 
@@ -34,14 +35,14 @@ func (r *TestReader) Read(ctx context.Context, source string) ([]byte, error) {
 }
 
 type TestProcessor struct {
-	withArgs func(documentBlob []byte, node *api.Node) ([]byte, error)
+	withArgs func(document *processors.Document) error
 }
 
-func (p *TestProcessor) Process(documentBlob []byte, node *api.Node) ([]byte, error) {
+func (p *TestProcessor) Process(document *processors.Document) error {
 	if p.withArgs != nil {
-		return p.withArgs(documentBlob, node)
+		return p.withArgs(document)
 	}
-	return documentBlob, nil
+	return nil
 }
 
 func TestDocumentWorkerWork(t *testing.T) {
@@ -55,8 +56,8 @@ func TestDocumentWorkerWork(t *testing.T) {
 			make(map[string][]byte),
 		},
 		Processor: &TestProcessor{
-			func(documentBlob []byte, node *api.Node) ([]byte, error) {
-				return documentBlob, nil
+			func(documnet *processors.Document) error {
+				return nil
 			},
 		},
 		NodeContentProcessor: &nodeContentProcessor{
@@ -75,7 +76,7 @@ func TestDocumentWorkerWork(t *testing.T) {
 		name                 string
 		tasks                interface{}
 		readerInput          map[string][]byte
-		processorCb          func(documentBlob []byte, node *api.Node) ([]byte, error)
+		processorCb          func(document *processors.Document) error
 		expectedWriterOutput map[string][]byte
 		expectederror        *jobs.WorkerError
 	}{
