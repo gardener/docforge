@@ -637,8 +637,11 @@ func (gh *GitHub) TreeExists(ctx context.Context, absLink string) (bool, error) 
 
 	if ghLocator != nil && ghLocator.Type == Tree {
 		ghTrees, response, err := gh.Client.Git.GetTree(ctx, ghLocator.Owner, ghLocator.Repo, ghLocator.SHA, false)
-		if err != nil && response.StatusCode != http.StatusNotFound {
-			return false, err
+		if err != nil {
+			// return the the error if the response object is nil or the status code is different from 401
+			if response == nil || response.StatusCode != http.StatusNotFound {
+				return false, err
+			}
 		}
 		if response.StatusCode == http.StatusOK && ghTrees != nil {
 			return true, nil
