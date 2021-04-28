@@ -41,7 +41,7 @@ func TestTransform(t *testing.T) {
 			if err = json.Unmarshal(blobIn, &commits); err != nil {
 				t.Fatalf(err.Error())
 			}
-			got := transform(commits)
+			got := Transform(commits)
 
 			if blobOut, err = ioutil.ReadFile(filepath.Join("testdata", tc.testFileNameOut)); err != nil {
 				t.Fatalf(err.Error())

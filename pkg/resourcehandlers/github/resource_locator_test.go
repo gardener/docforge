@@ -213,13 +213,13 @@ func Test_parse(t *testing.T) {
 			name:                "unsupported url",
 			url:                 "https://github.com",
 			wantResourceLocator: nil,
-			wantErr:             fmt.Errorf("Unsupported GitHub URL: https://github.com. Need at least host and organization|owner"),
+			wantErr:             fmt.Errorf("unsupported GitHub URL: https://github.com. Need at least host and organization|owner"),
 		},
 		{
 			name:                "unsupported url",
 			url:                 "https://github.com/gardener/gardener/abc/master/logo/gardener-large.png",
 			wantResourceLocator: nil,
-			wantErr:             fmt.Errorf("Unsupported GitHub URL: https://github.com/gardener/gardener/abc/master/logo/gardener-large.png . %s", fmt.Errorf("Unknown resource type string '%s'. Must be one of %v", "abc", []string{"tree", "blob", "raw", "wiki", "releases", "issues", "issue", "pulls", "pull", "commit", "commits"})),
+			wantErr:             fmt.Errorf("unsupported GitHub URL: https://github.com/gardener/gardener/abc/master/logo/gardener-large.png . %s", fmt.Errorf("unknown resource type string '%s'. Must be one of %v", "abc", []string{"tree", "blob", "raw", "wiki", "releases", "issues", "issue", "pulls", "pull", "commit", "commits"})),
 		},
 		{
 			name: "enterprise raw url with host variant",
@@ -253,7 +253,7 @@ func Test_parse(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			gotResourceLocator, gotErr := parse(tc.url)
+			gotResourceLocator, gotErr := Parse(tc.url)
 			if gotErr != tc.wantErr {
 				if tc.wantErr == nil || gotErr == nil {
 					t.Errorf("Error %v != %v", gotErr, tc.wantErr)

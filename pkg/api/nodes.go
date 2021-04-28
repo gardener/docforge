@@ -7,6 +7,8 @@ package api
 import (
 	"sort"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 )
 
 // Parent returns the parent node (if any) of this node n
@@ -212,4 +214,12 @@ func SortNodesByName(node *Node) {
 			SortNodesByName(n)
 		}
 	}
+}
+
+func (n *Node) String() string {
+	node, err := yaml.Marshal(n)
+	if err != nil {
+		return ""
+	}
+	return string(node)
 }

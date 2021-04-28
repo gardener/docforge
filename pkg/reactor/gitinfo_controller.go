@@ -123,7 +123,7 @@ func (d *gitInfoWorker) Work(ctx context.Context, ctrl *gitInfoController, task 
 		for _, s := range sources {
 			klog.V(6).Infof("reading git info for %s\n", s)
 			if info, err = d.Read(ctx, s); err != nil {
-				return jobs.NewWorkerError(err, 0)
+				return jobs.NewWorkerError(fmt.Errorf("failed to read git info for %s: %v", s, err), 0)
 			}
 			if info == nil {
 				continue

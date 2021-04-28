@@ -109,18 +109,6 @@ func (r *Reactor) Run(ctx context.Context, manifest *api.Documentation, dryRun b
 }
 
 func printResolved(ctx context.Context, manifest *api.Documentation, writer io.Writer) error {
-	// for _, node := range manifest.Structure {
-	// 	if links := resolveNodeLinks(node, manifest.Links); len(links) > 0 {
-	// 		for _, l := range links {
-	// 			l := mergeLinks(node.ResolvedLinks, l)
-	// 			node.ResolvedLinks = l
-	// 		}
-	// 	}
-	// 	// remove resolved links for container nodes
-	// 	if node.Nodes != nil {
-	// 		node.ResolvedLinks = nil
-	// 	}
-	// }
 	s, err := api.Serialize(manifest)
 	if err != nil {
 		return err
