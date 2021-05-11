@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/hugo"
@@ -17,6 +18,8 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/klog/v2"
 )
+
+const Home string = ".docforge"
 
 type cmdFlags struct {
 	maxWorkersCount              int
@@ -39,6 +42,8 @@ type cmdFlags struct {
 	hugoPrettyUrls               bool
 	hugoSectionFiles             []string
 	hugoBaseURL                  string
+	useGit                       bool
+	homeDir                      string
 }
 
 // NewCommand creates a new root command and propagates
@@ -56,7 +61,7 @@ func NewCommand(ctx context.Context, cancel context.CancelFunc) *cobra.Command {
 				err error
 			)
 			options := NewOptions(flags)
-			if rhs, err = initResourceHandlers(ctx, options.GitHubTokens, options.GitHubClientThrottling, options.Metering); err != nil {
+			if rhs, err = initResourceHandlers(ctx, options.HomeDir, options.UseGit, options.GitHubTokens, options.GitHubClientThrottling, options.Metering); err != nil {
 				return err
 			}
 			if doc, err = manifest(ctx, flags.documentationManifestPath, rhs, flags.variables); err != nil {
@@ -127,13 +132,16 @@ func (flags *cmdFlags) Configure(command *cobra.Command) {
 	command.Flags().IntVar(&flags.resourceDownloadWorkersCount, "download-workers", 10,
 		"Number of workers downloading document resources in parallel.")
 	// Disabled until "fatal error: concurrent map writes" is fixed
-	// command.Flags().BoolVar(&flags.clientMetering, "metering", false,
 	// 	"Enables client-side networking metering to produce Prometheus compliant series.")
 	command.Flags().BoolVar(&flags.hugo, "hugo", false,
 		"Build documentation bundle for hugo.")
 	command.Flags().BoolVar(&flags.hugoPrettyUrls, "hugo-pretty-urls", true,
 		"Build documentation bundle for hugo with pretty URLs (./sample.md -> ../sample). Only useful with --hugo=true")
 	command.Flags().StringVar(&flags.hugoBaseURL, "hugo-base-url", "", "Rewrites the raltive links of documentation files to root-relative where possible.")
+
+	command.Flags().StringVar(&flags.homeDir, "cache-dir", "", "Default: \"$HOME/.docforge/cache\"")
+	command.Flags().BoolVar(&flags.useGit, "use-git", false, "Use Git for replication")
+
 	command.Flags().StringSliceVar(&flags.hugoSectionFiles, "hugo-section-files", []string{"readme", "read.me", "index"},
 		"When building a Hugo-compliant documentaton bundle, files with filename matching one form this list (in that order) will be renamed to _index.md. Only useful with --hugo=true")
 }
@@ -167,9 +175,22 @@ func NewOptions(f *cmdFlags) *Options {
 
 	path, err := os.Getwd()
 	if err != nil {
-		//TODO:
+		panic(err)
 	}
 
+	if f.useGit {
+		if f.homeDir == "" {
+			userHomeDir, err := os.UserHomeDir()
+			if err != nil {
+				panic(err)
+			}
+			f.homeDir = filepath.Join(userHomeDir, Home)
+		} else if !strings.HasSuffix(f.homeDir, Home) {
+			f.homeDir = filepath.Join(f.homeDir, Home)
+		}
+	}
+
+	// TODO: try to use filepath.Abs(f.documentationManifestPath)
 	manifestAbsPath := filepath.Join(path, (f.documentationManifestPath))
 
 	return &Options{
@@ -188,6 +209,8 @@ func NewOptions(f *cmdFlags) *Options {
 		GitHubInfoPath:               f.ghInfoDestination,
 		Hugo:                         hugoOptions,
 		ManifestAbsPath:              manifestAbsPath,
+		UseGit:                       f.useGit,
+		HomeDir:                      f.homeDir,
 	}
 }
 

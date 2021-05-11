@@ -13,7 +13,6 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
-	"sync"
 	"time"
 
 	"k8s.io/klog/v2"
@@ -99,7 +98,7 @@ func (gh *GitHub) buildNodes(ctx context.Context, node *api.Node, excludePaths [
 	} else if len(node.Source) > 0 {
 		nodePath = node.Source
 	}
-	nodePathRL, err := parse(nodePath)
+	nodePathRL, err := Parse(nodePath)
 	if err != nil {
 		return nil, err
 	}
@@ -191,7 +190,7 @@ func (gh *GitHub) buildNodes(ctx context.Context, node *api.Node, excludePaths [
 func cleanupNodeTree(node *api.Node) {
 	if len(node.Source) > 0 {
 		source := node.Source
-		if rl, _ := parse(source); rl.Type == Tree {
+		if rl, _ := Parse(source); rl.Type == Tree {
 			node.Source = ""
 		}
 	}
@@ -211,46 +210,6 @@ func cleanupNodeTree(node *api.Node) {
 	node.Nodes = children
 }
 
-// Cache is indexes GitHub TreeEntries by website resource URLs as keys,
-// mapping ResourceLocator objects to them.
-// TODO: implement me efficiently and for parallel use
-type Cache struct {
-	cache map[string]*ResourceLocator
-	mux   sync.RWMutex
-}
-
-// Get returns a ResourceLocator object mapped to the path (URL)
-func (c *Cache) Get(entry *ResourceLocator) (*ResourceLocator, error) {
-	defer c.mux.Unlock()
-	c.mux.Lock()
-	path, err := c.Key(entry)
-	if err != nil {
-		return nil, err
-	}
-	return c.cache[path], nil
-}
-
-// Key converts a ResourceLocator to a string that could be used for a cache key
-func (c *Cache) Key(rl *ResourceLocator) (string, error) {
-	host := strings.ToLower(rl.Host)
-	if strings.HasPrefix(rl.Host, "raw.") {
-		if rl.Host == "raw.githubusercontent.com" {
-			host = "github.com"
-		} else {
-			host = rl.Host[len("raw."):]
-		}
-	} else if host == "api.github.com" {
-		host = "github.com"
-	}
-
-	u, err := url.Parse(rl.Path)
-	if err != nil {
-		return "", err
-	}
-
-	return strings.ToLower(fmt.Sprintf("%s:%s:%s:%s:%s", host, rl.Owner, rl.Repo, rl.SHAAlias, u.Path)), nil
-}
-
 // HasURLPrefix returns true if pathPrefix tests true as prefix for path,
 // either with tree or blob in its resource type segment
 // The resource type in the URL prefix {tree|blob} changes according to the resource
@@ -260,41 +219,6 @@ func HasURLPrefix(path, pathPrefix string) bool {
 	pathPrefixAsBlob := pathPrefix
 	pathPrefixAsBlob = reHasTree.ReplaceAllString(pathPrefixAsBlob, repStr)
 	return strings.HasPrefix(path, pathPrefix) || strings.HasPrefix(path, pathPrefixAsBlob)
-}
-
-// GetSubset returns a subset of the ResourceLocator objects mapped to keys
-// with this pathPrefix
-func (c *Cache) GetSubset(pathPrefix string) ([]*ResourceLocator, error) {
-	defer c.mux.Unlock()
-	c.mux.Lock()
-	rl, _ := parse(pathPrefix)
-
-	var entries = make([]*ResourceLocator, 0)
-	for k, v := range c.cache {
-		key, err := c.Key(rl)
-		if err != nil {
-			return nil, err
-		}
-		if k == key {
-			continue
-		}
-		if strings.HasPrefix(k, key) {
-			entries = append(entries, v)
-		}
-	}
-	return entries, nil
-}
-
-// Set adds a mapping between a path (URL) and a ResourceLocator to the cache
-func (c *Cache) Set(entry *ResourceLocator) (*ResourceLocator, error) {
-	defer c.mux.Unlock()
-	c.mux.Lock()
-	path, err := c.Key(entry)
-	if err != nil {
-		return nil, err
-	}
-	c.cache[path] = entry
-	return entry, nil
 }
 
 // GitHub implements resourcehandlers/ResourceHandler
@@ -343,7 +267,7 @@ func (gh *GitHub) URLToGitHubLocator(ctx context.Context, urlString string, reso
 		ghRL *ResourceLocator
 		err  error
 	)
-	if ghRL, err = parse(urlString); err != nil {
+	if ghRL, err = Parse(urlString); err != nil {
 		return nil, err
 	}
 	if ghRL.Type == Wiki || len(ghRL.SHAAlias) == 0 {
@@ -400,7 +324,7 @@ func (gh *GitHub) Accept(uri string) bool {
 		return false
 	}
 	// check if this is a GitHub URL
-	if rl, err := parse(uri); rl == nil || err != nil {
+	if rl, err := Parse(uri); rl == nil || err != nil {
 		return false
 	}
 	for _, s := range gh.acceptedHosts {
@@ -521,7 +445,7 @@ func (gh *GitHub) ReadGitInfo(ctx context.Context, uri string) ([]byte, error) {
 		err     error
 		blob    []byte
 	)
-	if rl, err = parse(uri); err != nil {
+	if rl, err = Parse(uri); err != nil {
 		return nil, err
 	}
 	opts := &github.CommitsListOptions{
@@ -532,7 +456,7 @@ func (gh *GitHub) ReadGitInfo(ctx context.Context, uri string) ([]byte, error) {
 		return nil, err
 	}
 	if commits != nil {
-		gitInfo := transform(commits)
+		gitInfo := Transform(commits)
 		if gitInfo == nil {
 			return nil, nil
 		}
@@ -545,7 +469,7 @@ func (gh *GitHub) ReadGitInfo(ctx context.Context, uri string) ([]byte, error) {
 		if len(rl.Path) > 0 {
 			gitInfo.Path = &rl.Path
 		}
-		if blob, err = marshallGitInfo(gitInfo); err != nil {
+		if blob, err = MarshallGitInfo(gitInfo); err != nil {
 			return nil, err
 		}
 	}
@@ -602,7 +526,7 @@ func (gh *GitHub) SetVersion(absLink, version string) (string, error) {
 		rl  *ResourceLocator
 		err error
 	)
-	if rl, err = parse(absLink); err != nil {
+	if rl, err = Parse(absLink); err != nil {
 		return "", err
 	}
 
@@ -620,7 +544,7 @@ func (gh *GitHub) GetRawFormatLink(absLink string) (string, error) {
 		rl  *ResourceLocator
 		err error
 	)
-	if rl, err = parse(absLink); err != nil {
+	if rl, err = Parse(absLink); err != nil {
 		return "", err
 	}
 	if l := rl.GetRaw(); len(l) > 0 {

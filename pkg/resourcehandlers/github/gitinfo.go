@@ -15,7 +15,7 @@ import (
 	"github.com/google/go-github/v32/github"
 )
 
-func transform(commits []*github.RepositoryCommit) *git.GitInfo {
+func Transform(commits []*github.RepositoryCommit) *git.GitInfo {
 	if commits == nil {
 		return nil
 	}
@@ -74,7 +74,7 @@ func contains(slice []string, s string) bool {
 	return false
 }
 
-func marshallGitInfo(gitInfo *git.GitInfo) ([]byte, error) {
+func MarshallGitInfo(gitInfo *git.GitInfo) ([]byte, error) {
 	var (
 		blob []byte
 		err  error

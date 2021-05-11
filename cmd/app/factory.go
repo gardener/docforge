@@ -19,15 +19,14 @@ import (
 
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/hugo"
-	"github.com/gardener/docforge/pkg/metrics"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/gardener/docforge/pkg/writers"
 	"github.com/hashicorp/go-multierror"
 
-	//"github.com/gardener/docforge/pkg/metrics"
 	"github.com/gardener/docforge/pkg/processors"
 	"github.com/gardener/docforge/pkg/reactor"
 	"github.com/gardener/docforge/pkg/resourcehandlers/fs"
+	"github.com/gardener/docforge/pkg/resourcehandlers/git"
 	ghrs "github.com/gardener/docforge/pkg/resourcehandlers/github"
 
 	"github.com/google/go-github/v32/github"
@@ -59,6 +58,8 @@ type Options struct {
 	DryRunWriter                 io.Writer
 	Resolve                      bool
 	Hugo                         *hugo.Options
+	UseGit                       bool
+	HomeDir                      string
 }
 
 // Metering encapsulates options for setting up client-side
@@ -71,7 +72,7 @@ type Metering struct {
 func NewReactor(ctx context.Context, options *Options, globalLinksCfg *api.Links) (*reactor.Reactor, error) {
 	dryRunWriters := writers.NewDryRunWritersFactory(options.DryRunWriter)
 
-	rhs, err := initResourceHandlers(ctx, options.GitHubTokens, options.GitHubClientThrottling, options.Metering)
+	rhs, err := initResourceHandlers(ctx, options.HomeDir, options.UseGit, options.GitHubTokens, options.GitHubClientThrottling, options.Metering)
 	if err != nil {
 		return nil, err
 	}
@@ -91,6 +92,7 @@ func NewReactor(ctx context.Context, options *Options, globalLinksCfg *api.Links
 		GlobalLinksConfig:            globalLinksCfg,
 		ManifestAbsPath:              options.ManifestAbsPath,
 	}
+
 	if options.DryRunWriter != nil {
 		o.Writer = dryRunWriters.GetWriter(options.DestinationPath)
 		o.ResourceDownloadWriter = dryRunWriters.GetWriter(filepath.Join(options.DestinationPath, options.ResourcesPath))
@@ -139,75 +141,90 @@ func WithHugo(reactorOptions *reactor.Options, o *Options) {
 	reactorOptions.Writer = hugo.NewWriter(hugoOptions)
 }
 
-// initResourceHandlers initializes the resource handler
-// objects used by reactors
-func initResourceHandlers(ctx context.Context, githubTokens map[string]string, githubClientThrottling bool, metering *Metering) ([]resourcehandlers.ResourceHandler, error) {
+func initResourceHandlers(ctx context.Context, homeDir string, useGit bool, githubTokens map[string]string, githubClientThrottling bool, metering *Metering) ([]resourcehandlers.ResourceHandler, error) {
 	rhs := []resourcehandlers.ResourceHandler{
 		fs.NewFSResourceHandler(),
 	}
 	var errs *multierror.Error
-	if githubTokens != nil {
-		for instance, token := range githubTokens {
-			if !strings.HasPrefix(instance, "https://") && !strings.HasPrefix(instance, "http://") {
-				instance = "https://" + instance
-			}
-
-			p, err := url.Parse(instance)
-			if err != nil {
-				errs = multierror.Append(errs, fmt.Errorf("couldn't parse url: %s", instance))
+	for instance, token := range githubTokens {
+		// TODO: use configuration file
+		var user string
+		if useGit {
+			userAndToken := strings.Split(token, ":")
+			if len(userAndToken) != 2 {
+				multierror.Append(errs, fmt.Errorf("user and token should be provided in the format \"user:token\" when using Git for instance: %s", instance))
 				continue
 			}
-
-			ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
-			oauthClient := oauth2.NewClient(ctx, ts)
-			if metering != nil && metering.Enabled {
-				// Wrap client transport layer with middleware instrumenting it for
-				// Prometheus metrics
-				oauthClient = metrics.InstrumentClientRoundTripperDuration(oauthClient)
-			}
-			var (
-				rl      *rate.Limiter
-				apiHost string
-			)
-
-			if githubClientThrottling {
-				if p.Host == "github.com" {
-					apiHost = "https://api.github.com"
-				} else {
-					apiHost = fmt.Sprintf("%s/%s", instance, "api")
-				}
-				if rl, err = rateLimitForClient(oauthClient, apiHost); err != nil {
-					errs = multierror.Append(errs, fmt.Errorf("cannot create rate-limited client for GitHub instance %s: %w", instance, err))
-					continue
-				}
-				if rl == nil {
-					errs = multierror.Append(errs, fmt.Errorf("cannot create rate-limited client for GitHub instance %s: rate limit exceeded", instance))
-					continue
-				}
-				// Wrap client transport instrumenting it for rate-limited requests
-				oauthClient.Transport = WithClientRateLimit(oauthClient.Transport, rl)
-			}
-			// Wrap client transport instrumenting it for request/response logging
-			oauthClient.Transport = WithClientHTTPLogging(oauthClient.Transport)
-
-			if p.Host == "github.com" {
-				client := github.NewClient(oauthClient)
-				gh := ghrs.NewResourceHandler(client, []string{"github.com", "raw.githubusercontent.com"})
-				rhs = append(rhs, gh)
-				continue
-			}
-
-			client, err := github.NewEnterpriseClient(instance, "", oauthClient)
-			if err != nil {
-				errs = multierror.Append(errs, fmt.Errorf("cannot create GitHub enterprise client for instance %s", instance))
-				continue
-			}
-			defaultRawHost := "raw." + p.Host
-			gh := ghrs.NewResourceHandler(client, []string{p.Host, defaultRawHost})
-			rhs = append(rhs, gh)
+			user = userAndToken[0]
+			token = userAndToken[1]
 		}
+
+		if !strings.HasPrefix(instance, "https://") && !strings.HasPrefix(instance, "http://") {
+			instance = "https://" + instance
+		}
+
+		u, err := url.Parse(instance)
+		if err != nil {
+			multierror.Append(errs, fmt.Errorf("couldn't parse url: %s", instance))
+			continue
+		}
+
+		client, err := buildClient(ctx, token, githubClientThrottling, instance)
+		if err != nil {
+			multierror.Append(errs, err)
+		}
+		rh := newResouceHandler(u.Host, user, token, homeDir, client, useGit)
+		rhs = append(rhs, rh)
 	}
+
 	return rhs, errs.ErrorOrNil()
+}
+
+func newResouceHandler(host, user, token, homeDir string, client *github.Client, useGit bool) resourcehandlers.ResourceHandler {
+	rawHost := "raw." + host
+	if host == "github.com" {
+		rawHost = "raw.githubusercontent.com"
+	}
+
+	if useGit {
+		return git.NewResourceHandler(filepath.Join(homeDir, git.CacheDir), user, token, client, []string{host, rawHost})
+	}
+	return ghrs.NewResourceHandler(client, []string{host, rawHost})
+}
+
+func buildClient(ctx context.Context, accessToken string, withClientThrottling bool, host string) (*github.Client, error) {
+	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: accessToken})
+	oauthClient := oauth2.NewClient(ctx, ts)
+	var (
+		err     error
+		rl      *rate.Limiter
+		apiHost string
+	)
+
+	if withClientThrottling {
+		if host == "https://github.com" {
+			apiHost = "https://api.github.com"
+		} else {
+			apiHost = fmt.Sprintf("%s/%s", host, "api")
+		}
+		if rl, err = rateLimitForClient(oauthClient, apiHost); err != nil {
+			return nil, fmt.Errorf("cannot create rate-limited client for GitHub instance %s: %w", host, err)
+		}
+		if rl == nil {
+			return nil, fmt.Errorf("cannot create rate-limited client for GitHub instance %s: rate limit exceeded", host)
+		}
+		// Wrap client transport instrumenting it for rate-limited requests
+		oauthClient.Transport = WithClientRateLimit(oauthClient.Transport, rl)
+	}
+	// Wrap client transport instrumenting it for request/response logging
+	oauthClient.Transport = WithClientHTTPLogging(oauthClient.Transport)
+
+	if host == "https://github.com" {
+		client := github.NewClient(oauthClient)
+		return client, nil
+	}
+
+	return github.NewEnterpriseClient(host, "", oauthClient)
 }
 
 type RoundTripperFunc func(req *http.Request) (*http.Response, error)
