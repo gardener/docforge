@@ -23,13 +23,13 @@ docforge:
                 build: ~
     steps:
       check:
-        image: "golang:1.14.4"
+        image: "golang:1.16.3"
       compliance:
         image: "fsfe/reuse:latest"
       test:
-        image: "golang:1.14.4"
+        image: "golang:1.16.3"
       build:
-        image: "golang:1.14.4"
+        image: "golang:1.16.3"
         output_dir: "binary"
   jobs:
     head-update:
