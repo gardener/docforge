@@ -33,7 +33,7 @@ func newGenDocsFormat(formatString string) (genDocsFormat, error) {
 	case "man":
 		return genDocsManPages, nil
 	}
-	return 0, fmt.Errorf("Unknown format '%s'. Must be one of %v", formatString, []string{"md", "man"})
+	return 0, fmt.Errorf("unknown format '%s'. Must be one of %v", formatString, []string{"md", "man"})
 }
 
 // NewGenCmdDocs generates commands reference documentation

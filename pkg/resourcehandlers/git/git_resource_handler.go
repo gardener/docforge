@@ -30,7 +30,7 @@ const CacheDir string = "cache"
 
 type Git struct {
 	client  *ghclient.Client
-	gitAuth *http.BasicAuth
+	gitAuth http.AuthMethod
 
 	gitRepositoriesAbsPath string
 	acceptedHosts          []string
@@ -38,16 +38,26 @@ type Git struct {
 }
 
 // NewResourceHandler creates new GitHub ResourceHandler objects
-func NewResourceHandler(gitRepositoriesAbsPath, user, oauthToken string, githubOAuthClient *ghclient.Client, acceptedHosts []string) resourcehandlers.ResourceHandler {
+func NewResourceHandler(gitRepositoriesAbsPath string, user *string, oauthToken string, githubOAuthClient *ghclient.Client, acceptedHosts []string) resourcehandlers.ResourceHandler {
 	return &Git{
-		client: githubOAuthClient,
-		gitAuth: &http.BasicAuth{
-			Username: user,
-			Password: oauthToken,
-		},
+		client:  githubOAuthClient,
+		gitAuth: buildAuthMethod(user, oauthToken),
 
 		gitRepositoriesAbsPath: gitRepositoriesAbsPath,
 		acceptedHosts:          acceptedHosts,
+	}
+}
+
+func buildAuthMethod(user *string, oauthToken string) http.AuthMethod {
+	// why BasicAuth - https://stackoverflow.com/a/52219873
+	var u string
+	if user != nil {
+		u = *user
+	}
+
+	return &http.BasicAuth{
+		Username: u,
+		Password: oauthToken,
 	}
 }
 
@@ -154,9 +164,13 @@ func (nb *nodeBuilder) build(path string, info os.FileInfo, err error) error {
 
 // TODO: Skip fetching multiple times
 func (g *Git) prepareGitRepository(ctx context.Context, repositoryPath string, rl *github.ResourceLocator) error {
+	var fetch = true
+
 	if g.isPrepared(repositoryPath) {
 		return nil
 	}
+	g.setAsPrepared(repositoryPath)
+
 	r, err := git.PlainOpen(repositoryPath)
 	if err != nil {
 		if err != git.ErrRepositoryNotExists {
@@ -165,20 +179,22 @@ func (g *Git) prepareGitRepository(ctx context.Context, repositoryPath string, r
 		if r, err = git.PlainCloneContext(ctx, repositoryPath, false, &git.CloneOptions{
 			URL:        "https://" + rl.Host + "/" + rl.Owner + "/" + rl.Repo,
 			RemoteName: git.DefaultRemoteName,
-			Progress:   os.Stdout,
+			Depth:      1,
 			Auth:       g.gitAuth,
-			// ReferenceName: plumbing.ReferenceName(rl.SHAAlias) ,
 		}); err != nil {
 			return fmt.Errorf("failed to prepare repo: %s, %v", repositoryPath, err)
 		}
+		fetch = false
 	}
 
-	// could be skipped if was plaincloned
-	if err := r.FetchContext(ctx, &git.FetchOptions{
-		Auth:       g.gitAuth,
-		RemoteName: git.DefaultRemoteName,
-	}); err != nil && err != git.NoErrAlreadyUpToDate {
-		return fmt.Errorf("failed to fetch repository %s: %v", repositoryPath, err)
+	if fetch {
+		if err := r.FetchContext(ctx, &git.FetchOptions{
+			Auth:       g.gitAuth,
+			Depth:      1,
+			RemoteName: git.DefaultRemoteName,
+		}); err != nil && err != git.NoErrAlreadyUpToDate {
+			return fmt.Errorf("failed to fetch repository %s: %v", repositoryPath, err)
+		}
 	}
 
 	w, err := r.Worktree()
@@ -191,7 +207,6 @@ func (g *Git) prepareGitRepository(ctx context.Context, repositoryPath string, r
 		return fmt.Errorf("couldn't checkout branch %s for repository %s: %v", rl.SHAAlias, repositoryPath, err)
 	}
 
-	g.setAsPrepared(repositoryPath)
 	return nil
 }
 
@@ -369,7 +384,7 @@ func (g *Git) repositoryPathFromResourceLocator(rl *github.ResourceLocator) stri
 }
 
 func (g *Git) setAsPrepared(repositoryPath string) {
-	g.preparedRepos.Store(repositoryPath, struct{}{})
+	g.preparedRepos.Store(repositoryPath, false)
 }
 
 func (g *Git) isPrepared(repositoryPath string) bool {

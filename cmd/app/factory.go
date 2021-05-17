@@ -51,7 +51,7 @@ type Options struct {
 	ManifestAbsPath              string
 	ResourceDownloadWorkersCount int
 	RewriteEmbedded              bool
-	GitHubTokens                 map[string]string
+	Credentials                  []*Credentials
 	GitHubClientThrottling       bool
 	Metering                     *Metering
 	GitHubInfoPath               string
@@ -60,6 +60,12 @@ type Options struct {
 	Hugo                         *hugo.Options
 	UseGit                       bool
 	HomeDir                      string
+}
+
+type Credentials struct {
+	Host       string
+	Username   *string
+	OAuthToken string
 }
 
 // Metering encapsulates options for setting up client-side
@@ -72,7 +78,7 @@ type Metering struct {
 func NewReactor(ctx context.Context, options *Options, globalLinksCfg *api.Links) (*reactor.Reactor, error) {
 	dryRunWriters := writers.NewDryRunWritersFactory(options.DryRunWriter)
 
-	rhs, err := initResourceHandlers(ctx, options.HomeDir, options.UseGit, options.GitHubTokens, options.GitHubClientThrottling, options.Metering)
+	rhs, err := initResourceHandlers(ctx, options)
 	if err != nil {
 		return nil, err
 	}
@@ -141,24 +147,13 @@ func WithHugo(reactorOptions *reactor.Options, o *Options) {
 	reactorOptions.Writer = hugo.NewWriter(hugoOptions)
 }
 
-func initResourceHandlers(ctx context.Context, homeDir string, useGit bool, githubTokens map[string]string, githubClientThrottling bool, metering *Metering) ([]resourcehandlers.ResourceHandler, error) {
+func initResourceHandlers(ctx context.Context, o *Options) ([]resourcehandlers.ResourceHandler, error) {
 	rhs := []resourcehandlers.ResourceHandler{
 		fs.NewFSResourceHandler(),
 	}
 	var errs *multierror.Error
-	for instance, token := range githubTokens {
-		// TODO: use configuration file
-		var user string
-		if useGit {
-			userAndToken := strings.Split(token, ":")
-			if len(userAndToken) != 2 {
-				multierror.Append(errs, fmt.Errorf("user and token should be provided in the format \"user:token\" when using Git for instance: %s", instance))
-				continue
-			}
-			user = userAndToken[0]
-			token = userAndToken[1]
-		}
-
+	for _, creds := range o.Credentials {
+		instance := creds.Host
 		if !strings.HasPrefix(instance, "https://") && !strings.HasPrefix(instance, "http://") {
 			instance = "https://" + instance
 		}
@@ -169,18 +164,18 @@ func initResourceHandlers(ctx context.Context, homeDir string, useGit bool, gith
 			continue
 		}
 
-		client, err := buildClient(ctx, token, githubClientThrottling, instance)
+		client, err := buildClient(ctx, creds.OAuthToken, o.GitHubClientThrottling, instance)
 		if err != nil {
 			multierror.Append(errs, err)
 		}
-		rh := newResouceHandler(u.Host, user, token, homeDir, client, useGit)
+		rh := newResouceHandler(u.Host, o.HomeDir, creds.Username, creds.OAuthToken, client, o.UseGit)
 		rhs = append(rhs, rh)
 	}
 
 	return rhs, errs.ErrorOrNil()
 }
 
-func newResouceHandler(host, user, token, homeDir string, client *github.Client, useGit bool) resourcehandlers.ResourceHandler {
+func newResouceHandler(host, homeDir string, user *string, token string, client *github.Client, useGit bool) resourcehandlers.ResourceHandler {
 	rawHost := "raw." + host
 	if host == "github.com" {
 		rawHost = "raw.githubusercontent.com"
