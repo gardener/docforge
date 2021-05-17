@@ -12,14 +12,13 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/gardener/docforge/cmd/configuration"
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/hugo"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/spf13/cobra"
 	"k8s.io/klog/v2"
 )
-
-const Home string = ".docforge"
 
 type cmdFlags struct {
 	maxWorkersCount              int
@@ -43,7 +42,7 @@ type cmdFlags struct {
 	hugoSectionFiles             []string
 	hugoBaseURL                  string
 	useGit                       bool
-	homeDir                      string
+	cacheHomeDir                 string
 }
 
 // NewCommand creates a new root command and propagates
@@ -60,8 +59,9 @@ func NewCommand(ctx context.Context, cancel context.CancelFunc) *cobra.Command {
 				rhs []resourcehandlers.ResourceHandler
 				err error
 			)
-			options := NewOptions(flags)
-			if rhs, err = initResourceHandlers(ctx, options.HomeDir, options.UseGit, options.GitHubTokens, options.GitHubClientThrottling, options.Metering); err != nil {
+
+			options := NewOptions(flags, new(configuration.DefaultConfigurationLoader))
+			if rhs, err = initResourceHandlers(ctx, options); err != nil {
 				return err
 			}
 			if doc, err = manifest(ctx, flags.documentationManifestPath, rhs, flags.variables); err != nil {
@@ -138,16 +138,18 @@ func (flags *cmdFlags) Configure(command *cobra.Command) {
 	command.Flags().BoolVar(&flags.hugoPrettyUrls, "hugo-pretty-urls", true,
 		"Build documentation bundle for hugo with pretty URLs (./sample.md -> ../sample). Only useful with --hugo=true")
 	command.Flags().StringVar(&flags.hugoBaseURL, "hugo-base-url", "", "Rewrites the raltive links of documentation files to root-relative where possible.")
-
-	command.Flags().StringVar(&flags.homeDir, "cache-dir", "", "Default: \"$HOME/.docforge/cache\"")
 	command.Flags().BoolVar(&flags.useGit, "use-git", false, "Use Git for replication")
-
 	command.Flags().StringSliceVar(&flags.hugoSectionFiles, "hugo-section-files", []string{"readme", "read.me", "index"},
 		"When building a Hugo-compliant documentaton bundle, files with filename matching one form this list (in that order) will be renamed to _index.md. Only useful with --hugo=true")
 }
 
-// NewOptions creates an options object from flags
-func NewOptions(f *cmdFlags) *Options {
+// NewOptions creates an options object from flags and configuration
+func NewOptions(f *cmdFlags, c configuration.ConfigurationLoader) *Options {
+	config, err := c.Load()
+	if err != nil {
+		panic(err)
+	}
+
 	var (
 		hugoOptions  *hugo.Options
 		dryRunWriter io.Writer
@@ -178,18 +180,6 @@ func NewOptions(f *cmdFlags) *Options {
 		panic(err)
 	}
 
-	if f.useGit {
-		if f.homeDir == "" {
-			userHomeDir, err := os.UserHomeDir()
-			if err != nil {
-				panic(err)
-			}
-			f.homeDir = filepath.Join(userHomeDir, Home)
-		} else if !strings.HasSuffix(f.homeDir, Home) {
-			f.homeDir = filepath.Join(f.homeDir, Home)
-		}
-	}
-
 	// TODO: try to use filepath.Abs(f.documentationManifestPath)
 	manifestAbsPath := filepath.Join(path, (f.documentationManifestPath))
 
@@ -201,7 +191,7 @@ func NewOptions(f *cmdFlags) *Options {
 		ResourceDownloadWorkersCount: f.resourceDownloadWorkersCount,
 		ResourcesPath:                f.resourcesPath,
 		RewriteEmbedded:              f.rewriteEmbedded,
-		GitHubTokens:                 gatherTokens(f),
+		Credentials:                  gatherCredentials(f, config),
 		GitHubClientThrottling:       f.ghThrottling,
 		Metering:                     metering,
 		DryRunWriter:                 dryRunWriter,
@@ -210,7 +200,7 @@ func NewOptions(f *cmdFlags) *Options {
 		Hugo:                         hugoOptions,
 		ManifestAbsPath:              manifestAbsPath,
 		UseGit:                       f.useGit,
-		HomeDir:                      f.homeDir,
+		HomeDir:                      determineCacheHomeDir(f, config),
 	}
 }
 
@@ -221,17 +211,83 @@ func AddFlags(rootCmd *cobra.Command) {
 	})
 }
 
-func gatherTokens(flags *cmdFlags) map[string]string {
-	tokens := make(map[string]string)
-	for instance, token := range flags.ghOAuthTokens {
-		tokens[instance] = token
-	}
-	if len(flags.ghOAuthToken) > 0 {
-		if _, ok := tokens["github.com"]; ok {
-			klog.Warning("github.com token is overridden by the provided token with `--github-oauth-token flag` ")
+func gatherCredentials(flags *cmdFlags, config *configuration.Config) []*Credentials {
+	credentialsByHost := make(map[string]*Credentials)
+	if config != nil {
+		// when no token specified consider the configuration incorrect
+		for _, source := range config.Sources {
+			if source.OAuthToken == nil {
+				klog.Warning("configuration consider incorrect because of missing oauth token for source with host: " + source.Host)
+				continue
+			}
+			credentialsByHost[source.Host] = &Credentials{
+				Host:       source.Host,
+				Username:   source.Username,
+				OAuthToken: *source.OAuthToken,
+			}
 		}
-		tokens["github.com"] = flags.ghOAuthToken
 	}
 
-	return tokens
+	// tokens provided by flags will override the config
+	for instance, credentials := range flags.ghOAuthTokens {
+		var username string
+		// for cases where user credentials are in the format `username:token`
+		usernameAndToken := strings.Split(credentials, ":")
+		if len(usernameAndToken) == 2 {
+			username = usernameAndToken[0]
+			credentials = usernameAndToken[1]
+		}
+
+		credentialsByHost[instance] = &Credentials{
+			Host:       instance,
+			Username:   &username,
+			OAuthToken: credentials,
+		}
+	}
+
+	if len(flags.ghOAuthToken) > 0 {
+		var username string
+		token := flags.ghOAuthToken
+		if _, ok := credentialsByHost["github.com"]; ok {
+			klog.Warning("github.com token is overridden by the provided token with `--github-oauth-token flag` ")
+		}
+		usernameAndToken := strings.Split(flags.ghOAuthToken, ":")
+		if len(usernameAndToken) == 2 {
+			username = usernameAndToken[0]
+			token = usernameAndToken[1]
+		}
+
+		credentialsByHost["github.com"] = &Credentials{
+			Host:       "github.com",
+			Username:   &username,
+			OAuthToken: token,
+		}
+	}
+	return getCredentialsSlice(credentialsByHost)
+}
+
+func getCredentialsSlice(credentialsByHost map[string]*Credentials) []*Credentials {
+	var credentials = make([]*Credentials, 0)
+	for _, creds := range credentialsByHost {
+		credentials = append(credentials, creds)
+	}
+	return credentials
+}
+
+func determineCacheHomeDir(f *cmdFlags, config *configuration.Config) string {
+	if f.cacheHomeDir != "" {
+		return f.cacheHomeDir
+	}
+
+	if config.CacheHome != nil {
+		return *config.CacheHome
+	}
+
+	userHomeDir, err := os.UserHomeDir()
+	if err != nil {
+		panic(err)
+	}
+
+	// default value $HOME/.docforge/cache
+	return filepath.Join(userHomeDir, configuration.DocforgeHomeDir)
 }
