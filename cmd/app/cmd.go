@@ -275,6 +275,13 @@ func getCredentialsSlice(credentialsByHost map[string]*Credentials) []*Credentia
 }
 
 func determineCacheHomeDir(f *cmdFlags, config *configuration.Config) string {
+	if cacheDir, found := os.LookupEnv("DOCFORGE_CACHE_DIR"); found {
+		if cacheDir == "" {
+			klog.Warning("DOCFORGE_CACHE_DIR is set to empty string. Docforge will use the current dir fot the cache")
+		}
+		return cacheDir
+	}
+
 	if f.cacheHomeDir != "" {
 		return f.cacheHomeDir
 	}
