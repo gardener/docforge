@@ -19,8 +19,6 @@ import (
 	"github.com/gardener/docforge/pkg/resourcehandlers/github"
 	"github.com/gardener/docforge/pkg/util/urls"
 
-	"github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 
 	ghclient "github.com/google/go-github/v32/github"
@@ -34,7 +32,8 @@ type Git struct {
 
 	gitRepositoriesAbsPath string
 	acceptedHosts          []string
-	preparedRepos          sync.Map
+	preparedRepos          map[string]*Repository
+	mutex                  sync.RWMutex
 }
 
 // NewResourceHandler creates new GitHub ResourceHandler objects
@@ -162,56 +161,12 @@ func (nb *nodeBuilder) build(path string, info os.FileInfo, err error) error {
 	return nil
 }
 
-// TODO: Skip fetching multiple times
 func (g *Git) prepareGitRepository(ctx context.Context, repositoryPath string, rl *github.ResourceLocator) error {
-	var fetch = true
-
-	if g.isPrepared(repositoryPath) {
-		return nil
-	}
-	g.setAsPrepared(repositoryPath)
-
-	r, err := git.PlainOpen(repositoryPath)
-	if err != nil {
-		if err != git.ErrRepositoryNotExists {
-			return err
-		}
-		if r, err = git.PlainCloneContext(ctx, repositoryPath, false, &git.CloneOptions{
-			URL:        "https://" + rl.Host + "/" + rl.Owner + "/" + rl.Repo,
-			RemoteName: git.DefaultRemoteName,
-			Depth:      1,
-			Auth:       g.gitAuth,
-		}); err != nil {
-			return fmt.Errorf("failed to prepare repo: %s, %v", repositoryPath, err)
-		}
-		fetch = false
-	}
-
-	if fetch {
-		if err := r.FetchContext(ctx, &git.FetchOptions{
-			Auth:       g.gitAuth,
-			Depth:      1,
-			RemoteName: git.DefaultRemoteName,
-		}); err != nil && err != git.NoErrAlreadyUpToDate {
-			return fmt.Errorf("failed to fetch repository %s: %v", repositoryPath, err)
-		}
-	}
-
-	w, err := r.Worktree()
-	if err != nil {
-		return err
-	}
-	if err := w.Checkout(&git.CheckoutOptions{
-		Branch: plumbing.NewRemoteReferenceName(git.DefaultRemoteName, rl.SHAAlias),
-	}); err != nil {
-		return fmt.Errorf("couldn't checkout branch %s for repository %s: %v", rl.SHAAlias, repositoryPath, err)
-	}
-
-	return nil
+	repository := g.getOrInitRepository(repositoryPath, rl)
+	return repository.Prepare(ctx, rl.SHAAlias)
 }
 
-// // TODO: Add wiki support
-// // System cache structure type/org/repo
+// System cache structure type/org/repo
 func (g *Git) Read(ctx context.Context, uri string) ([]byte, error) {
 	u, err := url.Parse(uri)
 	if err != nil {
@@ -383,11 +338,26 @@ func (g *Git) repositoryPathFromResourceLocator(rl *github.ResourceLocator) stri
 	return strings.Join([]string{g.gitRepositoriesAbsPath, rl.Host, rl.Owner, rl.Repo, rl.SHAAlias}, "/")
 }
 
-func (g *Git) setAsPrepared(repositoryPath string) {
-	g.preparedRepos.Store(repositoryPath, false)
-}
+// getOrInitRepository serves as a sync point to avoid more complicated logic for synchronization between workers working on the same repository. In case it returns false no one began working on
+func (g *Git) getOrInitRepository(repositoryPath string, rl *github.ResourceLocator) *Repository {
+	g.mutex.Lock()
+	defer g.mutex.Unlock()
+	if g.preparedRepos == nil {
+		g.preparedRepos = map[string]*Repository{}
+	}
 
-func (g *Git) isPrepared(repositoryPath string) bool {
-	_, ok := g.preparedRepos.Load(repositoryPath)
-	return ok
+	if repoInfo, ok := g.preparedRepos[repositoryPath]; ok {
+		return repoInfo
+	}
+
+	repository := &Repository{
+		Auth:          g.gitAuth,
+		LocalPath:     repositoryPath,
+		RemoteURL:     "https://" + rl.Host + "/" + rl.Owner + "/" + rl.Repo,
+		PreviousError: nil,
+		mutex:         sync.RWMutex{},
+	}
+
+	g.preparedRepos[repositoryPath] = repository
+	return repository
 }
