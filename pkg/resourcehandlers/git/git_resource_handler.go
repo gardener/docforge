@@ -331,6 +331,11 @@ func (g *Git) ResolveDocumentation(ctx context.Context, uri string) (*api.Docume
 		return nil, err
 	}
 
+	// not a documentation structure
+	if blob == nil {
+		return nil, nil
+	}
+
 	return api.Parse(blob)
 }
 
