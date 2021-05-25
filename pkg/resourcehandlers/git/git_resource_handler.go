@@ -17,6 +17,7 @@ import (
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/gardener/docforge/pkg/resourcehandlers/github"
+	"github.com/gardener/docforge/pkg/resourcehandlers/utils"
 	"github.com/gardener/docforge/pkg/util/urls"
 
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
@@ -27,21 +28,21 @@ import (
 const CacheDir string = "cache"
 
 type Git struct {
-	client  *ghclient.Client
-	gitAuth http.AuthMethod
-
+	client                 *ghclient.Client
+	gitAuth                http.AuthMethod
 	gitRepositoriesAbsPath string
 	acceptedHosts          []string
 	preparedRepos          map[string]*Repository
+	localMappings          map[string]string
 	mutex                  sync.RWMutex
 }
 
 // NewResourceHandler creates new GitHub ResourceHandler objects
-func NewResourceHandler(gitRepositoriesAbsPath string, user *string, oauthToken string, githubOAuthClient *ghclient.Client, acceptedHosts []string) resourcehandlers.ResourceHandler {
+func NewResourceHandler(gitRepositoriesAbsPath string, user *string, oauthToken string, githubOAuthClient *ghclient.Client, acceptedHosts []string, localMappings map[string]string) resourcehandlers.ResourceHandler {
 	return &Git{
-		client:  githubOAuthClient,
-		gitAuth: buildAuthMethod(user, oauthToken),
-
+		client:                 githubOAuthClient,
+		gitAuth:                buildAuthMethod(user, oauthToken),
+		localMappings:          localMappings,
 		gitRepositoriesAbsPath: gitRepositoriesAbsPath,
 		acceptedHosts:          acceptedHosts,
 	}
@@ -180,12 +181,33 @@ func (g *Git) Read(ctx context.Context, uri string) ([]byte, error) {
 		return nil, err
 	}
 
+	for k, v := range g.localMappings {
+		if strings.HasPrefix(uri, k) {
+			fileInfo, err := os.Stat(v)
+			if err != nil {
+				return nil, fmt.Errorf("failed to use mapping because local path is invalid: %v", err)
+			}
+			if fileInfo.IsDir() {
+				mappingResourceLocator, err := github.Parse(k)
+				if err != nil {
+					return nil, err
+				}
+				mappingPath := strings.TrimLeft(rl.Path, mappingResourceLocator.Path)
+				v = strings.Join([]string{v, mappingPath}, "/")
+			}
+			return readFile(v)
+		}
+	}
+
 	repositoryPath := g.repositoryPathFromResourceLocator(rl)
 	uri = strings.Join([]string{repositoryPath, rl.Path}, "/")
 	if err := g.prepareGitRepository(ctx, repositoryPath, rl); err != nil {
 		return nil, err
 	}
 
+	return readFile(uri)
+}
+func readFile(uri string) ([]byte, error) {
 	fileInfo, err := os.Stat(uri)
 	if err != nil {
 		return nil, fmt.Errorf("Git resource handler failed to read file at %s: %v ", uri, err)
@@ -194,45 +216,29 @@ func (g *Git) Read(ctx context.Context, uri string) ([]byte, error) {
 		return nil, nil
 	}
 	return ioutil.ReadFile(uri)
+
 }
 
 // ReadGitInfo implements resourcehandlers/ResourceHandler#ReadGitInfo
 func (g *Git) ReadGitInfo(ctx context.Context, uri string) ([]byte, error) {
-	var (
-		rl      *github.ResourceLocator
-		commits []*ghclient.RepositoryCommit
-		err     error
-		blob    []byte
-	)
-	if rl, err = github.Parse(uri); err != nil {
+	u, err := url.Parse(uri)
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse file uri %s while reading: %v", uri, err)
+	}
+	// remove query from uri
+	u.RawQuery = ""
+	uri = u.String()
+	rl, err := github.Parse(uri)
+	if err != nil {
 		return nil, err
 	}
-	opts := &ghclient.CommitsListOptions{
-		Path: rl.Path,
-		SHA:  rl.SHAAlias,
-	}
-	if commits, _, err = g.client.Repositories.ListCommits(ctx, rl.Owner, rl.Repo, opts); err != nil {
+	repositoryPath := g.repositoryPathFromResourceLocator(rl)
+	uri = strings.Join([]string{repositoryPath, rl.Path}, "/")
+	if err := g.prepareGitRepository(ctx, repositoryPath, rl); err != nil {
 		return nil, err
 	}
-	if commits != nil {
-		gitInfo := github.Transform(commits)
-		if gitInfo == nil {
-			return nil, nil
-		}
-		if len(rl.SHA) > 0 {
-			gitInfo.SHA = &rl.SHA
-		}
-		if len(rl.SHAAlias) > 0 {
-			gitInfo.SHAAlias = &rl.SHAAlias
-		}
-		if len(rl.Path) > 0 {
-			gitInfo.Path = &rl.Path
-		}
-		if blob, err = github.MarshallGitInfo(gitInfo); err != nil {
-			return nil, err
-		}
-	}
-	return blob, nil
+
+	return utils.ReadGitInfo(ctx, uri, rl)
 }
 
 // ResourceName returns a breakdown of a resource name in the link, consisting

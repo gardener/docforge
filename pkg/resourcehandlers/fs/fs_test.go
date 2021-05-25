@@ -5,10 +5,12 @@
 package fs
 
 import (
+	"context"
 	"path/filepath"
 	"testing"
 
 	"github.com/gardener/docforge/pkg/api"
+	"github.com/gardener/docforge/pkg/resourcehandlers/utils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -18,7 +20,7 @@ func TestFSRead(t *testing.T) {
 		err     error
 	)
 	fs := &fsHandler{}
-	if content, err = fs.Read(nil, filepath.Join("testdata", "f00.md")); err != nil {
+	if content, err = fs.Read(context.TODO(), filepath.Join("testdata", "f00.md")); err != nil {
 		t.Fatalf("%s", err.Error())
 	}
 	assert.Equal(t, []byte("Test data"), content)
@@ -26,10 +28,10 @@ func TestFSRead(t *testing.T) {
 
 func TestGitLog(t *testing.T) {
 	var (
-		log []*gitLogEntry
+		log []*utils.GitLogEntry
 		err error
 	)
-	if log, err = gitLog(filepath.Join("testdata", "f00.md")); err != nil {
+	if log, err = utils.GitLog(filepath.Join("testdata", "f00.md")); err != nil {
 		t.Fatalf("%s", err.Error())
 	}
 	assert.NotNil(t, log)
@@ -41,7 +43,7 @@ func TestReadGitInfo(t *testing.T) {
 		err error
 	)
 	fs := &fsHandler{}
-	if log, err = fs.ReadGitInfo(nil, filepath.Join("testdata", "f00.md")); err != nil {
+	if log, err = fs.ReadGitInfo(context.TODO(), filepath.Join("testdata", "f00.md")); err != nil {
 		t.Fatalf("%s", err.Error())
 	}
 	assert.NotNil(t, log)
@@ -91,7 +93,7 @@ func TestResolveNodeSelector(t *testing.T) {
 	for _, n := range expectedNodes {
 		n.SetParent(nil)
 	}
-	nodes, err := fs.ResolveNodeSelector(nil, node, nil, nil, nil, 0)
+	nodes, err := fs.ResolveNodeSelector(context.TODO(), node, nil, nil, nil, 0)
 	if err != nil {
 		t.Fatalf("%s", err.Error())
 	}

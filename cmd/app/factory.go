@@ -60,6 +60,7 @@ type Options struct {
 	Hugo                         *hugo.Options
 	UseGit                       bool
 	HomeDir                      string
+	LocalMappings                map[string]string
 }
 
 type Credentials struct {
@@ -168,21 +169,21 @@ func initResourceHandlers(ctx context.Context, o *Options) ([]resourcehandlers.R
 		if err != nil {
 			multierror.Append(errs, err)
 		}
-		rh := newResouceHandler(u.Host, o.HomeDir, creds.Username, creds.OAuthToken, client, o.UseGit)
+		rh := newResouceHandler(u.Host, o.HomeDir, creds.Username, creds.OAuthToken, client, o.UseGit, o.LocalMappings)
 		rhs = append(rhs, rh)
 	}
 
 	return rhs, errs.ErrorOrNil()
 }
 
-func newResouceHandler(host, homeDir string, user *string, token string, client *github.Client, useGit bool) resourcehandlers.ResourceHandler {
+func newResouceHandler(host, homeDir string, user *string, token string, client *github.Client, useGit bool, localMappings map[string]string) resourcehandlers.ResourceHandler {
 	rawHost := "raw." + host
 	if host == "github.com" {
 		rawHost = "raw.githubusercontent.com"
 	}
 
 	if useGit {
-		return git.NewResourceHandler(filepath.Join(homeDir, git.CacheDir), user, token, client, []string{host, rawHost})
+		return git.NewResourceHandler(filepath.Join(homeDir, git.CacheDir), user, token, client, []string{host, rawHost}, localMappings)
 	}
 	return ghrs.NewResourceHandler(client, []string{host, rawHost})
 }

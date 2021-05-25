@@ -5,21 +5,17 @@
 package fs
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
 	"github.com/gardener/docforge/pkg/api"
-	"github.com/gardener/docforge/pkg/git"
 	"github.com/gardener/docforge/pkg/markdown"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
-	"github.com/google/go-github/v32/github"
+	"github.com/gardener/docforge/pkg/resourcehandlers/utils"
 )
 
 type fsHandler struct{}
@@ -131,58 +127,8 @@ func (fs *fsHandler) ResolveDocumentation(ctx context.Context, uri string) (*api
 }
 
 // ReadGitInfo implements resourcehandlers.ResourceHandler#ReadGitInfo
-func (fs *fsHandler) ReadGitInfo(ctx context.Context, uri string) ([]byte, error) {
-	var (
-		log  []*gitLogEntry
-		blob []byte
-		err  error
-	)
-	if !checkGitExists() {
-		return nil, fmt.Errorf("reading Git info for %s failed: git not found in PATH", uri)
-	}
-
-	if log, err = gitLog(uri); err != nil {
-		return nil, err
-	}
-
-	if len(log) == 0 {
-		return nil, nil
-	}
-
-	for _, logEntry := range log {
-		logEntry.Name = strings.Split(logEntry.Name, "<")[0]
-		logEntry.Name = strings.TrimSpace(logEntry.Name)
-	}
-	authorName := log[len(log)-1].Name
-	authorEmail := log[len(log)-1].Email
-	publishD := log[len(log)-1].Date
-	lastModD := log[0].Date
-	gitInfo := &git.GitInfo{
-		PublishDate:      &publishD,
-		LastModifiedDate: &lastModD,
-		Author: &github.User{
-			Name:  &authorName,
-			Email: &authorEmail,
-		},
-		Contributors: []*github.User{},
-	}
-
-	for _, logEntry := range log {
-		if logEntry.Email != *gitInfo.Author.Email {
-			name := logEntry.Name
-			email := logEntry.Email
-			gitInfo.Contributors = append(gitInfo.Contributors, &github.User{
-				Name:  &name,
-				Email: &email,
-			})
-		}
-	}
-
-	if blob, err = json.MarshalIndent(gitInfo, "", "  "); err != nil {
-		return nil, err
-	}
-
-	return blob, nil
+func (d *fsHandler) ReadGitInfo(ctx context.Context, uri string) ([]byte, error) {
+	return utils.ReadGitInfo(ctx, uri, nil)
 }
 
 // ResourceName implements resourcehandlers.ResourceHandler#ResourceName
@@ -219,61 +165,4 @@ func (fs *fsHandler) GetRawFormatLink(absLink string) (string, error) {
 // SetVersion implements resourcehandlers.ResourceHandler#SetVersion
 func (fs *fsHandler) SetVersion(absLink, version string) (string, error) {
 	return absLink, nil
-}
-
-type gitLogEntry struct {
-	Sha     string
-	Author  string
-	Date    string
-	Message string
-	Email   string
-	Name    string
-}
-
-type gitLogEntryAuthor struct {
-}
-
-func gitLog(path string) ([]*gitLogEntry, error) {
-	var (
-		log            []byte
-		err            error
-		errStr         string
-		stdout, stderr bytes.Buffer
-	)
-
-	if _, err := os.Stat(path); err != nil {
-		return nil, err
-	}
-
-	git := exec.Command("git", "log", "--date=short", `--pretty=format:'{%n  "sha": "%H",%n  "author": "%aN <%aE>",%n  "date": "%ad",%n  "message": "%s",%n  "email": "%aE",%n  "name": "%aN"%n },'`, "--follow", path)
-	git.Stdout = &stdout
-	git.Stderr = &stderr
-	if err = git.Run(); err != nil {
-		if _, ok := err.(*exec.ExitError); !ok {
-			return nil, err
-		}
-	}
-	log, errStr = stdout.Bytes(), string(stderr.Bytes())
-	if len(errStr) > 0 {
-		return nil, fmt.Errorf("failed to execute git log for %s:\n%s", path, errStr)
-	}
-
-	logS := string(log)
-	logS = strings.ReplaceAll(logS, "'{", "{")
-	logS = strings.ReplaceAll(logS, "},'", "},")
-	if strings.HasSuffix(logS, ",") {
-		logS = logS[:len(logS)-1]
-	}
-	logS = fmt.Sprintf("[%s]", logS)
-
-	gitLog := []*gitLogEntry{}
-	if err := json.Unmarshal([]byte(logS), &gitLog); err != nil {
-		return nil, err
-	}
-	return gitLog, nil
-}
-
-func checkGitExists() bool {
-	_, err := exec.LookPath("git")
-	return err == nil
 }

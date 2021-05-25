@@ -201,6 +201,7 @@ func NewOptions(f *cmdFlags, c configuration.ConfigurationLoader) *Options {
 		ManifestAbsPath:              manifestAbsPath,
 		UseGit:                       f.useGit,
 		HomeDir:                      determineCacheHomeDir(f, config),
+		LocalMappings:                config.ResourceMappings,
 	}
 }
 

@@ -14,7 +14,8 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 )
 
-const depth = 1
+// TODO: do not use depth if git info is not enabled.
+const depth = 0
 
 type State int
 

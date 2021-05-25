@@ -5,8 +5,9 @@
 package configuration
 
 type Config struct {
-	CacheHome *string   `yaml:"cacheHome,omitempty"`
-	Sources   []*Source `yaml:"sources,omitempty"`
+	CacheHome        *string           `yaml:"cacheHome,omitempty"`
+	Sources          []*Source         `yaml:"sources,omitempty"`
+	ResourceMappings map[string]string `yaml:"resourceMappings,omitempty"`
 }
 
 type Source struct {
