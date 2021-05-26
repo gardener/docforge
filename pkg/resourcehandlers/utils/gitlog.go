@@ -107,8 +107,8 @@ func GitLog(path string) ([]*GitLogEntry, error) {
 	if !fileInfo.IsDir() {
 		dirPath = filepath.Dir(path)
 	}
-
-	git := exec.Command("git", "-C", dirPath, "log", "--date=short", `--pretty=format:'{%n  "sha": "%H",%n  "author": "%aN <%aE>",%n  "date": "%ad",%n  "message": "%s",%n  "email": "%aE",%n  "name": "%aN"%n },'`, "--follow", path)
+	// TODO: temporarly use %f for commit subject instead of %s to prevent JSON parse failure when the commit message has quotes inside
+	git := exec.Command("git", "-C", dirPath, "log", "--date=short", `--pretty=format:'{%n  "sha": "%H",%n  "author": "%aN <%aE>",%n  "date": "%ad",%n  "message": "%f",%n  "email": "%aE",%n  "name": "%aN"%n },'`, "--follow", path)
 	git.Stdout = &stdout
 	git.Stderr = &stderr
 	if err = git.Run(); err != nil {
@@ -131,7 +131,7 @@ func GitLog(path string) ([]*GitLogEntry, error) {
 
 	gitLog := []*GitLogEntry{}
 	if err := json.Unmarshal([]byte(logS), &gitLog); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed parsing git log to JSON: %v", err)
 	}
 	return gitLog, nil
 }
