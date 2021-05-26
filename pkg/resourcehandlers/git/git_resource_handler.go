@@ -192,7 +192,7 @@ func (g *Git) Read(ctx context.Context, uri string) ([]byte, error) {
 				if err != nil {
 					return nil, err
 				}
-				mappingPath := strings.TrimLeft(rl.Path, mappingResourceLocator.Path)
+				mappingPath := strings.TrimPrefix(rl.Path, mappingResourceLocator.Path)
 				v = strings.Join([]string{v, mappingPath}, "/")
 			}
 			return readFile(v)
