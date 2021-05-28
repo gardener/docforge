@@ -208,7 +208,7 @@ func gatherCredentials(flags *cmdFlags, config *configuration.Config) []*Credent
 		// when no token specified consider the configuration incorrect
 		for _, source := range config.Sources {
 			if source.OAuthToken == nil {
-				klog.Warning("configuration consider incorrect because of missing oauth token for source with host: " + source.Host)
+				klog.Warning("configuration is considered incorrect because of missing oauth token for source with host: " + source.Host)
 				continue
 			}
 			credentialsByHost[source.Host] = &Credentials{
@@ -268,7 +268,7 @@ func getCredentialsSlice(credentialsByHost map[string]*Credentials) []*Credentia
 func cacheHomeDir(f *cmdFlags, config *configuration.Config) string {
 	if cacheDir, found := os.LookupEnv("DOCFORGE_CACHE_DIR"); found {
 		if cacheDir == "" {
-			klog.Warning("DOCFORGE_CACHE_DIR is set to empty string. Docforge will use the current dir fot the cache")
+			klog.Warning("DOCFORGE_CACHE_DIR is set to empty string. Docforge will use the current dir for the cache")
 		}
 		return cacheDir
 	}

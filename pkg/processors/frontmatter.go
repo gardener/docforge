@@ -106,9 +106,9 @@ func (f *FrontMatter) getNodeTitle(node *api.Node) string {
 // is an index document node.
 func (f *FrontMatter) nodeIsIndexFile(name string) bool {
 	for _, s := range f.IndexFileNames {
-		if strings.ToLower(name) == strings.ToLower(s) {
+		if strings.EqualFold(name, s) {
 			return true
 		}
 	}
-	return "_index.md" == name
+	return name == "_index.md"
 }
