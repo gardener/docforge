@@ -151,7 +151,6 @@ func NewOptions(f *cmdFlags, c configuration.ConfigurationLoader) *Options {
 	}
 
 	var (
-		hugoOptions  *hugo.Options
 		dryRunWriter io.Writer
 		metering     *Metering
 	)
@@ -159,15 +158,6 @@ func NewOptions(f *cmdFlags, c configuration.ConfigurationLoader) *Options {
 	if f.clientMetering {
 		metering = &Metering{
 			Enabled: f.clientMetering,
-		}
-	}
-
-	if f.hugo {
-		hugoOptions = &hugo.Options{
-			PrettyUrls:     f.hugoPrettyUrls,
-			IndexFileNames: f.hugoSectionFiles,
-			Writer:         nil,
-			BaseURL:        f.hugoBaseURL,
 		}
 	}
 
@@ -197,10 +187,10 @@ func NewOptions(f *cmdFlags, c configuration.ConfigurationLoader) *Options {
 		DryRunWriter:                 dryRunWriter,
 		Resolve:                      f.resolve,
 		GitHubInfoPath:               f.ghInfoDestination,
-		Hugo:                         hugoOptions,
+		Hugo:                         hugoOptions(f, config),
 		ManifestAbsPath:              manifestAbsPath,
 		UseGit:                       f.useGit,
-		HomeDir:                      determineCacheHomeDir(f, config),
+		HomeDir:                      cacheHomeDir(f, config),
 		LocalMappings:                config.ResourceMappings,
 	}
 }
@@ -275,7 +265,7 @@ func getCredentialsSlice(credentialsByHost map[string]*Credentials) []*Credentia
 	return credentials
 }
 
-func determineCacheHomeDir(f *cmdFlags, config *configuration.Config) string {
+func cacheHomeDir(f *cmdFlags, config *configuration.Config) string {
 	if cacheDir, found := os.LookupEnv("DOCFORGE_CACHE_DIR"); found {
 		if cacheDir == "" {
 			klog.Warning("DOCFORGE_CACHE_DIR is set to empty string. Docforge will use the current dir fot the cache")
@@ -298,4 +288,28 @@ func determineCacheHomeDir(f *cmdFlags, config *configuration.Config) string {
 
 	// default value $HOME/.docforge/cache
 	return filepath.Join(userHomeDir, configuration.DocforgeHomeDir)
+}
+
+func hugoOptions(f *cmdFlags, config *configuration.Config) *hugo.Options {
+	if !f.hugo || config.Hugo == nil {
+		return nil
+	}
+
+	hugoOptions := &hugo.Options{
+		PrettyUrls:     f.hugoPrettyUrls,
+		IndexFileNames: f.hugoSectionFiles,
+		Writer:         nil,
+	}
+
+	if f.hugoBaseURL != "" {
+		hugoOptions.BaseURL = f.hugoBaseURL
+		return hugoOptions
+	}
+
+	if config.Hugo != nil {
+		if config.Hugo.BaseURL != nil {
+			hugoOptions.BaseURL = *config.Hugo.BaseURL
+		}
+	}
+	return hugoOptions
 }
