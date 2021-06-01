@@ -291,7 +291,7 @@ func cacheHomeDir(f *cmdFlags, config *configuration.Config) string {
 }
 
 func hugoOptions(f *cmdFlags, config *configuration.Config) *hugo.Options {
-	if !f.hugo && config.Hugo == nil {
+	if !f.hugo && (config == nil || config.Hugo == nil) {
 		return nil
 	}
 
