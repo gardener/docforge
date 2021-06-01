@@ -1,0 +1,5 @@
+sources:
+  - host: github.com
+    credentials:
+      username: Bob
+      oauthToken: s0m3tok3n

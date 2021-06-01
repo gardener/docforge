@@ -4,6 +4,8 @@
 
 package configuration
 
+import "gopkg.in/yaml.v3"
+
 type Config struct {
 	CacheHome        *string           `yaml:"cacheHome,omitempty"`
 	Sources          []*Source         `yaml:"sources,omitempty"`
@@ -26,4 +28,10 @@ type Hugo struct {
 	PrettyURLs   *bool    `yaml:"prettyURLs,omitempty"`
 	BaseURL      *string  `yaml:"baseURL,omitempty"`
 	SectionFiles []string `yaml:"sectionFiles"`
+}
+
+func (c Credentials) String() string {
+
+	e, _ := yaml.Marshal(c)
+	return string(e)
 }

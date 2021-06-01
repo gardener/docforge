@@ -41,6 +41,10 @@ func (d *DefaultConfigurationLoader) Load() (*Config, error) {
 }
 
 func load(configFilePath string) (*Config, error) {
+	if len(configFilePath) <= 0 {
+		return nil, nil
+	}
+
 	stat, err := os.Stat(configFilePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get file info for configuration file path %s: %v", configFilePath, err)
