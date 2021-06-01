@@ -22,5 +22,8 @@ type Credentials struct {
 }
 
 type Hugo struct {
-	BaseURL *string `yaml:"baseURL,omitempty"`
+	Enabled      bool     `yaml:"enabled"`
+	PrettyURLs   *bool    `yaml:"prettyURLs,omitempty"`
+	BaseURL      *string  `yaml:"baseURL,omitempty"`
+	SectionFiles []string `yaml:"sectionFiles"`
 }

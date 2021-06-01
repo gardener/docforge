@@ -291,14 +291,13 @@ func cacheHomeDir(f *cmdFlags, config *configuration.Config) string {
 }
 
 func hugoOptions(f *cmdFlags, config *configuration.Config) *hugo.Options {
-	if !f.hugo || config.Hugo == nil {
+	if !f.hugo && config.Hugo == nil {
 		return nil
 	}
 
 	hugoOptions := &hugo.Options{
-		PrettyUrls:     f.hugoPrettyUrls,
-		IndexFileNames: f.hugoSectionFiles,
-		Writer:         nil,
+		PrettyUrls:     prettyURLs(f.hugoPrettyUrls, config.Hugo),
+		IndexFileNames: combineSectionFiles(f.hugoSectionFiles, config.Hugo),
 	}
 
 	if f.hugoBaseURL != "" {
@@ -312,4 +311,39 @@ func hugoOptions(f *cmdFlags, config *configuration.Config) *hugo.Options {
 		}
 	}
 	return hugoOptions
+}
+
+func combineSectionFiles(sectionFilesFromFlags []string, hugoConfig *configuration.Hugo) []string {
+	var sectionFilesSet = make(map[string]struct{})
+	for _, sectionFileName := range sectionFilesFromFlags {
+		sectionFilesSet[sectionFileName] = struct{}{}
+	}
+
+	if hugoConfig != nil {
+		for _, sectionFileName := range hugoConfig.SectionFiles {
+			sectionFilesSet[sectionFileName] = struct{}{}
+		}
+	}
+
+	sectionFiles := make([]string, len(sectionFilesSet))
+	i := 0
+	for sectionFileName := range sectionFilesSet {
+		sectionFiles[i] = sectionFileName
+		i++
+	}
+	return sectionFiles
+}
+
+func prettyURLs(flagPrettyURLs bool, hugoConfig *configuration.Hugo) bool {
+	// if config is missing use the flag value
+	if hugoConfig == nil || hugoConfig.PrettyURLs == nil {
+		return flagPrettyURLs
+	}
+
+	// if either is false return false
+	if !flagPrettyURLs || !*hugoConfig.PrettyURLs {
+		return false
+	}
+
+	return true
 }

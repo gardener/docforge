@@ -122,7 +122,6 @@ func NewReactor(ctx context.Context, options *Options, globalLinksCfg *api.Links
 	if options.Hugo != nil {
 		WithHugo(o, options)
 	}
-
 	return reactor.NewReactor(o), nil
 }
 
