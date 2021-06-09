@@ -233,6 +233,10 @@ func (c *nodeContentProcessor) resolveLink(ctx context.Context, document *proces
 			return link, nil, err
 		}
 		link.AbsLink = &absLink
+
+		if _, err := handler.Read(ctx, absLink); err != nil {
+			klog.Warningf("failed to read absolute link %s: %v\n", absLink, err)
+		}
 	}
 	// rewrite link if required
 	if gLinks := c.globalLinksConfig; gLinks != nil {

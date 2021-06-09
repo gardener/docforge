@@ -12,11 +12,13 @@ import (
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/processors"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
-	"github.com/gardener/docforge/pkg/resourcehandlers/github"
+	githubHandler "github.com/gardener/docforge/pkg/resourcehandlers/github"
 	"github.com/gardener/docforge/pkg/util/tests"
+	"github.com/google/go-github/v32/github"
 	"github.com/stretchr/testify/assert"
 )
 
+// TODO: This is a flaky test. In the future the ResourceHandler should be mocked.
 func Test_processLink(t *testing.T) {
 	nodeA := &api.Node{
 		Name:   "node_A.md",
@@ -351,7 +353,7 @@ func Test_processLink(t *testing.T) {
 			c := &nodeContentProcessor{
 				resourceAbsLinks: make(map[string]string),
 				resourcesRoot:    "/__resources",
-				resourceHandlers: resourcehandlers.NewRegistry(github.NewResourceHandler(nil, []string{"github.com"})),
+				resourceHandlers: resourcehandlers.NewRegistry(githubHandler.NewResourceHandler(github.NewClient(nil), []string{"github.com"})),
 				rewriteEmbedded:  true,
 			}
 			if tc.mutate != nil {
