@@ -277,7 +277,7 @@ func cacheHomeDir(f *cmdFlags, config *configuration.Config) string {
 		return f.cacheHomeDir
 	}
 
-	if config.CacheHome != nil {
+	if config != nil && config.CacheHome != nil {
 		return *config.CacheHome
 	}
 

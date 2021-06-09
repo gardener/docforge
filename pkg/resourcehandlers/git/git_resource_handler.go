@@ -48,6 +48,7 @@ func NewResourceHandler(gitRepositoriesAbsPath string, user *string, oauthToken 
 		localMappings:          localMappings,
 		gitRepositoriesAbsPath: gitRepositoriesAbsPath,
 		acceptedHosts:          acceptedHosts,
+		git:                    git.NewGit(),
 	}
 }
 
@@ -364,7 +365,7 @@ func (g *Git) getOrInitRepository(repositoryPath string, rl *github.ResourceLoca
 		return repoInfo
 	}
 	repository := &Repository{
-		Git:           git.NewGit(),
+		Git:           g.git,
 		Auth:          g.gitAuth,
 		LocalPath:     repositoryPath,
 		RemoteURL:     "https://" + rl.Host + "/" + rl.Owner + "/" + rl.Repo,

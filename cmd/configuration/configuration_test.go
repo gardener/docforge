@@ -35,7 +35,7 @@ func Test_load(t *testing.T) {
 		{
 			name:           "",
 			configFilePath: "",
-			want:           nil,
+			want:           &Config{},
 			wantErr:        false,
 		},
 		{
@@ -65,6 +65,12 @@ func Test_load(t *testing.T) {
 				},
 			},
 			wantErr: false,
+		},
+		{
+			name:           "missing_config_file_name",
+			configFilePath: "testdata/missing_file.yaml",
+			want:           &Config{},
+			wantErr:        false,
 		},
 	}
 	for _, tt := range tests {
