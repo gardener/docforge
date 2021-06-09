@@ -5,13 +5,14 @@
 package reactor
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
 	"regexp"
 	"strings"
 
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/util/urls"
-	"github.com/google/uuid"
 	"k8s.io/klog/v2"
 )
 
@@ -128,7 +129,7 @@ func matchForDownload(url *urls.URL, downloadRules *api.Downloads) (string, bool
 				return downloadResourceName, true
 			}
 			// default download resource name
-			downloadResourceName := expandVariables(url, "$uuid$ext")
+			downloadResourceName := expandVariables(url, "$name_$hash$ext")
 			return downloadResourceName, true
 		}
 	}
@@ -158,10 +159,10 @@ func matchDownloadRenameRule(link string, rules map[string]string) string {
 }
 
 func expandVariables(url *urls.URL, renameExpr string) string {
-	id := uuid.New().String()
+	hash := md5.Sum([]byte(url.String()))
 	s := renameExpr
 	s = strings.ReplaceAll(s, "$name", url.ResourceName)
-	s = strings.ReplaceAll(s, "$uuid", id)
+	s = strings.ReplaceAll(s, "$hash", hex.EncodeToString(hash[:])[:6])
 	s = strings.ReplaceAll(s, "$ext", fmt.Sprintf(".%s", url.Extension))
 	return s
 }

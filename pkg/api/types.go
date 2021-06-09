@@ -350,13 +350,13 @@ type Downloads struct {
 // expressions:
 //
 // - `$name`: the original name of the resource
-// - `$uuid`: a UUID generated for the resource
+// - `$hash`: a hash generated from the resource's URL
 // - `$ext`: a original resource extension
-//   The default expression applying to all resources is: `$uuid$ext`
+//   The default expression applying to all resources is: `$name_hash$ext`
 //   Example:
 //
 // ```
-//  "\\.(jpg|gif|png)": "$name-image-$uuid$ext"
+//  "\\.(jpg|gif|png)": "$name-image-$hash$ext"
 // ```
 //
 // Optional
