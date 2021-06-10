@@ -2,6 +2,9 @@
 // Source: ./pkg/git/git.go
 
 // Package mock_git is a generated GoMock package.
+// SPDX-FileCopyrightText: 2020 SAP SE or an SAP affiliate company and Gardener contributors
+//
+// SPDX-License-Identifier: Apache-2.0
 package mock_git
 
 import (
