@@ -20,8 +20,6 @@ func main() {
 		runtime.GOMAXPROCS(runtime.NumCPU())
 	}
 
-	// t := time.Duration(timeout) * time.Second
-	// ctx, cancel := context.WithTimeout(context.Background(), t)
 	ctx, cancel := context.WithCancel(context.Background())
 	c := make(chan os.Signal, 2)
 	signal.Notify(c, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)

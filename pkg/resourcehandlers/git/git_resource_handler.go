@@ -15,6 +15,7 @@ import (
 	"sync"
 
 	"github.com/gardener/docforge/pkg/api"
+	"github.com/gardener/docforge/pkg/git"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/gardener/docforge/pkg/resourcehandlers/github"
 	"github.com/gardener/docforge/pkg/resourcehandlers/utils"
@@ -32,9 +33,11 @@ type Git struct {
 	gitAuth                http.AuthMethod
 	gitRepositoriesAbsPath string
 	acceptedHosts          []string
-	preparedRepos          map[string]*Repository
 	localMappings          map[string]string
-	mutex                  sync.RWMutex
+	git                    git.Git
+
+	preparedRepos map[string]*Repository
+	mutex         sync.RWMutex
 }
 
 // NewResourceHandler creates new GitHub ResourceHandler objects
@@ -45,6 +48,7 @@ func NewResourceHandler(gitRepositoriesAbsPath string, user *string, oauthToken 
 		localMappings:          localMappings,
 		gitRepositoriesAbsPath: gitRepositoriesAbsPath,
 		acceptedHosts:          acceptedHosts,
+		git:                    git.NewGit(),
 	}
 }
 
@@ -360,8 +364,8 @@ func (g *Git) getOrInitRepository(repositoryPath string, rl *github.ResourceLoca
 	if repoInfo, ok := g.preparedRepos[repositoryPath]; ok {
 		return repoInfo
 	}
-
 	repository := &Repository{
+		Git:           g.git,
 		Auth:          g.gitAuth,
 		LocalPath:     repositoryPath,
 		RemoteURL:     "https://" + rl.Host + "/" + rl.Owner + "/" + rl.Repo,

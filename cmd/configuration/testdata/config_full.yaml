@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: 2020 SAP SE or an SAP affiliate company and Gardener contributors
+#
+# SPDX-License-Identifier: Apache-2.0
+sources:
+  - host: github.com
+    credentials:
+      username: Bob
+      oauthToken: s0m3tok3n
+cacheHome: ~/.docforge/cache_old
+resourceMappings:
+  "https://github.com/gardener/gardener/tree/master/docs": "/usr/user/home/git/github.com/gardener/gardener/docs"
+hugo:
+  enabled: false
+  prettyURLs: true
+  baseURL: "/gardener"
+  sectionFiles:
+  - indexmd

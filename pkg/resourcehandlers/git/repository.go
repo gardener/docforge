@@ -9,7 +9,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/go-git/go-git/v5"
+	"github.com/gardener/docforge/pkg/git"
+
+	gogit "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 )
@@ -31,6 +33,7 @@ type Repository struct {
 	RemoteURL     string
 	State         State
 	PreviousError error
+	Git           git.Git
 
 	mutex sync.RWMutex
 }
@@ -56,41 +59,48 @@ func (r *Repository) Prepare(ctx context.Context, branch string) error {
 }
 
 func (r *Repository) prepare(ctx context.Context, branch string) error {
-	var fetch = true
-	gitRepo, err := git.PlainOpen(r.LocalPath)
+	repository, fetch, err := r.repository(ctx)
 	if err != nil {
-		if err != git.ErrRepositoryNotExists {
-			return err
-		}
-		if gitRepo, err = git.PlainCloneContext(ctx, r.LocalPath, false, &git.CloneOptions{
-			URL:        r.RemoteURL,
-			RemoteName: git.DefaultRemoteName,
-			Depth:      depth,
-			Auth:       r.Auth,
-		}); err != nil {
-			return fmt.Errorf("failed to prepare repo: %s, %v", r.LocalPath, err)
-		}
-		fetch = false
+		return err
 	}
 
 	if fetch {
-		if err := gitRepo.FetchContext(ctx, &git.FetchOptions{
+		if err := repository.FetchContext(ctx, &gogit.FetchOptions{
 			Auth:       r.Auth,
 			Depth:      depth,
-			RemoteName: git.DefaultRemoteName,
-		}); err != nil && err != git.NoErrAlreadyUpToDate {
+			RemoteName: gogit.DefaultRemoteName,
+		}); err != nil && err != gogit.NoErrAlreadyUpToDate {
 			return fmt.Errorf("failed to fetch repository %s: %v", r.LocalPath, err)
 		}
 	}
 
-	w, err := gitRepo.Worktree()
+	w, err := repository.Worktree()
 	if err != nil {
 		return err
 	}
-	if err := w.Checkout(&git.CheckoutOptions{
-		Branch: plumbing.NewRemoteReferenceName(git.DefaultRemoteName, branch),
+	if err := w.Checkout(&gogit.CheckoutOptions{
+		Branch: plumbing.NewRemoteReferenceName(gogit.DefaultRemoteName, branch),
 	}); err != nil {
 		return fmt.Errorf("couldn't checkout branch %s for repository %s: %v", branch, r.LocalPath, err)
 	}
 	return nil
+}
+
+func (r *Repository) repository(ctx context.Context) (git.GitRepository, bool, error) {
+	gitRepo, err := r.Git.PlainOpen(r.LocalPath)
+	if err != nil {
+		if err != gogit.ErrRepositoryNotExists {
+			return nil, false, err
+		}
+		if gitRepo, err = r.Git.PlainCloneContext(ctx, r.LocalPath, false, &gogit.CloneOptions{
+			URL:        r.RemoteURL,
+			RemoteName: gogit.DefaultRemoteName,
+			Depth:      depth,
+			Auth:       r.Auth,
+		}); err != nil {
+			return nil, false, fmt.Errorf("failed to prepare repo: %s, %v", r.LocalPath, err)
+		}
+		return gitRepo, false, nil
+	}
+	return gitRepo, true, nil
 }

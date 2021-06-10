@@ -5,6 +5,7 @@
 package configuration
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -41,8 +42,15 @@ func (d *DefaultConfigurationLoader) Load() (*Config, error) {
 }
 
 func load(configFilePath string) (*Config, error) {
+	if len(configFilePath) <= 0 {
+		return &Config{}, nil
+	}
+
 	stat, err := os.Stat(configFilePath)
 	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return &Config{}, nil
+		}
 		return nil, fmt.Errorf("failed to get file info for configuration file path %s: %v", configFilePath, err)
 	}
 	if stat.IsDir() {
