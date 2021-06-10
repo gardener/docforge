@@ -6,7 +6,9 @@ package reactor
 
 import (
 	"context"
-	// "fmt"
+	"errors"
+	"reflect"
+	"testing"
 
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/util/tests"
@@ -100,4 +102,307 @@ func (f *FakeResourceHandler) SetVersion(link, version string) (string, error) {
 
 func (f *FakeResourceHandler) GetRawFormatLink(link string) (string, error) {
 	return link, nil
+}
+
+func Test_getNodeParentPath(t *testing.T) {
+	type args struct {
+		node     *api.Node
+		parrents []*api.Node
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "Pass nil parent node",
+			args: args{node: nil},
+			want: "root",
+		},
+		{
+			name: "Pass node without parent",
+			args: args{node: &api.Node{Name: "top"}},
+			want: "top",
+		},
+		{
+			name: "Pass node with one ancestor",
+			args: args{
+				node: &api.Node{Name: "father"},
+				parrents: []*api.Node{
+					{Name: "grandfather"},
+				},
+			},
+			want: "grandfather.father",
+		},
+		{
+			name: "Pass node with two ancestor",
+			args: args{
+				node: &api.Node{Name: "son"},
+				parrents: []*api.Node{
+					{Name: "grandfather"},
+					{Name: "father"},
+				},
+			},
+			want: "grandfather.father.son",
+		},
+	}
+	for _, tt := range tests {
+		setParents(tt.args.node, tt.args.parrents)
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getNodeParentPath(tt.args.node); got != tt.want {
+				t.Errorf("getNodeParentPath() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_buildNodeCollision(t *testing.T) {
+	type args struct {
+		nodes           []*api.Node
+		parent          *api.Node
+		collisionsNames []string
+	}
+	tests := []struct {
+		name string
+		args args
+		want collision
+	}{
+		{
+			name: "Pass nodes with one colission of two nodes",
+			args: args{
+				nodes: []*api.Node{
+					{Name: "foo", Source: "foo/bar"},
+					{Name: "foo", Source: "baz/bar/foo"},
+				},
+				parent:          &api.Node{Name: "parent"},
+				collisionsNames: []string{"foo"},
+			},
+			want: collision{
+				nodeParentPath: "parent",
+				collidedNodes: map[string][]string{
+					"foo": {"foo/bar", "baz/bar/foo"},
+				},
+			},
+		},
+		{
+			name: "Pass nodes with one colission of three nodes",
+			args: args{
+				nodes: []*api.Node{
+					{Name: "foo", Source: "foo/bar"},
+					{Name: "foo", Source: "baz/bar/foo"},
+					{Name: "foo", Source: "baz/bar/foo/fuz"},
+				},
+				parent:          &api.Node{Name: "parent"},
+				collisionsNames: []string{"foo"},
+			},
+			want: collision{
+				nodeParentPath: "parent",
+				collidedNodes: map[string][]string{
+					"foo": {"foo/bar", "baz/bar/foo", "baz/bar/foo/fuz"},
+				},
+			},
+		},
+		{
+			name: "Pass nodes with two colission",
+			args: args{
+				nodes: []*api.Node{
+					{Name: "foo", Source: "foo/bar"},
+					{Name: "foo", Source: "baz/bar/foo"},
+					{Name: "moo", Source: "moo/bar"},
+					{Name: "moo", Source: "baz/bar/moo"},
+					{Name: "normal", Source: "baz/bar/moo"},
+				},
+				parent:          &api.Node{Name: "parent"},
+				collisionsNames: []string{"foo", "moo"},
+			},
+			want: collision{
+				nodeParentPath: "parent",
+				collidedNodes: map[string][]string{
+					"foo": {"foo/bar", "baz/bar/foo"},
+					"moo": {"moo/bar", "baz/bar/moo"},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := buildNodeCollision(tt.args.nodes, tt.args.parent, tt.args.collisionsNames); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("buildNodeCollision() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func setParents(node *api.Node, parents []*api.Node) {
+	currentNode := node
+	for i := len(parents) - 1; i >= 0; i-- {
+		parent := parents[i]
+		currentNode.SetParent(parent)
+		currentNode = parent
+	}
+}
+
+func Test_checkNodesForCollision(t *testing.T) {
+	type args struct {
+		nodes      []*api.Node
+		parent     *api.Node
+		collisions []collision
+	}
+	tests := []struct {
+		name string
+		args args
+		want []collision
+	}{
+		{
+			name: "Nodes with one collision",
+			args: args{
+				nodes: []*api.Node{
+					{Name: "foo", Source: "bar/baz"},
+					{Name: "foo", Source: "baz/foo"},
+					{Name: "normal", Source: "baz/foo"},
+				},
+				parent: &api.Node{
+					Name: "parent",
+				},
+			},
+			want: []collision{
+				{
+					nodeParentPath: "parent",
+					collidedNodes: map[string][]string{
+						"foo": {"bar/baz", "baz/foo"},
+					},
+				},
+			},
+		},
+		{
+			name: "Nodes with two collision",
+			args: args{
+				nodes: []*api.Node{
+					{Name: "foo", Source: "bar/baz"},
+					{Name: "foo", Source: "baz/foo"},
+					{Name: "normal", Source: "baz/foo"},
+					{Name: "moo", Source: "bar/baz"},
+					{Name: "moo", Source: "baz/moo"},
+				},
+				parent: &api.Node{
+					Name: "parent",
+				},
+			},
+			want: []collision{
+				{
+					nodeParentPath: "parent",
+					collidedNodes: map[string][]string{
+						"foo": {"bar/baz", "baz/foo"},
+						"moo": {"bar/baz", "baz/moo"},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := checkNodesForCollision(tt.args.nodes, tt.args.parent, tt.args.collisions)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("checkNodesForCollision() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_checkForCollisions(t *testing.T) {
+	type args struct {
+		nodes []*api.Node
+	}
+	tests := []struct {
+		name string
+		args args
+		want error
+	}{
+		{
+			name: "Test with one collision",
+			args: args{
+				nodes: []*api.Node{
+					{
+						Name: "grandfather",
+						Nodes: []*api.Node{
+							{
+								Name: "parent",
+								Nodes: []*api.Node{
+									{Name: "son", Source: "https://foo/bar/son"},
+									{Name: "son", Source: "https://foo/bar/bor"},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: errors.New("Node collisions detected.In grandfather.parent container node. Node with name son appears 2 times for sources: https://foo/bar/son, https://foo/bar/bor."),
+		},
+		{
+			name: "Test with many collisions",
+			args: args{
+				nodes: []*api.Node{
+					{
+						Name: "grandfather",
+						Nodes: []*api.Node{
+							{
+								Name: "father",
+								Nodes: []*api.Node{
+									{Name: "son", Source: "https://foo/bar/son"},
+									{Name: "son", Source: "https://foo/bar/bor"},
+								},
+							},
+							{
+								Name: "mother",
+								Nodes: []*api.Node{
+									{Name: "daughter", Source: "https://foo/bar/daughter"},
+									{Name: "daughter", Source: "https://foo/daughter/bor"},
+								},
+							},
+						},
+					},
+					{
+						Name: "grandmother",
+						Nodes: []*api.Node{
+							{
+								Name: "father",
+								Nodes: []*api.Node{
+									{Name: "son", Source: "https://foo/bar/son"},
+									{Name: "son", Source: "https://foo/bar/bor"},
+								},
+							},
+							{
+								Name: "mother",
+								Nodes: []*api.Node{
+									{Name: "daughter", Source: "https://foo/bar/daughter"},
+									{Name: "daughter", Source: "https://foo/daughter/bor"},
+								},
+							},
+						},
+					},
+					{
+						Name:   "grandmother",
+						Source: "https://some/url/to/source",
+					},
+				},
+			},
+			want: errors.New("Node collisions detected.In root container node. Node with name grandmother appears 2 times for sources: , https://some/url/to/source.In grandfather.father container node. Node with name son appears 2 times for sources: https://foo/bar/son, https://foo/bar/bor.In grandfather.mother container node. Node with name daughter appears 2 times for sources: https://foo/bar/daughter, https://foo/daughter/bor.In grandmother.father container node. Node with name son appears 2 times for sources: https://foo/bar/son, https://foo/bar/bor.In grandmother.mother container node. Node with name daughter appears 2 times for sources: https://foo/bar/daughter, https://foo/daughter/bor."),
+		},
+	}
+	for _, tt := range tests {
+		recursiveSetParents(tt.args.nodes, nil)
+		t.Run(tt.name, func(t *testing.T) {
+			got := checkForCollisions(tt.args.nodes)
+			if got.Error() != tt.want.Error() {
+				t.Errorf("checkForCollisions() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func recursiveSetParents(nodes []*api.Node, parent *api.Node) {
+	for _, node := range nodes {
+		node.SetParent(parent)
+		recursiveSetParents(node.Nodes, node)
+	}
 }
