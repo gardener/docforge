@@ -27,12 +27,21 @@ func TestWrite(t *testing.T) {
 		wantContent  string
 	}{
 		{
-			name:         "test",
+			name:         "test.md",
 			path:         "a/b",
 			docBlob:      []byte("# Test"),
 			node:         &api.Node{},
 			wantErr:      nil,
 			wantFileName: `test.md`,
+			wantContent:  `# Test`,
+		},
+		{
+			name:         "test",
+			path:         "a/b",
+			docBlob:      []byte("# Test"),
+			node:         &api.Node{},
+			wantErr:      nil,
+			wantFileName: `test`,
 			wantContent:  `# Test`,
 		},
 	}

@@ -32,7 +32,6 @@ type Options struct {
 func NewWriter(opts *Options) writers.Writer {
 	return &FSWriter{
 		opts.Writer,
-		opts.IndexFileNames,
 	}
 }
 

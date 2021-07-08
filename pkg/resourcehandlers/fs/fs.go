@@ -55,9 +55,9 @@ func (fs *fsHandler) ResolveNodeSelector(ctx context.Context, node *api.Node, ex
 				return nil
 			}
 			if path != parentPath {
-				if len(strings.Split(path, "/"))-len(strings.Split(parentPath, "/")) != 1 {
+				if len(strings.Split(path, string(os.PathSeparator)))-len(strings.Split(parentPath, string(os.PathSeparator))) != 1 {
 					node = node.Parent()
-					pathSegments := strings.Split(path, "/")
+					pathSegments := strings.Split(path, string(os.PathSeparator))
 					if len(pathSegments) > 0 {
 						pathSegments = pathSegments[:len(pathSegments)-1]
 						parentPath = filepath.Join(pathSegments...)
@@ -97,8 +97,8 @@ func (fs *fsHandler) ResolveNodeSelector(ctx context.Context, node *api.Node, ex
 		}
 	}(_node, node.NodeSelector.Path))
 	if len(_node.Nodes) > 0 && len(_node.Nodes[0].Nodes) > 0 {
-		for _, node := range _node.Nodes[0].Nodes {
-			node.SetParent(nil)
+		for _, n := range _node.Nodes[0].Nodes {
+			n.SetParent(nil)
 		}
 		return _node.Nodes[0].Nodes, nil
 	}

@@ -76,13 +76,8 @@ type Metering struct {
 }
 
 // NewReactor creates a Reactor from Options
-func NewReactor(ctx context.Context, options *Options, globalLinksCfg *api.Links) (*reactor.Reactor, error) {
+func NewReactor(ctx context.Context, options *Options, rhs []resourcehandlers.ResourceHandler, globalLinksCfg *api.Links) (*reactor.Reactor, error) {
 	dryRunWriters := writers.NewDryRunWritersFactory(options.DryRunWriter)
-
-	rhs, err := initResourceHandlers(ctx, options)
-	if err != nil {
-		return nil, err
-	}
 
 	o := &reactor.Options{
 		MaxWorkersCount:              options.MaxWorkersCount,
@@ -144,6 +139,7 @@ func WithHugo(reactorOptions *reactor.Options, o *Options) {
 			Root: filepath.Join(o.DestinationPath),
 		}
 	}
+	reactorOptions.IndexFileNames = hugoOptions.IndexFileNames
 	reactorOptions.Writer = hugo.NewWriter(hugoOptions)
 }
 

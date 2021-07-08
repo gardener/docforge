@@ -70,7 +70,7 @@ func NewCommand(ctx context.Context, cancel context.CancelFunc) *cobra.Command {
 			if err := api.ValidateManifest(doc); err != nil {
 				return err
 			}
-			reactor, err := NewReactor(ctx, options, doc.Links)
+			reactor, err := NewReactor(ctx, options, rhs, doc.Links)
 			if err != nil {
 				return err
 			}
@@ -139,7 +139,7 @@ func (flags *cmdFlags) Configure(command *cobra.Command) {
 		"Build documentation bundle for hugo with pretty URLs (./sample.md -> ../sample). Only useful with --hugo=true")
 	command.Flags().StringVar(&flags.hugoBaseURL, "hugo-base-url", "", "Rewrites the raltive links of documentation files to root-relative where possible.")
 	command.Flags().BoolVar(&flags.useGit, "use-git", false, "Use Git for replication")
-	command.Flags().StringSliceVar(&flags.hugoSectionFiles, "hugo-section-files", []string{"readme", "read.me", "index"},
+	command.Flags().StringSliceVar(&flags.hugoSectionFiles, "hugo-section-files", []string{"readme.md", "readme", "read.me", "index.md", "index"},
 		"When building a Hugo-compliant documentaton bundle, files with filename matching one form this list (in that order) will be renamed to _index.md. Only useful with --hugo=true")
 }
 

@@ -1,12 +1,13 @@
 // SPDX-FileCopyrightText: 2020 SAP SE or an SAP affiliate company and Gardener contributors
 //
 // SPDX-License-Identifier: Apache-2.0
-
 package reactor
 
 import (
 	"context"
 	"fmt"
+	nodeutil "github.com/gardener/docforge/pkg/util/node"
+	"path/filepath"
 	"reflect"
 	"strings"
 
@@ -17,7 +18,7 @@ import (
 )
 
 // ResolveManifest resolves the manifests into buildable model
-func ResolveManifest(ctx context.Context, manifest *api.Documentation, rhRegistry resourcehandlers.Registry, manifestAbsPath string) error {
+func ResolveManifest(ctx context.Context, manifest *api.Documentation, rhRegistry resourcehandlers.Registry, manifestAbsPath string, indexFileNames []string) error {
 	var (
 		structure []*api.Node
 		err       error
@@ -41,7 +42,7 @@ func ResolveManifest(ctx context.Context, manifest *api.Documentation, rhRegistr
 		return fmt.Errorf("document structure resolved to nil")
 	}
 
-	if err = resolveStructure(ctx, rhRegistry, manifestAbsPath, structure, manifest.Links, make(map[string]bool)); err != nil {
+	if err = resolveStructure(ctx, rhRegistry, manifestAbsPath, structure, manifest.Links, make(map[string]bool), indexFileNames); err != nil {
 		return err
 	}
 
@@ -53,11 +54,11 @@ func ResolveManifest(ctx context.Context, manifest *api.Documentation, rhRegistr
 // - Node name variables
 // - NodeSelectors
 // The resulting model is the actual flight plan for replicating resources.
-func resolveStructure(ctx context.Context, rhRegistry resourcehandlers.Registry, manifestAbsPath string, nodes []*api.Node, globalLinksConfig *api.Links, visited map[string]bool) error {
+func resolveStructure(ctx context.Context, rhRegistry resourcehandlers.Registry, manifestAbsPath string, nodes []*api.Node, globalLinksConfig *api.Links, visited map[string]bool, indexFileNames []string) error {
 	for _, node := range nodes {
 		node.SetParentsDownwards()
 		if len(node.Source) > 0 {
-			nodeName, err := resolveNodeName(ctx, node, rhRegistry)
+			nodeName, err := resolveNodeName(ctx, rhRegistry, node, indexFileNames)
 			if err != nil {
 				return err
 			}
@@ -92,7 +93,7 @@ func resolveStructure(ctx context.Context, rhRegistry resourcehandlers.Registry,
 			node.NodeSelector = nil
 		}
 		if len(node.Nodes) > 0 {
-			if err := resolveStructure(ctx, rhRegistry, manifestAbsPath, node.Nodes, globalLinksConfig, visited); err != nil {
+			if err := resolveStructure(ctx, rhRegistry, manifestAbsPath, node.Nodes, globalLinksConfig, visited, indexFileNames); err != nil {
 				return err
 			}
 			visited = map[string]bool{}
@@ -174,21 +175,91 @@ func buildCircularDepMessage(visited map[string]bool, nodeSelector *api.NodeSele
 	return circularDependency
 }
 
-func resolveNodeName(ctx context.Context, node *api.Node, rhRegistry resourcehandlers.Registry) (string, error) {
+// resolveNodeName will rename nodes that has property 'index=true' or match the list in reactor#Reactor.IndexFileNames to _index.md on first match, first
+// renamed basis to serve as section files.
+func resolveNodeName(ctx context.Context, rhRegistry resourcehandlers.Registry, node *api.Node, indexFileNames []string) (string, error) {
+	if len(node.Source) == 0 {
+		return "", fmt.Errorf("node source not defined for %v", node)
+	}
 	name := node.Name
 	handler := rhRegistry.Get(node.Source)
 	if handler == nil {
 		return "", fmt.Errorf("no suitable handler registered for URL %s", node.Source)
 	}
+	resourceName, ext := handler.ResourceName(node.Source)
 	if len(node.Name) == 0 {
 		name = "$name"
+		if len(ext) > 0 {
+			name = "$name$ext"
+		}
 	}
-	resourceName, ext := handler.ResourceName(node.Source)
 	id := uuid.New().String()
 	name = strings.ReplaceAll(name, "$name", resourceName)
 	name = strings.ReplaceAll(name, "$uuid", id)
 	name = strings.ReplaceAll(name, "$ext", fmt.Sprintf(".%s", ext))
+	// --- rename logic from hugo#fswriter ---
+	// validate
+	if node.Parent() != nil {
+		if ns := getIndexNodes(node.Parent().Nodes); len(ns) > 1 {
+			names := []string{}
+			for _, n := range ns {
+				names = append(names, n.Name)
+			}
+			p := nodeutil.Path(node, "/")
+			return "", fmt.Errorf("multiple peer nodes with property index: true detected in %s: %s", p, strings.Join(names, ","))
+		}
+	}
+
+	if hasIndexNode([]*api.Node{node}) {
+		name = "_index.md"
+	}
+	// if IndexFileNames has values and index file has not been
+	// identified, try to figure out index file out from node names.
+	peerNodes := node.Peers()
+	if len(indexFileNames) > 0 && name != "_index" && name != "_index.md" && !hasIndexNode(peerNodes) {
+		for _, s := range indexFileNames {
+			if strings.EqualFold(name, s) {
+				klog.V(6).Infof("Renaming %s -> _index.md\n", filepath.Join(nodeutil.Path(node, "/"), name))
+				name = "_index.md"
+				break
+			}
+		}
+	}
+	// --- rename logic from writers#fswriter ---
+	if !strings.HasSuffix(name, ".md") {
+		name = fmt.Sprintf("%s.md", name)
+	}
 	return name, nil
+}
+
+func hasIndexNode(nodes []*api.Node) bool {
+	for _, n := range nodes {
+		if n.Properties != nil {
+			index := n.Properties["index"]
+			if isIndex, ok := index.(bool); ok {
+				return isIndex
+			}
+			if n.Name == "_index" || n.Name == "_index.md" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func getIndexNodes(nodes []*api.Node) []*api.Node {
+	indexNodes := []*api.Node{}
+	for _, n := range nodes {
+		if n.Properties != nil {
+			index := n.Properties["index"]
+			if isIndex, ok := index.(bool); ok {
+				if isIndex {
+					indexNodes = append(indexNodes, n)
+				}
+			}
+		}
+	}
+	return indexNodes
 }
 
 func pruneModuleLinks(moduleLinks interface{}, node *api.Node, getParentLinks func(node *api.Node) map[string]struct{}) {
