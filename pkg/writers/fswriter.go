@@ -32,8 +32,15 @@ func (f *FSWriter) Write(name, path string, docBlob []byte, node *api.Node) erro
 		return err
 	}
 
-	if node != nil && !strings.HasSuffix(name, ".md") {
-		name = fmt.Sprintf("%s.md", name)
+	if node != nil {
+		if !strings.HasSuffix(name, ".md") {
+			name = fmt.Sprintf("%s.md", name)
+		}
+		if val, exist := node.Properties["index"]; !strings.HasPrefix(name, "_index") && exist {
+			if b, ok := val.(bool); ok && b {
+				name = "_index.md"
+			}
+		}
 	}
 
 	if len(f.Ext) > 0 {
