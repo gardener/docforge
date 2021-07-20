@@ -273,13 +273,17 @@ func (g *Git) BuildAbsLink(source, relPath string) (string, error) {
 	}
 
 	if strings.HasPrefix(relPath, "/") {
-		relPath = strings.TrimPrefix(relPath, "/")
-		rl, err := github.Parse(source)
-		if err != nil {
-			return "", fmt.Errorf("failed to build absolute link for source file located at %s and relative path %s: %v", source, relPath, err)
+		// local link path starting from repo root
+		var rl *github.ResourceLocator
+		if rl, err = github.Parse(source); err != nil {
+			return "", err
 		}
-		rl.Path = relPath
-		return rl.String(), nil
+		if rl != nil  {
+			repo := fmt.Sprintf("/%s/%s/%s/%s", rl.Owner, rl.Repo, rl.Type, rl.SHAAlias)
+			if ! strings.HasPrefix(relPath, repo + "/") {
+				relPath = fmt.Sprintf("%s%s", repo, relPath)
+			}
+		}
 	}
 
 	u, err = u.Parse(relPath)

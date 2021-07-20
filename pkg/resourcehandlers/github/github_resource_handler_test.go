@@ -510,6 +510,14 @@ func TestGitHub_ResolveRelLink(t *testing.T) {
 			},
 			wantRelLink: "https://github.com/gardener/gardener/master/tree/images/jjbj.png",
 		},
+		{
+			name: "test root link",
+			args: args{
+				source: "https://github.com/gardener/external-dns-management/blob/master/README.md",
+				link:   "/docs/aws-route53/README.md",
+			},
+			wantRelLink: "https://github.com/gardener/external-dns-management/blob/master/docs/aws-route53/README.md",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

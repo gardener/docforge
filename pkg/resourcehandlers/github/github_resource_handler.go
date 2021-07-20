@@ -511,6 +511,19 @@ func (gh *GitHub) BuildAbsLink(source, relPath string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if strings.HasPrefix(relPath, "/") {
+		// local link path starting from repo root
+		var rl *ResourceLocator
+		if rl, err = Parse(source); err != nil {
+			return "", err
+		}
+		if rl != nil  {
+			repo := fmt.Sprintf("/%s/%s/%s/%s", rl.Owner, rl.Repo, rl.Type, rl.SHAAlias)
+			if ! strings.HasPrefix(relPath, repo + "/") {
+				relPath = fmt.Sprintf("%s%s", repo, relPath)
+			}
+		}
+	}
 	u, err = u.Parse(relPath)
 	if err != nil {
 		return "", err
