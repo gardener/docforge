@@ -59,7 +59,7 @@ docforge:
           default_channel: "internal_scp_workspace"
           channel_cfgs:
             internal_scp_workspace:
-              channel_name: "G0170ECNADC" #gardener-space-sofia
+              channel_name: "G01MH3C9UCS" #gardener-documentation
               slack_cfg_name: "ti_workspace"
       steps:
         update-release:
