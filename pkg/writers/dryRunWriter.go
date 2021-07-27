@@ -121,7 +121,7 @@ func format(files []*file, b *bytes.Buffer) {
 	for _, f := range files {
 		p := f.path
 		p = filepath.Clean(p)
-		dd := strings.Split(p, "/")
+		dd := strings.Split(p, string(filepath.Separator))
 		indent := 0
 		for i, s := range dd {
 			if i > 0 {
@@ -129,7 +129,7 @@ func format(files []*file, b *bytes.Buffer) {
 				indent++
 			}
 			idx := i + 1
-			_p := strings.Join(dd[:idx], "/")
+			_p := filepath.Join(dd[:idx] ...)
 			if !any(all, _p) {
 				all = append(all, _p)
 				b.WriteString(fmt.Sprintf("%s\n", s))

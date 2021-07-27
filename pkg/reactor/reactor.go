@@ -40,6 +40,7 @@ type Options struct {
 	DryRunWriter           writers.DryRunWriter
 	Resolve                bool
 	GlobalLinksConfig      *api.Links
+	IndexFileNames         []string
 }
 
 // NewReactor creates a Reactor from Options
@@ -67,6 +68,7 @@ func NewReactor(o *Options) *Reactor {
 		GitInfoController:  gitInfoController,
 		DryRunWriter:       o.DryRunWriter,
 		Resolve:            o.Resolve,
+		IndexFileNames:     o.IndexFileNames,
 		manifestAbsPath:    o.ManifestAbsPath,
 	}
 	return r
@@ -81,6 +83,7 @@ type Reactor struct {
 	GitInfoController  GitInfoController
 	DryRunWriter       writers.DryRunWriter
 	Resolve            bool
+	IndexFileNames     []string
 	manifestAbsPath    string
 }
 
@@ -99,12 +102,12 @@ func (r *Reactor) Run(ctx context.Context, manifest *api.Documentation, dryRun b
 		}
 	}()
 
-	if err := ResolveManifest(ctx, manifest, r.ResourceHandlers, r.manifestAbsPath); err != nil {
+	if err := ResolveManifest(ctx, manifest, r.ResourceHandlers, r.manifestAbsPath, r.IndexFileNames); err != nil {
 		return err
 	}
 
 	if err := checkForCollisions(manifest.Structure); err != nil {
-		return err
+		klog.Errorf("checkForCollisions: %s", err.Error())
 	}
 
 	klog.V(4).Info("Building documentation structure\n\n")
@@ -142,7 +145,7 @@ func checkForCollisions(nodes []*api.Node) error {
 	var sb strings.Builder
 	sb.WriteString("Node collisions detected.")
 	for _, collision := range collisions {
-		sb.WriteString("In ")
+		sb.WriteString("\nIn ")
 		sb.WriteString(collision.nodeParentPath)
 		sb.WriteString(" container node.")
 		for node, sources := range collision.collidedNodes {
@@ -170,7 +173,7 @@ func deepCheckNodesForCollisions(nodes []*api.Node, parent *api.Node, collisions
 
 func checkNodesForCollision(nodes []*api.Node, parent *api.Node, collisions []collision) []collision {
 	if len(nodes) < 2 {
-		return nil
+		return collisions
 	}
 	// It is unlikely to have a collision so keep the detection logic as simple and fast as possible.
 	checked := make(map[string]struct{}, len(nodes))

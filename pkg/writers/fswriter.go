@@ -6,12 +6,10 @@ package writers
 
 import (
 	"fmt"
+	"github.com/gardener/docforge/pkg/api"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
-
-	"github.com/gardener/docforge/pkg/api"
 )
 
 // FSWriter is implementation of Writer interface for writing blobs to the file system
@@ -30,10 +28,6 @@ func (f *FSWriter) Write(name, path string, docBlob []byte, node *api.Node) erro
 	}
 	if err := os.MkdirAll(p, os.ModePerm); err != nil {
 		return err
-	}
-
-	if node != nil && !strings.HasSuffix(name, ".md") {
-		name = fmt.Sprintf("%s.md", name)
 	}
 
 	if len(f.Ext) > 0 {

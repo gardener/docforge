@@ -7,6 +7,7 @@ package reactor
 import (
 	"context"
 	"errors"
+	"github.com/stretchr/testify/assert"
 	"reflect"
 	"testing"
 
@@ -336,7 +337,7 @@ func Test_checkForCollisions(t *testing.T) {
 					},
 				},
 			},
-			want: errors.New("Node collisions detected.In grandfather.parent container node. Node with name son appears 2 times for sources: https://foo/bar/son, https://foo/bar/bor."),
+			want: errors.New("Node collisions detected.\nIn grandfather.parent container node. Node with name son appears 2 times for sources: https://foo/bar/son, https://foo/bar/bor."),
 		},
 		{
 			name: "Test with many collisions",
@@ -386,16 +387,71 @@ func Test_checkForCollisions(t *testing.T) {
 					},
 				},
 			},
-			want: errors.New("Node collisions detected.In root container node. Node with name grandmother appears 2 times for sources: , https://some/url/to/source.In grandfather.father container node. Node with name son appears 2 times for sources: https://foo/bar/son, https://foo/bar/bor.In grandfather.mother container node. Node with name daughter appears 2 times for sources: https://foo/bar/daughter, https://foo/daughter/bor.In grandmother.father container node. Node with name son appears 2 times for sources: https://foo/bar/son, https://foo/bar/bor.In grandmother.mother container node. Node with name daughter appears 2 times for sources: https://foo/bar/daughter, https://foo/daughter/bor."),
+			want: errors.New("Node collisions detected.\nIn root container node. Node with name grandmother appears 2 times for sources: , https://some/url/to/source.\nIn grandfather.father container node. Node with name son appears 2 times for sources: https://foo/bar/son, https://foo/bar/bor.\nIn grandfather.mother container node. Node with name daughter appears 2 times for sources: https://foo/bar/daughter, https://foo/daughter/bor.\nIn grandmother.father container node. Node with name son appears 2 times for sources: https://foo/bar/son, https://foo/bar/bor.\nIn grandmother.mother container node. Node with name daughter appears 2 times for sources: https://foo/bar/daughter, https://foo/daughter/bor."),
+		},
+		{
+			name: "Test without collision",
+			args: args{
+				nodes: []*api.Node{
+					{
+						Name: "l1",
+						Nodes: []*api.Node{
+							{
+								Name: "l11",
+								Nodes: []*api.Node{
+									{Name: "l111", Source: "https://foo/bar/l111"},
+									{Name: "l112", Source: "https://foo/bar/l112"},
+								},
+							},
+						},
+					},
+					{
+						Name: "l2",
+						Nodes: []*api.Node{
+							{
+								Name: "l21",
+							},
+						},
+					},
+				},
+			},
+			want: nil,
+		},
+		{
+			name: "Test with nodes after collision",
+			args: args{
+				nodes: []*api.Node{
+					{
+						Name: "l1",
+						Nodes: []*api.Node{
+							{
+								Name: "l11",
+								Nodes: []*api.Node{
+									{Name: "l111", Source: "https://foo/bar/l111"},
+									{Name: "l111", Source: "https://foo/bar/l111"},
+									{Name: "l112", Source: "https://foo/bar/l112"},
+								},
+							},
+						},
+					},
+					{
+						Name: "l2",
+						Nodes: []*api.Node{
+							{
+								Name: "l21",
+							},
+						},
+					},
+				},
+			},
+			want: errors.New("Node collisions detected.\nIn l1.l11 container node. Node with name l111 appears 2 times for sources: https://foo/bar/l111, https://foo/bar/l111."),
 		},
 	}
 	for _, tt := range tests {
 		recursiveSetParents(tt.args.nodes, nil)
 		t.Run(tt.name, func(t *testing.T) {
 			got := checkForCollisions(tt.args.nodes)
-			if got.Error() != tt.want.Error() {
-				t.Errorf("checkForCollisions() = %v, want %v", got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }

@@ -72,19 +72,19 @@ func TestResolveNodeSelector(t *testing.T) {
 						Nodes: []*api.Node{
 							{
 								Name:   "f020.md",
-								Source: "testdata/d00/d02/f020.md",
+								Source: filepath.FromSlash("testdata/d00/d02/f020.md"),
 							},
 						},
 					},
 					{
 						Name:   "f01.md",
-						Source: "testdata/d00/f01.md",
+						Source: filepath.FromSlash("testdata/d00/f01.md"),
 					},
 				},
 			},
 			{
 				Name:   "f00.md",
-				Source: "testdata/f00.md",
+				Source: filepath.FromSlash("testdata/f00.md"),
 			},
 		},
 	}
@@ -102,6 +102,8 @@ func TestResolveNodeSelector(t *testing.T) {
 }
 
 func TestBuildAbsLink(t *testing.T) {
+	absLink, _ := filepath.Abs("/d/e/f.md")
+	absWantLink, _ := filepath.Abs("/d/e/f.md")
 	testCases := []struct {
 		source   string
 		link     string
@@ -110,8 +112,8 @@ func TestBuildAbsLink(t *testing.T) {
 	}{
 		{
 			source:   "a/b/c.md",
-			link:     "/d/e/f.md",
-			wantLink: "/d/e/f.md",
+			link:     absLink,
+			wantLink: absWantLink,
 		},
 		{
 			source:   "a/b/c.md",

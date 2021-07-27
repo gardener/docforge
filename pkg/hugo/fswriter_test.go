@@ -47,7 +47,7 @@ func TestWrite(t *testing.T) {
 			docBlob:      []byte("# Test"),
 			node:         &api.Node{},
 			wantErr:      nil,
-			wantFileName: `test.md`,
+			wantFileName: `test`,
 			wantContent:  `# Test`,
 		},
 		{
@@ -67,28 +67,6 @@ func TestWrite(t *testing.T) {
 title: Test1
 ---
 `,
-		},
-		{
-			name:    "README",
-			path:    "a/b",
-			docBlob: []byte("# Test"),
-			node: &api.Node{
-				Name: "README",
-				Properties: map[string]interface{}{
-					"index": true,
-				},
-				ContentSelectors: []api.ContentSelector{
-					{
-						Source: "github.com",
-					},
-				},
-			},
-			wantErr:      nil,
-			wantFileName: filepath.Join("_index.md"),
-			wantContent:  `# Test`,
-			mutate: func(writer *FSWriter) {
-				writer.IndexFileNames = []string{"readme"}
-			},
 		},
 	}
 	for _, tc := range testCases {

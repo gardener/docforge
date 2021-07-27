@@ -243,7 +243,7 @@ func TestResolveManifest(t *testing.T) {
 			}
 			rh := new(testhandler.TestResourceHandler).WithResolveNodeSelector(tt.args.resolveNodeSelectorFunc)
 			resourcehandlers.NewRegistry(rh)
-			if err := ResolveManifest(tt.args.ctx, tt.args.testDocumentation, resourcehandlers.NewRegistry(rh), tt.args.manifestPath); (err != nil) != tt.wantErr {
+			if err := ResolveManifest(tt.args.ctx, tt.args.testDocumentation, resourcehandlers.NewRegistry(rh), tt.args.manifestPath, []string{}); (err != nil) != tt.wantErr {
 				t.Errorf("ResolveManifest() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if tt.wantErr {
@@ -580,6 +580,147 @@ func Test_resolveNodeSelector(t *testing.T) {
 
 			if !assert.Equal(t, tt.want, got) {
 				t.Errorf("resolveNodeSelector() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_resolveNodeName(t *testing.T) {
+	type args struct {
+		ctx            context.Context
+		rhRegistry     resourcehandlers.Registry
+		node           *api.Node
+		indexFileNames []string
+	}
+	tests := []struct {
+		name         string
+		description  string
+		args         args
+		acceptFunc   func(uri string) bool
+		resourceName func(link string) (string, string)
+		want         string
+		wantErr      bool
+		parent       *api.Node
+	}{
+		{
+			name:        "node_source_not_defined",
+			description: "if the node source is not defined, an error is returned",
+			args: args{
+				node: &api.Node{Source: ""},
+			},
+			want:    "",
+			wantErr: true,
+		},
+		{
+			name:        "missing_resource_handler",
+			description: "not suitable resource handler for path returns error",
+			args: args{
+				node: &api.Node{Source: "fake_source"},
+			},
+			acceptFunc: func(uri string) bool {
+				return false
+			},
+			want:    "",
+			wantErr: true,
+		},
+		{
+			name:        "name_is_set",
+			description: "node name is set and must remain the same",
+			args: args{
+				node: &api.Node{Name: "a_name.md", Source: "https://fake.host/resource_name.md"},
+			},
+			resourceName: func(link string) (string, string) {
+				return "resource_name", "md"
+			},
+			want:    "a_name.md",
+			wantErr: false,
+		},
+		{
+			name:        "name_without_extension_is_set",
+			description: "node name without extension is set and must remain the same, nut with .md extension added",
+			args: args{
+				node: &api.Node{Name: "a_name", Source: "https://fake.host/resource_name.md"},
+			},
+			resourceName: func(link string) (string, string) {
+				return "resource_name", "md"
+			},
+			want:    "a_name.md",
+			wantErr: false,
+		},
+		{
+			name:        "resolve_name",
+			description: "node name not specified and must be resolved to the source name",
+			args: args{
+				node: &api.Node{Name: "", Source: "https://fake.host/resource_name.md"},
+			},
+			resourceName: func(link string) (string, string) {
+				return "resource_name", "md"
+			},
+			want:    "resource_name.md",
+			wantErr: false,
+		},
+		{
+			name:        "resolve_name_and_add_extension",
+			description: "node name not specified and must be resolved to the source name with .md extension added",
+			args: args{
+				node: &api.Node{Name: "", Source: "https://fake.host/resource.name"},
+			},
+			resourceName: func(link string) (string, string) {
+				return "resource", "name"
+			},
+			want:    "resource.name.md",
+			wantErr: false,
+		},
+		{
+			name:        "node_with_index_true",
+			description: "node name should be resolved to _index.md",
+			args: args{
+				node: &api.Node{Name: "a_name", Source: "https://fake.host/resource_name.md", Properties: map[string]interface{}{"index": true}},
+			},
+			resourceName: func(link string) (string, string) {
+				return "resource_name", "md"
+			},
+			want:    "_index.md",
+			wantErr: false,
+		},
+		{
+			name:        "node_peers_with_index_true",
+			description: "if multiple node peers with index=true exist, an error should be returned",
+			args: args{
+				node: &api.Node{Name: "a_name"},
+			},
+			parent:  &api.Node{Nodes: []*api.Node{{Name: "n1", Properties: map[string]interface{}{"index": true}}, {Name: "n2", Properties: map[string]interface{}{"index": true}}}},
+			want:    "",
+			wantErr: true,
+		},
+		{
+			name:        "node_selected_to_be_index",
+			description: "if none of the peers has index = true and the node name matches indexFileNames, it will be selected for section file",
+			args: args{
+				node:           &api.Node{Name: "", Source: "https://fake.host/read.me"},
+				indexFileNames: []string{"readme", "read.me", "index"},
+			},
+			resourceName: func(link string) (string, string) {
+				return "read", "me"
+			},
+			parent:  &api.Node{Nodes: []*api.Node{{Name: "n1"}, {Name: "n2"}}},
+			want:    "_index.md",
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rh := new(testhandler.TestResourceHandler).WithAccept(tt.acceptFunc).WithResourceName(tt.resourceName)
+			rhRegistry := resourcehandlers.NewRegistry(rh)
+			tt.args.node.SetParent(tt.parent)
+			got, err := resolveNodeName(defaultCtxWithTimeout, rhRegistry, tt.args.node, tt.args.indexFileNames)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("resolveNodeName() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if !assert.Equal(t, tt.want, got) {
+				t.Errorf("resolveNodeName() = %v, want %v", got, tt.want)
 			}
 		})
 	}
