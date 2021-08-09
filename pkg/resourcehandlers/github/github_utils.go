@@ -5,12 +5,55 @@
 package github
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"strings"
 
 	"github.com/gardener/docforge/pkg/util/urls"
+
+	ghclient "github.com/google/go-github/v32/github"
 )
+
+// ReadGitInfo implements resourcehandlers/ResourceHandler#ReadGitInfo
+func ReadGitInfo(ctx context.Context, uri string, client *ghclient.Client) ([]byte, error) {
+	var (
+		rl      *ResourceLocator
+		commits []*ghclient.RepositoryCommit
+		err     error
+		blob    []byte
+	)
+	if rl, err = Parse(uri); err != nil {
+		return nil, err
+	}
+	opts := &ghclient.CommitsListOptions{
+		Path: rl.Path,
+		SHA:  rl.SHAAlias,
+	}
+	if commits, _, err = client.Repositories.ListCommits(ctx, rl.Owner, rl.Repo, opts); err != nil {
+		return nil, err
+	}
+	if commits != nil {
+		gitInfo := Transform(commits)
+		if gitInfo == nil {
+			return nil, nil
+		}
+		if len(rl.SHA) > 0 {
+			gitInfo.SHA = &rl.SHA
+		}
+		if len(rl.SHAAlias) > 0 {
+			gitInfo.SHAAlias = &rl.SHAAlias
+		}
+		if len(rl.Path) > 0 {
+			gitInfo.Path = &rl.Path
+		}
+		if blob, err = MarshallGitInfo(gitInfo); err != nil {
+			return nil, err
+		}
+	}
+
+	return blob, nil
+}
 
 // Parse a GitHub URL into an incomplete ResourceLocator, without
 // the SHA property.

@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/gardener/docforge/pkg/api"
-	"github.com/gardener/docforge/pkg/resourcehandlers/utils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -24,29 +23,6 @@ func TestFSRead(t *testing.T) {
 		t.Fatalf("%s", err.Error())
 	}
 	assert.Equal(t, []byte("Test data"), content)
-}
-
-func TestGitLog(t *testing.T) {
-	var (
-		log []*utils.GitLogEntry
-		err error
-	)
-	if log, err = utils.GitLog(filepath.Join("testdata", "f00.md")); err != nil {
-		t.Fatalf("%s", err.Error())
-	}
-	assert.NotNil(t, log)
-}
-
-func TestReadGitInfo(t *testing.T) {
-	var (
-		log []byte
-		err error
-	)
-	fs := &fsHandler{}
-	if log, err = fs.ReadGitInfo(context.TODO(), filepath.Join("testdata", "f00.md")); err != nil {
-		t.Fatalf("%s", err.Error())
-	}
-	assert.NotNil(t, log)
 }
 
 func TestResolveNodeSelector(t *testing.T) {

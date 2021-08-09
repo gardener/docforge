@@ -15,10 +15,14 @@ import (
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/markdown"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
-	"github.com/gardener/docforge/pkg/resourcehandlers/utils"
+	"github.com/gardener/docforge/pkg/resourcehandlers/github"
+
+	ghclient "github.com/google/go-github/v32/github"
 )
 
-type fsHandler struct{}
+type fsHandler struct {
+	client *ghclient.Client
+}
 
 // NewFSResourceHandler create file system ResourceHandler
 func NewFSResourceHandler() resourcehandlers.ResourceHandler {
@@ -128,7 +132,7 @@ func (fs *fsHandler) ResolveDocumentation(ctx context.Context, uri string) (*api
 
 // ReadGitInfo implements resourcehandlers.ResourceHandler#ReadGitInfo
 func (d *fsHandler) ReadGitInfo(ctx context.Context, uri string) ([]byte, error) {
-	return utils.ReadGitInfo(ctx, uri, nil)
+	return github.ReadGitInfo(ctx, uri, d.client)
 }
 
 // ResourceName implements resourcehandlers.ResourceHandler#ResourceName
