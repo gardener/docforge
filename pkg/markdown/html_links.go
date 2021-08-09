@@ -18,9 +18,9 @@ var (
 
 // UpdateHTMLLinkRef is a callback function invoked by UpdateHTMLLinksRefs on
 // each link (src|href attribute) found in an HTML tag.
-// It is supplied the link reference destination and is expected to return
+// It is supplied the isImage flag and the link reference destination and is expected to return
 // a destination that will be used to update the link , if different, or error.
-type UpdateHTMLLinkRef func(destination []byte) ([]byte, error)
+type UpdateHTMLLinkRef func(isImage bool, destination []byte) ([]byte, error)
 
 // UpdateHTMLLinksRefs matches links in HTML tags in a document content and
 // invokes the supplied updateRef callback function supplying the link
@@ -40,10 +40,11 @@ func UpdateHTMLLinksRefs(documentBytes []byte, updateRef UpdateHTMLLinkRef) ([]b
 		var prefix, suffix string
 		prefixSufix := strings.Split(matchedLink, url)
 		prefix = prefixSufix[0]
+		isImage := strings.HasPrefix(prefix, "<img ")
 		if len(prefixSufix) > 1 {
 			suffix = prefixSufix[1]
 		}
-		destination, err := updateRef([]byte(url))
+		destination, err := updateRef(isImage, []byte(url))
 		if err != nil {
 			errors = multierror.Append(errors, err)
 			return match

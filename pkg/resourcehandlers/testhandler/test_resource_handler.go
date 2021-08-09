@@ -16,6 +16,11 @@ type TestResourceHandler struct {
 	resolveNodeSelector  func(ctx context.Context, node *api.Node, excludePaths []string, frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32) ([]*api.Node, error)
 	resolveDocumentation func(ctx context.Context, uri string) (*api.Documentation, error)
 	resourceName         func(link string) (string, string)
+	buildAbsLink         func(source, link string) (string, error)
+	getRawFormatLink     func(absLink string) (string, error)
+	setVersion           func(absLink, version string) (string, error)
+	read                 func(ctx context.Context, uri string) ([]byte, error)
+	readGitInfo          func(ctx context.Context, uri string) ([]byte, error)
 }
 
 //NewTestResouceHandlere ...
@@ -37,12 +42,6 @@ func (t *TestResourceHandler) WithAccept(accept func(uri string) bool) *TestReso
 	return t
 }
 
-//WithResolveNodeSelector ...
-func (t *TestResourceHandler) WithResolveNodeSelector(resolveNodeSelector func(ctx context.Context, node *api.Node, excludePaths []string, frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32) ([]*api.Node, error)) *TestResourceHandler {
-	t.resolveNodeSelector = resolveNodeSelector
-	return t
-}
-
 //ResolveNodeSelector ...
 func (t *TestResourceHandler) ResolveNodeSelector(ctx context.Context, node *api.Node, excludePaths []string, frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32) ([]*api.Node, error) {
 	if t.resolveNodeSelector != nil {
@@ -51,14 +50,38 @@ func (t *TestResourceHandler) ResolveNodeSelector(ctx context.Context, node *api
 	return []*api.Node{}, nil
 }
 
+//WithResolveNodeSelector ...
+func (t *TestResourceHandler) WithResolveNodeSelector(resolveNodeSelector func(ctx context.Context, node *api.Node, excludePaths []string, frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32) ([]*api.Node, error)) *TestResourceHandler {
+	t.resolveNodeSelector = resolveNodeSelector
+	return t
+}
+
 // Read a resource content at uri into a byte array
 func (t *TestResourceHandler) Read(ctx context.Context, uri string) ([]byte, error) {
+	if t.read != nil {
+		return t.read(ctx, uri)
+	}
 	return []byte{}, nil
+}
+
+//WithRead ...
+func (t *TestResourceHandler) WithRead(read func(ctx context.Context, uri string) ([]byte, error)) *TestResourceHandler {
+	t.read = read
+	return t
 }
 
 // ReadGitInfo ..
 func (t *TestResourceHandler) ReadGitInfo(ctx context.Context, uri string) ([]byte, error) {
+	if t.readGitInfo != nil {
+		return t.readGitInfo(ctx, uri)
+	}
 	return []byte{}, nil
+}
+
+//WithReadGitInfo ...
+func (t *TestResourceHandler) WithReadGitInfo(readGitInfo func(ctx context.Context, uri string) ([]byte, error)) *TestResourceHandler {
+	t.readGitInfo = readGitInfo
+	return t
 }
 
 // ResourceName returns a breakdown of a resource name in the link, consisting
@@ -79,20 +102,47 @@ func (t *TestResourceHandler) WithResourceName(resourceName func(link string) (s
 // BuildAbsLink should return an absolute path of a relative link in regards of the provided
 // source
 func (t *TestResourceHandler) BuildAbsLink(source, link string) (string, error) {
+	if t.buildAbsLink != nil {
+		return t.buildAbsLink(source, link)
+	}
 	return "", nil
+}
+
+//WithBuildAbsLink ...
+func (t *TestResourceHandler) WithBuildAbsLink(buildAbsLink func(source, link string) (string, error)) *TestResourceHandler {
+	t.buildAbsLink = buildAbsLink
+	return t
 }
 
 // GetRawFormatLink returns a link to an embedable object (image) in raw format.
 // If the provided link is not referencing an embedable object, the function
 // returns absLink without changes.
 func (t *TestResourceHandler) GetRawFormatLink(absLink string) (string, error) {
+	if t.getRawFormatLink != nil {
+		return t.getRawFormatLink(absLink)
+	}
 	return "", nil
+}
+
+//WithGetRawFormatLink ...
+func (t *TestResourceHandler) WithGetRawFormatLink(getRawFormatLink func(absLink string) (string, error)) *TestResourceHandler {
+	t.getRawFormatLink = getRawFormatLink
+	return t
 }
 
 // SetVersion sets version to absLink according to the API scheme. For GitHub
 // for example this would replace e.g. the 'master' segment in the path with version
 func (t *TestResourceHandler) SetVersion(absLink, version string) (string, error) {
+	if t.setVersion != nil {
+		return t.setVersion(absLink, version)
+	}
 	return "", nil
+}
+
+//WithSetVersion ...
+func (t *TestResourceHandler) WithSetVersion(setVersion func(absLink, version string) (string, error)) *TestResourceHandler {
+	t.setVersion = setVersion
+	return t
 }
 
 // ResolveDocumentation for a given uri

@@ -42,7 +42,7 @@ func (n *Node) SetParentsDownwards() {
 	}
 }
 
-// RelativePath returns the relative path between two nodes on the same tree,
+// RelativePath returns the relative path between two nodes on the same tree or the forest under a api#Documentation.Structure,
 // formatted with `..` for ancestors path if any and `.` for current node in relative
 // path to descendant. The function can also calculate path to a node on another
 // branch
@@ -93,8 +93,22 @@ func relativePath(from, to *Node) string {
 			s = append(s, n.Name)
 		}
 		return strings.Join(s, "/")
+	} else {
+		// the nodes are in different trees
+		// (e.g. the roots of the nodes are different elements in the api#Documentation.Structure array)
+		var s []string
+		if len(fromPathToRoot) > 1 {
+			for range fromPathToRoot[1:] {
+				s = append(s, "..")
+			}
+		} else {
+			s = append(s, ".")
+		}
+		for _, n := range toPathToRoot {
+			s = append(s, n.Name)
+		}
+		return strings.Join(s, "/")
 	}
-	return ""
 }
 
 func intersect(a, b []*Node) []*Node {
@@ -222,4 +236,12 @@ func (n *Node) String() string {
 		return ""
 	}
 	return string(node)
+}
+
+func (n *Node) SetSourceLocation(sourceLocation string) {
+	n.sourceLocation = sourceLocation
+}
+
+func (n *Node) GetSourceLocation() string {
+	return n.sourceLocation
 }

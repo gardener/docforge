@@ -57,7 +57,7 @@ func (f *Processor) Process(document *processors.Document) error {
 	}); err != nil {
 		return err
 	}
-	if contentBytes, err = markdown.UpdateHTMLLinksRefs(contentBytes, func(url []byte) ([]byte, error) {
+	if contentBytes, err = markdown.UpdateHTMLLinksRefs(contentBytes, func(isImage bool, url []byte) ([]byte, error) {
 		link := document.GetLinkByDestination(string(url))
 		if link == nil {
 			return url, nil
@@ -122,6 +122,23 @@ func (f *Processor) rewriteDestination(destination, text, title []byte, nodeName
 				link = strings.TrimSuffix(link, ".md")
 				// TODO: propagate fragment and query if any
 				link = fmt.Sprintf("%s.html", link)
+			}
+		}
+		if l.DestinationNode != nil {
+			// check for hugo url property & rewrite the link
+			// see https://gohugo.io/content-management/urls/ for details
+			if val, ok := l.DestinationNode.Properties["frontmatter"]; ok {
+				if fmProps, ok := val.(map[string]interface{}); ok {
+					if urlVal, ok := fmProps["url"]; ok {
+						if urlStr, ok := urlVal.(string); ok {
+							if _, err = url.Parse(urlStr); err != nil {
+								klog.Warningf("Invalid frontmatter url: %s for %s\n", urlStr, l.DestinationNode.Source)
+							}  else {
+								link = urlStr
+							}
+						}
+					}
+				}
 			}
 		}
 		if _l != link {

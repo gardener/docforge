@@ -117,6 +117,7 @@ type Node struct {
 	// private fields
 	parent *Node
 	stats  []*Stat
+	sourceLocation string // preserve source location of container nodes
 }
 
 // NodeSelector is a specification for selecting nodes from a location that is

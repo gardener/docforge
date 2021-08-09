@@ -331,6 +331,8 @@ func TestResolveNodeSelector(t *testing.T) {
 			nil,
 		},
 	}
+	// set source location for container nodes
+	cases[0].want.Nodes[1].SetSourceLocation("https://github.com/gardener/gardener/tree/master/docs/concepts")
 	for _, c := range cases {
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer cancel()
@@ -586,6 +588,8 @@ func TestCleanupNodeTree(t *testing.T) {
 			},
 		},
 	}
+	// set source location for container nodes
+	tests[0].wantNode.Nodes[1].SetSourceLocation("https://github.com/gardener/gardener/tree/master/docs/02")
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			cleanupNodeTree(tc.node)
