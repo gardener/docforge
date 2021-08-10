@@ -19,11 +19,9 @@ import (
 	"github.com/gardener/docforge/pkg/git"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/gardener/docforge/pkg/resourcehandlers/github"
-	"github.com/gardener/docforge/pkg/resourcehandlers/utils"
 	"github.com/gardener/docforge/pkg/util/urls"
 
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
-
 	ghclient "github.com/google/go-github/v32/github"
 )
 
@@ -236,24 +234,7 @@ func readFile(uri string) ([]byte, error) {
 
 // ReadGitInfo implements resourcehandlers/ResourceHandler#ReadGitInfo
 func (g *Git) ReadGitInfo(ctx context.Context, uri string) ([]byte, error) {
-	u, err := url.Parse(uri)
-	if err != nil {
-		return nil, fmt.Errorf("unable to parse file uri %s while reading: %v", uri, err)
-	}
-	// remove query from uri
-	u.RawQuery = ""
-	uri = u.String()
-	rl, err := github.Parse(uri)
-	if err != nil {
-		return nil, err
-	}
-	repositoryPath := g.repositoryPathFromResourceLocator(rl)
-	uri = strings.Join([]string{repositoryPath, rl.Path}, "/")
-	if err := g.prepareGitRepository(ctx, repositoryPath, rl); err != nil {
-		return nil, err
-	}
-
-	return utils.ReadGitInfo(ctx, uri, rl)
+	return github.ReadGitInfo(ctx, uri, g.client)
 }
 
 // ResourceName returns a breakdown of a resource name in the link, consisting

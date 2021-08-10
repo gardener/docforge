@@ -21,6 +21,7 @@ import (
 	"github.com/gardener/docforge/pkg/markdown"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/gardener/docforge/pkg/util/urls"
+
 	"github.com/google/go-github/v32/github"
 )
 
@@ -440,41 +441,7 @@ func (gh *GitHub) Read(ctx context.Context, uri string) ([]byte, error) {
 
 // ReadGitInfo implements resourcehandlers/ResourceHandler#ReadGitInfo
 func (gh *GitHub) ReadGitInfo(ctx context.Context, uri string) ([]byte, error) {
-	var (
-		rl      *ResourceLocator
-		commits []*github.RepositoryCommit
-		err     error
-		blob    []byte
-	)
-	if rl, err = Parse(uri); err != nil {
-		return nil, err
-	}
-	opts := &github.CommitsListOptions{
-		Path: rl.Path,
-		SHA:  rl.SHAAlias,
-	}
-	if commits, _, err = gh.Client.Repositories.ListCommits(ctx, rl.Owner, rl.Repo, opts); err != nil {
-		return nil, err
-	}
-	if commits != nil {
-		gitInfo := Transform(commits)
-		if gitInfo == nil {
-			return nil, nil
-		}
-		if len(rl.SHA) > 0 {
-			gitInfo.SHA = &rl.SHA
-		}
-		if len(rl.SHAAlias) > 0 {
-			gitInfo.SHAAlias = &rl.SHAAlias
-		}
-		if len(rl.Path) > 0 {
-			gitInfo.Path = &rl.Path
-		}
-		if blob, err = MarshallGitInfo(gitInfo); err != nil {
-			return nil, err
-		}
-	}
-	return blob, nil
+	return ReadGitInfo(ctx, uri, gh.Client)
 }
 
 // ResourceName implements resourcehandlers/ResourceHandler#ResourceName
@@ -518,9 +485,9 @@ func (gh *GitHub) BuildAbsLink(source, relPath string) (string, error) {
 		if rl, err = Parse(source); err != nil {
 			return "", err
 		}
-		if rl != nil  {
+		if rl != nil {
 			repo := fmt.Sprintf("/%s/%s/%s/%s", rl.Owner, rl.Repo, rl.Type, rl.SHAAlias)
-			if ! strings.HasPrefix(relPath, repo + "/") {
+			if !strings.HasPrefix(relPath, repo+"/") {
 				relPath = fmt.Sprintf("%s%s", repo, relPath)
 			}
 		}
