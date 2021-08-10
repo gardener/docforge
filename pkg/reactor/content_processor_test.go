@@ -6,6 +6,7 @@ package reactor
 
 import (
 	"context"
+	"github.com/gardener/docforge/pkg/resourcehandlers/testhandler"
 	"strings"
 	"testing"
 
@@ -478,7 +479,13 @@ func Test_matchHTMLLinks(t *testing.T) {
 			c := &nodeContentProcessor{
 				resourceAbsLinks: make(map[string]string),
 				resourcesRoot:    "/__resources",
-				resourceHandlers: resourcehandlers.NewRegistry(&testResourceHandler{}),
+				resourceHandlers: resourcehandlers.NewRegistry(testhandler.NewTestResouceHandlere().WithBuildAbsLink(func(source, link string) (string, error) {
+					return link, nil
+				}).WithGetRawFormatLink(func(absLink string) (string, error) {
+					return absLink, nil
+				}).WithSetVersion(func(absLink, version string) (string, error) {
+					return absLink, nil
+				})),
 				rewriteEmbedded:  true,
 				globalLinksConfig: &api.Links{
 					Rewrites: map[string]*api.LinkRewriteRule{
@@ -505,42 +512,4 @@ func Test_matchHTMLLinks(t *testing.T) {
 			assert.Equal(t, tc.want, string(b))
 		})
 	}
-}
-
-type testResourceHandler struct {
-}
-
-func (rh *testResourceHandler) Accept(uri string) bool {
-	return true
-}
-
-func (rh *testResourceHandler) ResolveNodeSelector(ctx context.Context, node *api.Node, excludePaths []string, frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32) ([]*api.Node, error) {
-	return nil, nil
-}
-
-func (rh *testResourceHandler) ResolveDocumentation(ctx context.Context, uri string) (*api.Documentation, error) {
-	return nil, nil
-}
-
-func (rh *testResourceHandler) Read(ctx context.Context, uri string) ([]byte, error) {
-	return nil, nil
-}
-func (rh *testResourceHandler) ReadGitInfo(ctx context.Context, uri string) ([]byte, error) {
-	return nil, nil
-}
-func (rh *testResourceHandler) Name(uri string) string {
-	return ""
-}
-func (rh *testResourceHandler) ResourceName(uri string) (string, string) {
-	return "", ""
-}
-func (rh *testResourceHandler) BuildAbsLink(source, relLink string) (string, error) {
-	return relLink, nil
-}
-func (rh *testResourceHandler) SetVersion(link, version string) (string, error) {
-	return link, nil
-}
-
-func (rh *testResourceHandler) GetRawFormatLink(absLink string) (string, error) {
-	return absLink, nil
 }

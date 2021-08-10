@@ -9,11 +9,11 @@ import (
 	"testing"
 )
 
-//       A
-//    /	    \
-//   B	     C
-//  / \	    / \
-// D   E   F   G
+//       A                    A1
+//    /	    \               /
+//   B	     C             B1
+//  / \	    / \           /
+// D   E   F   G         C1
 //      \
 //       I
 // 	      \
@@ -75,6 +75,26 @@ func initTestStructure() (*Node, map[string]*Node) {
 	}
 	aNode.SetParentsDownwards()
 	idx["A"] = aNode
+	// new tree
+	cNode1 := &Node{
+		Name: "C1",
+	}
+	idx["C1"] = cNode1
+	bNode1 := &Node{
+		Name: "B1",
+		Nodes: []*Node{
+			cNode1,
+		},
+	}
+	idx["B1"] = bNode1
+	aNode1 := &Node{
+		Name: "A1",
+		Nodes: []*Node{
+			bNode1,
+		},
+	}
+	aNode1.SetParentsDownwards()
+	idx["A1"] = aNode1
 	return aNode, idx
 }
 
@@ -164,11 +184,40 @@ func TestPath(t *testing.T) {
 			idx["A"],
 			"../../../A",
 		},
+		{
+			"path from I to A1",
+			idx["I"],
+			idx["A1"],
+			"../../../A1",
+		},
+		{
+			"path from I to C1",
+			idx["I"],
+			idx["C1"],
+			"../../../A1/B1/C1",
+		},
+		{
+			"path from C1 to I",
+			idx["C1"],
+			idx["I"],
+			"../../A/B/E/I",
+		},
+		{
+			"path from A1 to A",
+			idx["A1"],
+			idx["A"],
+			"./A",
+		},
+		{
+			"path from A to A1",
+			idx["A"],
+			idx["A1"],
+			"./A1",
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			s := relativePath(tc.from, tc.to)
-			// fmt.Println(s)
 			if !reflect.DeepEqual(s, tc.expected) {
 				t.Errorf("expected %v !=  %v", tc.expected, s)
 			}

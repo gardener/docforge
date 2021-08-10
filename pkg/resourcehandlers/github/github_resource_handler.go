@@ -191,6 +191,7 @@ func cleanupNodeTree(node *api.Node) {
 	if len(node.Source) > 0 {
 		source := node.Source
 		if rl, _ := Parse(source); rl.Type == Tree {
+			node.SetSourceLocation(node.Source)
 			node.Source = ""
 		}
 	}

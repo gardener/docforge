@@ -47,6 +47,7 @@ type nodeContentProcessor struct {
 	failFast           bool
 	rewriteEmbedded    bool
 	resourceHandlers   resourcehandlers.Registry
+	sourceLocations    map[string][]*api.Node
 }
 
 // NewNodeContentProcessor creates NodeContentProcessor objects
@@ -59,6 +60,7 @@ func NewNodeContentProcessor(resourcesRoot string, globalLinksConfig *api.Links,
 		failFast:           failFast,
 		rewriteEmbedded:    rewriteEmbedded,
 		resourceHandlers:   resourceHandlers,
+		sourceLocations:    make(map[string][]*api.Node),
 	}
 	return c
 }
@@ -112,7 +114,6 @@ func (c *nodeContentProcessor) reconcileMDLinks(ctx context.Context, document *p
 				return destination, text, title, err
 			}
 		}
-
 		if download != nil {
 			link.IsResource = true
 			if err := c.schedule(ctx, download); err != nil {
@@ -120,7 +121,7 @@ func (c *nodeContentProcessor) reconcileMDLinks(ctx context.Context, document *p
 			}
 		}
 		// rewrite abs links to embedded images to their raw format if necessary, to
-		// ensure they are embedable
+		// ensure they are embeddable
 		if c.rewriteEmbedded && markdownType == markdown.Image && link.Destination != nil {
 			if err = c.rawImage(link.Destination); err != nil {
 				return destination, text, title, err
@@ -165,7 +166,7 @@ func (c *nodeContentProcessor) reconcileHTMLLinks(ctx context.Context, document 
 		errors      *multierror.Error
 		destination *string
 	)
-	documentBytes, _ = markdown.UpdateHTMLLinksRefs(documentBytes, func(url []byte) ([]byte, error) {
+	documentBytes, _ = markdown.UpdateHTMLLinksRefs(documentBytes, func(isImage bool, url []byte) ([]byte, error) {
 		link, download, err := c.resolveLink(ctx, document, string(url), contentSourcePath)
 		destination = link.Destination
 		if err != nil {
@@ -181,9 +182,19 @@ func (c *nodeContentProcessor) reconcileHTMLLinks(ctx context.Context, document 
 		}
 		if download != nil {
 			link.IsResource = true
-			if err := c.schedule(ctx, download); err != nil {
+			if err = c.schedule(ctx, download); err != nil {
 				errors = multierror.Append(errors, err)
 				return []byte(*destination), nil
+			}
+		}
+		// rewrite abs links to embedded images to their raw format if necessary, to
+		// ensure they are embeddable
+		if c.rewriteEmbedded && isImage && link.Destination != nil {
+			if err = c.rawImage(link.Destination); err != nil {
+				errors = multierror.Append(errors, err)
+				if c.failFast {
+					return []byte(*destination), err
+				}
 			}
 		}
 		return []byte(*destination), nil
@@ -199,6 +210,7 @@ func (c *nodeContentProcessor) resolveLink(ctx context.Context, document *proces
 		ok                             bool
 		globalRewrites                 map[string]*api.LinkRewriteRule
 	)
+
 	node := document.Node
 	link := &processors.Link{
 		OriginalDestination: destination,
@@ -284,6 +296,22 @@ func (c *nodeContentProcessor) resolveLink(ctx context.Context, document *proces
 		// linking documents from the node structure.
 		// Check if md extension to reduce the walkthroughs
 		if u.Extension == "md" || u.Extension == "" {
+			// first try to find the link in source locations
+			if nl, ok := c.sourceLocations[strings.TrimSuffix(absLink, "/")]; ok {
+				path := ""
+				for _, n := range nl {
+					relPathBetweenNodes := node.RelativePath(n)
+					if swapPaths(path, relPathBetweenNodes) {
+						path = relPathBetweenNodes
+						link.DestinationNode = n
+						link.Destination = &relPathBetweenNodes
+					}
+				}
+				if destination != path {
+					klog.V(6).Infof("[%s] %s -> %s\n", contentSourcePath, destination, path)
+				}
+				return link, nil, nil
+			}
 			if existingNode := api.FindNodeBySource(absLink, node); existingNode != nil {
 				link.DestinationNode = existingNode
 				relPathBetweenNodes := node.RelativePath(existingNode)
@@ -344,6 +372,18 @@ func (c *nodeContentProcessor) resolveLink(ctx context.Context, document *proces
 		klog.V(6).Infof("[%s] %s -> %s\n", contentSourcePath, destination, absLink)
 	}
 	return link, nil, nil
+}
+
+func swapPaths(path string, newPath string) bool {
+	if path == "" {
+		return true
+	}
+	// prefer descending vs ascending paths
+	if !strings.HasPrefix(path, "./") && strings.HasPrefix(newPath, "./") {
+		return true
+	}
+	// prefer shorter paths
+	return strings.Count(path, "/") > strings.Count(newPath, "/")
 }
 
 // rewrite abs links to embedded objects to their raw link format if necessary, to

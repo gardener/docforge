@@ -110,12 +110,40 @@ func (r *Reactor) Run(ctx context.Context, manifest *api.Documentation, dryRun b
 		klog.Errorf("checkForCollisions: %s", err.Error())
 	}
 
+	sourceLocations := getSourceLocationsMap(manifest.Structure)
+	if dc, ok := r.DocController.(*docController); ok {
+		if dw, ok := dc.Job.Worker.(*DocumentWorker); ok {
+			if ncp, ok := dw.NodeContentProcessor.(*nodeContentProcessor); ok {
+				ncp.sourceLocations = sourceLocations
+			}
+		}
+	}
 	klog.V(4).Info("Building documentation structure\n\n")
 	if err := r.Build(ctx, manifest.Structure); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func getSourceLocationsMap(structure []*api.Node) map[string][]*api.Node {
+	locations := make(map[string][]*api.Node)
+	for _, node := range structure {
+		addSourceLocation(locations, node)
+	}
+	return locations
+}
+
+func addSourceLocation(locations map[string][]*api.Node, node *api.Node) {
+	if node.Source != "" {
+		locations[node.Source] = append(locations[node.Source], node)
+	}
+	if node.GetSourceLocation() != "" {
+		locations[node.GetSourceLocation()] = append(locations[node.GetSourceLocation()], node)
+	}
+	for _, childNode := range node.Nodes {
+		addSourceLocation(locations, childNode)
+	}
 }
 
 func printResolved(ctx context.Context, manifest *api.Documentation, writer io.Writer) error {
