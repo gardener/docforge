@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -27,6 +28,11 @@ import (
 )
 
 const CacheDir string = "cache"
+
+var (
+	reHasTree = regexp.MustCompile("^(.*?)tree(.*)$")
+	repStr    = "${1}blob$2"
+)
 
 type Git struct {
 	client                 *ghclient.Client
@@ -159,7 +165,12 @@ func (nb *nodeBuilder) build(path string, info os.FileInfo, err error) error {
 			return nil
 		}
 		source := strings.TrimPrefix(path, nb.rootNodePath)
-		newNode.Source = nb.resourceLocator.String() + source
+
+		// Change file types of the tree leafs from tree to blob
+		currentPath := nb.resourceLocator.String()
+		pathAsBlob := reHasTree.ReplaceAllString(currentPath, repStr)
+
+		newNode.Source = pathAsBlob + source
 	}
 
 	nb.someMap[path] = newNode
@@ -278,9 +289,9 @@ func (g *Git) BuildAbsLink(source, relPath string) (string, error) {
 		if rl, err = github.Parse(source); err != nil {
 			return "", err
 		}
-		if rl != nil  {
+		if rl != nil {
 			repo := fmt.Sprintf("/%s/%s/%s/%s", rl.Owner, rl.Repo, rl.Type, rl.SHAAlias)
-			if ! strings.HasPrefix(relPath, repo + "/") {
+			if !strings.HasPrefix(relPath, repo+"/") {
 				relPath = fmt.Sprintf("%s%s", repo, relPath)
 			}
 		}
