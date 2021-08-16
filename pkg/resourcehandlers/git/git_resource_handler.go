@@ -107,7 +107,7 @@ func (g *Git) ResolveNodeSelector(ctx context.Context, node *api.Node, excludePa
 		return nil, err
 	}
 
-	nodesSelectorLocalPath := repositoryPath + "/" + rl.Path
+	nodesSelectorLocalPath := filepath.Join(repositoryPath, rl.Path)
 	fileInfo, err := os.Stat(nodesSelectorLocalPath)
 	if err != nil {
 		return nil, err
@@ -157,12 +157,13 @@ func (nb *nodeBuilder) build(path string, info os.FileInfo, err error) error {
 	}
 	if info.IsDir() {
 		newNode.Nodes = []*api.Node{}
-
+		source := filepath.ToSlash(strings.TrimPrefix(path, nb.rootNodePath))
+		newNode.SetSourceLocation(nb.resourceLocator.String() + source)
 	} else {
 		if filepath.Ext(info.Name()) != ".md" {
 			return nil
 		}
-		source := strings.TrimPrefix(path, nb.rootNodePath)
+		source := filepath.ToSlash(strings.TrimPrefix(path, nb.rootNodePath))
 
 		// Change file types of the tree leafs from tree to blob
 		currentPath := nb.resourceLocator.String()
@@ -206,14 +207,14 @@ func (g *Git) Read(ctx context.Context, uri string) ([]byte, error) {
 					return nil, err
 				}
 				mappingPath := strings.TrimPrefix(rl.Path, mappingResourceLocator.Path)
-				v = strings.Join([]string{v, mappingPath}, "/")
+				v = filepath.Join(v, mappingPath)
 			}
 			return readFile(v)
 		}
 	}
 
 	repositoryPath := g.repositoryPathFromResourceLocator(rl)
-	uri = strings.Join([]string{repositoryPath, rl.Path}, "/")
+	uri = filepath.Join(repositoryPath, rl.Path)
 	if err := g.prepareGitRepository(ctx, repositoryPath, rl); err != nil {
 		return nil, err
 	}
@@ -238,7 +239,7 @@ func (g *Git) ReadGitInfo(ctx context.Context, uri string) ([]byte, error) {
 }
 
 // ResourceName returns a breakdown of a resource name in the link, consisting
-// of name and potentially and extention without the dot.
+// of name and potentially and extension without the dot.
 func (g *Git) ResourceName(link string) (string, string) {
 	if u, err := urls.Parse(link); err == nil {
 		return u.ResourceName, u.Extension
@@ -282,11 +283,21 @@ func (g *Git) BuildAbsLink(source, relPath string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return u.String(), err
+	// if relative path ends with '/' change the type to Tree
+	if strings.HasSuffix(relPath, "/") {
+		var trl *github.ResourceLocator
+		if trl, err = github.Parse(u.String()); err != nil {
+			return "", err
+		}
+		trl.Type = github.Tree // change the type
+		return trl.String(), nil
+	} else {
+		return u.String(), nil
+	}
 }
 
-// GetRawFormatLink returns a link to an embedable object (image) in raw format.
-// If the provided link is not referencing an embedable object, the function
+// GetRawFormatLink returns a link to an embeddable object (image) in raw format.
+// If the provided link is not referencing an embeddable object, the function
 // returns absLink without changes.
 func (g *Git) GetRawFormatLink(absLink string) (string, error) {
 	var (
@@ -346,7 +357,7 @@ func (g *Git) ResolveDocumentation(ctx context.Context, uri string) (*api.Docume
 }
 
 func (g *Git) repositoryPathFromResourceLocator(rl *github.ResourceLocator) string {
-	return strings.Join([]string{g.gitRepositoriesAbsPath, rl.Host, rl.Owner, rl.Repo, rl.SHAAlias}, "/")
+	return filepath.Join(g.gitRepositoriesAbsPath, rl.Host, rl.Owner, rl.Repo, rl.SHAAlias)
 }
 
 // getOrInitRepository serves as a sync point to avoid more complicated logic for synchronization between workers working on the same repository. In case it returns false no one began working on
