@@ -496,7 +496,17 @@ func (gh *GitHub) BuildAbsLink(source, relPath string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return u.String(), err
+	// if relative path ends with '/' change the type to Tree
+	if strings.HasSuffix(relPath, "/") {
+		var trl *ResourceLocator
+		if trl, err = Parse(u.String()); err != nil {
+			return "", err
+		}
+		trl.Type = Tree // change the type
+		return trl.String(), nil
+	} else {
+		return u.String(), nil
+	}
 }
 
 // SetVersion replaces the version segment in the path of GitHub URLs if
