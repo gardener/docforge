@@ -43,7 +43,7 @@ func (c *Cache) Key(rl *ResourceLocator) (string, error) {
 		host = "github.com"
 	}
 
-	u, err := url.Parse(rl.Path)
+	u, err := url.Parse(strings.TrimSuffix(rl.Path, "/"))
 	if err != nil {
 		return "", err
 	}

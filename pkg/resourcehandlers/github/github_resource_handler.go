@@ -56,15 +56,15 @@ func TreeEntryToGitHubLocator(treeEntry *github.TreeEntry, shaAlias string) *Res
 	if treeEntry.URL == nil {
 		return nil
 	}
-	url, err := url.Parse(treeEntry.GetURL())
+	u, err := url.Parse(treeEntry.GetURL())
 	if err != nil {
-		panic(fmt.Sprintf("failed to parse url %v: %v", treeEntry.GetURL(), err))
+		panic(fmt.Sprintf("failed to parse u %v: %v", treeEntry.GetURL(), err))
 	}
 
-	sourceURLSegments := strings.Split(url.Path, "/")
+	sourceURLSegments := strings.Split(u.Path, "/")
 	owner := sourceURLSegments[2]
 	repo := sourceURLSegments[3]
-	host := url.Host
+	host := u.Host
 	if host != "api.github.com" {
 		owner = sourceURLSegments[4]
 		repo = sourceURLSegments[5]
@@ -77,7 +77,7 @@ func TreeEntryToGitHubLocator(treeEntry *github.TreeEntry, shaAlias string) *Res
 		panic(fmt.Sprintf("unexpected resource type %v: %v", treeEntry.GetType(), err))
 	}
 	return &ResourceLocator{
-		Scheme:   url.Scheme,
+		Scheme:   u.Scheme,
 		Host:     host,
 		Owner:    owner,
 		Path:     treeEntry.GetPath(),
@@ -182,36 +182,6 @@ func (gh *GitHub) buildNodes(ctx context.Context, node *api.Node, excludePaths [
 	return nodesResult, nil
 }
 
-// - remove contentSources that reference tree objects. They are used
-//   internally to build the structure but are not a valid contentSource
-// - remove empty nodes that do not contain markdown. The build algorithm
-//   is blind for the content of a node and leaves nodes that are folders
-//   containing for example images only and thus irrelevant to the
-//   documentation structure
-func cleanupNodeTree(node *api.Node) {
-	if len(node.Source) > 0 {
-		source := node.Source
-		if rl, _ := Parse(source); rl.Type == Tree {
-			node.SetSourceLocation(node.Source)
-			node.Source = ""
-		}
-	}
-	for _, n := range node.Nodes {
-		// skip nested unresolved nodeSelector nodes from cleanup
-		if n.NodeSelector != nil && len(n.Nodes) == 0 {
-			continue
-		}
-		cleanupNodeTree(n)
-	}
-	children := node.Nodes[:0]
-	for _, n := range node.Nodes {
-		if len(n.Nodes) != 0 || n.NodeSelector != nil || len(n.Source) != 0 {
-			children = append(children, n)
-		}
-	}
-	node.Nodes = children
-}
-
 // HasURLPrefix returns true if pathPrefix tests true as prefix for path,
 // either with tree or blob in its resource type segment
 // The resource type in the URL prefix {tree|blob} changes according to the resource
@@ -286,6 +256,9 @@ func (gh *GitHub) URLToGitHubLocator(ctx context.Context, urlString string, reso
 		// grab the index of this repo
 		gitTree, resp, err := gh.Client.Git.GetTree(ctx, ghRL.Owner, ghRL.Repo, ghRL.SHAAlias, true)
 		if err != nil {
+			if resp.StatusCode == http.StatusNotFound {
+				return nil, resourcehandlers.ErrResourceNotFound(urlString)
+			}
 			return nil, err
 		}
 		if resp.StatusCode > 399 {
@@ -311,18 +284,18 @@ func (gh *GitHub) URLToGitHubLocator(ctx context.Context, urlString string, reso
 // Accept implements resourcehandlers/ResourceHandler#Accept
 func (gh *GitHub) Accept(uri string) bool {
 	var (
-		url *url.URL
+		u   *url.URL
 		err error
 	)
 	if gh.acceptedHosts == nil {
 		return false
 	}
 	// Quick sanity check, preventing panic when trying to
-	// resolve relative paths in url.Parse
+	// resolve relative paths in u.Parse
 	if !strings.HasPrefix(uri, "http") {
 		return false
 	}
-	if url, err = url.Parse(uri); err != nil {
+	if u, err = u.Parse(uri); err != nil {
 		return false
 	}
 	// check if this is a GitHub URL
@@ -330,7 +303,7 @@ func (gh *GitHub) Accept(uri string) bool {
 		return false
 	}
 	for _, s := range gh.acceptedHosts {
-		if url.Host == s {
+		if u.Host == s {
 			return true
 		}
 	}
@@ -356,9 +329,9 @@ func (gh *GitHub) ResolveNodeSelector(ctx context.Context, node *api.Node, exclu
 	if err != nil {
 		return nil, err
 	}
-	// finally cleanup folder entries from contentSelectors
+	// finally, cleanup folder entries from contentSelectors
 	for _, child := range childNodes {
-		cleanupNodeTree(child)
+		CleanupNodeTree(child)
 	}
 	if childNodes == nil {
 		return []*api.Node{}, nil
@@ -496,17 +469,33 @@ func (gh *GitHub) BuildAbsLink(source, relPath string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	// if relative path ends with '/' change the type to Tree
-	if strings.HasSuffix(relPath, "/") {
-		var trl *ResourceLocator
-		if trl, err = Parse(u.String()); err != nil {
-			return "", err
-		}
-		trl.Type = Tree // change the type
-		return trl.String(), nil
-	} else {
-		return u.String(), nil
+	return gh.verifyLinkType(u)
+}
+
+// verifyLinkType verifies the relative link type ('blob' or 'tree')
+// and change the type if required. If the link doesn't exist
+// #resourcehandlers.ErrResourceNotFound error is returned.
+func (gh *GitHub) verifyLinkType(u *url.URL) (string, error) {
+	link := u.String()
+	rl, err := Parse(link)
+	if err != nil {
+		return "", err
 	}
+	var crl *ResourceLocator
+	if crl, err = gh.cache.Get(rl); err != nil {
+		return "", err
+	}
+	// if repo cache contains a record
+	if crl != nil {
+		if crl.Type == rl.Type {
+			return link, nil
+		} else {
+			rl.Type = crl.Type
+			return rl.String(), nil
+		}
+	}
+	// not found
+	return link, resourcehandlers.ErrResourceNotFound(link)
 }
 
 // SetVersion replaces the version segment in the path of GitHub URLs if

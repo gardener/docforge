@@ -92,6 +92,9 @@ func (d *_downloadWorker) download(ctx context.Context, dt *DownloadTask) error 
 	klog.V(6).Infof("Downloading %s as %s\n", dt.Source, dt.Target)
 	blob, err := d.Reader.Read(ctx, dt.Source)
 	if err != nil {
+		if _, ok := err.(resourcehandlers.ErrResourceNotFound); ok {
+			return err
+		}
 		return fmt.Errorf("downloading %s as %s failed: %w", dt.Source, dt.Target, err)
 	}
 
@@ -113,6 +116,9 @@ func (d *_downloadWorker) Work(ctx context.Context, ctrl *downloadController, ta
 			if err := d.download(ctx, task); err != nil {
 				refs := fmt.Sprintf("Reference %s from referer %s", task.Reference, task.Referer)
 				klog.Warningf("%s : %s\n", refs, err.Error())
+				if _, ok = err.(resourcehandlers.ErrResourceNotFound); ok {
+					return nil
+				}
 				err = fmt.Errorf("%s : %w", refs, err)
 				return jobs.NewWorkerError(err, 0)
 			}
