@@ -7,6 +7,8 @@ package git
 import (
 	"context"
 	"fmt"
+	"github.com/gardener/docforge/pkg/resourcehandlers"
+	"github.com/go-git/go-git/v5/plumbing/transport"
 	"sync"
 
 	"github.com/gardener/docforge/pkg/git"
@@ -70,6 +72,9 @@ func (r *Repository) prepare(ctx context.Context, branch string) error {
 			Depth:      depth,
 			RemoteName: gogit.DefaultRemoteName,
 		}); err != nil && err != gogit.NoErrAlreadyUpToDate {
+			if err == transport.ErrRepositoryNotFound {
+				return resourcehandlers.ErrResourceNotFound(r.RemoteURL)
+			}
 			return fmt.Errorf("failed to fetch repository %s: %v", r.LocalPath, err)
 		}
 	}
@@ -98,6 +103,9 @@ func (r *Repository) repository(ctx context.Context) (git.GitRepository, bool, e
 			Depth:      depth,
 			Auth:       r.Auth,
 		}); err != nil {
+			if err == transport.ErrRepositoryNotFound {
+				return nil, false, resourcehandlers.ErrResourceNotFound(r.RemoteURL)
+			}
 			return nil, false, fmt.Errorf("failed to prepare repo: %s, %v", r.LocalPath, err)
 		}
 		return gitRepo, false, nil

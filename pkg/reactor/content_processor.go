@@ -242,13 +242,13 @@ func (c *nodeContentProcessor) resolveLink(ctx context.Context, document *proces
 		}
 		// build absolute path for the destination using contentSourcePath as base
 		if absLink, err = handler.BuildAbsLink(contentSourcePath, destination); err != nil {
-			return link, nil, err
+			if _, ok = err.(resourcehandlers.ErrResourceNotFound); ok {
+				klog.Warningf("failed to validate absolute link for %s from source %s: %v\n", destination, contentSourcePath, err)
+			} else {
+				return link, nil, err
+			}
 		}
 		link.AbsLink = &absLink
-
-		if _, err := handler.Read(ctx, absLink); err != nil {
-			klog.Warningf("failed to read absolute link %s: %v\n", absLink, err)
-		}
 	}
 	// rewrite link if required
 	if gLinks := c.globalLinksConfig; gLinks != nil {

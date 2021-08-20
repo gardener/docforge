@@ -7,6 +7,7 @@ package github
 import (
 	"context"
 	"fmt"
+	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -495,22 +496,23 @@ func TestGitHub_ResolveRelLink(t *testing.T) {
 		name        string
 		args        args
 		wantRelLink string
+		notFound    bool
 	}{
 		{
 			name: "test nested relative link",
 			args: args{
-				source: "https://github.com/gardener/gardener/master/tree/readme.md",
+				source: "https://github.com/gardener/gardener/tree/master/readme.md",
 				link:   "jjbj.md",
 			},
-			wantRelLink: "https://github.com/gardener/gardener/master/tree/jjbj.md",
+			wantRelLink: "https://github.com/gardener/gardener/tree/master/jjbj.md",
 		},
 		{
 			name: "test outside link",
 			args: args{
-				source: "https://github.com/gardener/gardener/master/tree/docs/extensions/readme.md",
+				source: "https://github.com/gardener/gardener/tree/master/docs/extensions/readme.md",
 				link:   "../../images/jjbj.png",
 			},
-			wantRelLink: "https://github.com/gardener/gardener/master/tree/images/jjbj.png",
+			wantRelLink: "https://github.com/gardener/gardener/tree/master/images/jjbj.png",
 		},
 		{
 			name: "test root link",
@@ -520,12 +522,28 @@ func TestGitHub_ResolveRelLink(t *testing.T) {
 			},
 			wantRelLink: "https://github.com/gardener/external-dns-management/blob/master/docs/aws-route53/README.md",
 		},
+		{
+			name: "test not found",
+			args: args{
+				source: "https://github.com/gardener-samples/kube-overprovisioning/blob/master/test/README.md",
+				link:   "images/test.png",
+			},
+			wantRelLink: "https://github.com/gardener-samples/kube-overprovisioning/blob/master/test/images/test.png",
+			notFound:    true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gh := &GitHub{}
-			if gotRelLink, _ := gh.BuildAbsLink(tt.args.source, tt.args.link); gotRelLink != tt.wantRelLink {
-				t.Errorf("GitHub.ResolveRelLink() = %v, want %v", gotRelLink, tt.wantRelLink)
+			rl, _ := Parse(tt.wantRelLink)
+			ghCache := &Cache{cache: map[string]*ResourceLocator{}}
+			if !tt.notFound {
+				ghCache.Set(rl)
+			}
+			gh := &GitHub{cache: ghCache}
+			gotRelLink, err := gh.BuildAbsLink(tt.args.source, tt.args.link)
+			assert.Equal(t, tt.wantRelLink, gotRelLink)
+			if tt.notFound {
+				assert.Equal(t, resourcehandlers.ErrResourceNotFound(tt.wantRelLink), err)
 			}
 		})
 	}
@@ -592,7 +610,7 @@ func TestCleanupNodeTree(t *testing.T) {
 	tests[0].wantNode.Nodes[1].SetSourceLocation("https://github.com/gardener/gardener/tree/master/docs/02")
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			cleanupNodeTree(tc.node)
+			CleanupNodeTree(tc.node)
 			assert.Equal(t, tc.wantNode, tc.node)
 		})
 	}

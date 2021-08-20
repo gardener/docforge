@@ -7,6 +7,7 @@ package github
 import (
 	"context"
 	"fmt"
+	"github.com/gardener/docforge/pkg/api"
 	"net/url"
 	"strings"
 
@@ -154,4 +155,34 @@ func Parse(urlString string) (*ResourceLocator, error) {
 
 func isRawURL(u *url.URL) bool {
 	return strings.HasPrefix(u.Host, "raw.") || strings.HasPrefix(u.Path, "/raw")
+}
+
+// - remove contentSources that reference tree objects. They are used
+//   internally to build the structure but are not a valid contentSource
+// - remove empty nodes that do not contain markdown. The build algorithm
+//   is blind for the content of a node and leaves nodes that are folders
+//   containing for example images only and thus irrelevant to the
+//   documentation structure
+func CleanupNodeTree(node *api.Node) {
+	if len(node.Source) > 0 {
+		source := node.Source
+		if rl, _ := Parse(source); rl.Type == Tree {
+			node.SetSourceLocation(node.Source)
+			node.Source = ""
+		}
+	}
+	for _, n := range node.Nodes {
+		// skip nested unresolved nodeSelector nodes from cleanup
+		if n.NodeSelector != nil && len(n.Nodes) == 0 {
+			continue
+		}
+		CleanupNodeTree(n)
+	}
+	children := node.Nodes[:0]
+	for _, n := range node.Nodes {
+		if len(n.Nodes) != 0 || n.NodeSelector != nil || len(n.Source) != 0 {
+			children = append(children, n)
+		}
+	}
+	node.Nodes = children
 }

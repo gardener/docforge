@@ -7,6 +7,11 @@ package git
 import (
 	"context"
 	"fmt"
+	"github.com/gardener/docforge/pkg/api"
+	"github.com/gardener/docforge/pkg/git"
+	"github.com/gardener/docforge/pkg/resourcehandlers"
+	"github.com/gardener/docforge/pkg/resourcehandlers/github"
+	"github.com/gardener/docforge/pkg/util/urls"
 	"io/ioutil"
 	"net/url"
 	"os"
@@ -14,12 +19,6 @@ import (
 	"regexp"
 	"strings"
 	"sync"
-
-	"github.com/gardener/docforge/pkg/api"
-	"github.com/gardener/docforge/pkg/git"
-	"github.com/gardener/docforge/pkg/resourcehandlers"
-	"github.com/gardener/docforge/pkg/resourcehandlers/github"
-	"github.com/gardener/docforge/pkg/util/urls"
 
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	ghclient "github.com/google/go-github/v32/github"
@@ -110,6 +109,9 @@ func (g *Git) ResolveNodeSelector(ctx context.Context, node *api.Node, excludePa
 	nodesSelectorLocalPath := filepath.Join(repositoryPath, rl.Path)
 	fileInfo, err := os.Stat(nodesSelectorLocalPath)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, resourcehandlers.ErrResourceNotFound(node.NodeSelector.Path)
+		}
 		return nil, err
 	}
 	if !fileInfo.IsDir() && filepath.Ext(fileInfo.Name()) == ".yaml" {
@@ -136,6 +138,10 @@ func (g *Git) ResolveNodeSelector(ctx context.Context, node *api.Node, excludePa
 	}
 
 	_node.SetParentsDownwards()
+	// finally, cleanup folder entries from contentSelectors
+	for _, child := range _node.Nodes {
+		github.CleanupNodeTree(child)
+	}
 	if len(_node.Nodes) > 0 {
 		return _node.Nodes, nil
 	}
@@ -183,54 +189,67 @@ func (g *Git) prepareGitRepository(ctx context.Context, repositoryPath string, r
 
 // System cache structure type/org/repo
 func (g *Git) Read(ctx context.Context, uri string) ([]byte, error) {
-	u, err := url.Parse(uri)
-	if err != nil {
-		return nil, fmt.Errorf("unable to parse file uri %s while reading: %v", uri, err)
-	}
-	// remove query from uri
-	u.RawQuery = ""
-	uri = u.String()
-	rl, err := github.Parse(uri)
-	if err != nil {
+	var (
+		uriPath string
+		fileInfo os.FileInfo
+		err error
+	)
+	if uriPath, err = g.getGitFilePath(ctx, uri, true); err != nil {
 		return nil, err
 	}
-
-	for k, v := range g.localMappings {
-		if strings.HasPrefix(uri, k) {
-			fileInfo, err := os.Stat(v)
-			if err != nil {
-				return nil, fmt.Errorf("failed to use mapping because local path is invalid: %v", err)
-			}
-			if fileInfo.IsDir() {
-				mappingResourceLocator, err := github.Parse(k)
-				if err != nil {
-					return nil, err
-				}
-				mappingPath := strings.TrimPrefix(rl.Path, mappingResourceLocator.Path)
-				v = filepath.Join(v, mappingPath)
-			}
-			return readFile(v)
+	fileInfo, err = os.Stat(uriPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, resourcehandlers.ErrResourceNotFound(uri)
 		}
-	}
-
-	repositoryPath := g.repositoryPathFromResourceLocator(rl)
-	uri = filepath.Join(repositoryPath, rl.Path)
-	if err := g.prepareGitRepository(ctx, repositoryPath, rl); err != nil {
-		return nil, err
-	}
-
-	return readFile(uri)
-}
-func readFile(uri string) ([]byte, error) {
-	fileInfo, err := os.Stat(uri)
-	if err != nil {
-		return nil, fmt.Errorf("Git resource handler failed to read file at %s: %v ", uri, err)
+		return nil, fmt.Errorf("Git resource handler failed to read file at %s: %v ", uriPath, err)
 	}
 	if fileInfo.IsDir() {
 		return nil, nil
 	}
-	return ioutil.ReadFile(uri)
+	return ioutil.ReadFile(uriPath)
+}
 
+func (g *Git) getGitFilePath(ctx context.Context, uri string, initRepo bool) (string, error) {
+	u, err := url.Parse(uri)
+	if err != nil {
+		return "", fmt.Errorf("unable to parse file uri %s: %v", uri, err)
+	}
+	// remove query & fragment from uri
+	u.RawQuery = ""
+	u.Fragment = ""
+	u.ForceQuery = false
+	rl, err := github.Parse(u.String())
+	if err != nil {
+		return "", fmt.Errorf("unable to parse file uri %s: %v", uri, err)
+	}
+	// first check for provided repository mapping
+	for k, v := range g.localMappings {
+		if strings.HasPrefix(uri, k) {
+			fileInfo, err := os.Stat(v)
+			if err != nil {
+				return "", fmt.Errorf("failed to use mapping %s because local path is invalid: %v", k, err)
+			}
+			if fileInfo.IsDir() {
+				mappingResourceLocator, err := github.Parse(k)
+				if err != nil {
+					return "", err
+				}
+				mappingPath := strings.TrimPrefix(rl.Path, mappingResourceLocator.Path)
+				v = filepath.Join(v, mappingPath)
+			}
+			return v, nil
+		}
+	}
+	// use git cache folder
+	repositoryPath := g.repositoryPathFromResourceLocator(rl)
+	uri = filepath.Join(repositoryPath, rl.Path)
+	if initRepo {
+		if err := g.prepareGitRepository(ctx, repositoryPath, rl); err != nil {
+			return "", err
+		}
+	}
+	return uri, nil
 }
 
 // ReadGitInfo implements resourcehandlers/ResourceHandler#ReadGitInfo
@@ -247,7 +266,7 @@ func (g *Git) ResourceName(link string) (string, string) {
 	return "", ""
 }
 
-// BuildAbsLink should return an absolute path of a relative link in regards of the provided
+// BuildAbsLink should return an absolute path of a relative link in regard to the provided
 // source
 // BuildAbsLink builds the abs link from the source and the relative path
 // Implements resourcehandlers/ResourceHandler#BuildAbsLink
@@ -283,17 +302,39 @@ func (g *Git) BuildAbsLink(source, relPath string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	// if relative path ends with '/' change the type to Tree
-	if strings.HasSuffix(relPath, "/") {
-		var trl *github.ResourceLocator
-		if trl, err = github.Parse(u.String()); err != nil {
-			return "", err
-		}
-		trl.Type = github.Tree // change the type
-		return trl.String(), nil
-	} else {
-		return u.String(), nil
+	return g.verifyLinkType(u)
+}
+
+// verifyLinkType verifies the relative link type ('blob' or 'tree')
+// and change the type if required. If the link doesn't exist
+// #resourcehandlers.ErrResourceNotFound error is returned.
+func (g *Git) verifyLinkType(u *url.URL) (string, error) {
+	link := u.String()
+	linkPath, err := g.getGitFilePath(context.Background(), link, false)
+	if err != nil {
+		return "", err
 	}
+	info, err := os.Stat(linkPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return link, resourcehandlers.ErrResourceNotFound(link)
+		}
+		return "", err
+	}
+	rl, err := github.Parse(link)
+	if err != nil {
+		return "", err
+	}
+	if info.IsDir() && rl.Type == github.Blob {
+		// change the type
+		rl.Type = github.Tree
+		link = rl.String()
+	} else if !info.IsDir() && rl.Type == github.Tree {
+		// change the type
+		rl.Type = github.Blob
+		link = rl.String()
+	}
+	return link, nil
 }
 
 // GetRawFormatLink returns a link to an embeddable object (image) in raw format.
