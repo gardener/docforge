@@ -5,7 +5,6 @@
 package reactor
 
 import (
-	"context"
 	"errors"
 	"github.com/stretchr/testify/assert"
 	"reflect"
@@ -58,51 +57,6 @@ func createNewDocumentation() *api.Documentation {
 			},
 		},
 	}
-}
-
-type FakeResourceHandler struct{}
-
-func (f *FakeResourceHandler) Accept(uri string) bool {
-	return true
-}
-
-func (f *FakeResourceHandler) ResolveNodeSelector(ctx context.Context, node *api.Node, excludePaths []string, frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32) ([]*api.Node, error) {
-	return nil, nil
-}
-
-func (f *FakeResourceHandler) ResolveDocumentation(ctx context.Context, uri string) (*api.Documentation, error) {
-	return nil, nil
-}
-
-func (f *FakeResourceHandler) Read(ctx context.Context, uri string) ([]byte, error) {
-	return []byte(uri), nil
-}
-func (f *FakeResourceHandler) ReadGitInfo(ctx context.Context, uri string) ([]byte, error) {
-	return []byte(""), nil
-}
-
-func (f *FakeResourceHandler) Name(uri string) string {
-	return uri
-}
-
-func (f *FakeResourceHandler) ResourceName(uri string) (string, string) {
-	return "", ""
-}
-
-func (f *FakeResourceHandler) BuildAbsLink(source, relLink string) (string, error) {
-	return relLink, nil
-}
-
-func (f *FakeResourceHandler) GetLocalityDomainCandidate(source string) (string, string, string, error) {
-	return source, source, "", nil
-}
-
-func (f *FakeResourceHandler) SetVersion(link, version string) (string, error) {
-	return link, nil
-}
-
-func (f *FakeResourceHandler) GetRawFormatLink(link string) (string, error) {
-	return link, nil
 }
 
 func Test_getNodeParentPath(t *testing.T) {

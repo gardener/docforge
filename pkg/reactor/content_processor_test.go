@@ -7,6 +7,7 @@ package reactor
 import (
 	"context"
 	"github.com/gardener/docforge/pkg/resourcehandlers/testhandler"
+	"net/http"
 	"strings"
 	"testing"
 
@@ -114,6 +115,14 @@ func Test_processLink(t *testing.T) {
 			},
 			wantErr: nil,
 			mutate: func(c *nodeContentProcessor) {
+				h := testhandler.NewTestResourceHandler().WithAccept(func(uri string) bool {
+					return true
+				}).WithBuildAbsLink(func(source, link string) (string, error) {
+					return "https://github.com/gardener/gardener/blob/v1.10.0/docs/image.png", nil
+				}).WithSetVersion(func(absLink, version string) (string, error) {
+					return absLink, nil
+				})
+				c.resourceHandlers = resourcehandlers.NewRegistry(h)
 				c.globalLinksConfig = &api.Links{
 					Rewrites: map[string]*api.LinkRewriteRule{
 						"/gardener/gardener/": {
@@ -207,6 +216,7 @@ func Test_processLink(t *testing.T) {
 			wantDownload:      nil,
 			wantErr:           nil,
 			mutate: func(c *nodeContentProcessor) {
+				c.sourceLocations = map[string][]*api.Node{nodeB.Source: {nodeB}}
 				c.globalLinksConfig = &api.Links{
 					Rewrites: map[string]*api.LinkRewriteRule{
 						"/gardener/gardener/": {
@@ -334,6 +344,14 @@ func Test_processLink(t *testing.T) {
 			},
 			wantErr: nil,
 			mutate: func(c *nodeContentProcessor) {
+				h := testhandler.NewTestResourceHandler().WithAccept(func(uri string) bool {
+					return true
+				}).WithBuildAbsLink(func(source, link string) (string, error) {
+					return "https://github.com/gardener/gardener/blob/v1.10.0/docs/image.png", nil
+				}).WithSetVersion(func(absLink, version string) (string, error) {
+					return absLink, nil
+				})
+				c.resourceHandlers = resourcehandlers.NewRegistry(h)
 				c.globalLinksConfig = &api.Links{
 					Rewrites: map[string]*api.LinkRewriteRule{
 						"/gardener/gardener/": {
@@ -354,7 +372,7 @@ func Test_processLink(t *testing.T) {
 			c := &nodeContentProcessor{
 				resourceAbsLinks: make(map[string]string),
 				resourcesRoot:    "/__resources",
-				resourceHandlers: resourcehandlers.NewRegistry(githubHandler.NewResourceHandler(github.NewClient(nil), []string{"github.com"})),
+				resourceHandlers: resourcehandlers.NewRegistry(githubHandler.NewResourceHandler(github.NewClient(nil), http.DefaultClient, []string{"github.com"})),
 				rewriteEmbedded:  true,
 			}
 			if tc.mutate != nil {
@@ -479,14 +497,14 @@ func Test_matchHTMLLinks(t *testing.T) {
 			c := &nodeContentProcessor{
 				resourceAbsLinks: make(map[string]string),
 				resourcesRoot:    "/__resources",
-				resourceHandlers: resourcehandlers.NewRegistry(testhandler.NewTestResouceHandlere().WithBuildAbsLink(func(source, link string) (string, error) {
+				resourceHandlers: resourcehandlers.NewRegistry(testhandler.NewTestResourceHandler().WithBuildAbsLink(func(source, link string) (string, error) {
 					return link, nil
 				}).WithGetRawFormatLink(func(absLink string) (string, error) {
 					return absLink, nil
 				}).WithSetVersion(func(absLink, version string) (string, error) {
 					return absLink, nil
 				})),
-				rewriteEmbedded:  true,
+				rewriteEmbedded: true,
 				globalLinksConfig: &api.Links{
 					Rewrites: map[string]*api.LinkRewriteRule{
 						"abc": {

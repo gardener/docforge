@@ -6,6 +6,7 @@ package reactor
 
 import (
 	"context"
+	"sync"
 
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/hashicorp/go-multierror"
@@ -19,6 +20,24 @@ func tasks(nodes []*api.Node, t *[]interface{}) {
 		})
 		if node.Nodes != nil {
 			tasks(node.Nodes, t)
+		}
+	}
+}
+
+var validationWaitGroup sync.WaitGroup
+var validationQueue = make(chan *validationTask, 200)
+
+func validator(ctx context.Context, tasks <-chan *validationTask) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case t, ok := <-tasks:
+			if ok {
+				validateLink(ctx, t)
+			} else {
+				return
+			}
 		}
 	}
 }
@@ -43,6 +62,11 @@ func (r *Reactor) Build(ctx context.Context, documentationStructure []*api.Node)
 		close(doneCh)
 		klog.V(1).Infoln("Build finished")
 	}()
+
+	// start validators
+	for i := 0; i < 10; i++ {
+		go validator(ctx, validationQueue)
+	}
 
 	// start download controller
 	go func() {
@@ -135,6 +159,9 @@ func (r *Reactor) Build(ctx context.Context, documentationStructure []*api.Node)
 			}
 		}
 	}
+	// wait for validation routines to complete & close task queue
+	validationWaitGroup.Wait()
+	close(validationQueue)
 
 	return errors.ErrorOrNil()
 }

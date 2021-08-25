@@ -7,26 +7,20 @@ package reactor
 import (
 	"context"
 	"fmt"
-	"net/url"
-	"regexp"
-	"strings"
-	"sync"
-
-	"k8s.io/klog/v2"
-
 	"github.com/gardener/docforge/pkg/api"
+	"github.com/gardener/docforge/pkg/markdown"
 	"github.com/gardener/docforge/pkg/markdown/parser"
 	"github.com/gardener/docforge/pkg/processors"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
-	"github.com/gardener/docforge/pkg/resourcehandlers/github"
 	"github.com/gardener/docforge/pkg/util/urls"
 	"github.com/hashicorp/go-multierror"
-
-	"github.com/gardener/docforge/pkg/markdown"
-)
-
-var (
-	githubBlobURLMatcher = regexp.MustCompile("^(.*?)blob(.*)$")
+	"k8s.io/klog/v2"
+	"math/rand"
+	"net/http"
+	"net/url"
+	"strings"
+	"sync"
+	"time"
 )
 
 // NodeContentProcessor operates on documents content to reconcile links and
@@ -231,6 +225,7 @@ func (c *nodeContentProcessor) resolveLink(ctx context.Context, document *proces
 		// can we handle changes to this destination?
 		if c.resourceHandlers.Get(destination) == nil {
 			// we don't have a handler for it. Leave it be.
+			c.addForValidation(u, destination, contentSourcePath)
 			return link, nil, err
 		}
 		absLink = destination
@@ -238,15 +233,19 @@ func (c *nodeContentProcessor) resolveLink(ctx context.Context, document *proces
 	if len(absLink) == 0 {
 		handler := c.resourceHandlers.Get(contentSourcePath)
 		if handler == nil {
-			return link, nil, nil
+			return link, nil, fmt.Errorf("no suitable handler registered for URL %s", contentSourcePath)
 		}
 		// build absolute path for the destination using contentSourcePath as base
 		if absLink, err = handler.BuildAbsLink(contentSourcePath, destination); err != nil {
 			if _, ok = err.(resourcehandlers.ErrResourceNotFound); ok {
 				klog.Warningf("failed to validate absolute link for %s from source %s: %v\n", destination, contentSourcePath, err)
-			} else {
-				return link, nil, err
+				err = nil
+				if destination != absLink {
+					link.Destination = &absLink
+					klog.V(6).Infof("[%s] %s -> %s\n", contentSourcePath, destination, absLink)
+				}
 			}
+			return link, nil, err
 		}
 		link.AbsLink = &absLink
 	}
@@ -296,7 +295,7 @@ func (c *nodeContentProcessor) resolveLink(ctx context.Context, document *proces
 		// linking documents from the node structure.
 		// Check if md extension to reduce the walkthroughs
 		if u.Extension == "md" || u.Extension == "" {
-			// first try to find the link in source locations
+			// try to find the link in source locations
 			if nl, ok := c.sourceLocations[strings.TrimSuffix(absLink, "/")]; ok {
 				path := ""
 				for _, n := range nl {
@@ -311,35 +310,16 @@ func (c *nodeContentProcessor) resolveLink(ctx context.Context, document *proces
 					klog.V(6).Infof("[%s] %s -> %s\n", contentSourcePath, destination, path)
 				}
 				return link, nil, nil
-			}
-			if existingNode := api.FindNodeBySource(absLink, node); existingNode != nil {
-				link.DestinationNode = existingNode
-				relPathBetweenNodes := node.RelativePath(existingNode)
-				if destination != relPathBetweenNodes {
-					klog.V(6).Infof("[%s] %s -> %s\n", contentSourcePath, destination, relPathBetweenNodes)
+			} else {
+				// a node with target source location does not exist -> rewrite destination with absolute link
+				if destination != absLink {
+					link.Destination = &absLink
+					klog.V(6).Infof("[%s] %s -> %s\n", contentSourcePath, destination, absLink)
 				}
-				link.Destination = &relPathBetweenNodes
+				u, err = urls.Parse(*link.Destination)
+				c.addForValidation(u, destination, contentSourcePath)
 				return link, nil, nil
 			}
-
-			if u.Extension == "" {
-				repStr := "${1}tree$2"
-				absLinkAsTree := githubBlobURLMatcher.ReplaceAllString(absLink, repStr)
-				rh := c.resourceHandlers.Get(absLinkAsTree)
-				if rh != nil {
-					if gh, ok := rh.(*github.GitHub); ok {
-						doesTreeExist, err := gh.TreeExists(ctx, absLinkAsTree)
-						if err != nil {
-							return link, nil, err
-						}
-						if doesTreeExist {
-							return link, nil, nil
-						}
-					}
-				}
-			}
-			link.Destination = &absLink
-			return link, nil, nil
 		}
 
 		// Links to resources that are not structure document nodes are
@@ -371,8 +351,108 @@ func (c *nodeContentProcessor) resolveLink(ctx context.Context, document *proces
 		link.Destination = &absLink
 		klog.V(6).Infof("[%s] %s -> %s\n", contentSourcePath, destination, absLink)
 	}
+	u, err = urls.Parse(*link.Destination)
+	c.addForValidation(u, destination, contentSourcePath)
 	return link, nil, nil
 }
+
+//////////////// Validation ////////////////
+
+type validationTask struct {
+	linkUrl           *urls.URL
+	linkDestination   string
+	contentSourcePath string
+	client            *http.Client
+}
+
+func (c *nodeContentProcessor) addForValidation(linkUrl *urls.URL, linkDestination, contentSourcePath string) {
+	client := http.DefaultClient
+	// check if link absolute destination exists locally
+	absLinkDestination := linkUrl.String()
+	handler := c.resourceHandlers.Get(absLinkDestination)
+	if handler != nil {
+		if _, err := handler.BuildAbsLink(contentSourcePath, absLinkDestination); err == nil {
+			// no resourcehandlers.ErrResourceNotFound -> absolute destination exists locally -> skip validation
+			return
+		}
+		// get appropriate http client, if any
+		if handlerClient := handler.GetClient(); handlerClient != nil {
+			client = handlerClient
+		}
+	}
+	// create validation task
+	validationWaitGroup.Add(1)
+	validationQueue <- &validationTask{
+		linkUrl:           linkUrl,
+		linkDestination:   linkDestination,
+		contentSourcePath: contentSourcePath,
+		client:            client,
+	}
+}
+
+// doValidation performs several attempts to execute http request if http status code is 429
+func doValidation(req *http.Request, client *http.Client) (*http.Response, error) {
+	intervals := []int{1, 5, 10, 20}
+	resp, err := client.Do(req)
+	if err != nil {
+		return resp, err
+	}
+	_ = resp.Body.Close()
+	attempts := 0
+	for resp.StatusCode == http.StatusTooManyRequests && attempts < len(intervals)-1 {
+		time.Sleep(time.Duration(intervals[attempts]+rand.Intn(attempts+1)) * time.Second)
+		resp, err = client.Do(req)
+		if err != nil {
+			return resp, err
+		}
+		_ = resp.Body.Close()
+		attempts++
+	}
+	return resp, err
+}
+
+func validateLink(ctx context.Context, t *validationTask) {
+	defer validationWaitGroup.Done()
+	// exclude sample hosts e.g. localhost
+	if t.linkUrl.Hostname() == "localhost" || t.linkUrl.Hostname() == "127.0.0.1" || t.linkUrl.Hostname() == "1.2.3.4" || strings.Contains(t.linkUrl.Hostname(), "foo.bar") {
+		return
+	}
+	var (
+		req  *http.Request
+		resp *http.Response
+		err  error
+	)
+	// try HEAD
+	req, err = http.NewRequestWithContext(ctx, http.MethodHead, t.linkUrl.String(), nil)
+	if err != nil {
+		klog.ErrorS(err, "failed to prepare HEAD validation request")
+		return
+	}
+	resp, err = doValidation(req, t.client)
+	if err != nil {
+		klog.Warningf("failed to validate absolute link for %s from source %s: %v\n", t.linkDestination, t.contentSourcePath, err)
+		return
+	}
+	// on error status code different from authorization error
+	if resp.StatusCode >= 400 && resp.StatusCode != http.StatusForbidden && resp.StatusCode != http.StatusUnauthorized {
+		req, err = http.NewRequestWithContext(ctx, http.MethodGet, t.linkUrl.String(), nil)
+		if err != nil {
+			klog.ErrorS(err, "failed to prepare GET validation request")
+			return
+		}
+		// retry GET
+		resp, err = doValidation(req, t.client)
+		if err != nil {
+			klog.ErrorS(err, "failed to Do GET validation request")
+			return
+		}
+		if resp.StatusCode >= 400 && resp.StatusCode != http.StatusForbidden && resp.StatusCode != http.StatusUnauthorized {
+			klog.Warningf("failed to validate absolute link for %s from source %s: %v\n", t.linkDestination, t.contentSourcePath, fmt.Errorf("HTTP Status %s", resp.Status))
+		}
+	}
+}
+
+////////////////////////////////////////////
 
 func swapPaths(path string, newPath string) bool {
 	if path == "" {
@@ -387,7 +467,7 @@ func swapPaths(path string, newPath string) bool {
 }
 
 // rewrite abs links to embedded objects to their raw link format if necessary, to
-// ensure they are embedable
+// ensure they are embeddable
 func (c *nodeContentProcessor) rawImage(link *string) (err error) {
 	var (
 		u *url.URL

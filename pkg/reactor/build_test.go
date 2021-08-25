@@ -5,6 +5,7 @@
 package reactor
 
 import (
+	"github.com/gardener/docforge/pkg/resourcehandlers/testhandler"
 	"testing"
 
 	"github.com/gardener/docforge/pkg/api"
@@ -50,7 +51,7 @@ func Test_tasks(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			rhs := resourcehandlers.NewRegistry(&FakeResourceHandler{})
+			rhs := resourcehandlers.NewRegistry(testhandler.NewTestResourceHandler())
 			tasks([]*api.Node{tc.args.node}, &tc.args.tasks)
 
 			if len(tc.args.tasks) != len(tc.expectedTasks) {

@@ -6,6 +6,7 @@ package testhandler
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/gardener/docforge/pkg/api"
 )
@@ -21,10 +22,11 @@ type TestResourceHandler struct {
 	setVersion           func(absLink, version string) (string, error)
 	read                 func(ctx context.Context, uri string) ([]byte, error)
 	readGitInfo          func(ctx context.Context, uri string) ([]byte, error)
+	getClient            func() *http.Client
 }
 
-//NewTestResouceHandlere ...
-func NewTestResouceHandlere() *TestResourceHandler {
+//NewTestResourceHandler ...
+func NewTestResourceHandler() *TestResourceHandler {
 	return &TestResourceHandler{}
 }
 
@@ -156,5 +158,16 @@ func (t *TestResourceHandler) ResolveDocumentation(ctx context.Context, uri stri
 //WithResolveDocumentation overriding the default TestResourceHandler function
 func (t *TestResourceHandler) WithResolveDocumentation(resolveDocumentation func(ctx context.Context, uri string) (*api.Documentation, error)) *TestResourceHandler {
 	t.resolveDocumentation = resolveDocumentation
+	return t
+}
+
+// GetClient for this handler
+func (t *TestResourceHandler) GetClient() *http.Client {
+	return nil
+}
+
+// WithGetClient ...
+func (t *TestResourceHandler) WithGetClient(getClient func() *http.Client) *TestResourceHandler {
+	t.getClient = getClient
 	return t
 }

@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -169,4 +170,8 @@ func (fs *fsHandler) GetRawFormatLink(absLink string) (string, error) {
 // SetVersion implements resourcehandlers.ResourceHandler#SetVersion
 func (fs *fsHandler) SetVersion(absLink, version string) (string, error) {
 	return absLink, nil
+}
+
+func (fs *fsHandler) GetClient() *http.Client {
+	return nil
 }

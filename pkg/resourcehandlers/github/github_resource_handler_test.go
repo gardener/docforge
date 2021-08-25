@@ -233,7 +233,7 @@ func TestUrlToGitHubLocator(t *testing.T) {
 				if c.mux != nil {
 					c.mux(mux)
 				}
-				gh.Client = client
+				gh.cache.ghClient = client
 			}
 			got, err := gh.URLToGitHubLocator(ctx, c.inURL, c.inResolveAPI)
 			if err != nil {
@@ -347,7 +347,7 @@ func TestResolveNodeSelector(t *testing.T) {
 		if c.mux != nil {
 			c.mux(mux)
 		}
-		gh.Client = client
+		gh.cache.ghClient = client
 		nodes, gotError := gh.ResolveNodeSelector(ctx, c.inNode, c.excludePaths, c.frontMatter, c.excludeFrontMatter, c.depth)
 		if gotError != nil {
 			t.Errorf("error == %q, want %q", gotError, c.wantError)
@@ -537,7 +537,8 @@ func TestGitHub_ResolveRelLink(t *testing.T) {
 			rl, _ := Parse(tt.wantRelLink)
 			ghCache := &Cache{cache: map[string]*ResourceLocator{}}
 			if !tt.notFound {
-				ghCache.Set(rl)
+				rlKey, _ := ghCache.key(rl, false)
+				ghCache.cache[rlKey] = rl
 			}
 			gh := &GitHub{cache: ghCache}
 			gotRelLink, err := gh.BuildAbsLink(tt.args.source, tt.args.link)

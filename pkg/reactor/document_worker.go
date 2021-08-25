@@ -149,6 +149,7 @@ func (w *DocumentWorker) Work(ctx context.Context, task interface{}, wq jobs.Wor
 				if err != nil {
 					if resourceNotFound, ok := err.(resourcehandlers.ErrResourceNotFound); ok {
 						klog.Warningf("reading %s failed: %s\n", task.Node.Source, resourceNotFound)
+						return nil
 					} else {
 						return jobs.NewWorkerError(err, 0)
 					}

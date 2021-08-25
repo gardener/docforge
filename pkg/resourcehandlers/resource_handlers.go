@@ -7,6 +7,7 @@ package resourcehandlers
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"reflect"
 
 	"github.com/gardener/docforge/pkg/api"
@@ -47,6 +48,8 @@ type ResourceHandler interface {
 	SetVersion(absLink, version string) (string, error)
 	// ResolveDocumentation for a given uri
 	ResolveDocumentation(ctx context.Context, uri string) (*api.Documentation, error)
+	// GetClient returns an HTTP client for accessing handler's resources
+	GetClient() *http.Client
 }
 
 // Registry can register and return resource handlers
