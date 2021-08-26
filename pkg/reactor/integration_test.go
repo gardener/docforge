@@ -85,8 +85,9 @@ func _TestReactorWithGitHub(t *testing.T) {
 	destination := "../../dev"
 	resourcesRoot := "/__resources"
 	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: *ghToken})
-	ghClient := githubapi.NewClient(oauth2.NewClient(ctx, ts))
-	gh := github.NewResourceHandler(ghClient, []string{"github.com"})
+	httpClient := oauth2.NewClient(ctx, ts)
+	ghClient := githubapi.NewClient(httpClient)
+	gh := github.NewResourceHandler(ghClient, httpClient, []string{"github.com"})
 	writer := &writers.FSWriter{
 		Root: destination,
 	}

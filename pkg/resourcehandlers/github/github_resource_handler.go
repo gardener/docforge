@@ -6,16 +6,13 @@ package github
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io/ioutil"
+	"k8s.io/klog/v2"
 	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
-	"time"
-
-	"k8s.io/klog/v2"
 
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/markdown"
@@ -23,10 +20,6 @@ import (
 	"github.com/gardener/docforge/pkg/util/urls"
 
 	"github.com/google/go-github/v32/github"
-)
-
-var (
-	reHasTree = regexp.MustCompile("^(.*?)tree(.*)$")
 )
 
 // TreeEntryToGitHubLocator creates a ResourceLocator from a github.TreeEntry and shaAlias.
@@ -103,7 +96,7 @@ func (gh *GitHub) buildNodes(ctx context.Context, node *api.Node, excludePaths [
 	if err != nil {
 		return nil, err
 	}
-	nodeResourceLocator, err := gh.cache.Get(nodePathRL)
+	nodeResourceLocator, err := gh.cache.GetWithInit(ctx, nodePathRL)
 	if nodeResourceLocator == nil || err != nil {
 		panic(fmt.Sprintf("Node is not available as ResourceLocator %v: %v", nodePath, err))
 	}
@@ -162,7 +155,7 @@ func (gh *GitHub) buildNodes(ctx context.Context, node *api.Node, excludePaths [
 						continue
 					}
 					currentDepth++
-					if childResourceLocators, err = gh.cache.GetSubset(childResourceLocator.String()); err != nil {
+					if childResourceLocators, err = gh.cache.GetSubsetWithInit(ctx, childResourceLocator.String()); err != nil {
 						return nil, err
 					}
 					childNodes, err := gh.buildNodes(ctx, n, excludePaths, frontMatter, excludeFrontMatter, depth, childResourceLocators, currentDepth)
@@ -182,40 +175,24 @@ func (gh *GitHub) buildNodes(ctx context.Context, node *api.Node, excludePaths [
 	return nodesResult, nil
 }
 
-// HasURLPrefix returns true if pathPrefix tests true as prefix for path,
-// either with tree or blob in its resource type segment
-// The resource type in the URL prefix {tree|blob} changes according to the resource
-// To keep the prefix valid it should alternate this path segment too.
-func HasURLPrefix(path, pathPrefix string) bool {
-	repStr := "${1}blob$2"
-	pathPrefixAsBlob := pathPrefix
-	pathPrefixAsBlob = reHasTree.ReplaceAllString(pathPrefixAsBlob, repStr)
-	return strings.HasPrefix(path, pathPrefix) || strings.HasPrefix(path, pathPrefixAsBlob)
-}
-
 // GitHub implements resourcehandlers/ResourceHandler
 type GitHub struct {
-	Client               *github.Client
-	cache                *Cache
-	acceptedHosts        []string
-	rawusercontentClient *http.Client
+	Client        *github.Client
+	httpClient    *http.Client
+	cache         *Cache
+	acceptedHosts []string
 }
 
 // NewResourceHandler creates new GitHub ResourceHandler objects
-func NewResourceHandler(client *github.Client, acceptedHosts []string) resourcehandlers.ResourceHandler {
-	tr := &http.Transport{
-		MaxIdleConns:       10,
-		IdleConnTimeout:    30 * time.Second,
-		DisableCompression: true,
-	}
-
+func NewResourceHandler(client *github.Client, httpClient *http.Client, acceptedHosts []string) resourcehandlers.ResourceHandler {
 	return &GitHub{
-		Client: client,
+		Client:     client,
+		httpClient: httpClient,
 		cache: &Cache{
-			cache: map[string]*ResourceLocator{},
+			cache:    map[string]*ResourceLocator{},
+			ghClient: client,
 		},
-		acceptedHosts:        acceptedHosts,
-		rawusercontentClient: &http.Client{Transport: tr},
+		acceptedHosts: acceptedHosts,
 	}
 }
 
@@ -236,8 +213,8 @@ func NewResourceHandler(client *github.Client, acceptedHosts []string) resourceh
 // property will be nil. In this case ctx can be omitted too.
 func (gh *GitHub) URLToGitHubLocator(ctx context.Context, urlString string, resolveAPIUrl bool) (*ResourceLocator, error) {
 	var (
-		ghRL *ResourceLocator
-		err  error
+		ghRL, cachedRL *ResourceLocator
+		err            error
 	)
 	if ghRL, err = Parse(urlString); err != nil {
 		return nil, err
@@ -245,37 +222,18 @@ func (gh *GitHub) URLToGitHubLocator(ctx context.Context, urlString string, reso
 	if ghRL.Type == Wiki || len(ghRL.SHAAlias) == 0 {
 		return ghRL, nil
 	}
-	cachedRL, err := gh.cache.Get(ghRL)
+	if resolveAPIUrl {
+		cachedRL, err = gh.cache.GetWithInit(ctx, ghRL)
+	} else {
+		cachedRL, err = gh.cache.Get(ghRL)
+	}
 	if err != nil {
+		if _, ok := err.(resourcehandlers.ErrResourceNotFound); ok {
+			return ghRL, err
+		}
 		return nil, err
 	}
 	if cachedRL != nil {
-		return cachedRL, nil
-	}
-	if resolveAPIUrl {
-		// grab the index of this repo
-		gitTree, resp, err := gh.Client.Git.GetTree(ctx, ghRL.Owner, ghRL.Repo, ghRL.SHAAlias, true)
-		if err != nil {
-			if resp.StatusCode == http.StatusNotFound {
-				return nil, resourcehandlers.ErrResourceNotFound(urlString)
-			}
-			return nil, err
-		}
-		if resp.StatusCode > 399 {
-			return nil, fmt.Errorf("request for %s failed: %s", urlString, resp.Status)
-		}
-		// populate cache with this tree entries
-		for _, entry := range gitTree.Entries {
-			rl := TreeEntryToGitHubLocator(entry, ghRL.SHAAlias)
-			gh.cache.Set(rl)
-		}
-		cachedRL, err := gh.cache.Get(ghRL)
-		if err != nil {
-			return nil, err
-		}
-		if cachedRL == nil {
-			return nil, resourcehandlers.ErrResourceNotFound(urlString)
-		}
 		return cachedRL, nil
 	}
 	return ghRL, nil
@@ -321,7 +279,7 @@ func (gh *GitHub) ResolveNodeSelector(ctx context.Context, node *api.Node, exclu
 		return nil, err
 	}
 
-	childResourceLocators, err := gh.cache.GetSubset(rl.String())
+	childResourceLocators, err := gh.cache.GetSubsetWithInit(ctx, rl.String())
 	if err != nil {
 		return nil, err
 	}
@@ -346,7 +304,7 @@ func (gh *GitHub) ResolveDocumentation(ctx context.Context, path string) (*api.D
 	if err != nil {
 		return nil, err
 	}
-	// TODO: In cases where nodesSelector.Path is set to an url poiting to a resource with .md extension, it's
+	// TODO: In cases where nodesSelector.Path is set to an url pointing to a resource with .md extension, it's
 	// considered as invalid. This is to avoid downloading the resource twice. Contemplate logic that caches
 	// the resource once read for later downloads.
 	if !(rl.Type == Blob || rl.Type == Raw) || urls.Ext(rl.String()) == ".md" {
@@ -386,7 +344,11 @@ func (gh *GitHub) Read(ctx context.Context, uri string) ([]byte, error) {
 				if !strings.HasSuffix(wikiPage, ".md") {
 					wikiPage = fmt.Sprintf("%s.%s", wikiPage, "md")
 				}
-				resp, err := gh.rawusercontentClient.Get(wikiPage)
+				req, err := http.NewRequestWithContext(ctx, http.MethodGet, wikiPage, nil)
+				if err != nil {
+					return nil, err
+				}
+				resp, err := gh.httpClient.Do(req)
 				if err != nil {
 					return nil, err
 				}
@@ -419,20 +381,8 @@ func (gh *GitHub) ReadGitInfo(ctx context.Context, uri string) ([]byte, error) {
 
 // ResourceName implements resourcehandlers/ResourceHandler#ResourceName
 func (gh *GitHub) ResourceName(uri string) (string, string) {
-	var (
-		rl  *ResourceLocator
-		err error
-	)
-	if rl, err = gh.URLToGitHubLocator(context.TODO(), uri, false); err != nil {
-		panic(err)
-	}
-	if rl == nil {
-		panic(errors.New(uri))
-	}
-	if rl != nil {
-		if u, err := urls.Parse(rl.String()); err == nil {
-			return u.ResourceName, u.Extension
-		}
+	if u, err := urls.Parse(uri); err == nil {
+		return u.ResourceName, u.Extension
 	}
 	return "", ""
 }
@@ -444,36 +394,36 @@ func (gh *GitHub) BuildAbsLink(source, relPath string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if u.IsAbs() {
-		return relPath, nil
-	}
 
-	u, err = url.Parse(source)
-	if err != nil {
-		return "", err
-	}
-	if strings.HasPrefix(relPath, "/") {
-		// local link path starting from repo root
-		var rl *ResourceLocator
-		if rl, err = Parse(source); err != nil {
+	if !u.IsAbs() {
+		u, err = url.Parse(source)
+		if err != nil {
 			return "", err
 		}
-		if rl != nil {
-			repo := fmt.Sprintf("/%s/%s/%s/%s", rl.Owner, rl.Repo, rl.Type, rl.SHAAlias)
-			if !strings.HasPrefix(relPath, repo+"/") {
-				relPath = fmt.Sprintf("%s%s", repo, relPath)
+		if strings.HasPrefix(relPath, "/") {
+			// local link path starting from repo root
+			var rl *ResourceLocator
+			if rl, err = Parse(source); err != nil {
+				return "", err
+			}
+			if rl != nil {
+				repo := fmt.Sprintf("/%s/%s/%s/%s", rl.Owner, rl.Repo, rl.Type, rl.SHAAlias)
+				if !strings.HasPrefix(relPath, repo+"/") {
+					relPath = fmt.Sprintf("%s%s", repo, relPath)
+				}
 			}
 		}
+		u, err = u.Parse(relPath)
+		if err != nil {
+			return "", err
+		}
 	}
-	u, err = u.Parse(relPath)
-	if err != nil {
-		return "", err
-	}
+
 	return gh.verifyLinkType(u)
 }
 
 // verifyLinkType verifies the relative link type ('blob' or 'tree')
-// and change the type if required. If the link doesn't exist
+// and change the type if required. If the relative link doesn't exist
 // #resourcehandlers.ErrResourceNotFound error is returned.
 func (gh *GitHub) verifyLinkType(u *url.URL) (string, error) {
 	link := u.String()
@@ -533,24 +483,6 @@ func (gh *GitHub) GetRawFormatLink(absLink string) (string, error) {
 	return absLink, nil
 }
 
-func (gh *GitHub) TreeExists(ctx context.Context, absLink string) (bool, error) {
-	ghLocator, err := gh.URLToGitHubLocator(ctx, absLink, false)
-	if err != nil {
-		return false, err
-	}
-
-	if ghLocator != nil && ghLocator.Type == Tree {
-		ghTrees, response, err := gh.Client.Git.GetTree(ctx, ghLocator.Owner, ghLocator.Repo, ghLocator.SHA, false)
-		if err != nil {
-			// return the the error if the response object is nil or the status code is different from 401
-			if response == nil || response.StatusCode != http.StatusNotFound {
-				return false, err
-			}
-		}
-		if response.StatusCode == http.StatusOK && ghTrees != nil {
-			return true, nil
-		}
-
-	}
-	return false, nil
+func (gh *GitHub) GetClient() *http.Client {
+	return gh.httpClient
 }

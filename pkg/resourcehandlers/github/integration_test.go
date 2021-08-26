@@ -33,12 +33,14 @@ func TestResolveNodeSelectorLive(t *testing.T) {
 	ts := oauth2.StaticTokenSource(
 		&oauth2.Token{AccessToken: *ghToken},
 	)
+	client := github.NewClient(oauth2.NewClient(ctx, ts))
 	gh := &GitHub{
-		Client: github.NewClient(oauth2.NewClient(ctx, ts)),
+		Client: client,
 		cache: &Cache{
 			cache: map[string]*ResourceLocator{},
 		},
 	}
+	gh.cache.ghClient = client
 	node := &api.Node{
 		Name: "docs",
 		NodeSelector: &api.NodeSelector{

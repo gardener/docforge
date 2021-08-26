@@ -7,6 +7,7 @@ package reactor
 import (
 	"context"
 	"fmt"
+	"github.com/gardener/docforge/pkg/resourcehandlers/testhandler"
 	"reflect"
 	"testing"
 	"time"
@@ -47,7 +48,7 @@ func (p *TestProcessor) Process(document *processors.Document) error {
 
 func TestDocumentWorkerWork(t *testing.T) {
 	testOutput := "#Heading 1\n"
-	rhRegistry := resourcehandlers.NewRegistry(&FakeResourceHandler{})
+	rhRegistry := resourcehandlers.NewRegistry(testhandler.NewTestResourceHandler())
 	testworker := &DocumentWorker{
 		Writer: &TestWriter{
 			make(map[string][]byte),

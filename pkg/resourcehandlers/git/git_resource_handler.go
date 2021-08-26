@@ -13,6 +13,7 @@ import (
 	"github.com/gardener/docforge/pkg/resourcehandlers/github"
 	"github.com/gardener/docforge/pkg/util/urls"
 	"io/ioutil"
+	nethttp "net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -33,6 +34,7 @@ var (
 
 type Git struct {
 	client                 *ghclient.Client
+	httpClient             *nethttp.Client
 	gitAuth                http.AuthMethod
 	gitRepositoriesAbsPath string
 	acceptedHosts          []string
@@ -44,9 +46,10 @@ type Git struct {
 }
 
 // NewResourceHandler creates new GitHub ResourceHandler objects
-func NewResourceHandler(gitRepositoriesAbsPath string, user *string, oauthToken string, githubOAuthClient *ghclient.Client, acceptedHosts []string, localMappings map[string]string) resourcehandlers.ResourceHandler {
+func NewResourceHandler(gitRepositoriesAbsPath string, user *string, oauthToken string, githubOAuthClient *ghclient.Client, httpClient *nethttp.Client, acceptedHosts []string, localMappings map[string]string) resourcehandlers.ResourceHandler {
 	return &Git{
 		client:                 githubOAuthClient,
+		httpClient:             httpClient,
 		gitAuth:                buildAuthMethod(user, oauthToken),
 		localMappings:          localMappings,
 		gitRepositoriesAbsPath: gitRepositoriesAbsPath,
@@ -190,9 +193,9 @@ func (g *Git) prepareGitRepository(ctx context.Context, repositoryPath string, r
 // System cache structure type/org/repo
 func (g *Git) Read(ctx context.Context, uri string) ([]byte, error) {
 	var (
-		uriPath string
+		uriPath  string
 		fileInfo os.FileInfo
-		err error
+		err      error
 	)
 	if uriPath, err = g.getGitFilePath(ctx, uri, true); err != nil {
 		return nil, err
@@ -275,33 +278,33 @@ func (g *Git) BuildAbsLink(source, relPath string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if u.IsAbs() {
-		return relPath, nil
-	}
 
-	u, err = url.Parse(source)
-	if err != nil {
-		return "", err
-	}
-
-	if strings.HasPrefix(relPath, "/") {
-		// local link path starting from repo root
-		var rl *github.ResourceLocator
-		if rl, err = github.Parse(source); err != nil {
+	if !u.IsAbs() {
+		u, err = url.Parse(source)
+		if err != nil {
 			return "", err
 		}
-		if rl != nil {
-			repo := fmt.Sprintf("/%s/%s/%s/%s", rl.Owner, rl.Repo, rl.Type, rl.SHAAlias)
-			if !strings.HasPrefix(relPath, repo+"/") {
-				relPath = fmt.Sprintf("%s%s", repo, relPath)
+
+		if strings.HasPrefix(relPath, "/") {
+			// local link path starting from repo root
+			var rl *github.ResourceLocator
+			if rl, err = github.Parse(source); err != nil {
+				return "", err
 			}
+			if rl != nil {
+				repo := fmt.Sprintf("/%s/%s/%s/%s", rl.Owner, rl.Repo, rl.Type, rl.SHAAlias)
+				if !strings.HasPrefix(relPath, repo+"/") {
+					relPath = fmt.Sprintf("%s%s", repo, relPath)
+				}
+			}
+		}
+
+		u, err = u.Parse(relPath)
+		if err != nil {
+			return "", err
 		}
 	}
 
-	u, err = u.Parse(relPath)
-	if err != nil {
-		return "", err
-	}
 	return g.verifyLinkType(u)
 }
 
@@ -395,6 +398,10 @@ func (g *Git) ResolveDocumentation(ctx context.Context, uri string) (*api.Docume
 	}
 
 	return api.Parse(blob)
+}
+
+func (g *Git) GetClient() *nethttp.Client {
+	return g.httpClient
 }
 
 func (g *Git) repositoryPathFromResourceLocator(rl *github.ResourceLocator) string {
