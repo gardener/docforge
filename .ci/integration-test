@@ -28,7 +28,7 @@ rm -rf "${int_test_output_metadata_dir}/*"
 
 # build docforge
 echo "Building docforge"
-LOCAL_BUILD=1 ${docforge_repo_path}/.ci/build
+LOCAL_BUILD=1 ${docforge_repo_path}/.ci/build 1>/dev/null
 docforge_bin="${docforge_repo_path}/bin/docforge"
 
 echo "Docforge version: $(${docforge_bin} version)"
