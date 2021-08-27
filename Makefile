@@ -69,6 +69,10 @@ check:
 test:
 	@.ci/test
 
+.PHONY: integration-test
+integration-test:
+	@.ci/integration-test
+
 .PHONY: test-cov
 test-cov:
 	@env COVERAGE=1 .ci/test

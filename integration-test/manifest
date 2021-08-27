@@ -1,0 +1,9 @@
+# SPDX-FileCopyrightText: 2021 SAP SE or an SAP affiliate company and Gardener contributors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+{{ $org := .org}}
+{{ $version := .version}}
+structure:
+- name: test
+  source: https://github.com/{{$org}}/docforge/blob/{{$version}}/integration-test/tested-doc/test.md

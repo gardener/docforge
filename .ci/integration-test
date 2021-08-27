@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2021 SAP SE or an SAP affiliate company and Gardener contributors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# For the integration-test step the following environment variables are used:
+# GIT_OAUTH_TOKEN - used for fetch the content from Github
+# INT_TEST_MANIFEST_ORG - used to replace the manifest org to this one. If does not exist, the script will try to get the org from .ci/userlogin
+# INT_TEST_MANIFEST_VERSION - used to replace the manifest version to this one. If does not exist, the script will try to get the version from .ci/branch
+
+if [[ $(uname) == 'Darwin' ]]; then
+  READLINK_BIN="greadlink"
+else
+  READLINK_BIN="readlink"
+fi
+
+docforge_repo_path="$(${READLINK_BIN} -f $(dirname ${0})/..)"
+int_test_dir="${docforge_repo_path}/integration-test"
+int_test_expected_tree_dir="${int_test_dir}/expected-tree"
+int_test_expected_metadata_dir="${int_test_dir}/expected-metadata"
+int_test_output_tree_dir="${int_test_dir}/generated-tree"
+int_test_output_metadata_dir="${int_test_dir}/generated-metadata"
+int_test_manifest="${int_test_dir}/manifest"
+
+rm -rf "${int_test_output_tree_dir}/*"
+rm -rf "${int_test_output_metadata_dir}/*"
+
+# build docforge
+echo "Building docforge"
+LOCAL_BUILD=1 ${docforge_repo_path}/.ci/build
+docforge_bin="${docforge_repo_path}/bin/docforge"
+
+echo "Docforge version: $(${docforge_bin} version)"
+
+org=${INT_TEST_MANIFEST_ORG:-kubernetes}
+version=${INT_TEST_MANIFEST_VERSION:-master}
+
+if [[ -z "${INT_TEST_MANIFEST_ORG}" ]] || [[ -z "${INT_TEST_MANIFEST_VERSION}" ]]; then
+  echo "Trying to get manifest org and version from ${docforge_repo_path}/.git"
+  org=$(cat "${docforge_repo_path}/.git/userlogin")
+  version=$(cat "${docforge_repo_path}/.git/branch")
+else
+  org=${INT_TEST_MANIFEST_ORG}
+  version=${INT_TEST_MANIFEST_VERSION}
+fi
+
+echo "Manifest org: ${org}"
+echo "Manifest version: ${version}"
+
+if [[ -z "${org}" ]] || [[ -z "${version}" ]]; then
+  exit 1
+fi
+
+getGitHubToken() {
+  # Check if gardener-ci is available (in local setup)
+  command -v gardener-ci >/dev/null && gardenci="true" || gardenci=""
+  if [[ $gardenci == "true" ]]; then
+    # Get a (round-robin) random technical GitHub user credentials
+    technicalUser=$(gardener-ci config model_element --cfg-type github --cfg-name "${1}" --key credentials | sed -e "s/^GithubCredentials //" -e "s/'/\"/g")
+    if [[ -n "${technicalUser}" ]]; then
+      # get auth token and strip lead/trail quotes
+      authToken=$(sed -e 's/"//g' <<<$(jq -n '$c.authToken' --argjson c "$technicalUser"))
+      # get username and strip lead/trail quotes
+      username=$(sed -e 's/"//g' <<<$(jq -n '$c.username' --argjson c "$technicalUser"))
+      echo "${username}:${authToken}"
+    fi
+  fi
+}
+
+GIT_OAUTH_TOKEN=${GIT_OAUTH_TOKEN:-$(getGitHubToken github_com)}
+test $GIT_OAUTH_TOKEN #fail fast
+
+# Run docforge command
+${docforge_bin} -f ${int_test_manifest} -d ${int_test_output_tree_dir} --hugo --github-oauth-token "${GIT_OAUTH_TOKEN}" --github-info-destination ../generated-metadata --variables "org=${org},version=${version}" --use-git=true || true
+
+diffDirs() {
+  if [[ $(uname) == 'Darwin' ]] || [[ $(uname) == *"Linux"* ]]; then
+    output="$(diff -r "${1}" "${2}")"
+  else
+    output="$(fc "${1}" "${2}")"
+  fi
+
+  if [[ ! -z "${output}" ]]; then
+    echo "${output}"
+    exit 1
+  else
+    echo "  Passed"
+  fi
+}
+
+echo "Testing generated tree"
+diffDirs ${int_test_expected_tree_dir} ${int_test_output_tree_dir}
+
+# echo "Testing generated metadata"
+# diffDirs ${int_test_expected_metadata_dir} ${int_test_output_metadata_dir}
