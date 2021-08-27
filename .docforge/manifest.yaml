@@ -2,7 +2,7 @@
 {{ $defaultBranch := (index $vers 0) }}
 structure:
 - name: _index.md
-  source: https://github.com/gardener/docforge/blob/{{$defaultBranch}}/README.md
+  source: https://github.com/gardener/docforge/blob/{{$defaultBranch}}/README.test
 - name: docs
   nodes:
   - nodesSelector:

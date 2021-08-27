@@ -77,10 +77,13 @@ go get github.com/gardener/docforge
    dockforge version
    ```
 
+test
+test
 ### Forge a build
 
 To create a documentation material bundle, it is necessary to describe it in a manifest file. Example manifests can be found in the [example](example) directory of this project. For more information on creating manifests, see the [User guide](TODO).
-
+test
+test
 Assuming that:
 - the **destination** where the forged bundle will appear is `/tmp/docforge-docs`, and 
 - the **manifest** file is [example/simple/00.yaml](example/simple/00.yaml), and
@@ -91,6 +94,8 @@ docforge -d /tmp/docforge-docs -f example/simple/00.yaml --github-oauth-token $G
 ```
 
 ### Analyze
+test
+test
 
 - **Links conversions, total build time**   
    To print an overview of the changes that docforge does to the links in each pulled document to keep them valid in the intended structure in the manifest, run it with the `--dry-run` option. This will forge a full build, but without serializing the structure, and will provide you with the insight of changes per document.
@@ -98,8 +103,12 @@ docforge -d /tmp/docforge-docs -f example/simple/00.yaml --github-oauth-token $G
 - **Resolved structure**   
    The docforge manifests support many implicit ways to specify a structure by rules, such as inclusion/exclusion patterns. To print the actual structure to which those constructs will resolve use the `--resolve` flag.
 
+test
+test
 - **All in one**   
    The `--dry-run` and `--resolve` flags can be combined for a full analytic overview.
-
+test
+test
 ## What's next
 - [User Documentation](docs/user-index.md)
+
