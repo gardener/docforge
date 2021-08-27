@@ -35,7 +35,6 @@ At a glance:
 - out-of-the-box, support for GitHub and GitHub Enterprise
 
 ## Installation
-
 ### Users
 
 Go to project [releases](https://github.com/gardener/docforge/releases), select the [latest release](https://github.com/gardener/docforge/releases/latest) and pickup a download for your OS:
