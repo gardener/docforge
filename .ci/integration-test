@@ -9,6 +9,53 @@
 # INT_TEST_MANIFEST_ORG - used to replace the manifest org to this one. If does not exist, the script will try to get the org from .ci/userlogin
 # INT_TEST_MANIFEST_VERSION - used to replace the manifest version to this one. If does not exist, the script will try to get the version from .ci/branch
 
+getGitHubToken() {
+  # Check if gardener-ci is available (in local setup)
+  command -v gardener-ci >/dev/null && gardenci="true" || gardenci=""
+  if [[ $gardenci == "true" ]]; then
+    # Get a (round-robin) random technical GitHub user credentials
+    technicalUser=$(gardener-ci config model_element --cfg-type github --cfg-name "${1}" --key credentials | sed -e "s/^GithubCredentials //" -e "s/'/\"/g")
+    if [[ -n "${technicalUser}" ]]; then
+      # get auth token and strip lead/trail quotes
+      authToken=$(sed -e 's/"//g' <<<$(jq -n '$c.authToken' --argjson c "$technicalUser"))
+      # get username and strip lead/trail quotes
+      username=$(sed -e 's/"//g' <<<$(jq -n '$c.username' --argjson c "$technicalUser"))
+      echo "${username}:${authToken}"
+    fi
+  fi
+}
+
+removeUntestedKeysFromMetadata() {
+    metadataFiles=$(ls ${1})
+    for file in ${metadataFiles}; do 
+      filePath="${1}/${file}"
+      cat <<< $(jq 'del(.. | .shaalias?, .weburl?, .path?)' ${filePath}) > ${filePath}
+    done
+}
+
+diffDirs() {
+  if [[ $(uname) == 'Darwin' ]] || [[ $(uname) == *"Linux"* ]]; then
+    output="$(diff -r "${1}" "${2}")"
+  else
+    output="$(fc "${1}" "${2}")"
+  fi
+
+  if [[ ! -z "${output}" ]]; then
+    echo "${output}"
+    exit 1
+  else
+    echo "  Passed"
+  fi
+}
+
+testGeneratedTrees() {
+    echo "Testing generated tree" >&2
+    diffDirs ${1} ${2}
+
+    echo "Testing generated metadata" >&2
+    diffDirs ${3} ${4}
+}
+
 if [[ $(uname) == 'Darwin' ]]; then
   READLINK_BIN="greadlink"
 else
@@ -28,7 +75,7 @@ rm -rf "${int_test_output_metadata_dir}/*"
 
 # build docforge
 echo "Building docforge"
-LOCAL_BUILD=1 ${docforge_repo_path}/.ci/build 1>/dev/null
+LOCAL_BUILD=1 ${docforge_repo_path}/.ci/build >/dev/null 2>&1
 docforge_bin="${docforge_repo_path}/bin/docforge"
 
 echo "Docforge version: $(${docforge_bin} version)"
@@ -52,45 +99,29 @@ if [[ -z "${org}" ]] || [[ -z "${version}" ]]; then
   exit 1
 fi
 
-getGitHubToken() {
-  # Check if gardener-ci is available (in local setup)
-  command -v gardener-ci >/dev/null && gardenci="true" || gardenci=""
-  if [[ $gardenci == "true" ]]; then
-    # Get a (round-robin) random technical GitHub user credentials
-    technicalUser=$(gardener-ci config model_element --cfg-type github --cfg-name "${1}" --key credentials | sed -e "s/^GithubCredentials //" -e "s/'/\"/g")
-    if [[ -n "${technicalUser}" ]]; then
-      # get auth token and strip lead/trail quotes
-      authToken=$(sed -e 's/"//g' <<<$(jq -n '$c.authToken' --argjson c "$technicalUser"))
-      # get username and strip lead/trail quotes
-      username=$(sed -e 's/"//g' <<<$(jq -n '$c.username' --argjson c "$technicalUser"))
-      echo "${username}:${authToken}"
-    fi
-  fi
-}
-
 GIT_OAUTH_TOKEN=${GIT_OAUTH_TOKEN:-$(getGitHubToken github_com)}
 test $GIT_OAUTH_TOKEN #fail fast
 
-# Run docforge command
+# Run docforge command with Git handler
 ${docforge_bin} -f ${int_test_manifest} -d ${int_test_output_tree_dir} --hugo --github-oauth-token "${GIT_OAUTH_TOKEN}" --github-info-destination ../generated-metadata --variables "org=${org},version=${version}" --use-git=true || true
 
-diffDirs() {
-  if [[ $(uname) == 'Darwin' ]] || [[ $(uname) == *"Linux"* ]]; then
-    output="$(diff -r "${1}" "${2}")"
-  else
-    output="$(fc "${1}" "${2}")"
-  fi
+#Remove untested metadata keys
+removeUntestedKeysFromMetadata ${int_test_expected_metadata_dir}
+removeUntestedKeysFromMetadata ${int_test_output_metadata_dir}
 
-  if [[ ! -z "${output}" ]]; then
-    echo "${output}"
-    exit 1
-  else
-    echo "  Passed"
-  fi
-}
 
-echo "Testing generated tree"
-diffDirs ${int_test_expected_tree_dir} ${int_test_output_tree_dir}
+echo "Testing Git Handler"
+testGeneratedTrees ${int_test_expected_tree_dir} ${int_test_output_tree_dir} ${int_test_expected_metadata_dir} ${int_test_output_metadata_dir}
 
-# echo "Testing generated metadata"
-# diffDirs ${int_test_expected_metadata_dir} ${int_test_output_metadata_dir}
+# Cleaning up the output of the first docforge call
+rm -rf "${int_test_output_tree_dir}/*"
+rm -rf "${int_test_output_metadata_dir}/*"
+
+# Run docforge command with Github handler
+${docforge_bin} -f ${int_test_manifest} -d ${int_test_output_tree_dir} --hugo --github-oauth-token "${GIT_OAUTH_TOKEN}" --github-info-destination ../generated-metadata --variables "org=${org},version=${version}" || true
+
+#Remove untested metadata keys
+removeUntestedKeysFromMetadata ${int_test_output_metadata_dir}
+
+echo "Testing GitHub Handler"
+testGeneratedTrees ${int_test_expected_tree_dir} ${int_test_output_tree_dir} ${int_test_expected_metadata_dir} ${int_test_output_metadata_dir}
