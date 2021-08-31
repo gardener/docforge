@@ -1,6 +1,4 @@
 {
-  "lastmod": "2021-08-27 11:18:52",
-  "publishdate": "2021-08-27 11:03:06",
   "author": {
     "login": "Kristian-ZH",
     "id": 58623197,
@@ -22,8 +20,5 @@
     "repos_url": "https://api.github.com/users/Kristian-ZH/repos",
     "starred_url": "https://api.github.com/users/Kristian-ZH/starred{/owner}{/repo}",
     "subscriptions_url": "https://api.github.com/users/Kristian-ZH/subscriptions"
-  },
-  "weburl": "https://github.com/Kristian-ZH/docforge",
-  "shaalias": "ci-ci-trigger",
-  "path": "integration-test/tested-doc/test.md"
+  }
 }

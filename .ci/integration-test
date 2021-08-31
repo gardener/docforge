@@ -26,10 +26,9 @@ getGitHubToken() {
 }
 
 removeUntestedKeysFromMetadata() {
-    metadataFiles=$(ls ${1})
+    metadataFiles=$(find ${1} -type f)
     for file in ${metadataFiles}; do 
-      filePath="${1}/${file}"
-      cat <<< $(jq 'del(.. | .shaalias?, .weburl?, .path?)' ${filePath}) > ${filePath}
+      cat <<< $(jq 'del(.. | .shaalias?, .weburl?, .path?, .lastmod?, .publishdate?)' ${file}) > ${file}
     done
 }
 
@@ -70,8 +69,8 @@ int_test_output_tree_dir="${int_test_dir}/generated-tree"
 int_test_output_metadata_dir="${int_test_dir}/generated-metadata"
 int_test_manifest="${int_test_dir}/manifest"
 
-rm -rf "${int_test_output_tree_dir}/*"
-rm -rf "${int_test_output_metadata_dir}/*"
+rm -rf "${int_test_output_tree_dir}"
+rm -rf "${int_test_output_metadata_dir}"
 
 # build docforge
 echo "Building docforge"
@@ -114,8 +113,8 @@ echo "Testing Git Handler"
 testGeneratedTrees ${int_test_expected_tree_dir} ${int_test_output_tree_dir} ${int_test_expected_metadata_dir} ${int_test_output_metadata_dir}
 
 # Cleaning up the output of the first docforge call
-rm -rf "${int_test_output_tree_dir}/*"
-rm -rf "${int_test_output_metadata_dir}/*"
+rm -rf "${int_test_output_tree_dir}"
+rm -rf "${int_test_output_metadata_dir}"
 
 # Run docforge command with Github handler
 ${docforge_bin} -f ${int_test_manifest} -d ${int_test_output_tree_dir} --hugo --github-oauth-token "${GIT_OAUTH_TOKEN}" --github-info-destination ../generated-metadata --variables "org=${org},version=${version}" || true
