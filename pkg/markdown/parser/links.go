@@ -109,9 +109,10 @@ func (l *link) SetDestination(text []byte) {
 }
 
 func (l *link) GetDestination() []byte {
-	if l.destination == nil {
+	if l.destination == nil || l.destination.start == l.destination.end {
 		return nil
 	}
+
 	return l.document.data[l.destination.start:l.destination.end]
 }
 
@@ -125,9 +126,10 @@ func (l *link) SetTitle(text []byte) {
 }
 
 func (l *link) GetTitle() []byte {
-	if l.title == nil {
+	if l.title == nil || l.title.start == l.title.end {
 		return nil
 	}
+
 	return l.document.data[l.title.start:l.title.end]
 }
 
