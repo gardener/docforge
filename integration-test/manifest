@@ -5,5 +5,35 @@
 {{ $org := .org}}
 {{ $version := .version}}
 structure:
-- name: test
-  source: https://github.com/{{$org}}/docforge/blob/{{$version}}/integration-test/tested-doc/test.md
+- name: mainTree
+  nodes:
+  - name: markdown-tests
+    nodes:
+    - source: https://github.com/{{$org}}/docforge/blob/{{$version}}/integration-test/tested-doc/markdown-tests/testedMarkdownFile1.md
+      name: file1.md
+    - source: https://github.com/{{$org}}/docforge/blob/{{$version}}/integration-test/tested-doc/markdown-tests/testedMarkdownFile2.md
+    - name: nodeSelector
+      properties:
+        frontmatter:
+          title: NodeSelector
+          description: Test NodeSelector
+      nodes:
+      - nodesSelector:
+          path: https://github.com/{{$org}}/docforge/blob/{{$version}}/integration-test/tested-doc/markdown-tests/testedDir
+  - name: html-tests
+    nodes:
+    - source: https://github.com/{{$org}}/docforge/blob/{{$version}}/integration-test/tested-doc/html-tests/testedHTMLFile1.md
+      name: file1.md
+    - source: https://github.com/{{$org}}/docforge/blob/{{$version}}/integration-test/tested-doc/html-tests/testedHTMLFile2.md
+    - name: nodeSelector
+      properties:
+        frontmatter:
+          title: NodeSelector
+          description: Test NodeSelector
+      nodes:
+      - nodesSelector:
+          path: https://github.com/{{$org}}/docforge/blob/{{$version}}/integration-test/tested-doc/html-tests/testedDir
+links:
+    downloads:
+        scope:
+            {{$org}}/docforge: {}
