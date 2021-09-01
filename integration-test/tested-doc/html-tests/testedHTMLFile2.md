@@ -13,10 +13,10 @@
 <a href="/integration-test/tested-doc/html-tests/testedHTMLFile2.md">test4</a>
 
 <h3>Link existing image with absolute path</h3>
-<img title="test5" src="https://github.com/gardener/docforge/blob/master/integration-test/tested-doc/images/photo1.jpeg">
+<img title="test5" src="https://github.com/gardener/docforge/blob/master/integration-test/tested-doc/images/gardener-docforge-logo.png">
 
 <h3>Link existing image with relative path</h3>
-<img title="test6" src="../images/photo2.jpeg">
+<img title="test6" src="../images/gardener-docforge-logo.png">
 
 <h3>Link one more existing image with relative path</h3>
-<img title="test7" src="./../images/photo3.jpeg">
+<img title="test7" src="./../images/gardener-docforge-logo.png">

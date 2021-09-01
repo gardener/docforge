@@ -16,10 +16,10 @@ title: testedFile1
 [test4](testedDir/innerDir/testedMarkdownFile5.md)
 
 ### Link existing image with absolute path
-![test5](https://github.com/gardener/docforge/blob/master/integration-test/tested-doc/images/photo1.jpeg)
+![test5](https://github.com/gardener/docforge/blob/master/integration-test/tested-doc/images/gardener-docforge-logo.png)
 
 ### Link existing image with relative path
-![test6](../images/photo2.jpeg)
+![test6](../images/gardener-docforge-logo.png)
 
 ### Link existing image with relative path and title
-![test7](./../images/photo3.jpeg "Photo3")
+![test7](./../images/gardener-docforge-logo.png "gardener-docforge-logo")

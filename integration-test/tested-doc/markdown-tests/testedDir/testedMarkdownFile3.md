@@ -19,10 +19,10 @@
 [test6](https://github.com/gardener/gardener/blob/v1.30.0/README.md)
 
 ### Link existing image with absolute path
-![test7](https://github.com/gardener/docforge/blob/master/integration-test/tested-doc/images/photo1.jpeg)
+![test7](https://github.com/gardener/docforge/blob/master/integration-test/tested-doc/images/gardener-docforge-logo.png)
 
 ### Link existing image with relative path
-![test8](../../images/photo2.jpeg)
+![test8](../../images/gardener-docforge-logo.png)
 
 ### Link existing image with relative path and title
-![test9](./../../images/photo3.jpeg "Photo3")
+![test9](./../../images/gardener-docforge-logo.png "gardener-docforge-logo")
