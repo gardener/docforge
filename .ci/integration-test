@@ -32,6 +32,21 @@ removeUntestedKeysFromMetadata() {
     done
 }
 
+removeHashFromImageName() {
+    image="${2}"
+    imageName=$(echo ${image} | cut -d. -f1)
+    imageExt=$(echo ${image} | cut -d. -f2)
+    files=$(find ${1} -type f)
+    for file in ${files}; do 
+      sed -i "s/${imageName}_.*${imageExt}/${imageName}\.${imageExt}/g" ${file}
+    done
+
+    resourceFileName=$(ls ${1}/__resources/ | grep ${imageName})
+    if [[ "${resourceFileName}" != "${imageName}.${imageExt}" ]]; then
+      mv "${1}/__resources/${resourceFileName}" "${1}/__resources/${imageName}.${imageExt}"
+    fi
+}
+
 diffDirs() {
   if [[ $(uname) == 'Darwin' ]] || [[ $(uname) == *"Linux"* ]]; then
     output="$(diff -r "${1}" "${2}")"
@@ -107,7 +122,8 @@ ${docforge_bin} -f ${int_test_manifest} -d ${int_test_output_tree_dir} --hugo --
 #Remove untested metadata keys
 removeUntestedKeysFromMetadata ${int_test_expected_metadata_dir}
 removeUntestedKeysFromMetadata ${int_test_output_metadata_dir}
-
+removeHashFromImageName ${int_test_expected_tree_dir} "gardener-docforge-logo.png"
+removeHashFromImageName ${int_test_output_tree_dir} "gardener-docforge-logo.png"
 
 echo "Testing Git Handler"
 testGeneratedTrees ${int_test_expected_tree_dir} ${int_test_output_tree_dir} ${int_test_expected_metadata_dir} ${int_test_output_metadata_dir}
@@ -121,6 +137,7 @@ ${docforge_bin} -f ${int_test_manifest} -d ${int_test_output_tree_dir} --hugo --
 
 #Remove untested metadata keys
 removeUntestedKeysFromMetadata ${int_test_output_metadata_dir}
+removeHashFromImageName ${int_test_output_tree_dir} "gardener-docforge-logo.png"
 
 echo "Testing GitHub Handler"
 testGeneratedTrees ${int_test_expected_tree_dir} ${int_test_output_tree_dir} ${int_test_expected_metadata_dir} ${int_test_output_metadata_dir}

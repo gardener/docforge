@@ -21,3 +21,5 @@ config.vmdk
 
 example/hugo/content
 example/hugo/public
+integration-test/generated-metadata/*
+integration-test/generated-tree/*
