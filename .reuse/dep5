@@ -25,6 +25,8 @@ License: Apache-2.0
 Files:
   docs/*
   *.md
+  integration-test/tested-doc/*
+  integration-test/expected-tree/*
 Copyright: 2020 SAP SE or an SAP affiliate company and Gardener contributors
 License: CC-BY-4.0
 

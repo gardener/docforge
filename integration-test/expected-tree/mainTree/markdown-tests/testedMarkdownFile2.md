@@ -3,23 +3,14 @@ title: TestedMarkdownFile2
 ---
 # Tested markdown file 2
 
-### Link file which is in the structure
-[test1](/mainTree/markdown-tests/nodeSelector/innerDir/testedmarkdownfile5)
-
 ### Link file which is not in the structure
-[test2](https://github.com/gardener/gardener/blob/v1.30.0/README.md)
-
-### Link file from html directory
-[test3](/mainTree/html-tests/testedhtmlfile2)
+[test1](https://github.com/gardener/gardener/blob/v1.30.0/README.md)
 
 ### Link file with root path
-[test4](/mainTree/html-tests/testedhtmlfile2)
-
-### Link existing image with absolute path
-![test5](/__resources/photo1_afdc1d.jpeg)
+[test2](/mainTree/html-tests/testedhtmlfile2)
 
 ### Link existing image with relative path
-![test6](/__resources/photo2_801a9b.jpeg)
+![test3](/__resources/gardener-docforge-logo.png)
 
 ### Link existing image with relative path and title
-![test7](/__resources/photo3_21204c.jpeg "Photo3")
+![test4](/__resources/gardener-docforge-logo.png "gardener-docforge-logo")

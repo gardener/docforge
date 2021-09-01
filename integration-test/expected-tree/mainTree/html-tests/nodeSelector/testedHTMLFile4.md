@@ -3,23 +3,11 @@ title: TestedHTMLFile4
 ---
 <h1>Tested HTML file 4</h1>
 
-<h3>Link file which is in the structure</h3>
-<a href="/mainTree/html-tests/nodeSelector/innerDir/testedhtmlfile5">test1</a>
-
-<h3>Link another file which is in the structure</h3>
-<a href="/mainTree/html-tests/file1">test2</a>
-
-<h3>Link another file which is in the structure</h3>
-<a href="/mainTree/html-tests/nodeSelector/testedhtmlfile3">test3</a>
-
 <h3>Link file which is not in the structure</h3>
-<a href="https://github.com/gardener/gardener/blob/v1.30.0/README.md">test4</a>
-
-<h3>Link existing image with absolute path</h3>
-<img title="test5" src="/__resources/photo1_afdc1d.jpeg">
+<a href="https://github.com/gardener/gardener/blob/v1.30.0/README.md">test1</a>
 
 <h3>Link existing image with relative path</h3>
-<img title="test6" src="/__resources/photo2_801a9b.jpeg">
+<img title="test2" src="/__resources/gardener-docforge-logo.png">
 
 <h3>Link one more existing image with relative path</h3>
-<img title="test7" src="/__resources/photo3_21204c.jpeg">
+<img title="test3" src="/__resources/gardener-docforge-logo.png">
