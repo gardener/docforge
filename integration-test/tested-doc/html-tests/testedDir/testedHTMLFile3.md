@@ -19,10 +19,10 @@
 <a href="https://github.com/gardener/gardener/blob/v1.30.0/README.md">test6</a>
 
 <h3>Link existing image with absolute path</h3>
-<img title="test7" src="https://github.com/gardener/docforge/blob/master/integration-test/tested-doc/images/photo1.jpeg">
+<img title="test7" src="https://github.com/gardener/docforge/blob/master/integration-test/tested-doc/images/gardener-docforge-logo.png">
 
 <h3>Link existing image with relative path</h3>
-<img title="test8" src="../../images/photo2.jpeg">
+<img title="test8" src="../../images/gardener-docforge-logo.png">
 
 <h3>Link one more existing image with relative path</h3>
-<img title="test9" src="./../../images/photo3.jpeg">
+<img title="test9" src="./../../images/gardener-docforge-logo.png">
