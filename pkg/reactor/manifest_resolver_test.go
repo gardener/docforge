@@ -233,6 +233,140 @@ func TestResolveManifest(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:        "merge_structure_&_node_selector_flat",
+			description: "should merge container nodes with same names into one node",
+			args: args{
+				ctx: defaultCtxWithTimeout,
+				resolveNodeSelectorFunc: func(ctx context.Context, node *api.Node, excludePaths []string,
+					frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32) ([]*api.Node, error) {
+					return []*api.Node{
+						{Name: "same_name", Nodes: []*api.Node{
+							{Name: "file3.md", Source: "source3"},
+							{Name: "file4", Source: "source4"},
+						}},
+						{Name: "same_name", Nodes: []*api.Node{
+							{Name: "file5.md", Source: "source5"},
+						}}}, nil
+				},
+				testDocumentation: &api.Documentation{
+					Structure: []*api.Node{{Name: "same_name",
+						Nodes: []*api.Node{
+							{Name: "file1.md", Source: "source1"},
+							{Name: "file2", Source: "source2"},
+						}}},
+					NodeSelector: &api.NodeSelector{Path: "files_path"},
+				},
+			},
+			wantErr: false,
+			expectedDocumentation: &api.Documentation{
+				Structure: []*api.Node{{Name: "same_name",
+					Nodes: []*api.Node{
+						{Name: "file1.md", Source: "source1"},
+						{Name: "file2.md", Source: "source2"},
+						{Name: "file3.md", Source: "source3"},
+						{Name: "file4.md", Source: "source4"},
+						{Name: "file5.md", Source: "source5"},
+					}}},
+			},
+		},
+		{
+			name:        "merge_structure_&_node_selector_deep",
+			description: "should merge container nodes with same names into one node recursively",
+			args: args{
+				ctx: defaultCtxWithTimeout,
+				resolveNodeSelectorFunc: func(ctx context.Context, node *api.Node, excludePaths []string,
+					frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32) ([]*api.Node, error) {
+					return []*api.Node{
+						{Name: "same_name_l1", Nodes: []*api.Node{
+							{Name: "file4", Source: "source4"},
+							{Name: "same_name_l2", Nodes: []*api.Node{
+								{Name: "same_name_l3", Nodes: []*api.Node{
+									{Name: "file5", Source: "source5"},
+								}},
+							}},
+						}}}, nil
+				},
+				testDocumentation: &api.Documentation{
+					Structure: []*api.Node{{Name: "same_name_l1",
+						Nodes: []*api.Node{
+							{Name: "file1", Source: "source1"},
+							{Name: "same_name_l2", Nodes: []*api.Node{
+								{Name: "file2", Source: "source2"},
+								{Name: "same_name_l3", Nodes: []*api.Node{
+									{Name: "file3", Source: "source3"},
+								}},
+							}},
+						}}},
+					NodeSelector: &api.NodeSelector{Path: "files_path"},
+				},
+			},
+			wantErr: false,
+			expectedDocumentation: &api.Documentation{
+				Structure: []*api.Node{{Name: "same_name_l1",
+					Nodes: []*api.Node{
+						{Name: "file1.md", Source: "source1"},
+						{Name: "same_name_l2", Nodes: []*api.Node{
+							{Name: "file2.md", Source: "source2"},
+							{Name: "same_name_l3", Nodes: []*api.Node{
+								{Name: "file3.md", Source: "source3"},
+								{Name: "file5.md", Source: "source5"},
+							}},
+						}},
+						{Name: "file4.md", Source: "source4"},
+					}}},
+			},
+		},
+		{
+			name:        "merge_error_on_name_collision",
+			description: "should return error when merging container nodes that contains files with same names",
+			args: args{
+				ctx: defaultCtxWithTimeout,
+				resolveNodeSelectorFunc: func(ctx context.Context, node *api.Node, excludePaths []string,
+					frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32) ([]*api.Node, error) {
+					return []*api.Node{
+						{Name: "same_name", Nodes: []*api.Node{
+							{Name: "same_name.md", Source: "source_ns"},
+						}}}, nil
+				},
+				testDocumentation: &api.Documentation{
+					Structure: []*api.Node{{Name: "same_name",
+						Nodes: []*api.Node{
+							{Name: "same_name.md", Source: "source_s"},
+						}}},
+					NodeSelector: &api.NodeSelector{Path: "files_path"},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name:        "merge_same_node_succeed",
+			description: "should skip duplicate nodes when merging",
+			args: args{
+				ctx: defaultCtxWithTimeout,
+				resolveNodeSelectorFunc: func(ctx context.Context, node *api.Node, excludePaths []string,
+					frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32) ([]*api.Node, error) {
+					return []*api.Node{
+						{Name: "same_name", Nodes: []*api.Node{
+							{Name: "same_name.md", Source: "source"},
+						}}}, nil
+				},
+				testDocumentation: &api.Documentation{
+					Structure: []*api.Node{{Name: "same_name",
+						Nodes: []*api.Node{
+							{Name: "same_name.md", Source: "source"},
+						}}},
+					NodeSelector: &api.NodeSelector{Path: "files_path"},
+				},
+			},
+			wantErr: false,
+			expectedDocumentation: &api.Documentation{
+				Structure: []*api.Node{{Name: "same_name",
+					Nodes: []*api.Node{
+						{Name: "same_name.md", Source: "source"},
+					}}},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -332,7 +466,7 @@ func Test_resolveNodeSelector(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:        "succeeds_to_resolve_with_nodeSelector_and_strucutre_on_root",
+			name:        "succeeds_to_resolve_with_nodeSelector_and_structure_on_root",
 			description: "returns a node that combines nodes returned from the nodeSelector and refers to another documentation structure with nodeSelector and Structure nodes",
 			args: args{
 				node: &api.Node{

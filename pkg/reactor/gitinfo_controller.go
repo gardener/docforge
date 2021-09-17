@@ -18,7 +18,6 @@ import (
 	"github.com/gardener/docforge/pkg/git"
 	"github.com/gardener/docforge/pkg/jobs"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
-	nodeutil "github.com/gardener/docforge/pkg/util/node"
 	"github.com/gardener/docforge/pkg/writers"
 	"github.com/google/go-github/v32/github"
 )
@@ -137,7 +136,7 @@ func (d *gitInfoWorker) Work(ctx context.Context, ctrl *gitInfoController, task 
 		if infoBytes, err = ioutil.ReadAll(&b); err != nil {
 			return jobs.NewWorkerError(err, 0)
 		}
-		nodepath := nodeutil.Path(node, "/")
+		nodepath := api.Path(node, "/")
 		klog.V(6).Infof("writing git info for node %s/%s\n", nodepath, node.Name)
 		if err = d.Write(node.Name, nodepath, infoBytes, node); err != nil {
 			return jobs.NewWorkerError(err, 0)

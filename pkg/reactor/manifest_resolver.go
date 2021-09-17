@@ -6,7 +6,6 @@ package reactor
 import (
 	"context"
 	"fmt"
-	nodeutil "github.com/gardener/docforge/pkg/util/node"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -34,12 +33,16 @@ func ResolveManifest(ctx context.Context, manifest *api.Documentation, rhRegistr
 	if structure == nil {
 		structure = manifest.Structure
 	} else {
-		// TODO: this should be rather merge than append
-		structure = append(manifest.Structure, structure...)
+		node := &api.Node{Nodes: manifest.Structure}
+		// merge structure with node selector result
+		if err = node.Union(structure); err != nil {
+			return err
+		}
+		structure = node.Nodes
 	}
 
-	if structure == nil {
-		return fmt.Errorf("document structure resolved to nil")
+	if len(structure) == 0 {
+		return fmt.Errorf("document structure is empty")
 	}
 
 	if err = resolveStructure(ctx, rhRegistry, manifestAbsPath, structure, manifest.Links, make(map[string]bool), indexFileNames); err != nil {
@@ -83,9 +86,14 @@ func resolveStructure(ctx context.Context, rhRegistry resourcehandlers.Registry,
 
 			if len(newNode.Nodes) > 0 {
 				if node.Parent() != nil {
-					node.Parent().Nodes = append(node.Nodes, newNode.Nodes...)
+					if err = node.Union(newNode.Nodes); err != nil {
+						return err
+					}
+					node.Parent().Nodes = node.Nodes
 				} else {
-					node.Nodes = append(node.Nodes, newNode.Nodes...)
+					if err = node.Union(newNode.Nodes); err != nil {
+						return err
+					}
 				}
 			}
 
@@ -152,7 +160,9 @@ func resolveNodeSelector(ctx context.Context, rhRegistry resourcehandlers.Regist
 				n.SetParentsDownwards()
 			}
 			pruneChildNodesLinks(node, res.Nodes, globalLinksConfig)
-			newNode.Nodes = append(newNode.Nodes, res.Nodes...)
+			if err = newNode.Union(res.Nodes); err != nil {
+				return nil, err
+			}
 		}
 		return newNode, nil
 	}
@@ -205,7 +215,7 @@ func resolveNodeName(ctx context.Context, rhRegistry resourcehandlers.Registry, 
 			for _, n := range ns {
 				names = append(names, n.Name)
 			}
-			p := nodeutil.Path(node, "/")
+			p := api.Path(node, "/")
 			return "", fmt.Errorf("multiple peer nodes with property index: true detected in %s: %s", p, strings.Join(names, ","))
 		}
 	}
@@ -219,7 +229,7 @@ func resolveNodeName(ctx context.Context, rhRegistry resourcehandlers.Registry, 
 	if len(indexFileNames) > 0 && name != "_index" && name != "_index.md" && !hasIndexNode(peerNodes) {
 		for _, s := range indexFileNames {
 			if strings.EqualFold(name, s) {
-				klog.V(6).Infof("Renaming %s -> _index.md\n", filepath.Join(nodeutil.Path(node, "/"), name))
+				klog.V(6).Infof("Renaming %s -> _index.md\n", filepath.Join(api.Path(node, "/"), name))
 				name = "_index.md"
 				break
 			}

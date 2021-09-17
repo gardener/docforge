@@ -9,11 +9,10 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/markdown"
 	"github.com/gardener/docforge/pkg/markdown/parser"
 	"github.com/gardener/docforge/pkg/processors"
-	utilnode "github.com/gardener/docforge/pkg/util/node"
-
 	"k8s.io/klog/v2"
 )
 
@@ -91,7 +90,7 @@ func (f *Processor) rewriteDestination(destination, text, title []byte, nodeName
 		_l := link
 		link = u.Path
 		if l.DestinationNode != nil {
-			absPath := utilnode.Path(l.DestinationNode, "/")
+			absPath := api.Path(l.DestinationNode, "/")
 			link = fmt.Sprintf("%s/%s/%s", f.BaseURL, absPath, strings.ToLower(l.DestinationNode.Name))
 		}
 		if l.IsResource {
@@ -133,7 +132,7 @@ func (f *Processor) rewriteDestination(destination, text, title []byte, nodeName
 						if urlStr, ok := urlVal.(string); ok {
 							if _, err = url.Parse(urlStr); err != nil {
 								klog.Warningf("Invalid frontmatter url: %s for %s\n", urlStr, l.DestinationNode.Source)
-							}  else {
+							} else {
 								link = urlStr
 							}
 						}

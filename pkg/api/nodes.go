@@ -5,6 +5,8 @@
 package api
 
 import (
+	"fmt"
+	"reflect"
 	"sort"
 	"strings"
 
@@ -244,4 +246,58 @@ func (n *Node) SetSourceLocation(sourceLocation string) {
 
 func (n *Node) GetSourceLocation() string {
 	return n.sourceLocation
+}
+
+// Union merges the Node`s list of nodes, with the provided list recursively.
+func (n *Node) Union(nodes []*Node) error {
+	// merge is relevant for container nodes only
+	if n.isDocument() {
+		return fmt.Errorf("not a container node %s/%s", Path(n, "/"), n.Name)
+	}
+	// name -> node map
+	nodesByName := make(map[string]*Node)
+	for _, node := range n.Nodes {
+		nodesByName[node.Name] = node
+	}
+
+	for _, node := range nodes {
+		if existingNode, ok := nodesByName[node.Name]; ok {
+			if reflect.DeepEqual(existingNode, node) {
+				continue // same node
+			}
+			if node.isDocument() {
+				return fmt.Errorf("not a container node to merge in %s/%s", Path(existingNode, "/"), existingNode.Name)
+			}
+			if len(node.Nodes) > 0 {
+				// merge recursively
+				// note: node properties merge is not supported; the properties from first node <existingNode> are active,
+				// as it is expected that they are defined explicitly in the manifest
+				if err := existingNode.Union(node.Nodes); err != nil {
+					return err
+				}
+			}
+		} else {
+			// just append the node
+			n.Nodes = append(n.Nodes, node)
+		}
+	}
+	return nil
+}
+
+func (n *Node) isDocument() bool {
+	return n.Source != "" || n.Template != nil || n.ContentSelectors != nil
+}
+
+// Path serializes the node parents path to root
+// as string of segments that are the parents names
+// and delimited by separator
+func Path(node *Node, separator string) string {
+	var pathSegments []string
+	for _, parent := range node.Parents() {
+		if parent.Name != "" {
+			pathSegments = append(pathSegments, parent.Name)
+		}
+	}
+
+	return strings.Join(pathSegments, separator)
 }
