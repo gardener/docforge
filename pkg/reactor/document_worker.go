@@ -18,7 +18,6 @@ import (
 	"github.com/gardener/docforge/pkg/markdown"
 	"github.com/gardener/docforge/pkg/processors"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
-	utilnode "github.com/gardener/docforge/pkg/util/node"
 	"github.com/gardener/docforge/pkg/writers"
 	"k8s.io/klog/v2"
 )
@@ -188,7 +187,7 @@ func (w *DocumentWorker) Work(ctx context.Context, task interface{}, wq jobs.Wor
 			}
 		}
 
-		path := utilnode.Path(task.Node, "/")
+		path := api.Path(task.Node, "/")
 		if err := w.Writer.Write(task.Node.Name, path, documentBytes, task.Node); err != nil {
 			return jobs.NewWorkerError(err, 0)
 		}
