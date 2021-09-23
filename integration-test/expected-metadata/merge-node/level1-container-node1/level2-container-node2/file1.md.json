@@ -1,0 +1,24 @@
+{
+  "author": {
+    "login": "dimitar-kostadinov",
+    "id": 51451517,
+    "node_id": "MDQ6VXNlcjUxNDUxNTE3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/51451517?v=4",
+    "html_url": "https://github.com/dimitar-kostadinov",
+    "gravatar_id": "",
+    "name": "Dimitar Kostainov",
+    "email": "dimitar.kostadinov@sap.com",
+    "type": "User",
+    "site_admin": false,
+    "url": "https://api.github.com/users/dimitar-kostadinov",
+    "events_url": "https://api.github.com/users/dimitar-kostadinov/events{/privacy}",
+    "following_url": "https://api.github.com/users/dimitar-kostadinov/following{/other_user}",
+    "followers_url": "https://api.github.com/users/dimitar-kostadinov/followers",
+    "gists_url": "https://api.github.com/users/dimitar-kostadinov/gists{/gist_id}",
+    "organizations_url": "https://api.github.com/users/dimitar-kostadinov/orgs",
+    "received_events_url": "https://api.github.com/users/dimitar-kostadinov/received_events",
+    "repos_url": "https://api.github.com/users/dimitar-kostadinov/repos",
+    "starred_url": "https://api.github.com/users/dimitar-kostadinov/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/dimitar-kostadinov/subscriptions"
+  }
+}

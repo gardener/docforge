@@ -5,10 +5,8 @@
 package app
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"html/template"
 	"strings"
 
 	"github.com/gardener/docforge/pkg/api"
@@ -17,7 +15,7 @@ import (
 
 // Manifest reads the resource at uri, resolves it as template applying vars,
 // and finally parses it into api.Documentation model
-func manifest(ctx context.Context, uri string, resourceHandlers []resourcehandlers.ResourceHandler, vars map[string]string) (*api.Documentation, error) {
+func manifest(ctx context.Context, uri string, resourceHandlers []resourcehandlers.ResourceHandler) (*api.Documentation, error) {
 	var (
 		docs    *api.Documentation
 		err     error
@@ -32,29 +30,8 @@ func manifest(ctx context.Context, uri string, resourceHandlers []resourcehandle
 	if blob, err = handler.Read(ctx, uri); err != nil {
 		return nil, err
 	}
-	blob, err = resolveVariables(blob, vars)
-	if err != nil {
-		panic(fmt.Sprintf("%v\n", err))
-	}
 	if docs, err = api.Parse(blob); err != nil {
 		panic(fmt.Sprintf("%v\n", err))
 	}
 	return docs, nil
-}
-
-func resolveVariables(manifestContent []byte, vars map[string]string) ([]byte, error) {
-	var (
-		tmpl *template.Template
-		err  error
-		b    bytes.Buffer
-	)
-	tplFuncMap := make(template.FuncMap)
-	tplFuncMap["Split"] = strings.Split
-	if tmpl, err = template.New("").Funcs(tplFuncMap).Parse(string(manifestContent)); err != nil {
-		return nil, err
-	}
-	if err := tmpl.Execute(&b, vars); err != nil {
-		return nil, err
-	}
-	return b.Bytes(), nil
 }
