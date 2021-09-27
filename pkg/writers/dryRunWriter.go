@@ -129,7 +129,7 @@ func format(files []*file, b *bytes.Buffer) {
 				indent++
 			}
 			idx := i + 1
-			_p := filepath.Join(dd[:idx] ...)
+			_p := filepath.Join(dd[:idx]...)
 			if !any(all, _p) {
 				all = append(all, _p)
 				b.WriteString(fmt.Sprintf("%s\n", s))
