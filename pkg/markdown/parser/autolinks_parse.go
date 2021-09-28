@@ -239,7 +239,7 @@ func parseAutoLink(p *parser, data []byte, offset int) (int, Link) {
 	}
 
 	// Skip punctuation at the end of the link
-	if (data[linkEnd-1] == '.' || data[linkEnd-1] == ',') && data[linkEnd-2] != '\\' {
+	if (data[linkEnd-1] == '.' || data[linkEnd-1] == ',' || data[linkEnd-1] == '?' || data[linkEnd-1] == '!') && data[linkEnd-2] != '\\' {
 		linkEnd--
 	}
 
@@ -305,6 +305,9 @@ func parseAutoLink(p *parser, data []byte, offset int) (int, Link) {
 		if openDelim == 0 {
 			linkEnd--
 		}
+	}
+
+	for ; data[linkEnd-1] == '*' || data[linkEnd-1] == '_' || data[linkEnd-1] == '`'; linkEnd-- {
 	}
 
 	var uLink bytes.Buffer

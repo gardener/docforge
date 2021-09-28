@@ -115,8 +115,8 @@ type Node struct {
 	Links *Links `yaml:"links,omitempty"`
 
 	// private fields
-	parent *Node
-	stats  []*Stat
+	parent         *Node
+	stats          []*Stat
 	sourceLocation string // preserve source location of container nodes
 }
 

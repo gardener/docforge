@@ -15,7 +15,7 @@ import (
 // FSWriter is implementation of Writer interface for writing blobs
 // to the file system at a designated path in a Hugo-specific way
 type FSWriter struct {
-	Writer         writers.Writer
+	Writer writers.Writer
 }
 
 // Write implements writers#Write and will create section file #path/#name/_index.md'

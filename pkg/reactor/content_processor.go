@@ -7,6 +7,13 @@ package reactor
 import (
 	"context"
 	"fmt"
+	"math/rand"
+	"net/http"
+	"net/url"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/markdown"
 	"github.com/gardener/docforge/pkg/markdown/parser"
@@ -15,12 +22,6 @@ import (
 	"github.com/gardener/docforge/pkg/util/urls"
 	"github.com/hashicorp/go-multierror"
 	"k8s.io/klog/v2"
-	"math/rand"
-	"net/http"
-	"net/url"
-	"strings"
-	"sync"
-	"time"
 )
 
 // NodeContentProcessor operates on documents content to reconcile links and
