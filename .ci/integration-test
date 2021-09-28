@@ -67,6 +67,11 @@ testGeneratedTrees() {
     diffDirs ${1} ${2}
 
     echo "Testing generated metadata" >&2
+    echo "Romoving contributors file" >&2
+    if [[ -f "${3}/contributors.json" ]]; then
+      rm "${3}/contributors.json"
+    fi
+    rm "${4}/contributors.json"
     diffDirs ${3} ${4}
 }
 
