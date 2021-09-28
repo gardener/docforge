@@ -107,7 +107,7 @@ func (r *Reactor) Run(ctx context.Context, manifest *api.Documentation, dryRun b
 	}
 
 	if err := checkForCollisions(manifest.Structure); err != nil {
-		klog.Errorf("checkForCollisions: %s", err.Error())
+		return err
 	}
 
 	sourceLocations := getSourceLocationsMap(manifest.Structure)
