@@ -94,16 +94,21 @@ docforge_bin="${docforge_repo_path}/bin/docforge"
 
 echo "Docforge version: $(${docforge_bin} version)"
 
-org=${INT_TEST_MANIFEST_ORG:-kubernetes}
-version=${INT_TEST_MANIFEST_VERSION:-master}
+org=""
+version=""
 
-if [[ -z "${INT_TEST_MANIFEST_ORG}" ]] || [[ -z "${INT_TEST_MANIFEST_VERSION}" ]]; then
-  echo "Trying to get manifest org and version from ${docforge_repo_path}/.git"
+if [[ ! -z "${INT_TEST_MANIFEST_ORG}" ]] && [[ ! -z "${INT_TEST_MANIFEST_VERSION}" ]]; then
+  echo "Retrieving org and version from env vars"
+  org=${INT_TEST_MANIFEST_ORG}
+  version=${INT_TEST_MANIFEST_VERSION}
+elif [[ -f "${docforge_repo_path}/.git/userlogin" ]] && [[ -f "${docforge_repo_path}/.git/branch" ]]; then
+  echo "Retrieving org and version from ${docforge_repo_path}/.git"
   org=$(cat "${docforge_repo_path}/.git/userlogin")
   version=$(cat "${docforge_repo_path}/.git/branch")
 else
-  org=${INT_TEST_MANIFEST_ORG}
-  version=${INT_TEST_MANIFEST_VERSION}
+  echo "Using default org and version"
+  org="gardener"
+  version="master"
 fi
 
 echo "Manifest org: ${org}"
