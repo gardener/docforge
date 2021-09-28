@@ -64,7 +64,8 @@ func NewCommand(ctx context.Context, cancel context.CancelFunc) *cobra.Command {
 			if rhs, err = initResourceHandlers(ctx, options); err != nil {
 				return err
 			}
-			if doc, err = manifest(ctx, flags.documentationManifestPath, rhs, flags.variables); err != nil {
+			api.SetFlagsVariables(flags.variables)
+			if doc, err = manifest(ctx, flags.documentationManifestPath, rhs); err != nil {
 				return err
 			}
 			if err := api.ValidateManifest(doc); err != nil {
