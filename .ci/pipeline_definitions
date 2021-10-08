@@ -23,13 +23,13 @@ docforge:
                 build: ~
     steps:
       check:
-        image: "golang:1.16.3"
+        image: "golang:1.17.2"
       compliance:
         image: "fsfe/reuse:latest"
       test:
-        image: "golang:1.16.3"
+        image: "golang:1.17.2"
       build:
-        image: "golang:1.16.3"
+        image: "golang:1.17.2"
         output_dir: "binary"
       integration-test:
         image: "eu.gcr.io/gardener-project/gardener/testmachinery/testmachinery-run:stable"
@@ -42,7 +42,7 @@ docforge:
         pull-request: ~
       steps:
         docs-gen:
-          image: "golang:1.14.4"
+          image: "golang:1.17.2"
           inputs:
             BINARY_PATH: 'binary_path'
           depends:
