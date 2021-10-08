@@ -8,11 +8,12 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"k8s.io/klog/v2"
 	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
+
+	"k8s.io/klog/v2"
 
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/markdown"
@@ -310,13 +311,29 @@ func (gh *GitHub) ResolveDocumentation(ctx context.Context, path string) (*api.D
 	if !(rl.Type == Blob || rl.Type == Raw) || urls.Ext(rl.String()) == ".md" {
 		return nil, nil
 	}
-
+	tags, err := gh.getAllTags(ctx, rl)
+	if err != nil {
+		return nil, err
+	}
 	blob, err := gh.Read(ctx, rl.String())
 	if err != nil {
 		return nil, err
 	}
 
-	return api.Parse(blob)
+	return api.ParseWithMetadata(tags, blob, false, path)
+}
+
+func (gh *GitHub) getAllTags(ctx context.Context, rl *ResourceLocator) ([]string, error) {
+	refs, _, err := gh.Client.Git.ListMatchingRefs(ctx, rl.Owner, rl.Repo, &github.ReferenceListOptions{Ref: "tags"})
+	if err != nil {
+		return nil, err
+	}
+	refString := []string{}
+	for _, ref := range refs {
+		parts := strings.Split(*ref.Ref, "refs/tags/")
+		refString = append(refString, parts[1])
+	}
+	return refString, nil
 }
 
 // Read implements resourcehandlers/ResourceHandler#Read

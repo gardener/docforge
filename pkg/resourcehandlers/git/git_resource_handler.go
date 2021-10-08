@@ -7,11 +7,6 @@ package git
 import (
 	"context"
 	"fmt"
-	"github.com/gardener/docforge/pkg/api"
-	"github.com/gardener/docforge/pkg/git"
-	"github.com/gardener/docforge/pkg/resourcehandlers"
-	"github.com/gardener/docforge/pkg/resourcehandlers/github"
-	"github.com/gardener/docforge/pkg/util/urls"
 	"io/ioutil"
 	nethttp "net/http"
 	"net/url"
@@ -20,6 +15,12 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+
+	"github.com/gardener/docforge/pkg/api"
+	"github.com/gardener/docforge/pkg/git"
+	"github.com/gardener/docforge/pkg/resourcehandlers"
+	"github.com/gardener/docforge/pkg/resourcehandlers/github"
+	"github.com/gardener/docforge/pkg/util/urls"
 
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	ghclient "github.com/google/go-github/v32/github"
@@ -387,6 +388,11 @@ func (g *Git) ResolveDocumentation(ctx context.Context, uri string) (*api.Docume
 		return nil, err
 	}
 
+	tags, err := g.getAllTags(ctx, rl)
+	if err != nil {
+		return nil, err
+	}
+
 	blob, err := g.Read(ctx, uri)
 	if err != nil {
 		return nil, err
@@ -397,7 +403,17 @@ func (g *Git) ResolveDocumentation(ctx context.Context, uri string) (*api.Docume
 		return nil, nil
 	}
 
-	return api.Parse(blob)
+	return api.ParseWithMetadata(tags, blob, false, uri)
+}
+
+func (g *Git) getAllTags(ctx context.Context, rl *github.ResourceLocator) ([]string, error) {
+	repositoryPath := g.repositoryPathFromResourceLocator(rl)
+	repo := g.getOrInitRepository(repositoryPath, rl)
+	gitRepo, err := repo.Git.PlainOpen(repo.LocalPath)
+	if err != nil {
+		return nil, err
+	}
+	return gitRepo.Tags()
 }
 
 func (g *Git) GetClient() *nethttp.Client {

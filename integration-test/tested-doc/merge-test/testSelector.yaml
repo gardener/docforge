@@ -1,5 +1,5 @@
 {{ $org := .org}}
-{{ $version := .version}}
+{{ $version := .versions}}
 structure:
 - name: level1-container-node1
   nodes:

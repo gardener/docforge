@@ -7,9 +7,10 @@ package git
 import (
 	"context"
 	"fmt"
+	"sync"
+
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/go-git/go-git/v5/plumbing/transport"
-	"sync"
 
 	"github.com/gardener/docforge/pkg/git"
 
@@ -40,7 +41,7 @@ type Repository struct {
 	mutex sync.RWMutex
 }
 
-func (r *Repository) Prepare(ctx context.Context, branch string) error {
+func (r *Repository) Prepare(ctx context.Context, version string) error {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
@@ -51,7 +52,7 @@ func (r *Repository) Prepare(ctx context.Context, branch string) error {
 		return nil
 	}
 
-	if err := r.prepare(ctx, branch); err != nil {
+	if err := r.prepare(ctx, version); err != nil {
 		r.State = Failed
 		r.PreviousError = err
 		return err
@@ -60,7 +61,7 @@ func (r *Repository) Prepare(ctx context.Context, branch string) error {
 	return nil
 }
 
-func (r *Repository) prepare(ctx context.Context, branch string) error {
+func (r *Repository) prepare(ctx context.Context, version string) error {
 	repository, fetch, err := r.repository(ctx)
 	if err != nil {
 		return err
@@ -83,10 +84,20 @@ func (r *Repository) prepare(ctx context.Context, branch string) error {
 	if err != nil {
 		return err
 	}
+
+	var checkoutDestination plumbing.ReferenceName
+	_, err1 := repository.Reference(plumbing.NewRemoteReferenceName(gogit.DefaultRemoteName, version), true)
+	_, err2 := repository.Reference(plumbing.NewTagReferenceName(version), true)
+	if err1 == nil {
+		checkoutDestination = plumbing.NewRemoteReferenceName(gogit.DefaultRemoteName, version)
+	} else if err2 == nil {
+		checkoutDestination = plumbing.NewTagReferenceName(version)
+	}
+
 	if err := w.Checkout(&gogit.CheckoutOptions{
-		Branch: plumbing.NewRemoteReferenceName(gogit.DefaultRemoteName, branch),
+		Branch: checkoutDestination,
 	}); err != nil {
-		return fmt.Errorf("couldn't checkout branch %s for repository %s: %v", branch, r.LocalPath, err)
+		return fmt.Errorf("couldn't checkout version %s for repository %s: %v", version, r.LocalPath, err)
 	}
 	return nil
 }

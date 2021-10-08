@@ -81,6 +81,8 @@ var _ = Describe("Repository", func() {
 			It("should not return err when PlainOpen is called", func() {
 				mockRepo.EXPECT().FetchContext(context.TODO(), gomock.Any()).Times(1).Return(nil)
 				mockRepo.EXPECT().Worktree().Times(1).Return(mockWorkTree, nil)
+				mockRepo.EXPECT().Tags().Times(0).Return(nil, nil)
+				mockRepo.EXPECT().Reference(gomock.Any(), true).Times(2).Return(nil, nil)
 				mockWorkTree.EXPECT().Checkout(gomock.Any()).Return(nil)
 				mockGit.EXPECT().PlainOpen(localPath).Times(1).Return(mockRepo, nil)
 				err := repository.Prepare(context.TODO(), branch)
@@ -90,6 +92,8 @@ var _ = Describe("Repository", func() {
 			It("should clone the repository ", func() {
 				mockRepo.EXPECT().FetchContext(context.TODO(), gomock.Any()).Times(0)
 				mockRepo.EXPECT().Worktree().Times(1).Return(mockWorkTree, nil)
+				mockRepo.EXPECT().Tags().Times(0).Return(nil, nil)
+				mockRepo.EXPECT().Reference(gomock.Any(), true).Times(2).Return(nil, nil)
 				mockWorkTree.EXPECT().Checkout(gomock.Any()).Return(nil)
 				mockGit.EXPECT().PlainOpen(localPath).Times(1).Return(nil, gogit.ErrRepositoryNotExists)
 				mockGit.EXPECT().PlainCloneContext(gomock.Any(), localPath, false, gomock.Any()).Times(1).Return(mockRepo, nil)

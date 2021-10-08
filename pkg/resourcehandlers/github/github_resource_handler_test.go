@@ -7,7 +7,6 @@ package github
 import (
 	"context"
 	"fmt"
-	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -16,6 +15,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/gardener/docforge/pkg/resourcehandlers"
 
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/util/tests"
@@ -241,6 +242,104 @@ func TestUrlToGitHubLocator(t *testing.T) {
 			}
 			assert.Equal(t, c.want, got)
 		})
+	}
+}
+
+func TestGetAllTags(t *testing.T) {
+	cases := []struct {
+		rl   *ResourceLocator
+		mux  func(mux *http.ServeMux)
+		want []string
+		err  error
+	}{
+		{
+			&ResourceLocator{
+				"https",
+				"github.com",
+				"gardener",
+				"gardener",
+				"",
+				Blob,
+				"",
+				"master",
+				false,
+			},
+			func(mux *http.ServeMux) {
+				mux.HandleFunc("/repos/gardener/gardener/git/matching-refs/tags", func(w http.ResponseWriter, r *http.Request) {
+					w.Write([]byte(fmt.Sprintf(`
+					[
+						{
+						  "ref": "refs/tags/v0.0.1",
+						  "node_id": "MDM6UmVmMjc3ODAyNDY2OnJlZnMvdGFncy92MC4wLjE=",
+						  "url": "https://api.github.com/repos/gardener/docforge/git/refs/tags/v0.0.1",
+						  "object": {
+							"sha": "c5391f5187af434160c8056f47fbeeaed3670a9d",
+							"type": "commit",
+							"url": "https://api.github.com/repos/gardener/docforge/git/commits/c5391f5187af434160c8056f47fbeeaed3670a9d"
+						  }
+						},
+						{
+						  "ref": "refs/tags/v0.1.0",
+						  "node_id": "MDM6UmVmMjc3ODAyNDY2OnJlZnMvdGFncy92MC4xLjA=",
+						  "url": "https://api.github.com/repos/gardener/docforge/git/refs/tags/v0.1.0",
+						  "object": {
+							"sha": "6bd668f2353f7ae6cddab09ef1434defe6431b89",
+							"type": "commit",
+							"url": "https://api.github.com/repos/gardener/docforge/git/commits/6bd668f2353f7ae6cddab09ef1434defe6431b89"
+						  }
+						},
+						{
+						  "ref": "refs/tags/v0.2.0",
+						  "node_id": "MDM6UmVmMjc3ODAyNDY2OnJlZnMvdGFncy92MC4yLjA=",
+						  "url": "https://api.github.com/repos/gardener/docforge/git/refs/tags/v0.2.0",
+						  "object": {
+							"sha": "183554163eb56886860ba40af0c4b121379d4459",
+							"type": "commit",
+							"url": "https://api.github.com/repos/gardener/docforge/git/commits/183554163eb56886860ba40af0c4b121379d4459"
+						  }
+						}
+					]`)))
+				})
+			},
+			[]string{"v0.0.1", "v0.1.0", "v0.2.0"},
+			nil,
+		},
+		{
+			&ResourceLocator{
+				"https",
+				"github.com",
+				"gardener",
+				"emptyTest",
+				"",
+				Blob,
+				"",
+				"master",
+				false,
+			},
+			func(mux *http.ServeMux) {
+				mux.HandleFunc("/repos/gardener/emptyTest/git/matching-refs/tags", func(w http.ResponseWriter, r *http.Request) {
+					w.Write([]byte(fmt.Sprintf(`
+					[]`)))
+				})
+			},
+			[]string{},
+			nil,
+		},
+	}
+	for _, c := range cases {
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		defer cancel()
+		gh := &GitHub{}
+		client, mux, _, teardown := setup()
+		defer teardown()
+		if c.mux != nil {
+			c.mux(mux)
+		}
+		gh.Client = client
+		got, gotErr := gh.getAllTags(ctx, c.rl)
+
+		assert.Equal(t, c.err, gotErr)
+		assert.Equal(t, c.want, got)
 	}
 }
 
