@@ -14,6 +14,7 @@ labels: kind/enhancement
 Please select kind, and priority for this issue. This helps the community categorizing it.
 Replace below with those what fit best in your opinion. You can use identifiers multiple times, one per row.
 "/kind" identifiers:     api-change|cleanup|discussion|enhancement|impediment|poc|technical-debt|test
-"/priority" identifiers: normal|critical|blocker
+"/priority" identifiers: 1|2|3|4|5 (ordered from greatest to least)
 -->
 /kind enhancement
+/priority 3

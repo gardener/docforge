@@ -18,7 +18,7 @@ labels: kind/bug
 Please select kind, and priority for this issue. This helps the community categorizing it.
 Replace below with those that fit best in your opinion.
 "/kind" identifiers:     bug|impediment|post-mortem|regression
-"/priority" identifiers: normal|critical|blocker
+"/priority" identifiers: 1|2|3|4|5 (ordered from greatest to least)
 -->
 /kind bug
-/priority normal
+/priority 3
