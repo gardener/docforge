@@ -31,7 +31,7 @@ fi
 cd ${SOURCE_PATH}
 
 # Build Golint.
-go get -d golang.org/x/lint/golint
+go install golang.org/x/lint/golint@latest
 
 executable=${GOPATH}/bin/golint
 if [ -z ${GOPATH+x} ]; then
