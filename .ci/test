@@ -25,7 +25,7 @@ fi
 cd ${SOURCE_PATH}
 
 # Get the Ginkgo (test framework) binary to be able to execute the tests.
-go get github.com/onsi/ginkgo/ginkgo
+go get -d github.com/onsi/ginkgo/ginkgo
 
 executable=${GOPATH}/bin/ginkgo
 if [ -z ${GOPATH+x} ]; then

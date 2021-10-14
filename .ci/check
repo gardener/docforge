@@ -16,6 +16,12 @@ else
   READLINK_BIN="readlink"
 fi
 
+if [ -d "./vendor" ]; then
+  VET_MOD_OPTS=-mod=vendor
+else
+  VET_MOD_OPTS=-mod=readonly
+fi
+
 if [[ -z "${SOURCE_PATH}" ]]; then
   export SOURCE_PATH="$($READLINK_BIN -f "$(dirname ${0})/..")"
 else
@@ -25,7 +31,7 @@ fi
 cd ${SOURCE_PATH}
 
 # Build Golint.
-go get -u golang.org/x/lint/golint
+go get -d golang.org/x/lint/golint
 
 executable=${GOPATH}/bin/golint
 if [ -z ${GOPATH+x} ]; then
@@ -43,6 +49,7 @@ PACKAGES="$(go list -e ./...)"
 PACKAGES_DIRS="$(echo ${PACKAGES} | sed "s|github.com/gardener/docforge|.|g")"
 
 # Execute static code checks.
+echo "Executing go vet"
 go vet ${PACKAGES}
 
 # Execute automatic code formatting directive.

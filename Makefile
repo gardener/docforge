@@ -12,6 +12,7 @@ IMAGE_TAG                                                := $(shell cat VERSION)
 
 .PHONY: revendor
 revendor:
+	@GO111MODULE=on go mod vendor
 	@GO111MODULE=on go mod tidy
 
 .PHONY: build
