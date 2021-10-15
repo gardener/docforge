@@ -20,6 +20,7 @@ type GitRepository interface {
 	Worktree() (GitRepositoryWorktree, error)
 	Reference(name plumbing.ReferenceName, resolved bool) (*plumbing.Reference, error)
 	Tags() ([]string, error)
+	GetDefaultBranch() (string, error)
 }
 
 type GitRepositoryWorktree interface {
@@ -71,4 +72,12 @@ func (g *git) Tags() ([]string, error) {
 		return nil, err
 	}
 	return tags, nil
+}
+
+func (g *git) GetDefaultBranch() (string, error) {
+	config, err := g.repository.Config()
+	if err != nil {
+		return "", err
+	}
+	return config.Init.DefaultBranch, nil
 }

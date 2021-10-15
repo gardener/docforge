@@ -388,7 +388,7 @@ func (g *Git) ResolveDocumentation(ctx context.Context, uri string) (*api.Docume
 		return nil, err
 	}
 
-	tags, err := g.getAllTags(ctx, rl)
+	tags, repo, err := g.getAllTags(ctx, rl)
 	if err != nil {
 		return nil, err
 	}
@@ -402,18 +402,23 @@ func (g *Git) ResolveDocumentation(ctx context.Context, uri string) (*api.Docume
 	if blob == nil {
 		return nil, nil
 	}
-
-	return api.ParseWithMetadata(tags, blob, false, uri)
+	defaultBranch, err := repo.GetDefaultBranch()
+	if err != nil {
+		return nil, err
+	}
+	return api.ParseWithMetadata(tags, blob, false, uri, &defaultBranch)
 }
 
-func (g *Git) getAllTags(ctx context.Context, rl *github.ResourceLocator) ([]string, error) {
+//internally used
+func (g *Git) getAllTags(ctx context.Context, rl *github.ResourceLocator) ([]string, git.GitRepository, error) {
 	repositoryPath := g.repositoryPathFromResourceLocator(rl)
 	repo := g.getOrInitRepository(repositoryPath, rl)
 	gitRepo, err := repo.Git.PlainOpen(repo.LocalPath)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return gitRepo.Tags()
+	tags, err := gitRepo.Tags()
+	return tags, gitRepo, err
 }
 
 func (g *Git) GetClient() *nethttp.Client {
