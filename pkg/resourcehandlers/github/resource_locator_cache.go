@@ -7,12 +7,13 @@ package github
 import (
 	"context"
 	"fmt"
-	"github.com/gardener/docforge/pkg/resourcehandlers"
-	"github.com/google/go-github/v32/github"
 	"net/http"
 	"net/url"
 	"strings"
 	"sync"
+
+	"github.com/gardener/docforge/pkg/resourcehandlers"
+	"github.com/google/go-github/v32/github"
 )
 
 // Cache is indexes GitHub TreeEntries by website resource URLs as keys,
@@ -188,11 +189,13 @@ func (c *Cache) set(ctx context.Context, rl *ResourceLocator) (bool, error) {
 	}
 	var eKey string
 	for _, entry := range gitTree.Entries {
-		eRL := TreeEntryToGitHubLocator(entry, rl.SHAAlias)
-		if eKey, err = c.key(eRL, false); err != nil {
-			return false, err
+		if eRL := TreeEntryToGitHubLocator(entry, rl.SHAAlias); eRL != nil {
+			if eKey, err = c.key(eRL, false); err != nil {
+				return false, err
+			}
+
+			c.cache[eKey] = eRL
 		}
-		c.cache[eKey] = eRL
 	}
 	// add root repo key if not already added
 	if _, ok := c.cache[repo]; !ok {
