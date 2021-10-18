@@ -128,7 +128,7 @@ func (fs *fsHandler) ResolveDocumentation(ctx context.Context, uri string) (*api
 		return nil, err
 	}
 
-	return api.Parse(blob)
+	return api.ParseWithMetadata([]string{}, blob, true, uri)
 }
 
 // ReadGitInfo implements resourcehandlers.ResourceHandler#ReadGitInfo

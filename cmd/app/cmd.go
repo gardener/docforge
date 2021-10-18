@@ -43,6 +43,8 @@ type cmdFlags struct {
 	hugoBaseURL                  string
 	useGit                       bool
 	cacheHomeDir                 string
+	lastNVersions                map[string]int
+	mainBranch                   map[string]string
 }
 
 // NewCommand creates a new root command and propagates
@@ -65,6 +67,8 @@ func NewCommand(ctx context.Context, cancel context.CancelFunc) *cobra.Command {
 				return err
 			}
 			api.SetFlagsVariables(flags.variables)
+			api.SetMainBranches(flags.mainBranch)
+			api.SetVersions(flags.lastNVersions)
 			if doc, err = manifest(ctx, flags.documentationManifestPath, rhs); err != nil {
 				return err
 			}
@@ -142,6 +146,10 @@ func (flags *cmdFlags) Configure(command *cobra.Command) {
 	command.Flags().BoolVar(&flags.useGit, "use-git", false, "Use Git for replication")
 	command.Flags().StringSliceVar(&flags.hugoSectionFiles, "hugo-section-files", []string{"readme.md", "readme", "read.me", "index.md", "index"},
 		"When building a Hugo-compliant documentaton bundle, files with filename matching one form this list (in that order) will be renamed to _index.md. Only useful with --hugo=true")
+	command.Flags().StringToIntVar(&flags.lastNVersions, "versions", map[string]int{},
+		"Specify default number of versions and per uri that will be supported")
+	command.Flags().StringToStringVar(&flags.mainBranch, "main-branches", map[string]string{},
+		"Specify default main branch and per uri")
 }
 
 // NewOptions creates an options object from flags and configuration

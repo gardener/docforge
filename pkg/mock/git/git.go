@@ -13,6 +13,7 @@ import (
 
 	git "github.com/gardener/docforge/pkg/git"
 	v5 "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -98,6 +99,32 @@ func (m *MockGitRepository) FetchContext(ctx context.Context, o *v5.FetchOptions
 	ret := m.ctrl.Call(m, "FetchContext", ctx, o)
 	ret0, _ := ret[0].(error)
 	return ret0
+}
+
+func (m *MockGitRepository) Reference(name plumbing.ReferenceName, resolved bool) (*plumbing.Reference, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Reference", name, resolved)
+	ret0, _ := ret[0].(*plumbing.Reference)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+func (m *MockGitRepository) Tags() ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Tags")
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FetchContext indicates an expected call of FetchContext.
+func (mr *MockGitRepositoryMockRecorder) Reference(name, resolved interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Reference", reflect.TypeOf((*MockGitRepository)(nil).Reference), name, resolved)
+}
+
+func (mr *MockGitRepositoryMockRecorder) Tags() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Tags", reflect.TypeOf((*MockGitRepository)(nil).Tags))
 }
 
 // FetchContext indicates an expected call of FetchContext.

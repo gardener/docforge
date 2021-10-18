@@ -1,10 +1,9 @@
 # SPDX-FileCopyrightText: 2021 SAP SE or an SAP affiliate company and Gardener contributors
 #
 # SPDX-License-Identifier: Apache-2.0
-
-{{ $org := .org}}
-{{ $version := .version}}
 structure:
+{{ $org := .org}}
+{{ $version := .versions}}
 - name: mainTree
   nodes:
   - name: markdown-tests

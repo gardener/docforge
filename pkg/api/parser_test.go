@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"github.com/gardener/docforge/pkg/util/tests"
@@ -213,5 +214,240 @@ func TestFile(t *testing.T) {
 	}
 	if got != expected {
 		assert.Equal(t, expected, got)
+	}
+}
+
+func TestGetLastNVersions(t *testing.T) {
+	tests := []struct {
+		inputTags  []string
+		inputN     int
+		outputTags []string
+		err        error
+	}{
+		{
+			inputTags:  nil,
+			inputN:     -7,
+			outputTags: nil,
+			err:        fmt.Errorf("n can't be negative"),
+		}, {
+			inputTags:  []string{},
+			inputN:     0,
+			outputTags: []string{},
+			err:        nil,
+		}, {
+			inputTags:  []string{},
+			inputN:     2,
+			outputTags: nil,
+			err:        fmt.Errorf("number of tags is greater than the actual number of tags with latest patch:requested %d actual %d", 2, 0),
+		}, {
+			inputTags:  nil,
+			inputN:     1,
+			outputTags: nil,
+			err:        fmt.Errorf("number of tags is greater than the actual number of tags with latest patch:requested %d actual %d", 1, 0),
+		}, {
+			inputTags:  []string{"v1.2.3", "v1.2.1"},
+			inputN:     1,
+			outputTags: []string{"v1.2.3"},
+			err:        nil,
+		}, {
+			inputTags:  []string{"v1.2.3", "v1.2.8"},
+			inputN:     1,
+			outputTags: []string{"v1.2.8"},
+			err:        nil,
+		}, {
+			inputTags:  []string{"v1.2.3", "v1.2.8.0"},
+			inputN:     1,
+			outputTags: nil,
+			err:        fmt.Errorf("Error parsing version: v1.2.8.0"),
+		}, {
+			inputTags:  []string{"v1.2.3", "v1.2.8", "v1.1.5", "v1.1.0", "v1.1.3", "v2.0.1", "v2.0.8", "v2.1.0", "v2.0.6"},
+			inputN:     4,
+			outputTags: []string{"v1.1.5", "v1.2.8", "v2.0.8", "v2.1.0"},
+			err:        nil,
+		}, {
+			inputTags:  []string{"v1.2.3", "v1.2.8", "v1.1.5", "v1.1.0", "v1.1.3", "v2.0.1", "v2.0.8", "v2.1.0", "v2.0.6"},
+			inputN:     5,
+			outputTags: nil,
+			err:        fmt.Errorf("number of tags is greater than the actual number of tags with latest patch:requested %d actual %d", 5, 4),
+		}, {
+			inputTags:  []string{"1.2.3", "1.2.8", "1.1.5", "1.1.0", "1.1.3", "2.0.1", "2.0.8", "2.1.0", "2.0.6"},
+			inputN:     4,
+			outputTags: []string{"1.1.5", "1.2.8", "2.0.8", "2.1.0"},
+			err:        nil,
+		}, {
+			inputTags:  []string{"1.2.3", "1.2.8", "1.1.5", "1.1.0", "1.1.3", "2.0.1", "2.0.8", "2.1.0", "2.0.6"},
+			inputN:     3,
+			outputTags: []string{"1.2.8", "2.0.8", "2.1.0"},
+			err:        nil,
+		},
+	}
+	for _, test := range tests {
+		result, resultErr := getLastNVersions(test.inputTags, test.inputN)
+
+		if !reflect.DeepEqual(result, test.outputTags) {
+			t.Errorf("Expected and actual result differ respectively: %s %s", test.outputTags, result)
+		}
+		if !compareErrors(resultErr, test.err) {
+			t.Errorf("Expected and actual errors differ respectively: %s %s", test.err, resultErr)
+		}
+
+	}
+}
+
+func TestParseWithMetadata(t *testing.T) {
+	cases := []struct {
+		tags []string
+		b    []byte
+		uri  string
+		want *Documentation
+		err  error
+	}{
+		{
+			[]string{"v4.9", "v5.7", "v6.1", "v7.7"},
+			[]byte(`structure:
+- name: community
+  source: https://github.com/gardener/docforge/edit/master/integration-test/tested-doc/merge-test/testFile.md
+{{- $vers := Split .versions "," -}}
+{{- range $i, $version := $vers -}}
+{{- if eq $i 0  }}
+- name: docs
+{{- else }}
+- name: {{$version}}
+{{- end }}
+  source: https://github.com/gardener/docforge/blob/{{$version}}/integration-test/tested-doc/merge-test/testFile.md
+{{- end }}`),
+			"https://github.com/Kostov6/documentation/blob/master/.docforge/test.yamls",
+			&Documentation{
+				Structure: []*Node{
+					&Node{
+						Name:           "community",
+						Source:         "https://github.com/gardener/docforge/edit/master/integration-test/tested-doc/merge-test/testFile.md",
+						sourceLocation: "",
+					},
+					&Node{
+						Name:           "docs",
+						Source:         "https://github.com/gardener/docforge/blob/master/integration-test/tested-doc/merge-test/testFile.md",
+						sourceLocation: "",
+					},
+					&Node{
+						Name:           "v4.9",
+						Source:         "https://github.com/gardener/docforge/blob/v4.9/integration-test/tested-doc/merge-test/testFile.md",
+						sourceLocation: "",
+					},
+					&Node{
+						Name:           "v5.7",
+						Source:         "https://github.com/gardener/docforge/blob/v5.7/integration-test/tested-doc/merge-test/testFile.md",
+						sourceLocation: "",
+					},
+					&Node{
+						Name:           "v6.1",
+						Source:         "https://github.com/gardener/docforge/blob/v6.1/integration-test/tested-doc/merge-test/testFile.md",
+						sourceLocation: "",
+					},
+					&Node{
+						Name:           "v7.7",
+						Source:         "https://github.com/gardener/docforge/blob/v7.7/integration-test/tested-doc/merge-test/testFile.md",
+						sourceLocation: "",
+					},
+				},
+			},
+			nil,
+		},
+		{
+			[]string{"v4.9", "v5.7"},
+			[]byte(`structure:
+- name: community
+  source: https://github.com/gardener/docforge/edit/master/integration-test/tested-doc/merge-test/testFile.md
+{{- $vers := Split .versions "," -}}
+{{- range $i, $version := $vers -}}
+{{- if eq $i 0  }}
+- name: docs
+{{- else }}
+- name: {{$version}}
+{{- end }}
+  source: https://github.com/gardener/docforge/blob/{{$version}}/integration-test/tested-doc/merge-test/testFile.md
+{{- end }}`),
+			"https://github.com/Kostov6/documentation/blob/master/.docforge/test.yamls",
+			&Documentation{
+				Structure: []*Node{
+					&Node{
+						Name:           "community",
+						Source:         "https://github.com/gardener/docforge/edit/master/integration-test/tested-doc/merge-test/testFile.md",
+						sourceLocation: "",
+					},
+					&Node{
+						Name:           "docs",
+						Source:         "https://github.com/gardener/docforge/blob/master/integration-test/tested-doc/merge-test/testFile.md",
+						sourceLocation: "",
+					},
+					&Node{
+						Name:           "v4.9",
+						Source:         "https://github.com/gardener/docforge/blob/v4.9/integration-test/tested-doc/merge-test/testFile.md",
+						sourceLocation: "",
+					},
+					&Node{
+						Name:           "v5.7",
+						Source:         "https://github.com/gardener/docforge/blob/v5.7/integration-test/tested-doc/merge-test/testFile.md",
+						sourceLocation: "",
+					},
+				},
+			},
+			nil,
+		},
+		{
+			[]string{},
+			[]byte(`structure:
+- name: community
+  source: https://github.com/gardener/docforge/edit/master/integration-test/tested-doc/merge-test/testFile.md
+{{- $vers := Split .versions "," -}}
+{{- range $i, $version := $vers -}}
+{{- if eq $i 0  }}
+- name: docs
+{{- else }}
+- name: {{$version}}
+{{- end }}
+  source: https://github.com/gardener/docforge/blob/{{$version}}/integration-test/tested-doc/merge-test/testFile.md
+{{- end }}`),
+			"https://github.com/Kostov6/documentation/blob/master/.docforge/test.yamls",
+			&Documentation{
+				Structure: []*Node{
+					&Node{
+						Name:           "community",
+						Source:         "https://github.com/gardener/docforge/edit/master/integration-test/tested-doc/merge-test/testFile.md",
+						sourceLocation: "",
+					},
+					&Node{
+						Name:           "docs",
+						Source:         "https://github.com/gardener/docforge/blob/master/integration-test/tested-doc/merge-test/testFile.md",
+						sourceLocation: "",
+					},
+				},
+			},
+			nil,
+		},
+	}
+	v := map[string]int{}
+	vars := map[string]string{}
+
+	SetFlagsVariables(vars)
+	for _, c := range cases {
+		v["https://github.com/Kostov6/documentation/blob/master/.docforge/test.yamls"] = len(c.tags)
+		SetVersions(v)
+		got, gotErr := ParseWithMetadata(c.tags, c.b, false, c.uri)
+		assert.Equal(t, c.err, gotErr)
+		assert.Equal(t, c.want, got)
+	}
+}
+
+func compareErrors(e1, e2 error) bool {
+	switch {
+	case e1 == nil && e2 == nil:
+		return true
+	case e1 == nil && e2 != nil:
+		return false
+	case e1 != nil && e2 == nil:
+		return false
+	default:
+		return e1.Error() == e2.Error()
 	}
 }

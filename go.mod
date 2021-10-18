@@ -3,6 +3,7 @@ module github.com/gardener/docforge
 go 1.17
 
 require (
+	github.com/Masterminds/semver v1.5.0
 	github.com/go-git/go-git/v5 v5.3.0
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/mock v1.5.0
