@@ -856,20 +856,20 @@ func TestResolveDocumentation(t *testing.T) {
 						Source: "https://github.com/gardener/docforge/blob/testMainBranch/integration-test/tested-doc/merge-test/testFile.md",
 					},
 					&api.Node{
-						Name:   "v4.9",
-						Source: "https://github.com/gardener/docforge/blob/v4.9/integration-test/tested-doc/merge-test/testFile.md",
-					},
-					&api.Node{
-						Name:   "v5.7",
-						Source: "https://github.com/gardener/docforge/blob/v5.7/integration-test/tested-doc/merge-test/testFile.md",
+						Name:   "v7.7",
+						Source: "https://github.com/gardener/docforge/blob/v7.7/integration-test/tested-doc/merge-test/testFile.md",
 					},
 					&api.Node{
 						Name:   "v6.1",
 						Source: "https://github.com/gardener/docforge/blob/v6.1/integration-test/tested-doc/merge-test/testFile.md",
 					},
 					&api.Node{
-						Name:   "v7.7",
-						Source: "https://github.com/gardener/docforge/blob/v7.7/integration-test/tested-doc/merge-test/testFile.md",
+						Name:   "v5.7",
+						Source: "https://github.com/gardener/docforge/blob/v5.7/integration-test/tested-doc/merge-test/testFile.md",
+					},
+					&api.Node{
+						Name:   "v4.9",
+						Source: "https://github.com/gardener/docforge/blob/v4.9/integration-test/tested-doc/merge-test/testFile.md",
 					},
 				},
 			},

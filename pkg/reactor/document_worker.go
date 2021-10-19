@@ -9,12 +9,10 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"path/filepath"
 	"sync"
 	"text/template"
 
 	"github.com/gardener/docforge/pkg/api"
-	"github.com/gardener/docforge/pkg/jobs"
 	"github.com/gardener/docforge/pkg/markdown"
 	"github.com/gardener/docforge/pkg/processors"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
@@ -22,18 +20,12 @@ import (
 	"k8s.io/klog/v2"
 )
 
-// Reader reads the bytes data from a given source URI
-type Reader interface {
-	Read(ctx context.Context, source string) ([]byte, error)
-}
-
-// DocumentWorker implements jobs#Worker
 type DocumentWorker struct {
-	writers.Writer
-	Reader
+	reader Reader
+	writer writers.Writer
 	processors.Processor
 	NodeContentProcessor NodeContentProcessor
-	GitHubInfoController GitInfoController
+	gitHubInfo           GitHubInfo
 	templates            map[string]*template.Template
 	rwLock               sync.RWMutex
 }
@@ -43,85 +35,56 @@ type DocumentWorkTask struct {
 	Node *api.Node
 }
 
-// GenericReader is generic implementation for Reader interface
-type GenericReader struct {
-	ResourceHandlers resourcehandlers.Registry
-}
-
-// Read reads from the resource at the source URL delegating the
-// the actual operation to a suitable resource handler
-func (g *GenericReader) Read(ctx context.Context, source string) ([]byte, error) {
-	if handler := g.ResourceHandlers.Get(source); handler != nil {
-		return handler.Read(ctx, source)
-	}
-	return nil, fmt.Errorf("failed to get handler to read from %s", source)
-}
-
-func (w *DocumentWorker) getTemplate(name string) *template.Template {
-	defer w.rwLock.Unlock()
-	w.rwLock.Lock()
-	if tmpl, ok := w.templates[name]; ok {
-		return tmpl
-	}
-	return nil
-}
-func (w *DocumentWorker) setTemplate(name string, tmpl *template.Template) {
-	defer w.rwLock.Unlock()
-	w.rwLock.Lock()
-	w.templates[name] = tmpl
-}
-
-// Work implements Worker#Work function
-func (w *DocumentWorker) Work(ctx context.Context, task interface{}, wq jobs.WorkQueue) *jobs.WorkerError {
+// Work implements jobs.WorkerFunc
+func (w *DocumentWorker) Work(ctx context.Context, task interface{}) error {
 	var (
 		documentBytes []byte
-		err           error
 	)
-	if task, ok := task.(*DocumentWorkTask); ok {
-		if len(task.Node.Nodes) == 0 {
+	if dwTask, ok := task.(*DocumentWorkTask); ok {
+		if len(dwTask.Node.Nodes) == 0 {
 			// Node is considered a `Document Node`
 			var bytesBuff bytes.Buffer
 			doc := &processors.Document{
-				Node: task.Node,
+				Node: dwTask.Node,
 			}
 			// TODO: separate the logic of Document Processing out of the DocumentWorker
-			if len(task.Node.ContentSelectors) > 0 {
-				for _, content := range task.Node.ContentSelectors {
-					sourceBlob, err := w.Reader.Read(ctx, content.Source)
+			if len(dwTask.Node.ContentSelectors) > 0 {
+				for _, content := range dwTask.Node.ContentSelectors {
+					sourceBlob, err := w.reader.Read(ctx, content.Source)
 					if err != nil {
-						return jobs.NewWorkerError(err, 0)
+						return err
 					}
 					if len(sourceBlob) == 0 {
 						continue
 					}
 					fm, sourceBlob, err := markdown.StripFrontMatter(sourceBlob)
 					if err != nil {
-						return jobs.NewWorkerError(err, 0)
+						return err
 					}
 					doc.AddFrontMatter(fm)
 					if sourceBlob, err = w.NodeContentProcessor.ReconcileLinks(ctx, doc, content.Source, sourceBlob); err != nil {
-						return jobs.NewWorkerError(err, 0)
+						return err
 					}
 					bytesBuff.Write(sourceBlob)
 				}
 			}
-			if task.Node.Template != nil {
+			if dwTask.Node.Template != nil {
 				vars := map[string]string{}
-				for varName, content := range task.Node.Template.Sources {
-					sourceBlob, err := w.Reader.Read(ctx, content.Source)
+				for varName, content := range dwTask.Node.Template.Sources {
+					sourceBlob, err := w.reader.Read(ctx, content.Source)
 					if err != nil {
-						return jobs.NewWorkerError(err, 0)
+						return err
 					}
 					if len(sourceBlob) == 0 {
 						continue
 					}
 					fm, sourceBlob, err := markdown.StripFrontMatter(sourceBlob)
 					if err != nil {
-						return jobs.NewWorkerError(err, 0)
+						return err
 					}
 					doc.AddFrontMatter(fm)
 					if sourceBlob, err = w.NodeContentProcessor.ReconcileLinks(ctx, doc, content.Source, sourceBlob); err != nil {
-						return jobs.NewWorkerError(err, 0)
+						return err
 					}
 					vars[varName] = string(sourceBlob)
 				}
@@ -130,71 +93,88 @@ func (w *DocumentWorker) Work(ctx context.Context, task interface{}, wq jobs.Wor
 					tmpl         *template.Template
 					err          error
 				)
-				if tmpl = w.getTemplate(task.Node.Template.Path); tmpl == nil {
-					if templateBlob, err = w.Reader.Read(ctx, task.Node.Template.Path); err != nil {
-						return jobs.NewWorkerError(err, 0)
+				if tmpl = w.getTemplate(dwTask.Node.Template.Path); tmpl == nil {
+					if templateBlob, err = w.reader.Read(ctx, dwTask.Node.Template.Path); err != nil {
+						return err
 					}
-					if tmpl, err = template.New(task.Node.Template.Path).Parse(string(templateBlob)); err != nil {
-						return jobs.NewWorkerError(err, 0)
+					if tmpl, err = template.New(dwTask.Node.Template.Path).Parse(string(templateBlob)); err != nil {
+						return err
 					}
-					w.setTemplate(task.Node.Template.Path, tmpl)
+					w.setTemplate(dwTask.Node.Template.Path, tmpl)
 				}
 				if err := tmpl.Execute(&bytesBuff, vars); err != nil {
-					return jobs.NewWorkerError(err, 0)
+					return err
 				}
 			}
-			if len(task.Node.Source) > 0 {
-				sourceBlob, err := w.Reader.Read(ctx, task.Node.Source)
+			if len(dwTask.Node.Source) > 0 {
+				sourceBlob, err := w.reader.Read(ctx, dwTask.Node.Source)
 				if err != nil {
 					if resourceNotFound, ok := err.(resourcehandlers.ErrResourceNotFound); ok {
-						klog.Warningf("reading %s failed: %s\n", task.Node.Source, resourceNotFound)
+						klog.Warningf("reading %s failed: %s\n", dwTask.Node.Source, resourceNotFound)
 						return nil
 					} else {
-						return jobs.NewWorkerError(err, 0)
+						return err
 					}
 				}
 				if len(sourceBlob) == 0 {
-					klog.Warningf("No content read from node %s source %s:", task.Node.Name, task.Node.Source)
+					klog.Warningf("No content read from node %s source %s:", dwTask.Node.Name, dwTask.Node.Source)
 					return nil
 				}
 				fm, sourceBlob, err := markdown.StripFrontMatter(sourceBlob)
 				if err != nil {
-					return jobs.NewWorkerError(err, 0)
+					return err
 				}
 				doc.AddFrontMatter(fm)
-				if sourceBlob, err = w.NodeContentProcessor.ReconcileLinks(ctx, doc, task.Node.Source, sourceBlob); err != nil {
-					return jobs.NewWorkerError(err, 0)
+				if sourceBlob, err = w.NodeContentProcessor.ReconcileLinks(ctx, doc, dwTask.Node.Source, sourceBlob); err != nil {
+					return err
 				}
 				bytesBuff.Write(sourceBlob)
 			}
 			if bytesBuff.Len() == 0 && len(doc.FrontMatter) == 0 {
-				klog.Warningf("Document node processing halted: No content assigned to document node %s", task.Node.Name)
+				klog.Warningf("Document node processing halted: No content assigned to document node %s", dwTask.Node.Name)
 				return nil
 			}
+			var err error
 			documentBytes, err = ioutil.ReadAll(&bytesBuff)
 			if err != nil {
-				return jobs.NewWorkerError(err, 0)
+				return err
 			}
 			doc.Append(documentBytes)
 			if w.Processor != nil {
 				if err := w.Processor.Process(doc); err != nil {
-					return jobs.NewWorkerError(err, 0)
+					return err
 				}
 			}
 			documentBytes = doc.DocumentBytes
 			if documentBytes, err = markdown.InsertFrontMatter(doc.FrontMatter, documentBytes); err != nil {
-				return jobs.NewWorkerError(err, 0)
+				return err
 			}
 		}
 
-		path := api.Path(task.Node, "/")
-		if err := w.Writer.Write(task.Node.Name, path, documentBytes, task.Node); err != nil {
-			return jobs.NewWorkerError(err, 0)
+		path := api.Path(dwTask.Node, "/")
+		if err := w.writer.Write(dwTask.Node.Name, path, documentBytes, dwTask.Node); err != nil {
+			return err
 		}
-
-		if w.GitHubInfoController != nil && len(documentBytes) > 0 {
-			w.GitHubInfoController.WriteGitInfo(ctx, filepath.Join(path, task.Node.Name), task.Node)
+		if w.gitHubInfo != nil && len(documentBytes) > 0 {
+			w.gitHubInfo.WriteGitHubInfo(dwTask.Node)
 		}
+	} else {
+		return fmt.Errorf("incorrect document work task: %T\n", task)
 	}
 	return nil
+}
+
+func (w *DocumentWorker) getTemplate(name string) *template.Template {
+	w.rwLock.RLock()
+	defer w.rwLock.RUnlock()
+	if tmpl, ok := w.templates[name]; ok {
+		return tmpl
+	}
+	return nil
+}
+
+func (w *DocumentWorker) setTemplate(name string, tmpl *template.Template) {
+	w.rwLock.Lock()
+	defer w.rwLock.Unlock()
+	w.templates[name] = tmpl
 }
