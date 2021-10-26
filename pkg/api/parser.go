@@ -41,7 +41,7 @@ func SetMainBranches(mb map[string]string) {
 //parse with tags and bytes as read
 //fsHandled used to display warning
 //uri used to get the proper main branch and versions
-func ParseWithMetadata(tags []string, b []byte, fsHandled bool, uri string, defaultBranch *string) (*Documentation, error) {
+func ParseWithMetadata(tags []string, b []byte, fsHandled bool, uri string, defaultBranch string) (*Documentation, error) {
 	var (
 		nTags      int
 		err        error
@@ -51,11 +51,7 @@ func ParseWithMetadata(tags []string, b []byte, fsHandled bool, uri string, defa
 	//setting main branch
 	if mainBranch, ok = mainBranches[uri]; !ok {
 		if mainBranch, ok = mainBranches["default"]; !ok {
-			if fsHandled {
-				mainBranch = "master"
-			} else {
-				mainBranch = *defaultBranch
-			}
+			mainBranch = defaultBranch
 		}
 	}
 	//setting nTags
