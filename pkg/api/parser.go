@@ -38,8 +38,10 @@ func SetMainBranches(mb map[string]string) {
 	mainBranches = mb
 }
 
-// ParseWithMetadata parses the byte array and list of tags received as parameters and constructs a documentation structurep
-func ParseWithMetadata(tags []string, b []byte, fsHandled bool, uri string) (*Documentation, error) {
+//parse with tags and bytes as read
+//fsHandled used to display warning
+//uri used to get the proper main branch and versions
+func ParseWithMetadata(tags []string, b []byte, fsHandled bool, uri string, defaultBranch string) (*Documentation, error) {
 	var (
 		nTags      int
 		err        error
@@ -49,7 +51,7 @@ func ParseWithMetadata(tags []string, b []byte, fsHandled bool, uri string) (*Do
 	//setting main branch
 	if mainBranch, ok = mainBranches[uri]; !ok {
 		if mainBranch, ok = mainBranches["default"]; !ok {
-			mainBranch = "master"
+			mainBranch = defaultBranch
 		}
 	}
 	//setting nTags

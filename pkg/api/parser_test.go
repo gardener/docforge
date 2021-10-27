@@ -433,7 +433,7 @@ func TestParseWithMetadata(t *testing.T) {
 	for _, c := range cases {
 		v["https://github.com/Kostov6/documentation/blob/master/.docforge/test.yamls"] = len(c.tags)
 		SetVersions(v)
-		got, gotErr := ParseWithMetadata(c.tags, c.b, false, c.uri)
+		got, gotErr := ParseWithMetadata(c.tags, c.b, false, c.uri, "master")
 		assert.Equal(t, c.err, gotErr)
 		assert.Equal(t, c.want, got)
 	}

@@ -7,7 +7,6 @@ package git
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	nethttp "net/http"
 	"net/url"
 	"os"
@@ -33,6 +32,26 @@ var (
 	repStr    = "${1}blob$2"
 )
 
+type FileReader interface {
+	ReadFile(string) ([]byte, error)
+	Stat(name string) (os.FileInfo, error)
+	IsNotExist(err error) bool
+}
+
+type osReader struct{}
+
+func (osR *osReader) ReadFile(name string) ([]byte, error) {
+	return os.ReadFile(name)
+}
+
+func (osR *osReader) Stat(name string) (os.FileInfo, error) {
+	return os.Stat(name)
+}
+
+func (osR *osReader) IsNotExist(err error) bool {
+	return os.IsNotExist(err)
+}
+
 type Git struct {
 	client                 *ghclient.Client
 	httpClient             *nethttp.Client
@@ -44,6 +63,8 @@ type Git struct {
 
 	preparedRepos map[string]*Repository
 	mutex         sync.RWMutex
+
+	fileReader FileReader
 }
 
 // NewResourceHandler creates new GitHub ResourceHandler objects
@@ -56,6 +77,7 @@ func NewResourceHandler(gitRepositoriesAbsPath string, user *string, oauthToken 
 		gitRepositoriesAbsPath: gitRepositoriesAbsPath,
 		acceptedHosts:          acceptedHosts,
 		git:                    git.NewGit(),
+		fileReader:             &osReader{},
 	}
 }
 
@@ -111,9 +133,9 @@ func (g *Git) ResolveNodeSelector(ctx context.Context, node *api.Node, excludePa
 	}
 
 	nodesSelectorLocalPath := filepath.Join(repositoryPath, rl.Path)
-	fileInfo, err := os.Stat(nodesSelectorLocalPath)
+	fileInfo, err := g.fileReader.Stat(nodesSelectorLocalPath)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if g.fileReader.IsNotExist(err) {
 			return nil, resourcehandlers.ErrResourceNotFound(node.NodeSelector.Path)
 		}
 		return nil, err
@@ -201,9 +223,9 @@ func (g *Git) Read(ctx context.Context, uri string) ([]byte, error) {
 	if uriPath, err = g.getGitFilePath(ctx, uri, true); err != nil {
 		return nil, err
 	}
-	fileInfo, err = os.Stat(uriPath)
+	fileInfo, err = g.fileReader.Stat(uriPath)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if g.fileReader.IsNotExist(err) {
 			return nil, resourcehandlers.ErrResourceNotFound(uri)
 		}
 		return nil, fmt.Errorf("Git resource handler failed to read file at %s: %v ", uriPath, err)
@@ -211,7 +233,7 @@ func (g *Git) Read(ctx context.Context, uri string) ([]byte, error) {
 	if fileInfo.IsDir() {
 		return nil, nil
 	}
-	return ioutil.ReadFile(uriPath)
+	return g.fileReader.ReadFile(uriPath)
 }
 
 func (g *Git) getGitFilePath(ctx context.Context, uri string, initRepo bool) (string, error) {
@@ -230,7 +252,7 @@ func (g *Git) getGitFilePath(ctx context.Context, uri string, initRepo bool) (st
 	// first check for provided repository mapping
 	for k, v := range g.localMappings {
 		if strings.HasPrefix(uri, k) {
-			fileInfo, err := os.Stat(v)
+			fileInfo, err := g.fileReader.Stat(v)
 			if err != nil {
 				return "", fmt.Errorf("failed to use mapping %s because local path is invalid: %v", k, err)
 			}
@@ -318,9 +340,9 @@ func (g *Git) verifyLinkType(u *url.URL) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	info, err := os.Stat(linkPath)
+	info, err := g.fileReader.Stat(linkPath)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if g.fileReader.IsNotExist(err) {
 			return link, resourcehandlers.ErrResourceNotFound(link)
 		}
 		return "", err
@@ -383,6 +405,11 @@ func (g *Git) ResolveDocumentation(ctx context.Context, uri string) (*api.Docume
 	if err != nil {
 		return nil, err
 	}
+	if rl.SHAAlias == "DEFAULT_BRANCH" {
+		if rl.SHAAlias, err = github.GetDefaultBranch(g.client, ctx, rl); err != nil {
+			return nil, err
+		}
+	}
 	repositoryPath := g.repositoryPathFromResourceLocator(rl)
 	if err := g.prepareGitRepository(ctx, repositoryPath, rl); err != nil {
 		return nil, err
@@ -393,7 +420,7 @@ func (g *Git) ResolveDocumentation(ctx context.Context, uri string) (*api.Docume
 		return nil, err
 	}
 
-	blob, err := g.Read(ctx, uri)
+	blob, err := g.Read(ctx, rl.String())
 	if err != nil {
 		return nil, err
 	}
@@ -402,10 +429,10 @@ func (g *Git) ResolveDocumentation(ctx context.Context, uri string) (*api.Docume
 	if blob == nil {
 		return nil, nil
 	}
-
-	return api.ParseWithMetadata(tags, blob, false, uri)
+	return api.ParseWithMetadata(tags, blob, false, uri, rl.SHAAlias)
 }
 
+//internally used
 func (g *Git) getAllTags(ctx context.Context, rl *github.ResourceLocator) ([]string, error) {
 	repositoryPath := g.repositoryPathFromResourceLocator(rl)
 	repo := g.getOrInitRepository(repositoryPath, rl)
@@ -413,7 +440,8 @@ func (g *Git) getAllTags(ctx context.Context, rl *github.ResourceLocator) ([]str
 	if err != nil {
 		return nil, err
 	}
-	return gitRepo.Tags()
+	tags, err := gitRepo.Tags()
+	return tags, err
 }
 
 func (g *Git) GetClient() *nethttp.Client {

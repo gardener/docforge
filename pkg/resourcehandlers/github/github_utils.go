@@ -7,9 +7,11 @@ package github
 import (
 	"context"
 	"fmt"
-	"github.com/gardener/docforge/pkg/api"
 	"net/url"
 	"strings"
+	"sync"
+
+	"github.com/gardener/docforge/pkg/api"
 
 	"github.com/gardener/docforge/pkg/util/urls"
 
@@ -185,4 +187,35 @@ func CleanupNodeTree(node *api.Node) {
 		}
 	}
 	node.Nodes = children
+}
+
+var (
+	defaultBranches map[string]string
+	mux             sync.Mutex
+)
+
+// ClearDefaultBranchesCache used primary when testing
+func ClearDefaultBranchesCache() {
+	defaultBranches = nil
+}
+
+// GetDefaultBranch gets the default branch from a given recource handler
+func GetDefaultBranch(client *ghclient.Client, ctx context.Context, rl *ResourceLocator) (string, error) {
+	mux.Lock()
+	defer mux.Unlock()
+
+	if defaultBranches == nil {
+		defaultBranches = make(map[string]string)
+	}
+	strRL := rl.String()
+	if defaultBranch, ok := defaultBranches[strRL]; ok {
+		return defaultBranch, nil
+	}
+	repo, _, err := client.Repositories.Get(ctx, rl.Owner, rl.Repo)
+	if err != nil {
+		return "", err
+	}
+	defaultBranch := repo.GetDefaultBranch()
+	defaultBranches[strRL] = defaultBranch
+	return defaultBranch, nil
 }

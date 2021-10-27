@@ -220,6 +220,12 @@ func (gh *GitHub) URLToGitHubLocator(ctx context.Context, urlString string, reso
 	if ghRL, err = Parse(urlString); err != nil {
 		return nil, err
 	}
+	//check if default branch placeholder has been used
+	if ghRL.SHAAlias == "DEFAULT_BRANCH" {
+		if ghRL.SHAAlias, err = GetDefaultBranch(gh.Client, ctx, ghRL); err != nil {
+			return nil, err
+		}
+	}
 	if ghRL.Type == Wiki || len(ghRL.SHAAlias) == 0 {
 		return ghRL, nil
 	}
@@ -319,8 +325,7 @@ func (gh *GitHub) ResolveDocumentation(ctx context.Context, path string) (*api.D
 	if err != nil {
 		return nil, err
 	}
-
-	return api.ParseWithMetadata(tags, blob, false, path)
+	return api.ParseWithMetadata(tags, blob, false, path, rl.SHAAlias)
 }
 
 func (gh *GitHub) getAllTags(ctx context.Context, rl *ResourceLocator) ([]string, error) {
