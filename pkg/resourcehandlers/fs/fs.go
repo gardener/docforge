@@ -7,18 +7,16 @@ package fs
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
-	"net/http"
-	"os"
-	"path/filepath"
-	"strings"
-
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/markdown"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/gardener/docforge/pkg/resourcehandlers/github"
-
+	"github.com/gardener/docforge/pkg/util/httpclient"
 	ghclient "github.com/google/go-github/v32/github"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"strings"
 )
 
 type fsHandler struct {
@@ -172,6 +170,6 @@ func (fs *fsHandler) SetVersion(absLink, version string) (string, error) {
 	return absLink, nil
 }
 
-func (fs *fsHandler) GetClient() *http.Client {
+func (fs *fsHandler) GetClient() httpclient.Client {
 	return nil
 }

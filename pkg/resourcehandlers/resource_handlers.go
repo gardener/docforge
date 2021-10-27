@@ -4,13 +4,14 @@
 
 package resourcehandlers
 
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
+
 import (
 	"context"
 	"fmt"
-	"net/http"
-	"reflect"
-
 	"github.com/gardener/docforge/pkg/api"
+	"github.com/gardener/docforge/pkg/util/httpclient"
+	"reflect"
 )
 
 // ErrResourceNotFound indicated that a resource was not found
@@ -22,8 +23,9 @@ func (e ErrResourceNotFound) Error() string {
 
 // ResourceHandler does resource specific operations on a type of objects
 // identified by an uri schema that it accepts to handle
+//counterfeiter:generate . ResourceHandler
 type ResourceHandler interface {
-	// Accepts manifests if this ResourceHandler can manage the type of resources
+	// Accept accepts manifests if this ResourceHandler can manage the type of resources
 	// identified by the URI scheme of uri.
 	Accept(uri string) bool
 	// ResolveNodeSelector resolves the NodeSelector rules of a Node into subnodes
@@ -31,7 +33,7 @@ type ResourceHandler interface {
 	ResolveNodeSelector(ctx context.Context, node *api.Node, excludePaths []string, frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32) ([]*api.Node, error)
 	// Read a resource content at uri into a byte array
 	Read(ctx context.Context, uri string) ([]byte, error)
-	// Read git info
+	// ReadGitInfo reads git info for the resource
 	ReadGitInfo(ctx context.Context, uri string) ([]byte, error)
 	// ResourceName returns a breakdown of a resource name in the link, consisting
 	// of name and potentially and extention without the dot.
@@ -49,11 +51,11 @@ type ResourceHandler interface {
 	// ResolveDocumentation for a given uri
 	ResolveDocumentation(ctx context.Context, uri string) (*api.Documentation, error)
 	// GetClient returns an HTTP client for accessing handler's resources
-	GetClient() *http.Client
+	GetClient() httpclient.Client
 }
 
-// Registry can register and return resource handlers
-// for a url
+// Registry can register and return resource handlers for an url
+//counterfeiter:generate . Registry
 type Registry interface {
 	Load(rhs ...ResourceHandler)
 	Get(uri string) ResourceHandler

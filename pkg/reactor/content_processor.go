@@ -7,13 +7,6 @@ package reactor
 import (
 	"context"
 	"fmt"
-	"math/rand"
-	"net/http"
-	"net/url"
-	"strings"
-	"sync"
-	"time"
-
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/markdown"
 	"github.com/gardener/docforge/pkg/markdown/parser"
@@ -22,13 +15,15 @@ import (
 	"github.com/gardener/docforge/pkg/util/urls"
 	"github.com/hashicorp/go-multierror"
 	"k8s.io/klog/v2"
+	"net/url"
+	"strings"
+	"sync"
 )
 
 // NodeContentProcessor operates on documents content to reconcile links and
 // schedule linked resources downloads
 type NodeContentProcessor interface {
 	ReconcileLinks(ctx context.Context, document *processors.Document, contentSource string, documentContents []byte) ([]byte, error)
-	GetDownloadController() DownloadController
 }
 
 type nodeContentProcessor struct {
@@ -37,39 +32,37 @@ type nodeContentProcessor struct {
 	globalLinksConfig *api.Links
 	// resourcesRoot specifies the root location for downloaded resource.
 	// It is used to rewrite resource links in documents to relative paths.
-	resourcesRoot      string
-	downloadController DownloadController
-	failFast           bool
-	rewriteEmbedded    bool
-	resourceHandlers   resourcehandlers.Registry
-	sourceLocations    map[string][]*api.Node
+	resourcesRoot     string
+	downloadScheduler DownloadScheduler
+	validator         Validator
+	failFast          bool
+	rewriteEmbedded   bool
+	resourceHandlers  resourcehandlers.Registry
+	sourceLocations   map[string][]*api.Node
 }
 
 // NewNodeContentProcessor creates NodeContentProcessor objects
-func NewNodeContentProcessor(resourcesRoot string, globalLinksConfig *api.Links, downloadJob DownloadController, failFast bool, rewriteEmbedded bool, resourceHandlers resourcehandlers.Registry) NodeContentProcessor {
+func NewNodeContentProcessor(resourcesRoot string, globalLinksConfig *api.Links, downloadJob DownloadScheduler, validator Validator, failFast bool, rewriteEmbedded bool, resourceHandlers resourcehandlers.Registry) NodeContentProcessor {
 	c := &nodeContentProcessor{
-		resourceAbsLinks:   make(map[string]string),
-		globalLinksConfig:  globalLinksConfig,
-		resourcesRoot:      resourcesRoot,
-		downloadController: downloadJob,
-		failFast:           failFast,
-		rewriteEmbedded:    rewriteEmbedded,
-		resourceHandlers:   resourceHandlers,
-		sourceLocations:    make(map[string][]*api.Node),
+		resourceAbsLinks:  make(map[string]string),
+		globalLinksConfig: globalLinksConfig,
+		resourcesRoot:     resourcesRoot,
+		downloadScheduler: downloadJob,
+		validator:         validator,
+		failFast:          failFast,
+		rewriteEmbedded:   rewriteEmbedded,
+		resourceHandlers:  resourceHandlers,
+		sourceLocations:   make(map[string][]*api.Node),
 	}
 	return c
 }
 
-func (c *nodeContentProcessor) GetDownloadController() DownloadController {
-	return c.downloadController
-}
-
 //convenience wrapper
-func (c *nodeContentProcessor) schedule(ctx context.Context, download *DownloadTask) error {
-	return c.downloadController.Schedule(ctx, download)
+func (c *nodeContentProcessor) schedule(download *DownloadTask) error {
+	return c.downloadScheduler.Schedule(download)
 }
 
-// ReconcileLinks analyzes a document referenced by a node's contentSourcePath
+// ReconcileLinks analyzes a document referenced by a node's ContentSourcePath
 // and processes its links to other resources to resolve their inconsistencies.
 // The processing might involve rewriting links to relative and having new
 // destinations, or rewriting them to absolute, as well as downloading some of
@@ -111,7 +104,7 @@ func (c *nodeContentProcessor) reconcileMDLinks(ctx context.Context, document *p
 		}
 		if download != nil {
 			link.IsResource = true
-			if err := c.schedule(ctx, download); err != nil {
+			if err := c.schedule(download); err != nil {
 				return destination, text, title, err
 			}
 		}
@@ -177,7 +170,7 @@ func (c *nodeContentProcessor) reconcileHTMLLinks(ctx context.Context, document 
 		}
 		if download != nil {
 			link.IsResource = true
-			if err = c.schedule(ctx, download); err != nil {
+			if err = c.schedule(download); err != nil {
 				errors = multierror.Append(errors, err)
 				return []byte(*destination), nil
 			}
@@ -226,7 +219,7 @@ func (c *nodeContentProcessor) resolveLink(ctx context.Context, document *proces
 		// can we handle changes to this destination?
 		if c.resourceHandlers.Get(destination) == nil {
 			// we don't have a handler for it. Leave it be.
-			c.addForValidation(u, destination, contentSourcePath)
+			c.validator.ValidateLink(u, destination, contentSourcePath)
 			return link, nil, err
 		}
 		absLink = destination
@@ -236,7 +229,7 @@ func (c *nodeContentProcessor) resolveLink(ctx context.Context, document *proces
 		if handler == nil {
 			return link, nil, fmt.Errorf("no suitable handler registered for URL %s", contentSourcePath)
 		}
-		// build absolute path for the destination using contentSourcePath as base
+		// build absolute path for the destination using ContentSourcePath as base
 		if absLink, err = handler.BuildAbsLink(contentSourcePath, destination); err != nil {
 			if _, ok = err.(resourcehandlers.ErrResourceNotFound); ok {
 				klog.Warningf("failed to validate absolute link for %s from source %s: %v\n", destination, contentSourcePath, err)
@@ -318,7 +311,7 @@ func (c *nodeContentProcessor) resolveLink(ctx context.Context, document *proces
 					klog.V(6).Infof("[%s] %s -> %s\n", contentSourcePath, destination, absLink)
 				}
 				u, err = urls.Parse(*link.Destination)
-				c.addForValidation(u, destination, contentSourcePath)
+				c.validator.ValidateLink(u, destination, contentSourcePath)
 				return link, nil, nil
 			}
 		}
@@ -353,107 +346,9 @@ func (c *nodeContentProcessor) resolveLink(ctx context.Context, document *proces
 		klog.V(6).Infof("[%s] %s -> %s\n", contentSourcePath, destination, absLink)
 	}
 	u, err = urls.Parse(*link.Destination)
-	c.addForValidation(u, destination, contentSourcePath)
+	c.validator.ValidateLink(u, destination, contentSourcePath)
 	return link, nil, nil
 }
-
-//////////////// Validation ////////////////
-
-type validationTask struct {
-	linkUrl           *urls.URL
-	linkDestination   string
-	contentSourcePath string
-	client            *http.Client
-}
-
-func (c *nodeContentProcessor) addForValidation(linkUrl *urls.URL, linkDestination, contentSourcePath string) {
-	client := http.DefaultClient
-	// check if link absolute destination exists locally
-	absLinkDestination := linkUrl.String()
-	handler := c.resourceHandlers.Get(absLinkDestination)
-	if handler != nil {
-		if _, err := handler.BuildAbsLink(contentSourcePath, absLinkDestination); err == nil {
-			// no resourcehandlers.ErrResourceNotFound -> absolute destination exists locally -> skip validation
-			return
-		}
-		// get appropriate http client, if any
-		if handlerClient := handler.GetClient(); handlerClient != nil {
-			client = handlerClient
-		}
-	}
-	// create validation task
-	validationWaitGroup.Add(1)
-	validationQueue <- &validationTask{
-		linkUrl:           linkUrl,
-		linkDestination:   linkDestination,
-		contentSourcePath: contentSourcePath,
-		client:            client,
-	}
-}
-
-// doValidation performs several attempts to execute http request if http status code is 429
-func doValidation(req *http.Request, client *http.Client) (*http.Response, error) {
-	intervals := []int{1, 5, 10, 20}
-	resp, err := client.Do(req)
-	if err != nil {
-		return resp, err
-	}
-	_ = resp.Body.Close()
-	attempts := 0
-	for resp.StatusCode == http.StatusTooManyRequests && attempts < len(intervals)-1 {
-		time.Sleep(time.Duration(intervals[attempts]+rand.Intn(attempts+1)) * time.Second)
-		resp, err = client.Do(req)
-		if err != nil {
-			return resp, err
-		}
-		_ = resp.Body.Close()
-		attempts++
-	}
-	return resp, err
-}
-
-func validateLink(ctx context.Context, t *validationTask) {
-	defer validationWaitGroup.Done()
-	// exclude sample hosts e.g. localhost
-	if t.linkUrl.Hostname() == "localhost" || t.linkUrl.Hostname() == "127.0.0.1" || t.linkUrl.Hostname() == "1.2.3.4" || strings.Contains(t.linkUrl.Hostname(), "foo.bar") {
-		return
-	}
-	var (
-		req  *http.Request
-		resp *http.Response
-		err  error
-	)
-	// try HEAD
-	req, err = http.NewRequestWithContext(ctx, http.MethodHead, t.linkUrl.String(), nil)
-	if err != nil {
-		klog.ErrorS(err, "failed to prepare HEAD validation request")
-		return
-	}
-	resp, err = doValidation(req, t.client)
-	if err != nil {
-		klog.Warningf("failed to validate absolute link for %s from source %s: %v\n", t.linkDestination, t.contentSourcePath, err)
-		return
-	}
-	// on error status code different from authorization error
-	if resp.StatusCode >= 400 && resp.StatusCode != http.StatusForbidden && resp.StatusCode != http.StatusUnauthorized {
-		req, err = http.NewRequestWithContext(ctx, http.MethodGet, t.linkUrl.String(), nil)
-		if err != nil {
-			klog.ErrorS(err, "failed to prepare GET validation request")
-			return
-		}
-		// retry GET
-		resp, err = doValidation(req, t.client)
-		if err != nil {
-			klog.ErrorS(err, "failed to Do GET validation request")
-			return
-		}
-		if resp.StatusCode >= 400 && resp.StatusCode != http.StatusForbidden && resp.StatusCode != http.StatusUnauthorized {
-			klog.Warningf("failed to validate absolute link for %s from source %s: %v\n", t.linkDestination, t.contentSourcePath, fmt.Errorf("HTTP Status %s", resp.Status))
-		}
-	}
-}
-
-////////////////////////////////////////////
 
 func swapPaths(path string, newPath string) bool {
 	if path == "" {

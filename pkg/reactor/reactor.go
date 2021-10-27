@@ -4,13 +4,18 @@
 
 package reactor
 
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
+
 import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/gardener/docforge/pkg/jobs"
 	"io"
+	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"text/template"
 
 	"github.com/gardener/docforge/pkg/processors"
@@ -44,47 +49,86 @@ type Options struct {
 }
 
 // NewReactor creates a Reactor from Options
-func NewReactor(o *Options) *Reactor {
-	var gitInfoController GitInfoController
+func NewReactor(o *Options) (*Reactor, error) {
+	reactorWG := &sync.WaitGroup{}
+	var ghInfo GitHubInfo
+	var ghInfoTasks *jobs.JobQueue
 	rhRegistry := resourcehandlers.NewRegistry(o.ResourceHandlers...)
-	downloadController := NewDownloadController(nil, o.ResourceDownloadWriter, o.ResourceDownloadWorkersCount, o.FailFast, rhRegistry)
-	if o.GitInfoWriter != nil {
-		gitInfoController = NewGitInfoController(nil, o.GitInfoWriter, o.ResourceDownloadWorkersCount, o.FailFast, rhRegistry)
+	dWork, err := DownloadWorkFunc(&GenericReader{
+		ResourceHandlers: rhRegistry,
+	}, o.ResourceDownloadWriter)
+	if err != nil {
+		return nil, err
 	}
+	downloadTasks, err := jobs.NewJobQueue("Download", o.ResourceDownloadWorkersCount, dWork, o.FailFast, reactorWG)
+	if err != nil {
+		return nil, err
+	}
+	dScheduler := NewDownloadScheduler(downloadTasks)
+	if o.GitInfoWriter != nil {
+		ghInfoWork, err := GitHubInfoWorkerFunc(&GenericReader{
+			ResourceHandlers: rhRegistry,
+			IsGitHubInfo:     true,
+		}, o.GitInfoWriter)
+		if err != nil {
+			return nil, err
+		}
+		ghInfoTasks, err = jobs.NewJobQueue("GitHubInfo", o.ResourceDownloadWorkersCount, ghInfoWork, o.FailFast, reactorWG)
+		if err != nil {
+			return nil, err
+		}
+		ghInfo = NewGitHubInfo(ghInfoTasks)
+	}
+	valWork, err := ValidateWorkerFunc(http.DefaultClient, rhRegistry)
+	if err != nil {
+		return nil, err
+	}
+	validatorTasks, _ := jobs.NewJobQueue("Validator", o.MaxWorkersCount, valWork, o.FailFast, reactorWG)
+	v := NewValidator(validatorTasks)
 	worker := &DocumentWorker{
-		Writer:               o.Writer,
-		Reader:               &GenericReader{rhRegistry},
-		NodeContentProcessor: NewNodeContentProcessor(o.ResourcesPath, o.GlobalLinksConfig, downloadController, o.FailFast, o.RewriteEmbedded, rhRegistry),
+		writer:               o.Writer,
+		reader:               &GenericReader{ResourceHandlers: rhRegistry},
+		NodeContentProcessor: NewNodeContentProcessor(o.ResourcesPath, o.GlobalLinksConfig, dScheduler, v, o.FailFast, o.RewriteEmbedded, rhRegistry),
 		Processor:            o.Processor,
-		GitHubInfoController: gitInfoController,
+		gitHubInfo:           ghInfo,
 		templates:            map[string]*template.Template{},
 	}
-	docController := NewDocumentController(worker, o.MaxWorkersCount, o.FailFast)
-	r := &Reactor{
-		FailFast:           o.FailFast,
-		ResourceHandlers:   rhRegistry,
-		DocController:      docController,
-		DownloadController: downloadController,
-		GitInfoController:  gitInfoController,
-		DryRunWriter:       o.DryRunWriter,
-		Resolve:            o.Resolve,
-		IndexFileNames:     o.IndexFileNames,
-		manifestAbsPath:    o.ManifestAbsPath,
+	docTasks, err := jobs.NewJobQueue("Document", o.MaxWorkersCount, worker.Work, o.FailFast, reactorWG)
+	if err != nil {
+		return nil, err
 	}
-	return r
+	r := &Reactor{
+		FailFast:         o.FailFast,
+		ResourceHandlers: rhRegistry,
+		DocumentWorker:   worker,
+		DocumentTasks:    docTasks,
+		DownloadTasks:    downloadTasks,
+		GitHubInfoTasks:  ghInfoTasks,
+		ValidatorTasks:   validatorTasks,
+		DryRunWriter:     o.DryRunWriter,
+		Resolve:          o.Resolve,
+		IndexFileNames:   o.IndexFileNames,
+		manifestAbsPath:  o.ManifestAbsPath,
+		reactorWaitGroup: reactorWG,
+	}
+	return r, nil
 }
 
 // Reactor orchestrates the documentation build workflow
 type Reactor struct {
-	FailFast           bool
-	ResourceHandlers   resourcehandlers.Registry
-	DocController      DocumentController
-	DownloadController DownloadController
-	GitInfoController  GitInfoController
-	DryRunWriter       writers.DryRunWriter
-	Resolve            bool
-	IndexFileNames     []string
-	manifestAbsPath    string
+	FailFast         bool
+	ResourceHandlers resourcehandlers.Registry
+	DocumentWorker   *DocumentWorker
+	DocumentTasks    *jobs.JobQueue
+	DownloadTasks    *jobs.JobQueue
+	GitHubInfoTasks  *jobs.JobQueue
+	ValidatorTasks   *jobs.JobQueue
+	DryRunWriter     writers.DryRunWriter
+	Resolve          bool
+	IndexFileNames   []string
+	manifestAbsPath  string
+	// reactorWaitGroup used to determine when all parallel tasks are done
+	reactorWaitGroup *sync.WaitGroup
 }
 
 // Run starts build operation on documentation
@@ -111,12 +155,8 @@ func (r *Reactor) Run(ctx context.Context, manifest *api.Documentation, dryRun b
 	}
 
 	sourceLocations := getSourceLocationsMap(manifest.Structure)
-	if dc, ok := r.DocController.(*docController); ok {
-		if dw, ok := dc.Job.Worker.(*DocumentWorker); ok {
-			if ncp, ok := dw.NodeContentProcessor.(*nodeContentProcessor); ok {
-				ncp.sourceLocations = sourceLocations
-			}
-		}
+	if ncp, ok := r.DocumentWorker.NodeContentProcessor.(*nodeContentProcessor); ok {
+		ncp.sourceLocations = sourceLocations
 	}
 	klog.V(4).Info("Building documentation structure\n\n")
 	if err := r.Build(ctx, manifest.Structure); err != nil {

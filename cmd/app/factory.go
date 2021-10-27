@@ -117,7 +117,7 @@ func NewReactor(ctx context.Context, options *Options, rhs []resourcehandlers.Re
 	if options.Hugo != nil {
 		WithHugo(o, options)
 	}
-	return reactor.NewReactor(o), nil
+	return reactor.NewReactor(o)
 }
 
 // WithHugo adapts the reactor.Options object with Hugo-specific

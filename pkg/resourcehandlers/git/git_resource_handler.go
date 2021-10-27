@@ -7,6 +7,14 @@ package git
 import (
 	"context"
 	"fmt"
+	"github.com/gardener/docforge/pkg/api"
+	"github.com/gardener/docforge/pkg/git"
+	"github.com/gardener/docforge/pkg/resourcehandlers"
+	"github.com/gardener/docforge/pkg/resourcehandlers/github"
+	"github.com/gardener/docforge/pkg/util/httpclient"
+	"github.com/gardener/docforge/pkg/util/urls"
+	"github.com/go-git/go-git/v5/plumbing/transport/http"
+	ghclient "github.com/google/go-github/v32/github"
 	nethttp "net/http"
 	"net/url"
 	"os"
@@ -14,15 +22,6 @@ import (
 	"regexp"
 	"strings"
 	"sync"
-
-	"github.com/gardener/docforge/pkg/api"
-	"github.com/gardener/docforge/pkg/git"
-	"github.com/gardener/docforge/pkg/resourcehandlers"
-	"github.com/gardener/docforge/pkg/resourcehandlers/github"
-	"github.com/gardener/docforge/pkg/util/urls"
-
-	"github.com/go-git/go-git/v5/plumbing/transport/http"
-	ghclient "github.com/google/go-github/v32/github"
 )
 
 const CacheDir string = "cache"
@@ -444,7 +443,7 @@ func (g *Git) getAllTags(ctx context.Context, rl *github.ResourceLocator) ([]str
 	return tags, err
 }
 
-func (g *Git) GetClient() *nethttp.Client {
+func (g *Git) GetClient() httpclient.Client {
 	return g.httpClient
 }
 

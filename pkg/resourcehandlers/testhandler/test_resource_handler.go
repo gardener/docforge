@@ -6,9 +6,9 @@ package testhandler
 
 import (
 	"context"
-	"net/http"
-
 	"github.com/gardener/docforge/pkg/api"
+	"github.com/gardener/docforge/pkg/util/httpclient"
+	"net/http"
 )
 
 //TestResourceHandler ...
@@ -162,7 +162,7 @@ func (t *TestResourceHandler) WithResolveDocumentation(resolveDocumentation func
 }
 
 // GetClient for this handler
-func (t *TestResourceHandler) GetClient() *http.Client {
+func (t *TestResourceHandler) GetClient() httpclient.Client {
 	return nil
 }
 

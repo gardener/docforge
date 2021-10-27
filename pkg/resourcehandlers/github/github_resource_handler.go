@@ -7,20 +7,18 @@ package github
 import (
 	"context"
 	"fmt"
+	"github.com/gardener/docforge/pkg/api"
+	"github.com/gardener/docforge/pkg/markdown"
+	"github.com/gardener/docforge/pkg/resourcehandlers"
+	"github.com/gardener/docforge/pkg/util/httpclient"
+	"github.com/gardener/docforge/pkg/util/urls"
+	"github.com/google/go-github/v32/github"
 	"io/ioutil"
+	"k8s.io/klog/v2"
 	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
-
-	"k8s.io/klog/v2"
-
-	"github.com/gardener/docforge/pkg/api"
-	"github.com/gardener/docforge/pkg/markdown"
-	"github.com/gardener/docforge/pkg/resourcehandlers"
-	"github.com/gardener/docforge/pkg/util/urls"
-
-	"github.com/google/go-github/v32/github"
 )
 
 // TreeEntryToGitHubLocator creates a ResourceLocator from a github.TreeEntry and shaAlias.
@@ -505,6 +503,6 @@ func (gh *GitHub) GetRawFormatLink(absLink string) (string, error) {
 	return absLink, nil
 }
 
-func (gh *GitHub) GetClient() *http.Client {
+func (gh *GitHub) GetClient() httpclient.Client {
 	return gh.httpClient
 }
