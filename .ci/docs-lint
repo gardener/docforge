@@ -13,9 +13,9 @@ else
 fi
 
 if [[ -z "${SOURCE_PATH}" ]]; then
-  SOURCE_PATH="$(${READLINK_BIN} -f $(dirname ${0})/..)"
-  docker run --rm -v ${SOURCE_PATH}:/workdir eu.gcr.io/gardener-project/docs-toolbelt:latest liche -d . -r docs
+  SOURCE_PATH="$(${READLINK_BIN} -f "$(dirname "${0}")/..")"
+  docker run --rm -v "${SOURCE_PATH}":/workdir eu.gcr.io/gardener-project/docs-toolbelt:latest liche -d . -r docs
 else
-  cd $SOURCE_PATH
+  cd "$SOURCE_PATH"
   liche -d . -r docs
 fi

@@ -4,6 +4,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+set -e
+
 # For the integration-test step the following environment variables are used:
 # GIT_OAUTH_TOKEN - used for fetch the content from Github
 # INT_TEST_MANIFEST_ORG - used to replace the manifest org to this one. If does not exist, the script will try to get the org from .ci/userlogin
@@ -17,34 +19,28 @@ getGitHubToken() {
     technicalUser=$(gardener-ci config model_element --cfg-type github --cfg-name "${1}" --key credentials | sed -e "s/^GithubCredentials //" -e "s/'/\"/g")
     if [[ -n "${technicalUser}" ]]; then
       # get auth token and strip lead/trail quotes
-      authToken=$(sed -e 's/"//g' <<<$(jq -n '$c.authToken' --argjson c "$technicalUser"))
+      authToken="$(jq -r '.authToken' <<< "$technicalUser")"
       # get username and strip lead/trail quotes
-      username=$(sed -e 's/"//g' <<<$(jq -n '$c.username' --argjson c "$technicalUser"))
+      username="$(jq -r '.username' <<< "$technicalUser")"
       echo "${username}:${authToken}"
     fi
   fi
 }
 
 removeUntestedKeysFromMetadata() {
-    metadataFiles=$(find ${1} -type f)
+    metadataFiles="$(find "${1}" -type f)"
     for file in ${metadataFiles}; do 
-      cat <<< $(jq 'del(.. | .shaalias?, .weburl?, .path?, .lastmod?, .publishdate?)' ${file}) > ${file}
+      content=$(jq 'del(.. | .shaalias?, .weburl?, .path?, .lastmod?, .publishdate?)' "${file}")
+      echo "$content" > "${file}"
     done
 }
 
 removeHashFromImageName() {
-    image="${2}"
-    imageName=$(echo ${image} | cut -d. -f1)
-    imageExt=$(echo ${image} | cut -d. -f2)
-    files=$(find ${1} -type f)
-    for file in ${files}; do 
-      sed -i "s/${imageName}_.*${imageExt}/${imageName}\.${imageExt}/g" ${file}
-    done
-
-    resourceFileName=$(ls ${1}/__resources/ | grep ${imageName})
-    if [[ "${resourceFileName}" != "${imageName}.${imageExt}" ]]; then
-      mv "${1}/__resources/${resourceFileName}" "${1}/__resources/${imageName}.${imageExt}"
-    fi
+  image="${2}"
+  imageName="${image%.*}"
+  imageExt="${image##*.}"
+  find "${1}" -type f -print0 | xargs -0 sed -i "s/${imageName}_.*${imageExt}/${imageName}\.${imageExt}/g"
+  find "${1}" -type f -name "*${imageName}_*.${imageExt}" -execdir mv {} "./${imageName}.${imageExt}" \;
 }
 
 diffDirs() {
@@ -54,7 +50,7 @@ diffDirs() {
     output="$(fc "${1}" "${2}")"
   fi
 
-  if [[ ! -z "${output}" ]]; then
+  if [[ -n "${output}" ]]; then
     echo "${output}"
     exit 1
   else
@@ -63,16 +59,18 @@ diffDirs() {
 }
 
 testGeneratedTrees() {
-    echo "Testing generated tree" >&2
-    diffDirs ${1} ${2}
+  echo "Testing generated tree" >&2
+  diffDirs "${1}" "${2}"
 
-    echo "Testing generated metadata" >&2
-    echo "Romoving contributors file" >&2
-    if [[ -f "${3}/contributors.json" ]]; then
-      rm "${3}/contributors.json"
-    fi
+  echo "Testing generated metadata" >&2
+  echo "Removing contributors file" >&2
+  if [[ -f "${3}/contributors.json" ]]; then
+    rm "${3}/contributors.json"
+  fi
+  if [[ -f "${4}/contributors.json" ]]; then
     rm "${4}/contributors.json"
-    diffDirs ${3} ${4}
+  fi
+  diffDirs "${3}" "${4}"
 }
 
 if [[ $(uname) == 'Darwin' ]]; then
@@ -81,7 +79,7 @@ else
   READLINK_BIN="readlink"
 fi
 
-docforge_repo_path="$(${READLINK_BIN} -f $(dirname ${0})/..)"
+docforge_repo_path="$(${READLINK_BIN} -f "$(dirname "${0}")/..")"
 int_test_dir="${docforge_repo_path}/integration-test"
 int_test_expected_tree_dir="${int_test_dir}/expected-tree"
 int_test_expected_metadata_dir="${int_test_dir}/expected-metadata"
@@ -94,7 +92,7 @@ rm -rf "${int_test_output_metadata_dir}"
 
 # build docforge
 echo "Building docforge"
-LOCAL_BUILD=1 ${docforge_repo_path}/.ci/build >/dev/null 2>&1
+LOCAL_BUILD=1 "${docforge_repo_path}/.ci/build" >/dev/null 2>&1
 docforge_bin="${docforge_repo_path}/bin/docforge"
 
 echo "Docforge version: $(${docforge_bin} version)"
@@ -102,7 +100,7 @@ echo "Docforge version: $(${docforge_bin} version)"
 org=""
 mainBranch=""
 
-if [[ ! -z "${INT_TEST_MANIFEST_ORG}" ]] && [[ ! -z "${INT_TEST_MANIFEST_VERSION}" ]]; then
+if [[ -n "${INT_TEST_MANIFEST_ORG}" ]] && [[ -n "${INT_TEST_MANIFEST_VERSION}" ]]; then
   echo "Retrieving org and mainBranch from env vars"
   org=${INT_TEST_MANIFEST_ORG}
   mainBranch=${INT_TEST_MANIFEST_VERSION}
@@ -123,32 +121,32 @@ if [[ -z "${org}" ]] || [[ -z "${mainBranch}" ]]; then
   exit 1
 fi
 
-
 GIT_OAUTH_TOKEN=${GIT_OAUTH_TOKEN:-$(getGitHubToken github_com)}
-test $GIT_OAUTH_TOKEN #fail fast
+test "$GIT_OAUTH_TOKEN" #fail fast
 
 # Run docforge command with Git handler
-${docforge_bin} -f ${int_test_manifest} -d ${int_test_output_tree_dir} --hugo --github-oauth-token "${GIT_OAUTH_TOKEN}" --github-info-destination ../generated-metadata --main-branches "default=${mainBranch}" --variables "org=${org}" --use-git=true || true
+echo "Run ${docforge_bin}"
+${docforge_bin} -f "${int_test_manifest}" -d "${int_test_output_tree_dir}" --hugo --github-oauth-token "${GIT_OAUTH_TOKEN}" --github-info-destination ../generated-metadata --main-branches "default=${mainBranch}" --variables "org=${org}" --use-git=true
 
 #Remove untested metadata keys
-removeUntestedKeysFromMetadata ${int_test_expected_metadata_dir}
-removeUntestedKeysFromMetadata ${int_test_output_metadata_dir}
-removeHashFromImageName ${int_test_expected_tree_dir} "gardener-docforge-logo.png"
-removeHashFromImageName ${int_test_output_tree_dir} "gardener-docforge-logo.png"
+removeUntestedKeysFromMetadata "${int_test_expected_metadata_dir}"
+removeUntestedKeysFromMetadata "${int_test_output_metadata_dir}"
+removeHashFromImageName "${int_test_expected_tree_dir}" "gardener-docforge-logo.png"
+removeHashFromImageName "${int_test_output_tree_dir}" "gardener-docforge-logo.png"
 
 echo "Testing Git Handler"
-testGeneratedTrees ${int_test_expected_tree_dir} ${int_test_output_tree_dir} ${int_test_expected_metadata_dir} ${int_test_output_metadata_dir}
+testGeneratedTrees "${int_test_expected_tree_dir}" "${int_test_output_tree_dir}" "${int_test_expected_metadata_dir}" "${int_test_output_metadata_dir}"
 
 # Cleaning up the output of the first docforge call
 rm -rf "${int_test_output_tree_dir}"
 rm -rf "${int_test_output_metadata_dir}"
 
 # Run docforge command with Github handler
-${docforge_bin} -f ${int_test_manifest} -d ${int_test_output_tree_dir} --hugo --github-oauth-token "${GIT_OAUTH_TOKEN}" --github-info-destination ../generated-metadata --main-branches "default=${mainBranch}" --versions "${int_test_manifest}=4"  --variables "org=${org}" || true
+${docforge_bin} -f "${int_test_manifest}" -d "${int_test_output_tree_dir}" --hugo --github-oauth-token "${GIT_OAUTH_TOKEN}" --github-info-destination ../generated-metadata --main-branches "default=${mainBranch}" --versions "${int_test_manifest}=4"  --variables "org=${org}" || true
 
 #Remove untested metadata keys
-removeUntestedKeysFromMetadata ${int_test_output_metadata_dir}
-removeHashFromImageName ${int_test_output_tree_dir} "gardener-docforge-logo.png"
+removeUntestedKeysFromMetadata "${int_test_output_metadata_dir}"
+removeHashFromImageName "${int_test_output_tree_dir}" "gardener-docforge-logo.png"
 
 echo "Testing GitHub Handler"
-testGeneratedTrees ${int_test_expected_tree_dir} ${int_test_output_tree_dir} ${int_test_expected_metadata_dir} ${int_test_output_metadata_dir}
+testGeneratedTrees "${int_test_expected_tree_dir}" "${int_test_output_tree_dir}" "${int_test_expected_metadata_dir}" "${int_test_output_metadata_dir}"
