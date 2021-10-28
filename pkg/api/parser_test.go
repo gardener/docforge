@@ -296,14 +296,16 @@ func TestGetLastNVersions(t *testing.T) {
 
 func TestParseWithMetadata(t *testing.T) {
 	cases := []struct {
-		tags []string
-		b    []byte
-		uri  string
-		want *Documentation
-		err  error
+		tags      []string
+		nVersions int
+		b         []byte
+		uri       string
+		want      *Documentation
+		err       error
 	}{
 		{
 			[]string{"v4.9", "v5.7", "v6.1", "v7.7"},
+			4,
 			[]byte(`structure:
 - name: community
   source: https://github.com/gardener/docforge/edit/master/integration-test/tested-doc/merge-test/testFile.md
@@ -355,6 +357,7 @@ func TestParseWithMetadata(t *testing.T) {
 		},
 		{
 			[]string{"v4.9", "v5.7"},
+			2,
 			[]byte(`structure:
 - name: community
   source: https://github.com/gardener/docforge/edit/master/integration-test/tested-doc/merge-test/testFile.md
@@ -396,6 +399,7 @@ func TestParseWithMetadata(t *testing.T) {
 		},
 		{
 			[]string{},
+			0,
 			[]byte(`structure:
 - name: community
   source: https://github.com/gardener/docforge/edit/master/integration-test/tested-doc/merge-test/testFile.md
@@ -432,8 +436,8 @@ func TestParseWithMetadata(t *testing.T) {
 	SetFlagsVariables(vars)
 	for _, c := range cases {
 		v["https://github.com/Kostov6/documentation/blob/master/.docforge/test.yamls"] = len(c.tags)
-		SetVersions(v)
-		got, gotErr := ParseWithMetadata(c.tags, c.b, false, c.uri, "master")
+		SetNVersions(v, v)
+		got, gotErr := ParseWithMetadata(c.b, c.tags, c.nVersions, "master")
 		assert.Equal(t, c.err, gotErr)
 		assert.Equal(t, c.want, got)
 	}

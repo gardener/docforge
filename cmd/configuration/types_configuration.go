@@ -9,6 +9,8 @@ type Config struct {
 	Sources          []*Source         `yaml:"sources,omitempty"`
 	ResourceMappings map[string]string `yaml:"resourceMappings,omitempty"`
 	Hugo             *Hugo             `yaml:"hugo,omitempty"`
+	DefaultBranches  map[string]string `yaml:"defaultBranches,omitempty"`
+	LastNVersions    map[string]int    `yaml:"lastNVersions,omitempty"`
 }
 
 type Source struct {

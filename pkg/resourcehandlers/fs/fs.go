@@ -17,6 +17,7 @@ import (
 	"github.com/gardener/docforge/pkg/markdown"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/gardener/docforge/pkg/resourcehandlers/github"
+	"k8s.io/klog/v2"
 
 	ghclient "github.com/google/go-github/v32/github"
 )
@@ -127,8 +128,13 @@ func (fs *fsHandler) ResolveDocumentation(ctx context.Context, uri string) (*api
 	if err != nil {
 		return nil, err
 	}
-
-	return api.ParseWithMetadata([]string{}, blob, true, uri, "master")
+	targetBranch := api.ChooseTargetBranch(uri, "master")
+	//getting nVersions based on configuration
+	nVersions := api.ChooseNVersions(uri)
+	if nVersions > 0 {
+		klog.Warningf("There is a yaml file from file system not connected with a repository. Therefore LastNSupportedVersions is set to 0 for file %s", uri)
+	}
+	return api.ParseWithMetadata(blob, []string{}, 0, targetBranch)
 }
 
 // ReadGitInfo implements resourcehandlers.ResourceHandler#ReadGitInfo

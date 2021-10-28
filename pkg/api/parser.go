@@ -13,14 +13,15 @@ import (
 
 	"github.com/Masterminds/semver"
 	"gopkg.in/yaml.v3"
-	"k8s.io/klog/v2"
 )
 
 // flagsVars variables for template resolving
 var (
-	flagsVars    map[string]string
-	versions     map[string]int
-	mainBranches map[string]string
+	flagsVars         map[string]string
+	flagVersionsMap   map[string]int
+	configVersionsMap map[string]int
+	flagBranchesMap   map[string]string
+	configBranchesMap map[string]string
 )
 
 // SetFlagsVariables initialize flags variables
@@ -29,47 +30,64 @@ func SetFlagsVariables(vars map[string]string) {
 }
 
 // SetVersions sets the mapping of repo uri to last n versions to be iterated over
-func SetVersions(vers map[string]int) {
-	versions = vers
+func SetNVersions(flagNVersions map[string]int, configNVersions map[string]int) {
+	flagVersionsMap = flagNVersions
+	configVersionsMap = configNVersions
 }
 
 // SetMainBranches sets the mappinf of repo uri to name of the default branch
-func SetMainBranches(mb map[string]string) {
-	mainBranches = mb
+func SetDefaultBranches(flagBranches map[string]string, configBranches map[string]string) {
+	flagBranchesMap = flagBranches
+	configBranchesMap = configBranches
 }
 
-//parse with tags and bytes as read
-//fsHandled used to display warning
-//uri used to get the proper main branch and versions
-func ParseWithMetadata(tags []string, b []byte, fsHandled bool, uri string, defaultBranch string) (*Documentation, error) {
+// ChoodeDefaultBranch chooses the default branch of the uri based on command variable, config file and repo default branch setup
+func ChooseTargetBranch(uri string, repoCurrentBranch string) string {
 	var (
-		nTags      int
-		err        error
-		mainBranch string
-		ok         bool
+		targetBranch string
+		ok           bool
 	)
-	//setting main branch
-	if mainBranch, ok = mainBranches[uri]; !ok {
-		if mainBranch, ok = mainBranches["default"]; !ok {
-			mainBranch = defaultBranch
+	//choosing default branch
+	if targetBranch, ok = flagBranchesMap[uri]; !ok {
+		if targetBranch, ok = configBranchesMap[uri]; !ok {
+			if targetBranch, ok = flagBranchesMap["default"]; !ok {
+				targetBranch = repoCurrentBranch
+			}
 		}
 	}
+	return targetBranch
+}
+
+// ChooseNVersions chooses how many versions to be iterated over given a repo uri
+func ChooseNVersions(uri string) int {
+	var (
+		nTags int
+		ok    bool
+	)
 	//setting nTags
-	if nTags, ok = versions[uri]; !ok {
-		if nTags, ok = versions["default"]; !ok {
-			nTags = 0
+	if nTags, ok = flagVersionsMap[uri]; !ok {
+		if nTags, ok = configVersionsMap[uri]; !ok {
+			if nTags, ok = flagVersionsMap["default"]; !ok {
+				nTags = 0
+			}
 		}
 	}
-	if nTags > 0 && fsHandled {
-		klog.Warningf("There is a yaml file from file system not connected with a repository. Therefore LastNSupportedVersions is set to 0 %s", uri)
-		nTags = 0
-	}
-	if tags, err = getLastNVersions(tags, nTags); err != nil {
+	return nTags
+}
+
+// ParseWithMetadata parses a document's byte content given some other metainformation
+func ParseWithMetadata(b []byte, allTags []string, nTags int, targetBranch string) (*Documentation, error) {
+	var (
+		err  error
+		tags []string
+	)
+	if tags, err = getLastNVersions(allTags, nTags); err != nil {
 		return nil, err
 	}
 	versionList := make([]string, 0)
-	versionList = append(versionList, mainBranch)
+	versionList = append(versionList, targetBranch)
 	versionList = append(versionList, tags...)
+
 	versions := strings.Join(versionList, ",")
 	flagsVars["versions"] = versions
 	return Parse(b)

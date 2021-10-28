@@ -61,6 +61,8 @@ type Options struct {
 	UseGit                       bool
 	HomeDir                      string
 	LocalMappings                map[string]string
+	DefaultBranches              map[string]string
+	LastNVersions                map[string]int
 }
 
 type Credentials struct {
