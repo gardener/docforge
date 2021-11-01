@@ -91,7 +91,7 @@ func NewCommand(ctx context.Context, cancel context.CancelFunc) *cobra.Command {
 	version := NewVersionCmd()
 	cmd.AddCommand(version)
 
-	completion := NewCompletionCmd()
+	completion := newCompletionCmd()
 	cmd.AddCommand(completion)
 	genCmdDocs := NewGenCmdDocs()
 	cmd.AddCommand(genCmdDocs)
@@ -153,7 +153,7 @@ func (flags *cmdFlags) Configure(command *cobra.Command) {
 }
 
 // NewOptions creates an options object from flags and configuration
-func NewOptions(f *cmdFlags, c configuration.ConfigurationLoader) *Options {
+func NewOptions(f *cmdFlags, c configuration.Loader) *Options {
 	config, err := c.Load()
 	if err != nil {
 		panic(err)

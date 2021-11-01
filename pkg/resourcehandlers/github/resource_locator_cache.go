@@ -54,17 +54,12 @@ func (c *Cache) GetWithInit(ctx context.Context, rl *ResourceLocator) (res *Reso
 		// try go get resource again
 		res, ok = c.get(path)
 	}
-	if ok {
-		if res != nil {
-			return
-		} else {
-			err = fmt.Errorf("missing value for key: %s", path)
-			return
-		}
-	} else {
+	if !ok {
 		err = resourcehandlers.ErrResourceNotFound(rl.String())
-		return
+	} else if res == nil {
+		err = fmt.Errorf("missing value for key: %s", path)
 	}
+	return
 }
 
 // GetSubset returns a subset of the ResourceLocator objects mapped to keys with this pathPrefix

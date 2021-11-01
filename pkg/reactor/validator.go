@@ -20,26 +20,28 @@ import (
 	"time"
 )
 
+// Validator validates the links URLs
 //counterfeiter:generate . Validator
 type Validator interface {
 	// ValidateLink checks if the link URL is available in a separate goroutine
 	// returns true if the task was added for processing, false if it was skipped
-	ValidateLink(linkUrl *urls.URL, linkDestination, contentSourcePath string) bool
+	ValidateLink(linkURL *urls.URL, linkDestination, contentSourcePath string) bool
 }
 
 type validator struct {
 	queue *jobs.JobQueue
 }
 
+// NewValidator creates new Validator
 func NewValidator(queue *jobs.JobQueue) Validator {
 	return &validator{
 		queue: queue,
 	}
 }
 
-func (v *validator) ValidateLink(linkUrl *urls.URL, linkDestination, contentSourcePath string) bool {
+func (v *validator) ValidateLink(linkURL *urls.URL, linkDestination, contentSourcePath string) bool {
 	vTask := &ValidationTask{
-		LinkUrl:           linkUrl,
+		LinkURL:           linkURL,
 		LinkDestination:   linkDestination,
 		ContentSourcePath: contentSourcePath,
 	}
@@ -50,8 +52,9 @@ func (v *validator) ValidateLink(linkUrl *urls.URL, linkDestination, contentSour
 	return added
 }
 
+// ValidationTask represents a task for validating LinkURL
 type ValidationTask struct {
-	LinkUrl           *urls.URL
+	LinkURL           *urls.URL
 	LinkDestination   string
 	ContentSourcePath string
 }
@@ -65,13 +68,13 @@ type validatorWorker struct {
 func (v *validatorWorker) Validate(ctx context.Context, task interface{}) error {
 	if vTask, ok := task.(*ValidationTask); ok {
 		// ignore sample hosts e.g. localhost
-		host := vTask.LinkUrl.Hostname()
+		host := vTask.LinkURL.Hostname()
 		if host == "localhost" || host == "127.0.0.1" || host == "1.2.3.4" || strings.Contains(host, "foo.bar") {
 			return nil
 		}
 		client := v.httpClient
 		// check if link absolute destination exists locally
-		absLinkDestination := vTask.LinkUrl.String()
+		absLinkDestination := vTask.LinkURL.String()
 		handler := v.resourceHandlers.Get(absLinkDestination)
 		if handler != nil {
 			if _, err := handler.BuildAbsLink(vTask.ContentSourcePath, absLinkDestination); err == nil {
@@ -89,36 +92,28 @@ func (v *validatorWorker) Validate(ctx context.Context, task interface{}) error 
 			err  error
 		)
 		// try HEAD
-		req, err = http.NewRequestWithContext(ctx, http.MethodHead, vTask.LinkUrl.String(), nil)
-		if err != nil {
+		if req, err = http.NewRequestWithContext(ctx, http.MethodHead, vTask.LinkURL.String(), nil); err != nil {
 			return fmt.Errorf("failed to prepare HEAD validation request: %v", err)
 		}
-		resp, err = doValidation(req, client)
-		if err != nil {
+		if resp, err = doValidation(req, client); err != nil {
 			klog.Warningf("failed to validate absolute link for %s from source %s: %v\n",
 				vTask.LinkDestination, vTask.ContentSourcePath, err)
-			return nil
-		}
-		// on error status code different from authorization error
-		if resp.StatusCode >= 400 && resp.StatusCode != http.StatusForbidden && resp.StatusCode != http.StatusUnauthorized {
-			req, err = http.NewRequestWithContext(ctx, http.MethodGet, vTask.LinkUrl.String(), nil)
-			if err != nil {
+		} else if resp.StatusCode >= 400 && resp.StatusCode != http.StatusForbidden && resp.StatusCode != http.StatusUnauthorized {
+			// on error status code different from authorization errors
+			// retry GET
+			if req, err = http.NewRequestWithContext(ctx, http.MethodGet, vTask.LinkURL.String(), nil); err != nil {
 				return fmt.Errorf("failed to prepare GET validation request: %v", err)
 			}
-			// retry GET
-			resp, err = doValidation(req, client)
-			if err != nil {
+			if resp, err = doValidation(req, client); err != nil {
 				klog.Warningf("failed to validate absolute link for %s from source %s: %v\n",
 					vTask.LinkDestination, vTask.ContentSourcePath, err)
-				return nil
-			}
-			if resp.StatusCode >= 400 && resp.StatusCode != http.StatusForbidden && resp.StatusCode != http.StatusUnauthorized {
+			} else if resp.StatusCode >= 400 && resp.StatusCode != http.StatusForbidden && resp.StatusCode != http.StatusUnauthorized {
 				klog.Warningf("failed to validate absolute link for %s from source %s: %v\n",
 					vTask.LinkDestination, vTask.ContentSourcePath, fmt.Errorf("HTTP Status %s", resp.Status))
 			}
 		}
 	} else {
-		return fmt.Errorf("incorrect validation task: %T\n", task)
+		return fmt.Errorf("incorrect validation task: %T", task)
 	}
 	return nil
 }
@@ -144,6 +139,7 @@ func doValidation(req *http.Request, client httpclient.Client) (*http.Response, 
 	return resp, err
 }
 
+// ValidateWorkerFunc returns Validate worker func
 func ValidateWorkerFunc(httpClient httpclient.Client, resourceHandlers resourcehandlers.Registry) (jobs.WorkerFunc, error) {
 	if httpClient == nil || reflect.ValueOf(httpClient).IsNil() {
 		return nil, errors.New("invalid argument: httpClient is nil")

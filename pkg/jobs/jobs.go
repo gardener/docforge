@@ -55,13 +55,13 @@ type WorkerFunc func(ctx context.Context, task interface{}) error
 // NewJobQueue create an empty task queue
 func NewJobQueue(id string, size int, workFunc WorkerFunc, failFast bool, wg *sync.WaitGroup) (*JobQueue, error) {
 	if size < minWorkerSize || size > maxWorkerSize {
-		return nil, fmt.Errorf("%s job queue init fails: invalid workers size '%d', valid size interval is [%d,%d]\n", id, size, minWorkerSize, maxWorkerSize)
+		return nil, fmt.Errorf("job queue %s init fails: invalid workers size '%d', valid size interval is [%d,%d]", id, size, minWorkerSize, maxWorkerSize)
 	}
 	if workFunc == nil {
-		return nil, fmt.Errorf("%s job queue init fails: worker func is nil\n", id)
+		return nil, fmt.Errorf("job queue %s init fails: worker func is nil", id)
 	}
 	if wg == nil {
-		return nil, fmt.Errorf("%s job queue init fails: wait group is nil\n", id)
+		return nil, fmt.Errorf("job queue %s init fails: wait group is nil", id)
 	}
 	jq := &JobQueue{
 		id:       id,
@@ -123,10 +123,12 @@ func (jq *JobQueue) GetErrorList() *multierror.Error {
 	return jq.errList
 }
 
+// GetProcessedTasksCount returns the processed tasks count
 func (jq *JobQueue) GetProcessedTasksCount() int {
 	return int(jq.tc)
 }
 
+// GetWaitingTasksCount returns waiting tasks count
 func (jq *JobQueue) GetWaitingTasksCount() int {
 	return len(jq.tasks)
 }
@@ -147,9 +149,8 @@ func (jq *JobQueue) work(ctx context.Context) {
 				if !ok {
 					klog.V(6).Infof("job queue %s is stopped\n", jq.id)
 					return
-				} else {
-					jq.runWorkFunc(ctx, t)
 				}
+				jq.runWorkFunc(ctx, t)
 			}
 		}
 	}

@@ -27,6 +27,7 @@ type downloadScheduler struct {
 	queue *jobs.JobQueue
 }
 
+// NewDownloadScheduler create a DownloadScheduler to schedule download resources
 func NewDownloadScheduler(queue *jobs.JobQueue) DownloadScheduler {
 	return &downloadScheduler{
 		queue: queue,
@@ -75,7 +76,7 @@ func (d *downloadWorker) Download(ctx context.Context, task interface{}) error {
 			}
 		}
 	} else {
-		return fmt.Errorf("incorrect download task: %T\n", task)
+		return fmt.Errorf("incorrect download task: %T", task)
 	}
 	return nil
 }
@@ -88,11 +89,10 @@ func (d *downloadWorker) shouldDownload(dt *DownloadTask) bool {
 		// there is already a task for this source, so just append the current one
 		d.downloadedResources[dt.Source] = append(val, dt)
 		return false
-	} else {
-		// add the task and starts downloading
-		d.downloadedResources[dt.Source] = []*DownloadTask{dt}
-		return true
 	}
+	// add the task and starts downloading
+	d.downloadedResources[dt.Source] = []*DownloadTask{dt}
+	return true
 }
 
 func (d *downloadWorker) download(ctx context.Context, dt *DownloadTask) error {
@@ -107,6 +107,7 @@ func (d *downloadWorker) download(ctx context.Context, dt *DownloadTask) error {
 	return nil
 }
 
+// DownloadWorkFunc returns Download worker func
 func DownloadWorkFunc(reader Reader, writer writers.Writer) (jobs.WorkerFunc, error) {
 	if reader == nil || reflect.ValueOf(reader).IsNil() {
 		return nil, errors.New("invalid argument: reader is nil")

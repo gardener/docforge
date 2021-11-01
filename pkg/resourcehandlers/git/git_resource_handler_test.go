@@ -137,7 +137,7 @@ func (g *mockGitRepository) FetchContext(ctx context.Context, o *gogit.FetchOpti
 	return nil
 }
 
-func (g *mockGitRepository) Worktree() (git.GitRepositoryWorktree, error) {
+func (g *mockGitRepository) Worktree() (git.RepositoryWorktree, error) {
 	return &mockGitRepositoryWorktree{}, nil
 }
 
@@ -151,11 +151,11 @@ func (g *mockGitRepository) Tags() ([]string, error) {
 	return g.tags, nil
 }
 
-func (g *mockGit) PlainOpen(path string) (git.GitRepository, error) {
+func (g *mockGit) PlainOpen(path string) (git.Repository, error) {
 	return &mockGitRepository{g.repoTags[path]}, nil
 }
 
-func (g *mockGit) PlainCloneContext(ctx context.Context, path string, isBare bool, o *gogit.CloneOptions) (git.GitRepository, error) {
+func (g *mockGit) PlainCloneContext(ctx context.Context, path string, isBare bool, o *gogit.CloneOptions) (git.Repository, error) {
 	return &mockGitRepository{}, nil
 }
 

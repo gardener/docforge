@@ -15,15 +15,19 @@ import (
 
 const (
 	defaultConfigFileName = "config"
-	DocforgeHomeDir       = ".docforge"
+	// DocforgeHomeDir defines the docforge home location
+	DocforgeHomeDir = ".docforge"
 )
 
-type ConfigurationLoader interface {
+// Loader loads the configuration
+type Loader interface {
 	Load() (*Config, error)
 }
 
+// DefaultConfigurationLoader default implementation of Loader
 type DefaultConfigurationLoader func() (*Config, error)
 
+// Load returns docforge configuration
 func (d *DefaultConfigurationLoader) Load() (*Config, error) {
 	if configFilePath, found := os.LookupEnv("DOCFORGECONFIG"); found {
 		if configFilePath == "" {

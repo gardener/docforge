@@ -20,12 +20,12 @@ func TestTransform(t *testing.T) {
 	testCases := []struct {
 		testFileNameIn  string
 		testFileNameOut string
-		want            *git.GitInfo
+		want            *git.Info
 	}{
 		{
 			"test_format_00_in.json",
 			"test_format_00_out.json",
-			&git.GitInfo{},
+			&git.Info{},
 		},
 	}
 	for _, tc := range testCases {

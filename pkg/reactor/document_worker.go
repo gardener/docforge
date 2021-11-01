@@ -20,6 +20,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
+// DocumentWorker defines a structure for processing api.Node document content
 type DocumentWorker struct {
 	reader Reader
 	writer writers.Writer
@@ -112,9 +113,8 @@ func (w *DocumentWorker) Work(ctx context.Context, task interface{}) error {
 					if resourceNotFound, ok := err.(resourcehandlers.ErrResourceNotFound); ok {
 						klog.Warningf("reading %s failed: %s\n", dwTask.Node.Source, resourceNotFound)
 						return nil
-					} else {
-						return err
 					}
+					return err
 				}
 				if len(sourceBlob) == 0 {
 					klog.Warningf("No content read from node %s source %s:", dwTask.Node.Name, dwTask.Node.Source)
@@ -159,7 +159,7 @@ func (w *DocumentWorker) Work(ctx context.Context, task interface{}) error {
 			w.gitHubInfo.WriteGitHubInfo(dwTask.Node)
 		}
 	} else {
-		return fmt.Errorf("incorrect document work task: %T\n", task)
+		return fmt.Errorf("incorrect document work task: %T", task)
 	}
 	return nil
 }

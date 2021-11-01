@@ -15,11 +15,12 @@ import (
 	"github.com/google/go-github/v32/github"
 )
 
-func Transform(commits []*github.RepositoryCommit) *git.GitInfo {
+// Transform builds git.Info from a commits list
+func Transform(commits []*github.RepositoryCommit) *git.Info {
 	if commits == nil {
 		return nil
 	}
-	gitInfo := &git.GitInfo{}
+	gitInfo := &git.Info{}
 	nonInternalCommits := []*github.RepositoryCommit{}
 	// skip internal commits
 	for _, commit := range commits {
@@ -74,7 +75,8 @@ func contains(slice []string, s string) bool {
 	return false
 }
 
-func MarshallGitInfo(gitInfo *git.GitInfo) ([]byte, error) {
+// MarshallGitInfo serializes git.Info to byte array
+func MarshallGitInfo(gitInfo *git.Info) ([]byte, error) {
 	var (
 		blob []byte
 		err  error

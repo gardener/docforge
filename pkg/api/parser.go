@@ -38,9 +38,9 @@ func SetMainBranches(mb map[string]string) {
 	mainBranches = mb
 }
 
-//parse with tags and bytes as read
-//fsHandled used to display warning
-//uri used to get the proper main branch and versions
+// ParseWithMetadata parse with tags and bytes as read
+// fsHandled used to display warning
+// uri used to get the proper main branch and versions
 func ParseWithMetadata(tags []string, b []byte, fsHandled bool, uri string, defaultBranch string) (*Documentation, error) {
 	var (
 		nTags      int

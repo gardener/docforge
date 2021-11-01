@@ -304,16 +304,15 @@ func (c *nodeContentProcessor) resolveLink(ctx context.Context, document *proces
 					klog.V(6).Infof("[%s] %s -> %s\n", contentSourcePath, destination, path)
 				}
 				return link, nil, nil
-			} else {
-				// a node with target source location does not exist -> rewrite destination with absolute link
-				if destination != absLink {
-					link.Destination = &absLink
-					klog.V(6).Infof("[%s] %s -> %s\n", contentSourcePath, destination, absLink)
-				}
-				u, err = urls.Parse(*link.Destination)
-				c.validator.ValidateLink(u, destination, contentSourcePath)
-				return link, nil, nil
 			}
+			// a node with target source location does not exist -> rewrite destination with absolute link
+			if destination != absLink {
+				link.Destination = &absLink
+				klog.V(6).Infof("[%s] %s -> %s\n", contentSourcePath, destination, absLink)
+			}
+			u, err = urls.Parse(*link.Destination)
+			c.validator.ValidateLink(u, destination, contentSourcePath)
+			return link, nil, nil
 		}
 
 		// Links to resources that are not structure document nodes are

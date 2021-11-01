@@ -22,14 +22,18 @@ import (
 // TODO: do not use depth if git info is not enabled.
 const depth = 0
 
+// State defines state of a git repo
 type State int
 
 const (
 	_ State = iota
+	// Prepared repo state
 	Prepared
+	// Failed repo state
 	Failed
 )
 
+// Repository represents a git repo
 type Repository struct {
 	Auth          http.AuthMethod
 	LocalPath     string
@@ -41,6 +45,7 @@ type Repository struct {
 	mutex sync.RWMutex
 }
 
+// Prepare prepares the git repo for usage
 func (r *Repository) Prepare(ctx context.Context, version string) error {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
@@ -102,7 +107,7 @@ func (r *Repository) prepare(ctx context.Context, version string) error {
 	return nil
 }
 
-func (r *Repository) repository(ctx context.Context) (git.GitRepository, bool, error) {
+func (r *Repository) repository(ctx context.Context) (git.Repository, bool, error) {
 	gitRepo, err := r.Git.PlainOpen(r.LocalPath)
 	if err != nil {
 		if err != gogit.ErrRepositoryNotExists {
