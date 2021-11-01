@@ -105,12 +105,12 @@ func (w *gitHubInfoWorker) GitHubInfoWork(ctx context.Context, task interface{})
 			return err
 		}
 	} else {
-		return fmt.Errorf("incorrect github info task: %T\n", task)
+		return fmt.Errorf("incorrect github info task: %T", task)
 	}
 	return nil
 }
 
-// GitHubInfoWorkerFunc returns the GitHubInfoWork func
+// GitHubInfoWorkerFunc returns the GitHubInfoWork worker func
 func GitHubInfoWorkerFunc(reader Reader, writer writers.Writer) (jobs.WorkerFunc, error) {
 	if reader == nil || reflect.ValueOf(reader).IsNil() {
 		return nil, errors.New("invalid argument: reader is nil")

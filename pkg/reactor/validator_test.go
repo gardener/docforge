@@ -64,7 +64,7 @@ var _ = Describe("Validator", func() {
 			var (
 				ctx     context.Context
 				task    interface{}
-				linkUri *urls.URL
+				linkURL *urls.URL
 			)
 			BeforeEach(func() {
 				ctx = context.Background()
@@ -72,10 +72,10 @@ var _ = Describe("Validator", func() {
 					StatusCode: http.StatusOK,
 					Body:       io.NopCloser(bytes.NewReader([]byte(""))),
 				}, nil)
-				linkUri, err = urls.Parse("https://fake_host/fake_link")
+				linkURL, err = urls.Parse("https://fake_host/fake_link")
 				Expect(err).NotTo(HaveOccurred())
 				task = &reactor.ValidationTask{
-					LinkUrl:           linkUri,
+					LinkURL:           linkURL,
 					LinkDestination:   "fake_destination",
 					ContentSourcePath: "fake_path",
 				}
@@ -115,10 +115,10 @@ var _ = Describe("Validator", func() {
 			})
 			Context("localhost", func() {
 				BeforeEach(func() {
-					linkUri, err = urls.Parse("https://127.0.0.1/fake_link")
+					linkURL, err = urls.Parse("https://127.0.0.1/fake_link")
 					Expect(err).NotTo(HaveOccurred())
 					task = &reactor.ValidationTask{
-						LinkUrl: linkUri,
+						LinkURL: linkURL,
 					}
 				})
 				It("skips link validation", func() {
@@ -128,10 +128,10 @@ var _ = Describe("Validator", func() {
 			})
 			Context("sample host", func() {
 				BeforeEach(func() {
-					linkUri, err = urls.Parse("https://foo.bar/fake_link")
+					linkURL, err = urls.Parse("https://foo.bar/fake_link")
 					Expect(err).NotTo(HaveOccurred())
 					task = &reactor.ValidationTask{
-						LinkUrl: linkUri,
+						LinkURL: linkURL,
 					}
 				})
 				It("skips link validation", func() {
@@ -143,7 +143,7 @@ var _ = Describe("Validator", func() {
 				BeforeEach(func() {
 					Expect(err).NotTo(HaveOccurred())
 					task = &reactor.ValidationTask{
-						LinkUrl: &urls.URL{
+						LinkURL: &urls.URL{
 							URL: &url.URL{
 								Scheme: "https",
 								Host:   "invalid host",

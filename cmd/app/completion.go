@@ -62,6 +62,6 @@ $ docforge completion fish > ~/.config/fish/completions/docforge.fish
 	},
 }
 
-func NewCompletionCmd() *cobra.Command {
+func newCompletionCmd() *cobra.Command {
 	return completionCmd
 }

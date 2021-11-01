@@ -29,7 +29,7 @@ func (w *FSWriter) Write(name, path string, docBlob []byte, node *api.Node) erro
 				// this is a container node -> propagate frontmatter properties to child _index.md if any
 				for _, n := range node.Nodes {
 					if n.Name == "_index.md" {
-						klog.Infof("merge %s/_index.md frontmatter properties with: %v\n", api.Path(n, "/"), node.Properties["frontmatter"])
+						klog.V(6).Infof("merge %s/_index.md frontmatter properties with: %v\n", api.Path(n, "/"), node.Properties["frontmatter"])
 						if n.Properties == nil {
 							n.Properties = map[string]interface{}{"frontmatter": node.Properties["frontmatter"]}
 						} else {
@@ -50,7 +50,7 @@ func (w *FSWriter) Write(name, path string, docBlob []byte, node *api.Node) erro
 								}
 							}
 						}
-						klog.Infof("merged properties: %v", n.Properties["frontmatter"])
+						klog.V(6).Infof("merged properties: %v", n.Properties["frontmatter"])
 						return nil
 					}
 				}

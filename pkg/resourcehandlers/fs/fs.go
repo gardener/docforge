@@ -130,8 +130,8 @@ func (fs *fsHandler) ResolveDocumentation(ctx context.Context, uri string) (*api
 }
 
 // ReadGitInfo implements resourcehandlers.ResourceHandler#ReadGitInfo
-func (d *fsHandler) ReadGitInfo(ctx context.Context, uri string) ([]byte, error) {
-	return github.ReadGitInfo(ctx, uri, d.client)
+func (fs *fsHandler) ReadGitInfo(ctx context.Context, uri string) ([]byte, error) {
+	return github.ReadGitInfo(ctx, uri, fs.client)
 }
 
 // ResourceName implements resourcehandlers.ResourceHandler#ResourceName

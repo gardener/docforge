@@ -220,7 +220,7 @@ func (gh *GitHub) URLToGitHubLocator(ctx context.Context, urlString string, reso
 	}
 	//check if default branch placeholder has been used
 	if ghRL.SHAAlias == "DEFAULT_BRANCH" {
-		if ghRL.SHAAlias, err = GetDefaultBranch(gh.Client, ctx, ghRL); err != nil {
+		if ghRL.SHAAlias, err = GetDefaultBranch(ctx, gh.Client, ghRL); err != nil {
 			return nil, err
 		}
 	}
@@ -459,10 +459,9 @@ func (gh *GitHub) verifyLinkType(u *url.URL) (string, error) {
 	if crl != nil {
 		if crl.Type == rl.Type {
 			return link, nil
-		} else {
-			rl.Type = crl.Type
-			return rl.String(), nil
 		}
+		rl.Type = crl.Type
+		return rl.String(), nil
 	}
 	// not found
 	return link, resourcehandlers.ErrResourceNotFound(link)
@@ -503,6 +502,7 @@ func (gh *GitHub) GetRawFormatLink(absLink string) (string, error) {
 	return absLink, nil
 }
 
+// GetClient implements resourcehandlers.ResourceHandler#GetClient
 func (gh *GitHub) GetClient() httpclient.Client {
 	return gh.httpClient
 }

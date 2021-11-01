@@ -8,6 +8,7 @@ package httpclient
 
 import "net/http"
 
+// Client is a wrapper interface for http.Client
 //counterfeiter:generate . Client
 type Client interface {
 	Do(req *http.Request) (resp *http.Response, err error)

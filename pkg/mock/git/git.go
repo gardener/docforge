@@ -41,10 +41,10 @@ func (m *MockGit) EXPECT() *MockGitMockRecorder {
 }
 
 // PlainCloneContext mocks base method.
-func (m *MockGit) PlainCloneContext(ctx context.Context, path string, isBare bool, o *v5.CloneOptions) (git.GitRepository, error) {
+func (m *MockGit) PlainCloneContext(ctx context.Context, path string, isBare bool, o *v5.CloneOptions) (git.Repository, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PlainCloneContext", ctx, path, isBare, o)
-	ret0, _ := ret[0].(git.GitRepository)
+	ret0, _ := ret[0].(git.Repository)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -56,10 +56,10 @@ func (mr *MockGitMockRecorder) PlainCloneContext(ctx, path, isBare, o interface{
 }
 
 // PlainOpen mocks base method.
-func (m *MockGit) PlainOpen(path string) (git.GitRepository, error) {
+func (m *MockGit) PlainOpen(path string) (git.Repository, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PlainOpen", path)
-	ret0, _ := ret[0].(git.GitRepository)
+	ret0, _ := ret[0].(git.Repository)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -134,10 +134,10 @@ func (mr *MockGitRepositoryMockRecorder) FetchContext(ctx, o interface{}) *gomoc
 }
 
 // Worktree mocks base method.
-func (m *MockGitRepository) Worktree() (git.GitRepositoryWorktree, error) {
+func (m *MockGitRepository) Worktree() (git.RepositoryWorktree, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Worktree")
-	ret0, _ := ret[0].(git.GitRepositoryWorktree)
+	ret0, _ := ret[0].(git.RepositoryWorktree)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
