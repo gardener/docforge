@@ -5,7 +5,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 set -e
-export GO111MODULE=on
 
 # For the check step concourse will set the following environment variables:
 # SOURCE_PATH - path to component repository root directory.
@@ -16,28 +15,24 @@ else
   READLINK_BIN="readlink"
 fi
 
-if [ -d "./vendor" ]; then
-  VET_MOD_OPTS=-mod=vendor
-else
-  VET_MOD_OPTS=-mod=readonly
-fi
-
 if [[ -z "${SOURCE_PATH}" ]]; then
-  export SOURCE_PATH="$($READLINK_BIN -f "$(dirname ${0})/..")"
+  SOURCE_PATH="$(${READLINK_BIN} -f "$(dirname "${0}")/..")"
+  export SOURCE_PATH
 else
-  export SOURCE_PATH="$($READLINK_BIN -f ${SOURCE_PATH})"
+  SOURCE_PATH="$(${READLINK_BIN} -f "${SOURCE_PATH}")"
+  export SOURCE_PATH
 fi
 
-cd ${SOURCE_PATH}
+cd "${SOURCE_PATH}"
 
 # Build Golint.
 go install golang.org/x/lint/golint@latest
 
-executable=${GOPATH}/bin/golint
+executable="${GOPATH}/bin/golint"
 if [ -z ${GOPATH+x} ]; then
   echo "GOPATH not set. Trying with HOME/go/bin"
-  if [ -f ${HOME}/go/bin/golint ]; then
-    executable=${HOME}/go/bin/golint
+  if [ -f "${HOME}/go/bin/golint" ]; then
+    executable="${HOME}/go/bin/golint"
   else
     echo "HOME/go/bin/golint not found. Set GOPATH"
     Exit 1
@@ -46,18 +41,21 @@ fi
 
 ###############################################################################
 PACKAGES="$(go list -e ./...)"
-PACKAGES_DIRS="$(echo ${PACKAGES} | sed "s|github.com/gardener/docforge|.|g")"
+PACKAGES_DIRS="${PACKAGES//github.com\/gardener\/docforge/.}"
 
 # Execute static code checks.
 echo "Executing go vet"
+# shellcheck disable=SC2086
 go vet ${PACKAGES}
 
 # Execute automatic code formatting directive.
+# shellcheck disable=SC2086
 gofmt -l -w ${PACKAGES_DIRS}
 
-# Execute lint checks.
+echo "Executing lint checks"
 for package in ${PACKAGES_DIRS}; do
-  $executable -set_exit_status $(find $package -maxdepth 1 -name "*.go | grep -vE '_test.go'")
+  # shellcheck disable=SC2046
+  $executable -set_exit_status $(find "$package" -maxdepth 1 -name "*.go" | grep -vE '_test.go')
 done
 
 echo "Done"
