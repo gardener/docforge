@@ -96,6 +96,7 @@ func (r *Repository) prepare(ctx context.Context, version string) error {
 
 	if err := w.Checkout(&gogit.CheckoutOptions{
 		Branch: checkoutDestination,
+		Force:  true,
 	}); err != nil {
 		return fmt.Errorf("couldn't checkout version %s for repository %s: %v", version, r.LocalPath, err)
 	}
