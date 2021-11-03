@@ -1344,7 +1344,7 @@ func TestResolveDocumentation(t *testing.T) {
 		}
 		var s map[string]int = make(map[string]int)
 		s[c.uri] = len(c.tags)
-		api.SetVersions(s)
+		api.SetNVersions(s, s)
 		api.SetFlagsVariables(make(map[string]string))
 		//clear default branch cache
 		ghub.ClearDefaultBranchesCache()

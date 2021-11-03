@@ -12,6 +12,8 @@ type Config struct {
 	// ResourceMappings defines URL -> location mapping for existing git repositories
 	ResourceMappings map[string]string `yaml:"resourceMappings,omitempty"`
 	Hugo             *Hugo             `yaml:"hugo,omitempty"`
+	DefaultBranches  map[string]string `yaml:"defaultBranches,omitempty"`
+	LastNVersions    map[string]int    `yaml:"lastNVersions,omitempty"`
 }
 
 // Source holds repositories access credentials

@@ -892,7 +892,7 @@ func TestResolveDocumentation(t *testing.T) {
 		gh.Client = client
 		var s map[string]int = make(map[string]int)
 		s["default"] = 4
-		api.SetVersions(s)
+		api.SetNVersions(s, s)
 		api.SetFlagsVariables(make(map[string]string))
 		got, gotErr := gh.ResolveDocumentation(ctx, c.uri)
 		fmt.Println(gotErr)

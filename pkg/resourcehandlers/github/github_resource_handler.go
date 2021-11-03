@@ -315,6 +315,10 @@ func (gh *GitHub) ResolveDocumentation(ctx context.Context, path string) (*api.D
 	if !(rl.Type == Blob || rl.Type == Raw) || urls.Ext(rl.String()) == ".md" {
 		return nil, nil
 	}
+	//here rl.SHAAlias on the right side is the repo current branch
+	rl.SHAAlias = api.ChooseTargetBranch(path, rl.SHAAlias)
+	//getting nVersions based on configuration
+	nVersions := api.ChooseNVersions(path)
 	tags, err := gh.getAllTags(ctx, rl)
 	if err != nil {
 		return nil, err
@@ -323,7 +327,7 @@ func (gh *GitHub) ResolveDocumentation(ctx context.Context, path string) (*api.D
 	if err != nil {
 		return nil, err
 	}
-	return api.ParseWithMetadata(tags, blob, false, path, rl.SHAAlias)
+	return api.ParseWithMetadata(blob, tags, nVersions, rl.SHAAlias)
 }
 
 func (gh *GitHub) getAllTags(ctx context.Context, rl *ResourceLocator) ([]string, error) {

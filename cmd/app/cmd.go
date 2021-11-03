@@ -67,8 +67,8 @@ func NewCommand(ctx context.Context, cancel context.CancelFunc) *cobra.Command {
 				return err
 			}
 			api.SetFlagsVariables(flags.variables)
-			api.SetMainBranches(flags.mainBranch)
-			api.SetVersions(flags.lastNVersions)
+			api.SetDefaultBranches(flags.mainBranch, options.DefaultBranches)
+			api.SetNVersions(flags.lastNVersions, options.LastNVersions)
 			if doc, err = manifest(ctx, flags.documentationManifestPath, rhs); err != nil {
 				return err
 			}
@@ -201,6 +201,8 @@ func NewOptions(f *cmdFlags, c configuration.Loader) *Options {
 		UseGit:                       f.useGit,
 		HomeDir:                      cacheHomeDir(f, config),
 		LocalMappings:                config.ResourceMappings,
+		DefaultBranches:              config.DefaultBranches,
+		LastNVersions:                config.LastNVersions,
 	}
 }
 

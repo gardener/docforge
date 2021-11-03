@@ -414,6 +414,11 @@ func (g *Git) ResolveDocumentation(ctx context.Context, uri string) (*api.Docume
 			return nil, err
 		}
 	}
+	//here rl.SHAAlias on the right side is the repo current branch
+	rl.SHAAlias = api.ChooseTargetBranch(uri, rl.SHAAlias)
+	//getting nVersions based on configuration
+	nVersions := api.ChooseNVersions(uri)
+
 	repositoryPath := g.repositoryPathFromResourceLocator(rl)
 	if err := g.prepareGitRepository(ctx, repositoryPath, rl); err != nil {
 		return nil, err
@@ -433,7 +438,7 @@ func (g *Git) ResolveDocumentation(ctx context.Context, uri string) (*api.Docume
 	if blob == nil {
 		return nil, nil
 	}
-	return api.ParseWithMetadata(tags, blob, false, uri, rl.SHAAlias)
+	return api.ParseWithMetadata(blob, tags, nVersions, rl.SHAAlias)
 }
 
 //internally used
