@@ -7,19 +7,17 @@ package fs
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
-	"net/http"
-	"os"
-	"path/filepath"
-	"strings"
-
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/markdown"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/gardener/docforge/pkg/resourcehandlers/github"
 	"k8s.io/klog/v2"
-
+	"github.com/gardener/docforge/pkg/util/httpclient"
 	ghclient "github.com/google/go-github/v32/github"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"strings"
 )
 
 type fsHandler struct {
@@ -138,8 +136,8 @@ func (fs *fsHandler) ResolveDocumentation(ctx context.Context, uri string) (*api
 }
 
 // ReadGitInfo implements resourcehandlers.ResourceHandler#ReadGitInfo
-func (d *fsHandler) ReadGitInfo(ctx context.Context, uri string) ([]byte, error) {
-	return github.ReadGitInfo(ctx, uri, d.client)
+func (fs *fsHandler) ReadGitInfo(ctx context.Context, uri string) ([]byte, error) {
+	return github.ReadGitInfo(ctx, uri, fs.client)
 }
 
 // ResourceName implements resourcehandlers.ResourceHandler#ResourceName
@@ -178,6 +176,6 @@ func (fs *fsHandler) SetVersion(absLink, version string) (string, error) {
 	return absLink, nil
 }
 
-func (fs *fsHandler) GetClient() *http.Client {
+func (fs *fsHandler) GetClient() httpclient.Client {
 	return nil
 }

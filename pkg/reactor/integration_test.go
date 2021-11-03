@@ -115,9 +115,12 @@ func _TestReactorWithGitHub(t *testing.T) {
 		Writer:           hugo.NewWriter(hugoOptions),
 		ResourceHandlers: []resourcehandlers.ResourceHandler{gh},
 	}
-	r := NewReactor(options)
+	r, err := NewReactor(options)
+	if err != nil {
+		t.Errorf("failed with: %v", err)
+	}
 
-	if err := r.Run(ctx, docs, false); err != nil {
+	if err = r.Run(ctx, docs, false); err != nil {
 		t.Errorf("failed with: %v", err)
 	}
 

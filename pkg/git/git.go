@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2020 SAP SE or an SAP affiliate company and Gardener contributors
 //
 // SPDX-License-Identifier: Apache-2.0
+
 package git
 
 import (
@@ -10,19 +11,22 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 )
 
+// Git interface defines gogit git API
 type Git interface {
-	PlainOpen(path string) (GitRepository, error)
-	PlainCloneContext(ctx context.Context, path string, isBare bool, o *gogit.CloneOptions) (GitRepository, error)
+	PlainOpen(path string) (Repository, error)
+	PlainCloneContext(ctx context.Context, path string, isBare bool, o *gogit.CloneOptions) (Repository, error)
 }
 
-type GitRepository interface {
+// Repository interface defines gogit repository API
+type Repository interface {
 	FetchContext(ctx context.Context, o *gogit.FetchOptions) error
-	Worktree() (GitRepositoryWorktree, error)
+	Worktree() (RepositoryWorktree, error)
 	Reference(name plumbing.ReferenceName, resolved bool) (*plumbing.Reference, error)
 	Tags() ([]string, error)
 }
 
-type GitRepositoryWorktree interface {
+// RepositoryWorktree interface defines gogit worktree API
+type RepositoryWorktree interface {
 	Checkout(opts *gogit.CheckoutOptions) error
 }
 
@@ -30,25 +34,30 @@ type git struct {
 	repository *gogit.Repository
 }
 
+// NewGit creates new git struct
 func NewGit() Git {
 	return &git{}
 }
 
-func (g *git) PlainOpen(path string) (GitRepository, error) {
+// PlainOpen calls git repository API PlainOpen
+func (g *git) PlainOpen(path string) (Repository, error) {
 	repo, err := gogit.PlainOpen(path)
 	return &git{repository: repo}, err
 }
 
-func (g *git) PlainCloneContext(ctx context.Context, path string, isBare bool, o *gogit.CloneOptions) (GitRepository, error) {
+// PlainCloneContext calls git repository API PlainCloneContext
+func (g *git) PlainCloneContext(ctx context.Context, path string, isBare bool, o *gogit.CloneOptions) (Repository, error) {
 	repository, err := gogit.PlainCloneContext(ctx, path, isBare, o)
 	return &git{repository: repository}, err
 }
 
+// FetchContext calls git repository API FetchContext
 func (g *git) FetchContext(ctx context.Context, o *gogit.FetchOptions) error {
 	return g.repository.FetchContext(ctx, o)
 }
 
-func (g *git) Worktree() (GitRepositoryWorktree, error) {
+// Worktree calls git repository API Worktree
+func (g *git) Worktree() (RepositoryWorktree, error) {
 	return g.repository.Worktree()
 }
 

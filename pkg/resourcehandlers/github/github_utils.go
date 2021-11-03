@@ -159,6 +159,7 @@ func isRawURL(u *url.URL) bool {
 	return strings.HasPrefix(u.Host, "raw.") || strings.HasPrefix(u.Path, "/raw")
 }
 
+// CleanupNodeTree cleanups node tree:
 // - remove contentSources that reference tree objects. They are used
 //   internally to build the structure but are not a valid contentSource
 // - remove empty nodes that do not contain markdown. The build algorithm
@@ -200,7 +201,7 @@ func ClearDefaultBranchesCache() {
 }
 
 // GetDefaultBranch gets the default branch from a given recource handler
-func GetDefaultBranch(client *ghclient.Client, ctx context.Context, rl *ResourceLocator) (string, error) {
+func GetDefaultBranch(ctx context.Context, client *ghclient.Client, rl *ResourceLocator) (string, error) {
 	mux.Lock()
 	defer mux.Unlock()
 

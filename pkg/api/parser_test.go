@@ -238,12 +238,12 @@ func TestGetLastNVersions(t *testing.T) {
 			inputTags:  []string{},
 			inputN:     2,
 			outputTags: nil,
-			err:        fmt.Errorf("number of tags is greater than the actual number of tags with latest patch:requested %d actual %d", 2, 0),
+			err:        fmt.Errorf("number of tags is greater than the actual number of all tags: wanted - %d, actual - %d", 2, 0),
 		}, {
 			inputTags:  nil,
 			inputN:     1,
 			outputTags: nil,
-			err:        fmt.Errorf("number of tags is greater than the actual number of tags with latest patch:requested %d actual %d", 1, 0),
+			err:        fmt.Errorf("number of tags is greater than the actual number of all tags: wanted - %d, actual - %d", 1, 0),
 		}, {
 			inputTags:  []string{"v1.2.3", "v1.2.1"},
 			inputN:     1,
@@ -262,7 +262,7 @@ func TestGetLastNVersions(t *testing.T) {
 		}, {
 			inputTags:  []string{"v1.2.3", "v1.2.8", "v1.1.5", "v1.1.0", "v1.1.3", "v2.0.1", "v2.0.8", "v2.1.0", "v2.0.6"},
 			inputN:     4,
-			outputTags: []string{"v1.1.5", "v1.2.8", "v2.0.8", "v2.1.0"},
+			outputTags: []string{"v2.1.0", "v2.0.8", "v1.2.8", "v1.1.5"},
 			err:        nil,
 		}, {
 			inputTags:  []string{"v1.2.3", "v1.2.8", "v1.1.5", "v1.1.0", "v1.1.3", "v2.0.1", "v2.0.8", "v2.1.0", "v2.0.6"},
@@ -272,12 +272,12 @@ func TestGetLastNVersions(t *testing.T) {
 		}, {
 			inputTags:  []string{"1.2.3", "1.2.8", "1.1.5", "1.1.0", "1.1.3", "2.0.1", "2.0.8", "2.1.0", "2.0.6"},
 			inputN:     4,
-			outputTags: []string{"1.1.5", "1.2.8", "2.0.8", "2.1.0"},
+			outputTags: []string{"2.1.0", "2.0.8", "1.2.8", "1.1.5"},
 			err:        nil,
 		}, {
 			inputTags:  []string{"1.2.3", "1.2.8", "1.1.5", "1.1.0", "1.1.3", "2.0.1", "2.0.8", "2.1.0", "2.0.6"},
 			inputN:     3,
-			outputTags: []string{"1.2.8", "2.0.8", "2.1.0"},
+			outputTags: []string{"2.1.0", "2.0.8", "1.2.8"},
 			err:        nil,
 		},
 	}
@@ -332,13 +332,8 @@ func TestParseWithMetadata(t *testing.T) {
 						sourceLocation: "",
 					},
 					&Node{
-						Name:           "v4.9",
-						Source:         "https://github.com/gardener/docforge/blob/v4.9/integration-test/tested-doc/merge-test/testFile.md",
-						sourceLocation: "",
-					},
-					&Node{
-						Name:           "v5.7",
-						Source:         "https://github.com/gardener/docforge/blob/v5.7/integration-test/tested-doc/merge-test/testFile.md",
+						Name:           "v7.7",
+						Source:         "https://github.com/gardener/docforge/blob/v7.7/integration-test/tested-doc/merge-test/testFile.md",
 						sourceLocation: "",
 					},
 					&Node{
@@ -347,8 +342,13 @@ func TestParseWithMetadata(t *testing.T) {
 						sourceLocation: "",
 					},
 					&Node{
-						Name:           "v7.7",
-						Source:         "https://github.com/gardener/docforge/blob/v7.7/integration-test/tested-doc/merge-test/testFile.md",
+						Name:           "v5.7",
+						Source:         "https://github.com/gardener/docforge/blob/v5.7/integration-test/tested-doc/merge-test/testFile.md",
+						sourceLocation: "",
+					},
+					&Node{
+						Name:           "v4.9",
+						Source:         "https://github.com/gardener/docforge/blob/v4.9/integration-test/tested-doc/merge-test/testFile.md",
 						sourceLocation: "",
 					},
 				},
@@ -384,13 +384,13 @@ func TestParseWithMetadata(t *testing.T) {
 						sourceLocation: "",
 					},
 					&Node{
-						Name:           "v4.9",
-						Source:         "https://github.com/gardener/docforge/blob/v4.9/integration-test/tested-doc/merge-test/testFile.md",
+						Name:           "v5.7",
+						Source:         "https://github.com/gardener/docforge/blob/v5.7/integration-test/tested-doc/merge-test/testFile.md",
 						sourceLocation: "",
 					},
 					&Node{
-						Name:           "v5.7",
-						Source:         "https://github.com/gardener/docforge/blob/v5.7/integration-test/tested-doc/merge-test/testFile.md",
+						Name:           "v4.9",
+						Source:         "https://github.com/gardener/docforge/blob/v4.9/integration-test/tested-doc/merge-test/testFile.md",
 						sourceLocation: "",
 					},
 				},

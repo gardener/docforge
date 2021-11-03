@@ -7,6 +7,7 @@ package reactor
 import (
 	"context"
 	"github.com/gardener/docforge/pkg/resourcehandlers/testhandler"
+	"github.com/gardener/docforge/pkg/util/urls"
 	"net/http"
 	"strings"
 	"testing"
@@ -374,6 +375,7 @@ func Test_processLink(t *testing.T) {
 				resourcesRoot:    "/__resources",
 				resourceHandlers: resourcehandlers.NewRegistry(githubHandler.NewResourceHandler(github.NewClient(nil), http.DefaultClient, []string{"github.com"})),
 				rewriteEmbedded:  true,
+				validator:        &fakeValidator{},
 			}
 			if tc.mutate != nil {
 				tc.mutate(c)
@@ -504,6 +506,7 @@ func Test_matchHTMLLinks(t *testing.T) {
 				}).WithSetVersion(func(absLink, version string) (string, error) {
 					return absLink, nil
 				})),
+				validator:       &fakeValidator{},
 				rewriteEmbedded: true,
 				globalLinksConfig: &api.Links{
 					Rewrites: map[string]*api.LinkRewriteRule{
@@ -530,4 +533,10 @@ func Test_matchHTMLLinks(t *testing.T) {
 			assert.Equal(t, tc.want, string(b))
 		})
 	}
+}
+
+type fakeValidator struct{}
+
+func (f *fakeValidator) ValidateLink(linkUrl *urls.URL, linkDestination, contentSourcePath string) bool {
+	return true
 }

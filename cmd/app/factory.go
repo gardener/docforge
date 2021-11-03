@@ -65,6 +65,7 @@ type Options struct {
 	LastNVersions                map[string]int
 }
 
+// Credentials holds repositories access credentials
 type Credentials struct {
 	Host       string
 	Username   *string
@@ -119,7 +120,7 @@ func NewReactor(ctx context.Context, options *Options, rhs []resourcehandlers.Re
 	if options.Hugo != nil {
 		WithHugo(o, options)
 	}
-	return reactor.NewReactor(o), nil
+	return reactor.NewReactor(o)
 }
 
 // WithHugo adapts the reactor.Options object with Hugo-specific
@@ -216,12 +217,12 @@ func buildClient(ctx context.Context, accessToken string, withClientThrottling b
 	if host == "https://github.com" {
 		client = github.NewClient(oauthClient)
 		return client, oauthClient, nil
-	} else {
-		client, err = github.NewEnterpriseClient(host, "", oauthClient)
 	}
+	client, err = github.NewEnterpriseClient(host, "", oauthClient)
 	return client, oauthClient, err
 }
 
+// RoundTripperFunc defines implementation of http.RoundTripper interface
 type RoundTripperFunc func(req *http.Request) (*http.Response, error)
 
 // RoundTrip implements the RoundTripper interface.
@@ -229,6 +230,7 @@ func (rt RoundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) {
 	return rt(r)
 }
 
+// WithClientHTTPLogging returns http.RoundTripper with logging
 func WithClientHTTPLogging(next http.RoundTripper) RoundTripperFunc {
 	return RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
 		var respStatus string
@@ -242,6 +244,7 @@ func WithClientHTTPLogging(next http.RoundTripper) RoundTripperFunc {
 	})
 }
 
+// WithClientRateLimit returns http.RoundTripper with rate limit
 func WithClientRateLimit(next http.RoundTripper, ratelimiter *rate.Limiter) RoundTripperFunc {
 	ctx := context.Background()
 	return RoundTripperFunc(func(r *http.Request) (*http.Response, error) {

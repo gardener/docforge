@@ -7,6 +7,14 @@ package git
 import (
 	"context"
 	"fmt"
+	"github.com/gardener/docforge/pkg/api"
+	"github.com/gardener/docforge/pkg/git"
+	"github.com/gardener/docforge/pkg/resourcehandlers"
+	"github.com/gardener/docforge/pkg/resourcehandlers/github"
+	"github.com/gardener/docforge/pkg/util/httpclient"
+	"github.com/gardener/docforge/pkg/util/urls"
+	"github.com/go-git/go-git/v5/plumbing/transport/http"
+	ghclient "github.com/google/go-github/v32/github"
 	nethttp "net/http"
 	"net/url"
 	"os"
@@ -14,17 +22,9 @@ import (
 	"regexp"
 	"strings"
 	"sync"
-
-	"github.com/gardener/docforge/pkg/api"
-	"github.com/gardener/docforge/pkg/git"
-	"github.com/gardener/docforge/pkg/resourcehandlers"
-	"github.com/gardener/docforge/pkg/resourcehandlers/github"
-	"github.com/gardener/docforge/pkg/util/urls"
-
-	"github.com/go-git/go-git/v5/plumbing/transport/http"
-	ghclient "github.com/google/go-github/v32/github"
 )
 
+// CacheDir is the name of repository cache directory
 const CacheDir string = "cache"
 
 var (
@@ -32,6 +32,7 @@ var (
 	repStr    = "${1}blob$2"
 )
 
+// FileReader defines interface for reading file attributes and content
 type FileReader interface {
 	ReadFile(string) ([]byte, error)
 	Stat(name string) (os.FileInfo, error)
@@ -52,6 +53,7 @@ func (osR *osReader) IsNotExist(err error) bool {
 	return os.IsNotExist(err)
 }
 
+// Git represents a resourcehandlers.ResourceHandler for git repositories
 type Git struct {
 	client                 *ghclient.Client
 	httpClient             *nethttp.Client
@@ -94,6 +96,7 @@ func buildAuthMethod(user *string, oauthToken string) http.AuthMethod {
 	}
 }
 
+// Accept implements resourcehandlers.ResourceHandler#Accept
 func (g *Git) Accept(uri string) bool {
 	var (
 		url *url.URL
@@ -122,6 +125,7 @@ func (g *Git) Accept(uri string) bool {
 	return false
 }
 
+// ResolveNodeSelector implements resourcehandlers.ResourceHandler#ResolveNodeSelector
 func (g *Git) ResolveNodeSelector(ctx context.Context, node *api.Node, excludePaths []string, frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32) ([]*api.Node, error) {
 	rl, err := github.Parse(node.NodeSelector.Path)
 	if err != nil {
@@ -406,8 +410,7 @@ func (g *Git) ResolveDocumentation(ctx context.Context, uri string) (*api.Docume
 		return nil, err
 	}
 	if rl.SHAAlias == "DEFAULT_BRANCH" {
-		//get repo default branch
-		if rl.SHAAlias, err = github.GetDefaultBranch(g.client, ctx, rl); err != nil {
+		if rl.SHAAlias, err = github.GetDefaultBranch(ctx, g.client, rl); err != nil {
 			return nil, err
 		}
 	}
@@ -450,7 +453,8 @@ func (g *Git) getAllTags(ctx context.Context, rl *github.ResourceLocator) ([]str
 	return tags, err
 }
 
-func (g *Git) GetClient() *nethttp.Client {
+// GetClient implements resourcehandlers.ResourceHandler#GetClient
+func (g *Git) GetClient() httpclient.Client {
 	return g.httpClient
 }
 

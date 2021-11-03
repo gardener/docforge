@@ -12,7 +12,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
-	"path"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -137,7 +137,7 @@ func (g *mockGitRepository) FetchContext(ctx context.Context, o *gogit.FetchOpti
 	return nil
 }
 
-func (g *mockGitRepository) Worktree() (git.GitRepositoryWorktree, error) {
+func (g *mockGitRepository) Worktree() (git.RepositoryWorktree, error) {
 	return &mockGitRepositoryWorktree{}, nil
 }
 
@@ -151,11 +151,11 @@ func (g *mockGitRepository) Tags() ([]string, error) {
 	return g.tags, nil
 }
 
-func (g *mockGit) PlainOpen(path string) (git.GitRepository, error) {
+func (g *mockGit) PlainOpen(path string) (git.Repository, error) {
 	return &mockGitRepository{g.repoTags[path]}, nil
 }
 
-func (g *mockGit) PlainCloneContext(ctx context.Context, path string, isBare bool, o *gogit.CloneOptions) (git.GitRepository, error) {
+func (g *mockGit) PlainCloneContext(ctx context.Context, path string, isBare bool, o *gogit.CloneOptions) (git.Repository, error) {
 	return &mockGitRepository{}, nil
 }
 
@@ -731,20 +731,20 @@ func TestResolveDocumentation(t *testing.T) {
 						Source: "https://github.com/gardener/docforge/blob/testMainBranch/integration-test/tested-doc/merge-test/testFile.md",
 					},
 					&api.Node{
-						Name:   "v4.9",
-						Source: "https://github.com/gardener/docforge/blob/v4.9/integration-test/tested-doc/merge-test/testFile.md",
-					},
-					&api.Node{
-						Name:   "v5.7",
-						Source: "https://github.com/gardener/docforge/blob/v5.7/integration-test/tested-doc/merge-test/testFile.md",
+						Name:   "v7.7",
+						Source: "https://github.com/gardener/docforge/blob/v7.7/integration-test/tested-doc/merge-test/testFile.md",
 					},
 					&api.Node{
 						Name:   "v6.1",
 						Source: "https://github.com/gardener/docforge/blob/v6.1/integration-test/tested-doc/merge-test/testFile.md",
 					},
 					&api.Node{
-						Name:   "v7.7",
-						Source: "https://github.com/gardener/docforge/blob/v7.7/integration-test/tested-doc/merge-test/testFile.md",
+						Name:   "v5.7",
+						Source: "https://github.com/gardener/docforge/blob/v5.7/integration-test/tested-doc/merge-test/testFile.md",
+					},
+					&api.Node{
+						Name:   "v4.9",
+						Source: "https://github.com/gardener/docforge/blob/v4.9/integration-test/tested-doc/merge-test/testFile.md",
 					},
 				},
 			},
@@ -1321,7 +1321,7 @@ func TestResolveDocumentation(t *testing.T) {
 		repo := make(map[string]*Repository)
 		gitTags := make(map[string]([]string))
 		mockGit := &mockGit{repoTags: gitTags}
-		gitTags[c.repositoryPath] = c.tags
+		gitTags[filepath.FromSlash(c.repositoryPath)] = c.tags
 		repo[c.repositoryPath] = &Repository{
 			State:     Prepared,
 			Git:       mockGit,
@@ -1329,8 +1329,8 @@ func TestResolveDocumentation(t *testing.T) {
 		}
 		filedata := make(map[string]([]byte))
 		fileInfo := make(map[string]os.FileInfo)
-		fileInfo[path.Join(c.repositoryPath, c.manifestName)] = mockFileInfo{isDir: false}
-		filedata[path.Join(c.repositoryPath, c.manifestName)] = c.manifestData
+		fileInfo[filepath.Join(c.repositoryPath, c.manifestName)] = mockFileInfo{isDir: false}
+		filedata[filepath.Join(c.repositoryPath, c.manifestName)] = c.manifestData
 
 		gh := &Git{
 			client:        client,
