@@ -29,7 +29,7 @@ func SetFlagsVariables(vars map[string]string) {
 	flagsVars = vars
 }
 
-// SetVersions sets the mapping of repo uri to last n versions to be iterated over
+// SetNVersions sets the mapping of repo uri to last n versions to be iterated over
 func SetNVersions(flagNVersions map[string]int, configNVersions map[string]int) {
 	flagVersionsMap = flagNVersions
 	configVersionsMap = configNVersions
