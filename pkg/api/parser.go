@@ -81,7 +81,7 @@ func ParseWithMetadata(b []byte, allTags []string, nTags int, targetBranch strin
 		err  error
 		tags []string
 	)
-	if tags, err = getLastNVersions(allTags, nTags); err != nil {
+	if tags, err = GetLastNVersions(allTags, nTags); err != nil {
 		return nil, err
 	}
 	versionList := make([]string, 0)
@@ -93,7 +93,8 @@ func ParseWithMetadata(b []byte, allTags []string, nTags int, targetBranch strin
 	return Parse(b)
 }
 
-func getLastNVersions(tags []string, n int) ([]string, error) {
+// GetLastNVersions returns only the last patch version for each major and minor version
+func GetLastNVersions(tags []string, n int) ([]string, error) {
 	if n < 0 {
 		return nil, fmt.Errorf("n can't be negative")
 	} else if n == 0 {
@@ -133,7 +134,7 @@ func getLastNVersions(tags []string, n int) ([]string, error) {
 		}
 	}
 	if n > len(latestVersions) {
-		return nil, fmt.Errorf("number of tags is greater than the actual number of tags with latest patch:requested %d actual %d", n, len(latestVersions))
+		return nil, fmt.Errorf("number of tags is greater than the actual number of all tags: wanted - %d, actual - %d", n, len(latestVersions))
 	}
 	return latestVersions, nil
 }

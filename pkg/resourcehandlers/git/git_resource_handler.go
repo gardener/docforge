@@ -2,11 +2,23 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
+
+//counterfeiter:generate os.FileInfo
+
 package git
 
 import (
 	"context"
 	"fmt"
+	nethttp "net/http"
+	"net/url"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
+	"sync"
+
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/git"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
@@ -15,13 +27,6 @@ import (
 	"github.com/gardener/docforge/pkg/util/urls"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	ghclient "github.com/google/go-github/v32/github"
-	nethttp "net/http"
-	"net/url"
-	"os"
-	"path/filepath"
-	"regexp"
-	"strings"
-	"sync"
 )
 
 // CacheDir is the name of repository cache directory
@@ -33,6 +38,7 @@ var (
 )
 
 // FileReader defines interface for reading file attributes and content
+//counterfeiter:generate . FileReader
 type FileReader interface {
 	ReadFile(string) ([]byte, error)
 	Stat(name string) (os.FileInfo, error)
@@ -67,6 +73,21 @@ type Git struct {
 	mutex         sync.RWMutex
 
 	fileReader FileReader
+}
+
+// NewResourceHandlerExtended creates new GitHub ResourceHandler objects given more arguments. Used when testing
+func NewResourceHandlerExtended(gitRepositoriesAbsPath string, user *string, oauthToken string, githubOAuthClient *ghclient.Client, httpClient *nethttp.Client, acceptedHosts []string, localMappings map[string]string, gitArg git.Git, prepRepos map[string]*Repository, fileR FileReader) resourcehandlers.ResourceHandler {
+	return &Git{
+		client:                 githubOAuthClient,
+		httpClient:             httpClient,
+		gitAuth:                buildAuthMethod(user, oauthToken),
+		localMappings:          localMappings,
+		gitRepositoriesAbsPath: gitRepositoriesAbsPath,
+		acceptedHosts:          acceptedHosts,
+		git:                    gitArg,
+		fileReader:             fileR,
+		preparedRepos:          prepRepos,
+	}
 }
 
 // NewResourceHandler creates new GitHub ResourceHandler objects

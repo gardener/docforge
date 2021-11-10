@@ -4,6 +4,8 @@
 
 package git
 
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
+
 import (
 	"context"
 
@@ -12,12 +14,14 @@ import (
 )
 
 // Git interface defines gogit git API
+//counterfeiter:generate . Git
 type Git interface {
 	PlainOpen(path string) (Repository, error)
 	PlainCloneContext(ctx context.Context, path string, isBare bool, o *gogit.CloneOptions) (Repository, error)
 }
 
 // Repository interface defines gogit repository API
+//counterfeiter:generate . Repository
 type Repository interface {
 	FetchContext(ctx context.Context, o *gogit.FetchOptions) error
 	Worktree() (RepositoryWorktree, error)
@@ -26,6 +30,7 @@ type Repository interface {
 }
 
 // RepositoryWorktree interface defines gogit worktree API
+//counterfeiter:generate . RepositoryWorktree
 type RepositoryWorktree interface {
 	Checkout(opts *gogit.CheckoutOptions) error
 }
