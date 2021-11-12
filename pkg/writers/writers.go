@@ -4,7 +4,7 @@
 
 package writers
 
-//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate -header ../../license_prefix.txt
 
 import "github.com/gardener/docforge/pkg/api"
 

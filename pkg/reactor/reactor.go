@@ -4,19 +4,20 @@
 
 package reactor
 
-//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate -header ../../license_prefix.txt
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/gardener/docforge/pkg/jobs"
 	"io"
 	"net/http"
 	"os"
 	"strings"
 	"sync"
 	"text/template"
+
+	"github.com/gardener/docforge/pkg/jobs"
 
 	"github.com/gardener/docforge/pkg/processors"
 	"k8s.io/klog/v2"
