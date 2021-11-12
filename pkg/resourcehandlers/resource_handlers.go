@@ -4,14 +4,15 @@
 
 package resourcehandlers
 
-//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate -header ../../license_prefix.txt
 
 import (
 	"context"
 	"fmt"
+	"reflect"
+
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/util/httpclient"
-	"reflect"
 )
 
 // ErrResourceNotFound indicated that a resource was not found
