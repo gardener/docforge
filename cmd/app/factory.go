@@ -25,7 +25,6 @@ import (
 
 	"github.com/gardener/docforge/pkg/processors"
 	"github.com/gardener/docforge/pkg/reactor"
-	"github.com/gardener/docforge/pkg/resourcehandlers/fs"
 	"github.com/gardener/docforge/pkg/resourcehandlers/git"
 	ghrs "github.com/gardener/docforge/pkg/resourcehandlers/github"
 
@@ -147,9 +146,7 @@ func WithHugo(reactorOptions *reactor.Options, o *Options) {
 }
 
 func initResourceHandlers(ctx context.Context, o *Options) ([]resourcehandlers.ResourceHandler, error) {
-	rhs := []resourcehandlers.ResourceHandler{
-		fs.NewFSResourceHandler(),
-	}
+	rhs := []resourcehandlers.ResourceHandler{}
 	var errs *multierror.Error
 	for _, creds := range o.Credentials {
 		instance := creds.Host
