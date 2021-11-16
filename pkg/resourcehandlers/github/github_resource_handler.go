@@ -101,7 +101,7 @@ func (gh *GitHub) buildNodes(ctx context.Context, node *api.Node, excludePaths [
 	}
 	nodePathSegmentsCount := len(strings.Split(nodeResourceLocator.Path, "/"))
 	for _, childResourceLocator := range childResourceLocators {
-		if !strings.HasPrefix(childResourceLocator.Path, nodeResourceLocator.Path) {
+		if !hasPathPrefix(childResourceLocator.Path, nodeResourceLocator.Path) {
 			continue
 		}
 		// check if this resource path has to be excluded
@@ -172,6 +172,17 @@ func (gh *GitHub) buildNodes(ctx context.Context, node *api.Node, excludePaths [
 		}
 	}
 	return nodesResult, nil
+}
+
+func hasPathPrefix(path, prefix string) bool {
+	if strings.HasPrefix(path, prefix) {
+		if strings.HasSuffix(prefix, "/") {
+			return true
+		}
+		sub := path[len(prefix):]
+		return strings.HasPrefix(sub, "/")
+	}
+	return false
 }
 
 // GitHub implements resourcehandlers/ResourceHandler

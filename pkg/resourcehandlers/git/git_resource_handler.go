@@ -136,7 +136,7 @@ func (g *Git) ResolveNodeSelector(ctx context.Context, node *api.Node, excludePa
 		return nil, err
 	}
 
-	nodesSelectorLocalPath := filepath.Join(repositoryPath, rl.Path)
+	nodesSelectorLocalPath := g.getNodeSelectorLocalPath(repositoryPath, rl)
 	fileInfo, err := g.fileReader.Stat(nodesSelectorLocalPath)
 	if err != nil {
 		if g.fileReader.IsNotExist(err) {
@@ -176,6 +176,18 @@ func (g *Git) ResolveNodeSelector(ctx context.Context, node *api.Node, excludePa
 		return _node.Nodes, nil
 	}
 	return nil, nil
+}
+
+func (g *Git) getNodeSelectorLocalPath(repositoryPath string, rl *github.ResourceLocator) string {
+	// first check for provided repository mapping
+	mapKey := fmt.Sprintf("%s://%s/%s/%s", rl.Scheme, rl.Host, rl.Owner, rl.Repo)
+	path, ok := g.localMappings[mapKey]
+	if ok && len(path) > 0 {
+		if fi, err := g.fileReader.Stat(path); err == nil && fi.IsDir() {
+			return filepath.Join(path, rl.Path)
+		}
+	}
+	return filepath.Join(repositoryPath, rl.Path)
 }
 
 type nodeBuilder struct {
