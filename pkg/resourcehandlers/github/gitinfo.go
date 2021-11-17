@@ -11,16 +11,16 @@ import (
 
 	"k8s.io/klog/v2"
 
-	"github.com/gardener/docforge/pkg/git"
+	"github.com/gardener/docforge/pkg/resourcehandlers/git/gitinterface"
 	"github.com/google/go-github/v32/github"
 )
 
 // Transform builds git.Info from a commits list
-func Transform(commits []*github.RepositoryCommit) *git.Info {
+func Transform(commits []*github.RepositoryCommit) *gitinterface.Info {
 	if commits == nil {
 		return nil
 	}
-	gitInfo := &git.Info{}
+	gitInfo := &gitinterface.Info{}
 	nonInternalCommits := []*github.RepositoryCommit{}
 	// skip internal commits
 	for _, commit := range commits {
@@ -35,13 +35,13 @@ func Transform(commits []*github.RepositoryCommit) *git.Info {
 		return nonInternalCommits[i].GetCommit().GetCommitter().GetDate().After(nonInternalCommits[j].GetCommit().GetCommitter().GetDate())
 	})
 
-	lastModifiedDate := nonInternalCommits[0].GetCommit().GetCommitter().GetDate().Format(git.DateFormat)
+	lastModifiedDate := nonInternalCommits[0].GetCommit().GetCommitter().GetDate().Format(gitinterface.DateFormat)
 	gitInfo.LastModifiedDate = &lastModifiedDate
 	webURL := nonInternalCommits[0].GetHTMLURL()
 	webURL = strings.Split(webURL, "/commit/")[0]
 	gitInfo.WebURL = &webURL
 
-	publishDate := commits[len(nonInternalCommits)-1].GetCommit().GetCommitter().GetDate().Format(git.DateFormat)
+	publishDate := commits[len(nonInternalCommits)-1].GetCommit().GetCommitter().GetDate().Format(gitinterface.DateFormat)
 	gitInfo.PublishDate = &publishDate
 
 	if gitInfo.Author = getCommitAuthor(nonInternalCommits[len(nonInternalCommits)-1]); gitInfo.Author == nil {
@@ -76,7 +76,7 @@ func contains(slice []string, s string) bool {
 }
 
 // MarshallGitInfo serializes git.Info to byte array
-func MarshallGitInfo(gitInfo *git.Info) ([]byte, error) {
+func MarshallGitInfo(gitInfo *gitinterface.Info) ([]byte, error) {
 	var (
 		blob []byte
 		err  error

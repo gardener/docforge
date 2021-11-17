@@ -12,7 +12,7 @@ import (
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 
-	"github.com/gardener/docforge/pkg/git"
+	"github.com/gardener/docforge/pkg/resourcehandlers/git/gitinterface"
 
 	gogit "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
@@ -40,7 +40,7 @@ type Repository struct {
 	RemoteURL     string
 	State         State
 	PreviousError error
-	Git           git.Git
+	Git           gitinterface.Git
 
 	mutex sync.RWMutex
 }
@@ -108,7 +108,7 @@ func (r *Repository) prepare(ctx context.Context, version string) error {
 	return nil
 }
 
-func (r *Repository) repository(ctx context.Context) (git.Repository, bool, error) {
+func (r *Repository) repository(ctx context.Context) (gitinterface.Repository, bool, error) {
 	gitRepo, err := r.Git.PlainOpen(r.LocalPath)
 	if err != nil {
 		if err != gogit.ErrRepositoryNotExists {

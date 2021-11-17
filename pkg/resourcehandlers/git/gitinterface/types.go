@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-package git
+package gitinterface
 
 import "github.com/google/go-github/v32/github"
 
