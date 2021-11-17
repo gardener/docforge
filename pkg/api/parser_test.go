@@ -268,7 +268,7 @@ func TestGetLastNVersions(t *testing.T) {
 			inputTags:  []string{"v1.2.3", "v1.2.8", "v1.1.5", "v1.1.0", "v1.1.3", "v2.0.1", "v2.0.8", "v2.1.0", "v2.0.6"},
 			inputN:     5,
 			outputTags: nil,
-			err:        fmt.Errorf("number of tags is greater than the actual number of tags with latest patch:requested %d actual %d", 5, 4),
+			err:        fmt.Errorf("number of tags is greater than the actual number of all tags: wanted - %d, actual - %d", 5, 4),
 		}, {
 			inputTags:  []string{"1.2.3", "1.2.8", "1.1.5", "1.1.0", "1.1.3", "2.0.1", "2.0.8", "2.1.0", "2.0.6"},
 			inputN:     4,
@@ -282,7 +282,7 @@ func TestGetLastNVersions(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		result, resultErr := getLastNVersions(test.inputTags, test.inputN)
+		result, resultErr := GetLastNVersions(test.inputTags, test.inputN)
 
 		if !reflect.DeepEqual(result, test.outputTags) {
 			t.Errorf("Expected and actual result differ respectively: %s %s", test.outputTags, result)
@@ -299,7 +299,6 @@ func TestParseWithMetadata(t *testing.T) {
 		tags      []string
 		nVersions int
 		b         []byte
-		uri       string
 		want      *Documentation
 		err       error
 	}{
@@ -318,7 +317,6 @@ func TestParseWithMetadata(t *testing.T) {
 {{- end }}
   source: https://github.com/gardener/docforge/blob/{{$version}}/integration-test/tested-doc/merge-test/testFile.md
 {{- end }}`),
-			"https://github.com/Kostov6/documentation/blob/master/.docforge/test.yamls",
 			&Documentation{
 				Structure: []*Node{
 					&Node{
@@ -370,7 +368,6 @@ func TestParseWithMetadata(t *testing.T) {
 {{- end }}
   source: https://github.com/gardener/docforge/blob/{{$version}}/integration-test/tested-doc/merge-test/testFile.md
 {{- end }}`),
-			"https://github.com/Kostov6/documentation/blob/master/.docforge/test.yamls",
 			&Documentation{
 				Structure: []*Node{
 					&Node{
@@ -412,7 +409,6 @@ func TestParseWithMetadata(t *testing.T) {
 {{- end }}
   source: https://github.com/gardener/docforge/blob/{{$version}}/integration-test/tested-doc/merge-test/testFile.md
 {{- end }}`),
-			"https://github.com/Kostov6/documentation/blob/master/.docforge/test.yamls",
 			&Documentation{
 				Structure: []*Node{
 					&Node{

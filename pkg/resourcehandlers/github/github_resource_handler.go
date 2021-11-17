@@ -7,18 +7,19 @@ package github
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"net/url"
+	"regexp"
+	"strings"
+
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/markdown"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/gardener/docforge/pkg/util/httpclient"
 	"github.com/gardener/docforge/pkg/util/urls"
 	"github.com/google/go-github/v32/github"
-	"io/ioutil"
 	"k8s.io/klog/v2"
-	"net/http"
-	"net/url"
-	"regexp"
-	"strings"
 )
 
 // TreeEntryToGitHubLocator creates a ResourceLocator from a github.TreeEntry and shaAlias.
@@ -319,7 +320,7 @@ func (gh *GitHub) ResolveDocumentation(ctx context.Context, path string) (*api.D
 	rl.SHAAlias = api.ChooseTargetBranch(path, rl.SHAAlias)
 	//getting nVersions based on configuration
 	nVersions := api.ChooseNVersions(path)
-	tags, err := gh.getAllTags(ctx, rl)
+	tags, err := gh.GetAllTags(ctx, rl)
 	if err != nil {
 		return nil, err
 	}
@@ -330,7 +331,8 @@ func (gh *GitHub) ResolveDocumentation(ctx context.Context, path string) (*api.D
 	return api.ParseWithMetadata(blob, tags, nVersions, rl.SHAAlias)
 }
 
-func (gh *GitHub) getAllTags(ctx context.Context, rl *ResourceLocator) ([]string, error) {
+// GetAllTags returns all tags from a given resource locator
+func (gh *GitHub) GetAllTags(ctx context.Context, rl *ResourceLocator) ([]string, error) {
 	refs, _, err := gh.Client.Git.ListMatchingRefs(ctx, rl.Owner, rl.Repo, &github.ReferenceListOptions{Ref: "tags"})
 	if err != nil {
 		return nil, err

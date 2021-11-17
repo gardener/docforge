@@ -991,7 +991,7 @@ func TestGetAllTags(t *testing.T) {
 			c.mux(mux)
 		}
 		gh.Client = client
-		got, gotErr := gh.getAllTags(ctx, c.rl)
+		got, gotErr := gh.GetAllTags(ctx, c.rl)
 
 		assert.Equal(t, c.err, gotErr)
 		assert.Equal(t, c.want, got)
