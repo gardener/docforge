@@ -93,3 +93,7 @@ docs-lint:
 .PHONY: docs-gen
 docs-gen:
 	@.ci/docs-gen
+
+.PHONY: check-manifest
+check-manifest:
+	@.ci/check-manifest

@@ -31,6 +31,8 @@ docforge:
         output_dir: "binary"
       integration-test:
         image: "eu.gcr.io/gardener-project/gardener/testmachinery/testmachinery-run:stable"
+      check-manifest:
+        image: "eu.gcr.io/gardener-project/gardener-website-generator:stable"
   jobs:
     head-update:
       traits:
