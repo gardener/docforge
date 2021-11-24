@@ -247,24 +247,23 @@ func gatherCredentials(flags *cmdFlags, config *configuration.Config) []*Credent
 		}
 	}
 
-	if len(flags.ghOAuthToken) > 0 {
-		var username string
-		token := flags.ghOAuthToken
-		if _, ok := credentialsByHost["github.com"]; ok {
-			klog.Warning("github.com token is overridden by the provided token with `--github-oauth-token flag` ")
-		}
-		usernameAndToken := strings.Split(flags.ghOAuthToken, ":")
-		if len(usernameAndToken) == 2 {
-			username = usernameAndToken[0]
-			token = usernameAndToken[1]
-		}
-
-		credentialsByHost["github.com"] = &Credentials{
-			Host:       "github.com",
-			Username:   &username,
-			OAuthToken: token,
-		}
+	var username string
+	token := flags.ghOAuthToken
+	if _, ok := credentialsByHost["github.com"]; ok {
+		klog.Warning("github.com token is overridden by the provided token with `--github-oauth-token flag` ")
 	}
+	usernameAndToken := strings.Split(flags.ghOAuthToken, ":")
+	if len(usernameAndToken) == 2 {
+		username = usernameAndToken[0]
+		token = usernameAndToken[1]
+	}
+
+	credentialsByHost["github.com"] = &Credentials{
+		Host:       "github.com",
+		Username:   &username,
+		OAuthToken: token,
+	}
+
 	return getCredentialsSlice(credentialsByHost)
 }
 

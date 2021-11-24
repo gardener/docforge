@@ -212,7 +212,11 @@ func buildClient(ctx context.Context, accessToken string, withClientThrottling b
 
 	var client *github.Client
 	if host == "https://github.com" {
-		client = github.NewClient(oauthClient)
+		if accessToken != "" {
+			client = github.NewClient(oauthClient)
+		} else {
+			client = github.NewClient(nil)
+		}
 		return client, oauthClient, nil
 	}
 	client, err = github.NewEnterpriseClient(host, "", oauthClient)
