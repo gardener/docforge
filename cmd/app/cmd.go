@@ -247,23 +247,36 @@ func gatherCredentials(flags *cmdFlags, config *configuration.Config) []*Credent
 		}
 	}
 
-	var username string
-	token := flags.ghOAuthToken
-	if _, ok := credentialsByHost["github.com"]; ok {
-		klog.Warning("github.com token is overridden by the provided token with `--github-oauth-token flag` ")
-	}
-	usernameAndToken := strings.Split(flags.ghOAuthToken, ":")
-	if len(usernameAndToken) == 2 {
-		username = usernameAndToken[0]
-		token = usernameAndToken[1]
-	}
+	if len(flags.ghOAuthToken) > 0 {
+		//provided ghOAuthToken may override credentialsByHost. This is the default logic
+		var username string
+		token := flags.ghOAuthToken
+		if _, ok := credentialsByHost["github.com"]; ok {
+			klog.Warning("github.com token is overridden by the provided token with `--github-oauth-token flag` ")
+		}
+		usernameAndToken := strings.Split(flags.ghOAuthToken, ":")
+		if len(usernameAndToken) == 2 {
+			username = usernameAndToken[0]
+			token = usernameAndToken[1]
+		}
 
-	credentialsByHost["github.com"] = &Credentials{
-		Host:       "github.com",
-		Username:   &username,
-		OAuthToken: token,
-	}
+		credentialsByHost["github.com"] = &Credentials{
+			Host:       "github.com",
+			Username:   &username,
+			OAuthToken: token,
+		}
+	} else {
+		if _, ok := credentialsByHost["github.com"]; !ok {
+			//credentialByHost at github.com is not set and should be set to empty string
+			empty := ""
+			credentialsByHost["github.com"] = &Credentials{
+				Host:       "github.com",
+				Username:   &empty,
+				OAuthToken: "",
+			}
+		}
 
+	}
 	return getCredentialsSlice(credentialsByHost)
 }
 
