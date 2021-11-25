@@ -20,6 +20,6 @@ curl https://raw.githubusercontent.com/gardener/documentation/master/.ci/check-m
 scriptPath="$(${READLINK_BIN} -f ${tmpDir}/check-manifest-entrypoint.sh)"
 configPath="$(${READLINK_BIN} -f ${tmpDir}/manifest-config)"
 
-${scriptPath} --repo-path ${repoPath} --repo-name "docforge" --use-token true --manifest-path ${manifestPath} --diff-dirs ${diffDirs} --config-path ${configPath}
+${scriptPath} --repo-path ${repoPath} --repo-name "docforge" --use-token false --manifest-path ${manifestPath} --diff-dirs ${diffDirs} --config-path ${configPath}
 
 rm -rf ${tmpDir}
