@@ -339,7 +339,13 @@ func (gh *GitHub) ResolveDocumentation(ctx context.Context, path string) (*api.D
 	if err != nil {
 		return nil, err
 	}
-	return api.ParseWithMetadata(blob, tags, nVersions, rl.SHAAlias)
+
+	doc, err := api.ParseWithMetadata(blob, tags, nVersions, rl.SHAAlias)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse manifest: %s. %+v", path, err)
+	}
+
+	return doc, nil
 }
 
 // GetAllTags returns all tags from a given resource locator

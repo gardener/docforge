@@ -53,23 +53,183 @@ func traverse(node *Node) {
 
 func TestParse(t *testing.T) {
 	cases := []struct {
-		in, want []byte
+		b    []byte
+		want *Documentation
+		err  error
 	}{
-		{b, []byte{}},
+		{
+			[]byte(`
+source: https://github.com/gardener/docforge/blob/master/README.md`),
+			nil,
+			fmt.Errorf("the document structure must contains at least one of these propperties: structure, nodesSelector"),
+		},
+		{
+			[]byte(`
+nodesSelector: 
+  name: test`),
+			nil,
+			fmt.Errorf("the document structure must always contains path property in the nodesSelector"),
+		},
+		{
+			[]byte(`
+structure:
+- name: test
+  nodes:
+  - contentSelectors:
+    - source: https://github.com/gardener/docforge/blob/master/README.md`),
+			nil,
+			fmt.Errorf("document node must contains at least one of these properties: source, name."),
+		},
+		{
+			[]byte(`
+structure:
+- name: test
+  nodes:
+  - name: test2`),
+			nil,
+			fmt.Errorf("node must contains at least one of these propperties: source, nodesSelector, contentsSelector, template, nodes."),
+		},
+		{
+			[]byte(`
+structure:
+- name: test
+  source: https://github.com/gardener/docforge/blob/master/README.md
+  nodes:
+  - name: test2
+    source: https://github.com/gardener/docforge/blob/master/README.md`),
+			nil,
+			fmt.Errorf("node must be categorized as a document or a container node."),
+		},
+		{
+			[]byte(`
+structure:
+- nodesSelector:
+    frontMatter:`),
+			nil,
+			fmt.Errorf("must always contains a path property"),
+		},
+		{
+			[]byte(`
+structure:
+- name: test
+  template:
+    "source1": 
+    - "https://github.com/gardener/docforge/blob/master/README.md"`),
+			nil,
+			fmt.Errorf("node template must always contains a path property"),
+		},
+		{
+			[]byte(`
+structure:
+- name: test
+  template:
+    path: https://github.com/gardener/docforge/blob/master/README.md
+    sources:
+      "":
+        source: "https://github.com/gardener/docforge/blob/master/README.md"`),
+			nil,
+			fmt.Errorf("the key of a template selector must not be empty"),
+		},
+		{
+			[]byte(`
+structure:
+- name: test
+  template:
+    path: https://github.com/gardener/docforge/blob/master/README.md
+    sources:
+      "key1": null`),
+			nil,
+			fmt.Errorf("template must always contains a map of contentSelectors"),
+		},
+		{
+			[]byte(`
+structure:
+- name: test
+  contentSelectors:
+  - selector: https://github.com/gardener/docforge/blob/master/README.md`),
+			nil,
+			fmt.Errorf("contentSelector must always contains a source property"),
+		},
+		{
+			[]byte(`
+structure:
+- name: test
+  contentSelectors:
+  - source: https://github.com/gardener/docforge/blob/master/README.md
+    selector: https://github.com/gardener/docforge/blob/master/README.md`),
+			nil,
+			fmt.Errorf("selector property is not supported in the ContentSelector"),
+		},
+		{
+			[]byte(`
+structure:
+- name: gardener-extension-shoot-dns-service
+  properties:
+    frontmatter:
+      title: DNS services
+      description: Gardener extension controller for DNS services for shoot clusters
+  nodes:
+  - nodesSelector:
+      path: https://github.com/gardener/gardener-extension-shoot-dns-service/blob/master/.docforge/manifest.yaml
+- name: gardener-extension-shoot-cert-service
+  properties:
+    frontmatter:
+      title: Certificate services 
+      description: Gardener extension controller for certificate services for shoot clusters
+  nodes:
+  - nodesSelector:
+      path: https://github.com/gardener/gardener-extension-shoot-cert-service/blob/master/.docforge/manifest.yaml`),
+
+			&Documentation{
+				Structure: []*Node{
+					&Node{
+						Name: "gardener-extension-shoot-dns-service",
+						Nodes: []*Node{
+							{
+								NodeSelector: &NodeSelector{
+									Path: "https://github.com/gardener/gardener-extension-shoot-dns-service/blob/master/.docforge/manifest.yaml",
+								},
+							},
+						},
+						Properties: map[string]interface{}{
+							"frontmatter": map[string]interface{}{
+								"description": "Gardener extension controller for DNS services for shoot clusters",
+								"title":       "DNS services",
+							},
+						},
+					},
+					&Node{
+						Name: "gardener-extension-shoot-cert-service",
+						Nodes: []*Node{
+							{
+								NodeSelector: &NodeSelector{
+									Path: "https://github.com/gardener/gardener-extension-shoot-cert-service/blob/master/.docforge/manifest.yaml",
+								},
+							},
+						},
+						Properties: map[string]interface{}{
+							"frontmatter": map[string]interface{}{
+								"description": "Gardener extension controller for certificate services for shoot clusters",
+								"title":       "Certificate services",
+							},
+						},
+					},
+				},
+			},
+			nil,
+		},
 	}
+
 	for _, c := range cases {
-		got, err := Parse(c.in)
-		if err != nil {
-			fmt.Println(err)
-			return
+		got, gotErr := Parse(c.b)
+		if c.err != nil && gotErr != nil {
+			assert.Contains(t, gotErr.Error(), c.err.Error())
+		} else {
+			assert.Equal(t, gotErr, nil)
 		}
-		for _, n := range got.Structure {
-			traverse(n)
-		}
-		// if got != c.want {
-		// 	t.Errorf("Something(%q) == %q, want %q", c.in, got, c.want)
-		// }
+		assert.Equal(t, c.want, got)
 	}
+
 }
 
 func TestSerialize(t *testing.T) {
