@@ -43,7 +43,12 @@ func manifest(ctx context.Context, uri string, resourceHandlers []resourcehandle
 		}
 
 		targetBranch := api.ChooseTargetBranch(uri, "master")
-		return api.ParseWithMetadata(manifestContent, []string{}, 0, targetBranch)
+		doc, err := api.ParseWithMetadata(manifestContent, []string{}, 0, targetBranch)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse manifest: %s. %+v", uri, err)
+		}
+
+		return doc, nil
 	}
 
 	if handler = registry.Get(uri); handler == nil {

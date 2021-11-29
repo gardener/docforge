@@ -471,7 +471,12 @@ func (g *Git) ResolveDocumentation(ctx context.Context, uri string) (*api.Docume
 	if blob == nil {
 		return nil, nil
 	}
-	return api.ParseWithMetadata(blob, tags, nVersions, rl.SHAAlias)
+	doc, err := api.ParseWithMetadata(blob, tags, nVersions, rl.SHAAlias)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse manifest: %s. %+v", uri, err)
+	}
+
+	return doc, nil
 }
 
 //internally used

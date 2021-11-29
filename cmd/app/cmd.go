@@ -72,9 +72,6 @@ func NewCommand(ctx context.Context, cancel context.CancelFunc) *cobra.Command {
 			if doc, err = manifest(ctx, flags.documentationManifestPath, rhs); err != nil {
 				return err
 			}
-			if err := api.ValidateManifest(doc); err != nil {
-				return err
-			}
 			reactor, err := NewReactor(ctx, options, rhs, doc.Links)
 			if err != nil {
 				return err

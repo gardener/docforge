@@ -149,7 +149,100 @@ func Parse(b []byte) (*Documentation, error) {
 	if err = yaml.Unmarshal(blob, docs); err != nil {
 		return nil, err
 	}
+
+	if err = validateDocumentation(docs); err != nil {
+		return nil, err
+	}
+
 	return docs, nil
+}
+
+func validateDocumentation(d *Documentation) error {
+	var err error
+
+	if d.Structure == nil && d.NodeSelector == nil {
+		err = fmt.Errorf("the document structure must contains at least one of these propperties: structure, nodesSelector")
+		return err
+	}
+
+	if d.NodeSelector != nil && d.NodeSelector.Path == "" {
+		err = fmt.Errorf("the document structure must always contains path property in the nodesSelector")
+		return err
+	}
+
+	allNodes := getAllNodes(d.Structure)
+	for _, node := range allNodes {
+		if node.isDocument() && node.Source == "" && node.Name == "" {
+			err = fmt.Errorf("document node must contains at least one of these properties: source, name. node: %+v", node)
+			return err
+		}
+
+		if node.Source == "" && node.NodeSelector == nil && node.ContentSelectors == nil && node.Nodes == nil && node.Template == nil {
+			err = fmt.Errorf("node must contains at least one of these propperties: source, nodesSelector, contentsSelector, template, nodes. node: %+v", node)
+			return err
+		}
+
+		if node.isDocument() && (node.Nodes != nil || node.NodeSelector != nil) {
+			err = fmt.Errorf("node must be categorized as a document or a container node. Please specify only one of the following groups of propperties: %s, for node: %+v", "(source/contentSelector/Template),(nodes,nodesSelector)", node)
+			return err
+		}
+
+		if node.NodeSelector != nil && node.NodeSelector.Path == "" {
+			err = fmt.Errorf("document nodesSelector %+v must always contains a path property", node.NodeSelector)
+			return err
+		}
+
+		contentSelectors := make([]ContentSelector, 0)
+		if node.ContentSelectors != nil {
+			contentSelectors = append(contentSelectors, node.ContentSelectors...)
+		}
+
+		if node.Template != nil {
+			if node.Template.Path == "" {
+				err = fmt.Errorf("node template must always contains a path property. node: %+v", node)
+				return err
+			}
+
+			for key, cs := range node.Template.Sources {
+				if key == "" {
+					err = fmt.Errorf("the key of a template selector must not be empty. node: %+v", node)
+					return err
+				}
+
+				if cs == nil {
+					err = fmt.Errorf("template must always contains a map of contentSelectors. node: %+v", node)
+					return err
+				}
+
+				contentSelectors = append(contentSelectors, *cs)
+			}
+		}
+
+		for _, cs := range contentSelectors {
+			if cs.Source == "" {
+				err = fmt.Errorf("contentSelector must always contains a source property. node: %+v", node)
+				return err
+			}
+
+			if cs.Selector != nil {
+				err = fmt.Errorf("selector property is not supported in the ContentSelector. node: %+v", node)
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func getAllNodes(currentNodes []*Node) []*Node {
+	allNodes := make([]*Node, 0)
+
+	for _, node := range currentNodes {
+		allNodes = append(allNodes, node)
+		allNodes = append(allNodes, getAllNodes(node.Nodes)...)
+	}
+
+	return allNodes
 }
 
 // Serialize marshals the given documentation and transforms it to string

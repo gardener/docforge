@@ -80,8 +80,6 @@ type Node struct {
 	Template *Template `yaml:"template,omitempty"`
 	// The Nodes property is a list of nodes that are descendants of this Node in the
 	// documentation structure. Applicable to container nodes only.
-	//
-	// Mandatory for container nodes
 	Nodes []*Node `yaml:"nodes,omitempty"`
 	// NodesSelector specifies a NodeSelector to be used for dynamic
 	// resolution of nodes into descendants of this container node. The modelled
