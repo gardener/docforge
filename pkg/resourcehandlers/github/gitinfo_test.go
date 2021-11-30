@@ -12,7 +12,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/gardener/docforge/pkg/git"
+	"github.com/gardener/docforge/pkg/resourcehandlers/git/gitinterface"
 	"github.com/google/go-github/v32/github"
 )
 
@@ -20,12 +20,12 @@ func TestTransform(t *testing.T) {
 	testCases := []struct {
 		testFileNameIn  string
 		testFileNameOut string
-		want            *git.Info
+		want            *gitinterface.Info
 	}{
 		{
 			"test_format_00_in.json",
 			"test_format_00_out.json",
-			&git.Info{},
+			&gitinterface.Info{},
 		},
 	}
 	for _, tc := range testCases {

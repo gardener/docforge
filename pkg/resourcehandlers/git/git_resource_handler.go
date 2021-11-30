@@ -20,8 +20,8 @@ import (
 	"sync"
 
 	"github.com/gardener/docforge/pkg/api"
-	"github.com/gardener/docforge/pkg/git"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
+	"github.com/gardener/docforge/pkg/resourcehandlers/git/gitinterface"
 	"github.com/gardener/docforge/pkg/resourcehandlers/github"
 	"github.com/gardener/docforge/pkg/util/httpclient"
 	"github.com/gardener/docforge/pkg/util/urls"
@@ -67,7 +67,7 @@ type Git struct {
 	gitRepositoriesAbsPath string
 	acceptedHosts          []string
 	localMappings          map[string]string
-	git                    git.Git
+	git                    gitinterface.Git
 
 	preparedRepos map[string]*Repository
 	mutex         sync.RWMutex
@@ -76,7 +76,7 @@ type Git struct {
 }
 
 // NewResourceHandlerExtended creates new GitHub ResourceHandler objects given more arguments. Used when testing
-func NewResourceHandlerExtended(gitRepositoriesAbsPath string, user *string, oauthToken string, githubOAuthClient *ghclient.Client, httpClient *nethttp.Client, acceptedHosts []string, localMappings map[string]string, gitArg git.Git, prepRepos map[string]*Repository, fileR FileReader) resourcehandlers.ResourceHandler {
+func NewResourceHandlerExtended(gitRepositoriesAbsPath string, user *string, oauthToken string, githubOAuthClient *ghclient.Client, httpClient *nethttp.Client, acceptedHosts []string, localMappings map[string]string, gitArg gitinterface.Git, prepRepos map[string]*Repository, fileR FileReader) resourcehandlers.ResourceHandler {
 	return &Git{
 		client:                 githubOAuthClient,
 		httpClient:             httpClient,
@@ -99,7 +99,7 @@ func NewResourceHandler(gitRepositoriesAbsPath string, user *string, oauthToken 
 		localMappings:          localMappings,
 		gitRepositoriesAbsPath: gitRepositoriesAbsPath,
 		acceptedHosts:          acceptedHosts,
-		git:                    git.NewGit(),
+		git:                    gitinterface.NewGit(),
 		fileReader:             &osReader{},
 	}
 }

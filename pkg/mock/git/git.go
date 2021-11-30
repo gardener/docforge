@@ -11,7 +11,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	git "github.com/gardener/docforge/pkg/git"
+	git "github.com/gardener/docforge/pkg/resourcehandlers/git/gitinterface"
 	v5 "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	gomock "github.com/golang/mock/gomock"

@@ -17,9 +17,9 @@ import (
 	"os"
 
 	"github.com/gardener/docforge/pkg/api"
-	"github.com/gardener/docforge/pkg/git/gitfakes"
 	"github.com/gardener/docforge/pkg/resourcehandlers/git"
-	fakes2 "github.com/gardener/docforge/pkg/resourcehandlers/git/gitfakes"
+	"github.com/gardener/docforge/pkg/resourcehandlers/git/gitfakes"
+	"github.com/gardener/docforge/pkg/resourcehandlers/git/gitinterface/gitinterfacefakes"
 	ghub "github.com/gardener/docforge/pkg/resourcehandlers/github"
 
 	"github.com/google/go-github/v32/github"
@@ -119,9 +119,9 @@ var _ = Describe("Git", func() {
 			tags           []string
 
 			uri            string
-			fakeGit        gitfakes.FakeGit
-			fakeFileSystem fakes2.FakeFileReader
-			fakeFileInfo   fakes2.FakeFileInfo
+			fakeGit        gitinterfacefakes.FakeGit
+			fakeFileSystem gitfakes.FakeFileReader
+			fakeFileInfo   gitfakes.FakeFileInfo
 			got            *api.Documentation
 			err            error
 		)
@@ -159,8 +159,8 @@ var _ = Describe("Git", func() {
 				tags = []string{"v4.9", "v5.7", "v6.1", "v7.7"}
 				uri = "https://github.com/testOrg/testRepo/blob/DEFAULT_BRANCH/testManifest.yaml"
 				var (
-					fakeRepository gitfakes.FakeRepository
-					fakeWorktree   *gitfakes.FakeRepositoryWorktree
+					fakeRepository gitinterfacefakes.FakeRepository
+					fakeWorktree   *gitinterfacefakes.FakeRepositoryWorktree
 				)
 
 				//fakeGit.PlainCloneContextReturns(&fakeRepository, nil)
