@@ -148,7 +148,7 @@ func (r *Reactor) Run(ctx context.Context, manifest *api.Documentation, dryRun b
 	}()
 
 	if err := ResolveManifest(ctx, manifest, r.ResourceHandlers, r.manifestAbsPath, r.IndexFileNames); err != nil {
-		return err
+		return fmt.Errorf("failed to resolve manifest: %s. %+v", r.manifestAbsPath, err)
 	}
 
 	if err := checkForCollisions(manifest.Structure); err != nil {
@@ -190,7 +190,7 @@ func addSourceLocation(locations map[string][]*api.Node, node *api.Node) {
 func printResolved(ctx context.Context, manifest *api.Documentation, writer io.Writer) error {
 	s, err := api.Serialize(manifest)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to serialize the manifest. %+v", err)
 	}
 	writer.Write([]byte(s))
 	writer.Write([]byte("\n\n"))
