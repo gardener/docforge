@@ -5,6 +5,7 @@
 package processors
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/gardener/docforge/pkg/api"
@@ -59,7 +60,7 @@ func (f *FrontMatter) Process(document *Document) error {
 	fmBytes = document.FrontMatter
 	docFm = map[string]interface{}{}
 	if err := yaml.Unmarshal(fmBytes, docFm); err != nil {
-		return err
+		return fmt.Errorf("failed to unmarsal the document frontmatter. %+v", err)
 	}
 
 	for propertyKey, propertyValue := range docFm {

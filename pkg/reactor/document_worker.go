@@ -142,12 +142,12 @@ func (w *DocumentWorker) Work(ctx context.Context, task interface{}) error {
 			doc.Append(documentBytes)
 			if w.Processor != nil {
 				if err := w.Processor.Process(doc); err != nil {
-					return err
+					return fmt.Errorf("failed to process the document: %s. %+v", doc.Node.Source, err)
 				}
 			}
 			documentBytes = doc.DocumentBytes
 			if documentBytes, err = markdown.InsertFrontMatter(doc.FrontMatter, documentBytes); err != nil {
-				return err
+				return fmt.Errorf("failed to insert frontmatter to document: %s. %+v", doc.Node.Source, err)
 			}
 		}
 
