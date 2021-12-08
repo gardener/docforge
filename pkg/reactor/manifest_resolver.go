@@ -90,7 +90,18 @@ func resolveStructure(ctx context.Context, rhRegistry resourcehandlers.Registry,
 					if err = node.Union(newNode.Nodes); err != nil {
 						return err
 					}
-					node.Parent().Nodes = node.Nodes
+					// remove node form node.Parent().Nodes
+					parentNodes := node.Parent().Nodes
+					for index, el := range parentNodes {
+						if el == node {
+							parentNodes[index] = parentNodes[len(parentNodes)-1]
+							node.Parent().Nodes = parentNodes[:len(parentNodes)-1]
+						}
+					}
+					//merge node.Nodes with node.Parent().Nodes
+					if err = node.Parent().Union(node.Nodes); err != nil {
+						return err
+					}
 				} else {
 					if err = node.Union(newNode.Nodes); err != nil {
 						return err
