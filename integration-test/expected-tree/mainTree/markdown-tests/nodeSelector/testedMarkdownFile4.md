@@ -1,6 +1,7 @@
 ---
 title: TestedMarkdownFile4
 ---
+
 # Tested markdown file 4
 
 ### Link file which is not in the structure
