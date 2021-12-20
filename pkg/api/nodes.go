@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+	"k8s.io/klog/v2"
 )
 
 // Parent returns the parent node (if any) of this node n
@@ -266,15 +267,21 @@ func (n *Node) Union(nodes []*Node) error {
 			if reflect.DeepEqual(existingNode, node) {
 				continue // same node
 			}
+
 			if node.isDocument() {
-				return fmt.Errorf("not a container node to merge in %s/%s", Path(existingNode, "/"), existingNode.Name)
-			}
-			if len(node.Nodes) > 0 {
-				// merge recursively
-				// note: node properties merge is not supported; the properties from first node <existingNode> are active,
-				// as it is expected that they are defined explicitly in the manifest
-				if err := existingNode.Union(node.Nodes); err != nil {
-					return err
+				if existingNode.isDocument() {
+					klog.Warningf("Document collision conflict between %s/%s and %s/%s. Taking the explicitly defined %s/%s", Path(existingNode, "/"), existingNode.Name, Path(node, "/"), node.Name, Path(existingNode, "/"), existingNode.Name)
+				} else {
+					klog.Warningf("Folder and document collision conflict between %s/%s and %s/%s. Taking the explicitly defined folder %s/%s", Path(existingNode, "/"), existingNode.Name, Path(node, "/"), node.Name, Path(existingNode, "/"), existingNode.Name)
+				}
+			} else {
+				if len(node.Nodes) > 0 {
+					// merge recursively
+					// note: node properties merge is not supported; the properties from first node <existingNode> are active,
+					// as it is expected that they are defined explicitly in the manifest
+					if err := existingNode.Union(node.Nodes); err != nil {
+						return err
+					}
 				}
 			}
 		} else {

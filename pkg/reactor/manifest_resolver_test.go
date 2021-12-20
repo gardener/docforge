@@ -318,8 +318,8 @@ func TestResolveManifest(t *testing.T) {
 			},
 		},
 		{
-			name:        "merge_error_on_name_collision",
-			description: "should return error when merging container nodes that contains files with same names",
+			name:        "merge_on_name_collision",
+			description: "should't return error when merging container nodes that contains files with same names. Instead it should take the node that is explicitly defined",
 			args: args{
 				ctx: defaultCtxWithTimeout,
 				resolveNodeSelectorFunc: func(ctx context.Context, node *api.Node, excludePaths []string,
@@ -337,7 +337,13 @@ func TestResolveManifest(t *testing.T) {
 					NodeSelector: &api.NodeSelector{Path: "files_path"},
 				},
 			},
-			wantErr: true,
+			wantErr: false,
+			expectedDocumentation: &api.Documentation{
+				Structure: []*api.Node{{Name: "same_name",
+					Nodes: []*api.Node{
+						{Name: "same_name.md", Source: "source_s"},
+					}}},
+			},
 		},
 		{
 			name:        "merge_same_node_succeed",
