@@ -1,6 +1,7 @@
 ---
 title: TestedHTMLFile4
 ---
+
 <h1>Tested HTML file 4</h1>
 
 <h3>Link file which is not in the structure</h3>

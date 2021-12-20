@@ -14,7 +14,6 @@ import (
 	"strings"
 
 	"github.com/gardener/docforge/pkg/api"
-	"github.com/gardener/docforge/pkg/markdown"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/gardener/docforge/pkg/util/httpclient"
 	"github.com/gardener/docforge/pkg/util/urls"
@@ -131,14 +130,15 @@ func (gh *GitHub) buildNodes(ctx context.Context, node *api.Node, excludePaths [
 					// check for frontMatter filter compliance
 					if frontMatter != nil || excludeFrontMatter != nil {
 						// TODO: cache and reuse to avoid redundant reads when the structure nodes are processed
-						b, err := gh.Read(ctx, childResourceLocator.String())
-						if err != nil {
-							return nil, err
-						}
-						selected, err := markdown.MatchFrontMatterRules(b, frontMatter, excludeFrontMatter)
-						if err != nil {
-							return nil, err
-						}
+						// TODO: filter nodes once the content is read & parsed
+						//b, err := gh.Read(ctx, childResourceLocator.String())
+						//if err != nil {
+						//	return nil, err
+						//}
+						selected := true //, err := markdown.MatchFrontMatterRules(b, frontMatter, excludeFrontMatter)
+						//if err != nil {
+						//	return nil, err
+						//}
 						if !selected {
 							continue
 						}

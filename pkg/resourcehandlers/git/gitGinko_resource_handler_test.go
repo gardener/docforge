@@ -159,12 +159,12 @@ var _ = Describe("Git", func() {
 				tags = []string{"v4.9", "v5.7", "v6.1", "v7.7"}
 				uri = "https://github.com/testOrg/testRepo/blob/DEFAULT_BRANCH/testManifest.yaml"
 				var (
-					fakeRepository gitinterfacefakes.FakeRepository
-					fakeWorktree   *gitinterfacefakes.FakeRepositoryWorktree
+					fakeRepository = &gitinterfacefakes.FakeRepository{}
+					fakeWorktree   = &gitinterfacefakes.FakeRepositoryWorktree{}
 				)
 
 				//fakeGit.PlainCloneContextReturns(&fakeRepository, nil)
-				fakeGit.PlainOpenReturns(&fakeRepository, nil)
+				fakeGit.PlainOpenReturns(fakeRepository, nil)
 				fakeRepository.TagsReturns(tags, nil)
 				fakeRepository.WorktreeReturns(fakeWorktree, nil)
 

@@ -10,21 +10,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/gardener/docforge/pkg/api"
+	"github.com/gardener/docforge/pkg/jobs"
+	"github.com/gardener/docforge/pkg/resourcehandlers"
+	"github.com/gardener/docforge/pkg/writers"
 	"io"
+	"k8s.io/klog/v2"
 	"net/http"
 	"os"
 	"strings"
 	"sync"
-	"text/template"
-
-	"github.com/gardener/docforge/pkg/jobs"
-
-	"github.com/gardener/docforge/pkg/processors"
-	"k8s.io/klog/v2"
-
-	"github.com/gardener/docforge/pkg/api"
-	"github.com/gardener/docforge/pkg/resourcehandlers"
-	"github.com/gardener/docforge/pkg/writers"
 )
 
 // Options encapsulates the parameters for creating
@@ -38,15 +33,17 @@ type Options struct {
 	ManifestAbsPath              string
 	ResourceDownloadWorkersCount int
 	RewriteEmbedded              bool
-	processors.Processor
-	ResourceDownloadWriter writers.Writer
-	GitInfoWriter          writers.Writer
-	Writer                 writers.Writer
-	ResourceHandlers       []resourcehandlers.ResourceHandler
-	DryRunWriter           writers.DryRunWriter
-	Resolve                bool
-	GlobalLinksConfig      *api.Links
-	IndexFileNames         []string
+	ResourceDownloadWriter       writers.Writer
+	GitInfoWriter                writers.Writer
+	Writer                       writers.Writer
+	ResourceHandlers             []resourcehandlers.ResourceHandler
+	DryRunWriter                 writers.DryRunWriter
+	Resolve                      bool
+	GlobalLinksConfig            *api.Links
+	Hugo                         bool
+	PrettyUrls                   bool
+	IndexFileNames               []string
+	BaseURL                      string
 }
 
 // NewReactor creates a Reactor from Options
@@ -89,10 +86,8 @@ func NewReactor(o *Options) (*Reactor, error) {
 	worker := &DocumentWorker{
 		writer:               o.Writer,
 		reader:               &GenericReader{ResourceHandlers: rhRegistry},
-		NodeContentProcessor: NewNodeContentProcessor(o.ResourcesPath, o.GlobalLinksConfig, dScheduler, v, o.FailFast, o.RewriteEmbedded, rhRegistry),
-		Processor:            o.Processor,
+		NodeContentProcessor: NewNodeContentProcessor(o.ResourcesPath, o.GlobalLinksConfig, dScheduler, v, o.RewriteEmbedded, rhRegistry, o.Hugo, o.PrettyUrls, o.IndexFileNames, o.BaseURL),
 		gitHubInfo:           ghInfo,
-		templates:            map[string]*template.Template{},
 	}
 	docTasks, err := jobs.NewJobQueue("Document", o.MaxWorkersCount, worker.Work, o.FailFast, reactorWG)
 	if err != nil {
@@ -175,6 +170,7 @@ func getSourceLocationsMap(structure []*api.Node) map[string][]*api.Node {
 	return locations
 }
 
+// TODO: add content selector & template locations ???
 func addSourceLocation(locations map[string][]*api.Node, node *api.Node) {
 	if node.Source != "" {
 		locations[node.Source] = append(locations[node.Source], node)
