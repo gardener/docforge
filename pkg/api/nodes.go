@@ -14,6 +14,16 @@ import (
 	"k8s.io/klog/v2"
 )
 
+// NewNodeForTesting a function needed for node creation. NOTE: used only for testing
+func NewNodeForTesting(name string, source string, nodes []*Node, sourceLocator string) Node {
+	return Node{
+		Name:           name,
+		Source:         source,
+		Nodes:          nodes,
+		sourceLocation: sourceLocator,
+	}
+}
+
 // Parent returns the parent node (if any) of this node n
 func (n *Node) Parent() *Node {
 	return n.parent
