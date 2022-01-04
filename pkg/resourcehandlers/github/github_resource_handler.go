@@ -305,9 +305,11 @@ func (gh *GitHub) ResolveNodeSelector(ctx context.Context, node *api.Node, exclu
 		return nil, err
 	}
 	// finally, cleanup folder entries from contentSelectors
-	for _, child := range childNodes {
-		CleanupNodeTree(child)
+	_node := &api.Node{
+		Nodes: childNodes,
 	}
+	CleanupNodeTree(_node)
+	childNodes = _node.Nodes
 	if childNodes == nil {
 		return []*api.Node{}, nil
 	}

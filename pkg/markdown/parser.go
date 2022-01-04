@@ -11,16 +11,18 @@ import (
 	"github.com/yuin/goldmark/extension"
 	"github.com/yuin/goldmark/parser"
 	"github.com/yuin/goldmark/text"
+	"regexp"
 )
 
 var (
+	// extends Linkify regex by excluding trailing whitespaces and punctuations `[^\s<?!.,:*_~]`
+	urlRgx = regexp.MustCompile(`^(?:http|https|ftp)://[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-z]+(?::\d+)?(?:[/#?][-a-zA-Z0-9@:%_+.~#$!?&/=\(\);,'">\^{}\[\]` + "`" + `]*)?[^\s<?!.,:*_~]`)
 	// parser extension for GitHub Flavored Markdown & Frontmatter support
 	extensions = []goldmark.Extender{
 		extension.GFM,
 		meta.Meta,
 	}
-	// goldmark.Markdown parser with GFM extensions
-	gmParser = goldmark.New(goldmark.WithExtensions(extensions...))
+	gmParser = goldmark.New(goldmark.WithExtensions(extensions...), goldmark.WithParserOptions(extension.WithLinkifyURLRegexp(urlRgx)))
 )
 
 // Parse markdown content and returns AST node or error

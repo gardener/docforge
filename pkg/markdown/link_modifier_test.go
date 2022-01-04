@@ -57,8 +57,8 @@ var _ = Describe("Links modifier", func() {
 		Context("URL autolink", func() {
 			BeforeEach(func() {
 				lr.dst = "https://fake.com"
-				md = "links:\nhttp://foo.bar.baz\n<irc://foo.bar:2233/baz>\n<https://foo.bar.baz/test?q=hello&id=22&boolean~>\n(www.google.com/search?q=Markup+(business))\n"
-				exp = "links:\nhttps://fake.com\n<https://fake.com>\n<https://fake.com>\n(https://fake.com)\n"
+				md = "links:\nhttp://foo.bar.baz\n<irc://foo.bar:2233/baz>\n<https://foo.bar.baz/test?q=hello&id=22&boolean~>\n(www.google.com/search?q=Markup+(business))\n(https://foo.bar).\n"
+				exp = "links:\nhttps://fake.com\n<https://fake.com>\n<https://fake.com>\n(https://fake.com)\n(<https://fake.com>).\n"
 			})
 			It("modifies links", func() {
 				Expect(err).NotTo(HaveOccurred())
