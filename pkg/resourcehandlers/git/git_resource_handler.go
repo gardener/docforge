@@ -190,13 +190,12 @@ func (g *Git) ResolveNodeSelector(ctx context.Context, node *api.Node, excludePa
 
 	_node.SetParentsDownwards()
 	// finally, cleanup folder entries from contentSelectors
-	for _, child := range _node.Nodes {
-		github.CleanupNodeTree(child)
-	}
+	github.CleanupNodeTree(_node)
+
 	if len(_node.Nodes) > 0 {
 		return _node.Nodes, nil
 	}
-	return nil, nil
+	return []*api.Node{}, nil
 }
 
 func (g *Git) getNodeSelectorLocalPath(repositoryPath string, rl *github.ResourceLocator) string {

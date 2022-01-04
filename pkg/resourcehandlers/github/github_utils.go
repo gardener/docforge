@@ -162,7 +162,7 @@ func isRawURL(u *url.URL) bool {
 // CleanupNodeTree cleanups node tree:
 // - remove contentSources that reference tree objects. They are used
 //   internally to build the structure but are not a valid contentSource
-// - remove empty nodes that do not contain markdown. The build algorithm
+// - remove empty nodes that do not contain markdowns. The build algorithm
 //   is blind for the content of a node and leaves nodes that are folders
 //   containing for example images only and thus irrelevant to the
 //   documentation structure

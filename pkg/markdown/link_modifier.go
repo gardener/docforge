@@ -28,13 +28,13 @@ var (
 		},
 	}
 	// defines an ordered list item marker without next not space char '[^ ]+'
-	marker = regexp.MustCompile(`^(\d{1,9}[.)]) {1,4}`)
+	marker = regexp.MustCompile(`^\d{1,9}[.)] {1,4}`)
 	// defines a fence block line
 	fence = regexp.MustCompile("^ {0,3}```")
 	// GFM autolink extensions
-	http  = regexp.MustCompile(`^https*://([a-zA-Z\d\-_]+\.)*[a-zA-Z\d\-]+\.[a-zA-Z\d\-]+[^ <]*$`)
-	www   = regexp.MustCompile(`^www\.([a-zA-Z\d\-_]+\.)*[a-zA-Z\d\-]+\.[a-zA-Z\d\-]+[^ <]*$`)
-	email = regexp.MustCompile(`^[a-zA-Z\d.\-+]+@([a-zA-Z\d\-_]+\.)+[a-zA-Z\d\-_]+$`)
+	http  = regexp.MustCompile(`^https?://(?:[a-zA-Z\d\-_]+\.)*[a-zA-Z\d\-]+\.[a-zA-Z\d\-]+[^ <]*$`)
+	www   = regexp.MustCompile(`^www\.(?:[a-zA-Z\d\-_]+\.)*[a-zA-Z\d\-]+\.[a-zA-Z\d\-]+[^ <]*$`)
+	email = regexp.MustCompile(`^[a-zA-Z\d.\-+]+@(?:[a-zA-Z\d\-_]+\.)+[a-zA-Z\d\-_]+$`)
 )
 
 // ResolveLink type defines function for modifying link destination
@@ -869,6 +869,11 @@ func isClassicAutolink(link []byte, cnt []byte) bool {
 		return true
 	}
 	if http.Match(link) {
+		if len(cnt) > 0 && cnt[len(cnt)-1] == '(' {
+			// workaround for using default Linkify URL regex in Hugo
+			// `(https://foo.bar).` will be rendered as classic autolink `(<https://foo.bar>).`
+			return true
+		}
 		return false // GFM autolink http/s
 	}
 	if www.Match(link) {
