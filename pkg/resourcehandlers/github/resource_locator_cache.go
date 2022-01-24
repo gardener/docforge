@@ -22,9 +22,30 @@ type Cache struct {
 	treeExtractor TreeExtractor
 }
 
-// NewCache returns cahce given a tree extractor interface
-func NewCache(te TreeExtractor) *Cache {
+// NewEmptyCache returns empty cache given a tree extractor
+func NewEmptyCache(te TreeExtractor) *Cache {
 	return &Cache{cache: map[string]*ResourceLocator{}, treeExtractor: te}
+}
+
+// NewCache returns cache given a map and tree extractor
+func NewCache(cache map[string]*ResourceLocator, te TreeExtractor) *Cache {
+	return &Cache{cache: cache, treeExtractor: te}
+}
+
+// NewTestCache returns cache used for testing
+func NewTestCache(rlStrings []string) *Cache {
+	cache := &Cache{cache: map[string]*ResourceLocator{}}
+	for _, rlString := range rlStrings {
+		rl, _ := Parse(rlString)
+		rlKey, _ := cache.key(rl, false)
+		cache.cache[rlKey] = rl
+	}
+	return cache
+}
+
+//SetTreeExtractor sets the tree extractor
+func (c *Cache) SetTreeExtractor(te TreeExtractor) {
+	c.treeExtractor = te
 }
 
 //counterfeiter:generate . TreeExtractor

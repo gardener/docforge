@@ -9,11 +9,11 @@ import (
 	"fmt"
 	"testing"
 
-	mock_git "github.com/gardener/docforge/pkg/mock/git"
 	"github.com/gardener/docforge/pkg/resourcehandlers/git"
+	fakes "github.com/gardener/docforge/pkg/resourcehandlers/git/gitinterface/gitinterfacefakes"
 	gogit "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
 
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -23,39 +23,34 @@ func TestRepository_Prepare(t *testing.T) {
 	RunSpecs(t, "Repository Suite")
 }
 
-var branch = "master"
-
 var _ = Describe("Repository", func() {
 	var (
-		mockCtrl   *gomock.Controller
 		repository *git.Repository
+		branch     string
 
-		mockGit      *mock_git.MockGit
-		mockRepo     *mock_git.MockGitRepository
-		mockWorkTree *mock_git.MockGitRepositoryWorktree
+		fakeGit      fakes.FakeGit
+		fakeRepo     fakes.FakeRepository
+		fakeWorktree fakes.FakeRepositoryWorktree
 	)
 
 	BeforeEach(func() {
-		mockCtrl = gomock.NewController(GinkgoT())
-		mockGit = mock_git.NewMockGit(mockCtrl)
-		mockRepo = mock_git.NewMockGitRepository(mockCtrl)
-		mockWorkTree = mock_git.NewMockGitRepositoryWorktree(mockCtrl)
+		branch = "master"
+
+		fakeGit = fakes.FakeGit{}
+		fakeRepo = fakes.FakeRepository{}
+		fakeWorktree = fakes.FakeRepositoryWorktree{}
 
 		repository = &git.Repository{
-			Git: mockGit,
+			Git: &fakeGit,
 		}
 	})
 
-	AfterEach(func() {
-		mockCtrl.Finish()
-	})
-
 	Describe("Prepare()", func() {
-		Context("checks error when repository prepare was called previously", func() {
+		Context("prepare was called previously", func() {
 			BeforeEach(func() {
 				repository.State = git.Prepared
 			})
-			It("returns nil error, when already prepared", func() {
+			It("does not return error when already prepared", func() {
 				Expect(repository.Prepare(context.TODO(), branch)).To(BeNil())
 			})
 
@@ -70,44 +65,76 @@ var _ = Describe("Repository", func() {
 			})
 		})
 
-		Context("returns the expected error when preparing the repository ", func() {
-			var localPath string
+		Context("prepare wasn't called previously ", func() {
+
 			BeforeEach(func() {
 				repository.State = 0
-				localPath = "localPath"
-				repository.LocalPath = localPath
+				repository.LocalPath = "localPath"
+
+				fakeRepo.FetchContextReturns(nil)
+				fakeRepo.TagsReturns([]string{}, nil)
+				fakeRepo.ReferenceReturnsOnCall(0, plumbing.NewReferenceFromStrings("refs/remotes/origin/"+branch, ""), nil)
+				fakeRepo.ReferenceReturnsOnCall(1, nil, fmt.Errorf("some err"))
+				fakeRepo.WorktreeReturns(&fakeWorktree, nil)
+
+				fakeWorktree.CheckoutReturns(nil)
 			})
 
-			It("should not return err when PlainOpen is called", func() {
-				mockRepo.EXPECT().FetchContext(context.TODO(), gomock.Any()).Times(1).Return(nil)
-				mockRepo.EXPECT().Worktree().Times(1).Return(mockWorkTree, nil)
-				mockRepo.EXPECT().Tags().Times(0).Return(nil, nil)
-				mockRepo.EXPECT().Reference(gomock.Any(), true).Times(2).Return(nil, nil)
-				mockWorkTree.EXPECT().Checkout(gomock.Any()).Return(nil)
-				mockGit.EXPECT().PlainOpen(localPath).Times(1).Return(mockRepo, nil)
-				err := repository.Prepare(context.TODO(), branch)
-				Expect(err).To(BeNil())
-			})
-
-			It("should clone the repository ", func() {
-				mockRepo.EXPECT().FetchContext(context.TODO(), gomock.Any()).Times(0)
-				mockRepo.EXPECT().Worktree().Times(1).Return(mockWorkTree, nil)
-				mockRepo.EXPECT().Tags().Times(0).Return(nil, nil)
-				mockRepo.EXPECT().Reference(gomock.Any(), true).Times(2).Return(nil, nil)
-				mockWorkTree.EXPECT().Checkout(gomock.Any()).Return(nil)
-				mockGit.EXPECT().PlainOpen(localPath).Times(1).Return(nil, gogit.ErrRepositoryNotExists)
-				mockGit.EXPECT().PlainCloneContext(gomock.Any(), localPath, false, gomock.Any()).Times(1).Return(mockRepo, nil)
-
-				err := repository.Prepare(context.TODO(), branch)
-				Expect(err).To(BeNil())
-			})
-
-			It("should return nil err when PlainOpen is called but repo doesn't exist", func() {
+			Context("repository does not exist", func() {
 				var expectedErr = fmt.Errorf("notgogit.ErrRepositoryNotExists")
-				mockGit.EXPECT().PlainOpen(localPath).Times(1).Return(nil, expectedErr)
-				err := repository.Prepare(context.TODO(), branch)
-				Expect(err).NotTo(BeNil())
-				Expect(err).To(BeIdenticalTo(expectedErr))
+
+				BeforeEach(func() {
+					fakeGit.PlainOpenReturns(nil, expectedErr)
+				})
+
+				It("should return error", func() {
+					err := repository.Prepare(context.TODO(), branch)
+					Expect(err).NotTo(BeNil())
+					Expect(err).To(BeIdenticalTo(expectedErr))
+
+					Expect(fakeGit.PlainOpenCallCount()).Should(Equal(1))
+				})
+			})
+
+			Context("repository exists but does not locally", func() {
+				BeforeEach(func() {
+					fakeGit.PlainOpenReturns(nil, gogit.ErrRepositoryNotExists)
+					fakeGit.PlainCloneContextReturns(&fakeRepo, nil)
+				})
+
+				It("should clone the repository ", func() {
+					err := repository.Prepare(context.TODO(), branch)
+					Expect(err).To(BeNil())
+
+					Expect(fakeRepo.FetchContextCallCount()).Should(Equal(0))
+					Expect(fakeRepo.WorktreeCallCount()).Should(Equal(1))
+					Expect(fakeRepo.TagsCallCount()).Should(Equal(0))
+					Expect(fakeRepo.ReferenceCallCount()).Should(Equal(2))
+
+					Expect(fakeGit.PlainOpenCallCount()).Should(Equal(1))
+					Expect(fakeGit.PlainCloneContextCallCount()).Should(Equal(1))
+
+				})
+
+			})
+
+			Context("repository does exist", func() {
+				BeforeEach(func() {
+					fakeGit.PlainOpenReturns(&fakeRepo, nil)
+				})
+
+				It("should not return any errors ", func() {
+					err := repository.Prepare(context.TODO(), branch)
+					Expect(err).To(BeNil())
+
+					Expect(fakeGit.PlainOpenCallCount()).Should(Equal(1))
+					Expect(fakeGit.PlainCloneContextCallCount()).Should(Equal(0))
+					Expect(fakeRepo.FetchContextCallCount()).Should(Equal(1))
+					Expect(fakeRepo.WorktreeCallCount()).Should(Equal(1))
+					Expect(fakeRepo.TagsCallCount()).Should(Equal(0))
+					Expect(fakeRepo.ReferenceCallCount()).Should(Equal(2))
+				})
+
 			})
 
 		})

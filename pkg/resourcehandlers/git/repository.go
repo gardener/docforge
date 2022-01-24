@@ -118,12 +118,14 @@ func (r *Repository) repository(ctx context.Context) (gitinterface.Repository, b
 
 func getCheckoutReferenceName(repository gitinterface.Repository, version string) plumbing.ReferenceName {
 	var checkoutDestination plumbing.ReferenceName
-	_, err1 := repository.Reference(plumbing.NewRemoteReferenceName(gogit.DefaultRemoteName, version), true)
-	_, err2 := repository.Reference(plumbing.NewTagReferenceName(version), true)
+	branchReference := plumbing.NewRemoteReferenceName(gogit.DefaultRemoteName, version)
+	tagReference := plumbing.NewTagReferenceName(version)
+	_, err1 := repository.Reference(branchReference, true)
+	_, err2 := repository.Reference(tagReference, true)
 	if err1 == nil {
-		checkoutDestination = plumbing.NewRemoteReferenceName(gogit.DefaultRemoteName, version)
+		checkoutDestination = branchReference
 	} else if err2 == nil {
-		checkoutDestination = plumbing.NewTagReferenceName(version)
+		checkoutDestination = tagReference
 	}
 	return checkoutDestination
 }

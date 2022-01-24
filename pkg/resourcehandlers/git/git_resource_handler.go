@@ -76,8 +76,8 @@ type Git struct {
 	cache      *github.Cache
 }
 
-// NewResourceHandlerExtended creates new GitHub ResourceHandler objects given more arguments. Used when testing
-func NewResourceHandlerExtended(gitRepositoriesAbsPath string, user *string, oauthToken string, githubOAuthClient *ghclient.Client, httpClient *nethttp.Client, acceptedHosts []string, localMappings map[string]string, gitArg gitinterface.Git, prepRepos map[string]*Repository, fileR FileReader, cache *github.Cache) resourcehandlers.ResourceHandler {
+// NewResourceHandlerCachedTest creates new GitHub ResourceHandler objects given more arguments. Used when testing
+func NewResourceHandlerCachedTest(gitRepositoriesAbsPath string, user *string, oauthToken string, githubOAuthClient *ghclient.Client, httpClient *nethttp.Client, acceptedHosts []string, localMappings map[string]string, gitArg gitinterface.Git, prepRepos map[string]*Repository, fileR FileReader, cache *github.Cache) resourcehandlers.ResourceHandler {
 	out := &Git{
 		client:                 githubOAuthClient,
 		httpClient:             httpClient,
@@ -106,7 +106,7 @@ func NewResourceHandler(gitRepositoriesAbsPath string, user *string, oauthToken 
 		fileReader:             &osReader{},
 	}
 
-	out.cache = github.NewCache(&treeExtractor{gitRH: out})
+	out.cache = github.NewEmptyCache(&TreeExtractorGit{gitRH: out, walker: filepath.Walk})
 	return out
 
 }
@@ -171,21 +171,29 @@ func (g *Git) ResolveNodeSelector(ctx context.Context, node *api.Node, excludePa
 	return github.BaseResolveNodeSelector(ctx, rl, g, g.cache, node, excludePaths, frontMatter, excludeFrontMatter, depth)
 }
 
-type treeExtractor struct {
-	gitRH *Git
+//TreeExtractorGit extracts the tree structure from a local git repository
+type TreeExtractorGit struct {
+	gitRH  *Git
+	walker func(root string, walkerFunc filepath.WalkFunc) error
 }
 
-func (tE *treeExtractor) ExtractTree(ctx context.Context, rl *github.ResourceLocator) ([]*github.ResourceLocator, error) {
+//NewTreeExtractorTest creates a new git tree extractor for testing
+func NewTreeExtractorTest(gitRH *Git, walker func(root string, walkerFunc filepath.WalkFunc) error) *TreeExtractorGit {
+	return &TreeExtractorGit{gitRH: gitRH, walker: walker}
+}
+
+//ExtractTree extracts the content given a resource locator, ignoring its path. In other words, it treats it as a repo
+func (tE *TreeExtractorGit) ExtractTree(ctx context.Context, rl *github.ResourceLocator) ([]*github.ResourceLocator, error) {
 	//preparing repository
 	repositoryPath := tE.gitRH.repositoryPathFromResourceLocator(rl)
 	if err := tE.gitRH.prepareGitRepository(ctx, rl); err != nil {
 		return nil, err
 	}
 	nodesSelectorLocalPath := tE.gitRH.getNodeSelectorLocalPath(repositoryPath, rl)
+	root := strings.Split(nodesSelectorLocalPath, rl.SHAAlias)[0] + rl.SHAAlias
 
 	result := make([]*github.ResourceLocator, 0)
-	root := strings.Split(nodesSelectorLocalPath, rl.SHAAlias)[0] + rl.SHAAlias
-	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+	err := tE.walker(root, func(path string, info os.FileInfo, err error) error {
 		if path == root {
 			return nil
 		}
