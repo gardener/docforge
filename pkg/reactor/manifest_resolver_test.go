@@ -7,6 +7,8 @@ package reactor
 import (
 	"context"
 	"fmt"
+	"github.com/gardener/docforge/cmd/configuration"
+	"github.com/gardener/docforge/pkg/writers/writersfakes"
 	"testing"
 	"time"
 
@@ -14,7 +16,6 @@ import (
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/gardener/docforge/pkg/resourcehandlers/testhandler"
 	"github.com/stretchr/testify/assert"
-	"k8s.io/utils/pointer"
 )
 
 const testPath string = "test-nodesSelector-path"
@@ -129,7 +130,7 @@ func TestResolveManifest(t *testing.T) {
 			},
 		},
 		{
-			// TODO: this test case demonstrates design flaw where we generate anonmyous node
+			// TODO: this test case demonstrates design flaw where we generate anonymous node
 			name:        "resolve_module_on_root",
 			description: "resolve module specified on root level and append to structure",
 			args: args{
@@ -160,7 +161,7 @@ func TestResolveManifest(t *testing.T) {
 		},
 		{
 			name:        "break_recursive_module",
-			description: "breaks recursive import of modules for example if the documentation imports A that imports B it should stop resolvin if B imports A",
+			description: "breaks recursive import of modules for example if the documentation imports A that imports B it should stop resolving if B imports A",
 			args: args{
 				ctx: defaultCtxWithTimeout,
 				resolveNodeSelectorFunc: func(ctx context.Context, node *api.Node, excludePaths []string,
@@ -175,63 +176,7 @@ func TestResolveManifest(t *testing.T) {
 				},
 				testDocumentation: &api.Documentation{NodeSelector: &testNodeSelector},
 			},
-			wantErr: false,
-			// TODO: circular dependency should clear empty nodes
-			expectedDocumentation: &api.Documentation{
-				Structure: []*api.Node{
-					{
-						Nodes: []*api.Node{
-							{
-								Nodes: []*api.Node{
-									{},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "succeeds_to_break_recursive_module",
-			args: args{
-				ctx: defaultCtxWithTimeout,
-				resolveNodeSelectorFunc: func(ctx context.Context, node *api.Node, excludePaths []string,
-					frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32) ([]*api.Node, error) {
-					if node.NodeSelector.Path == testNodeSelector.Path {
-						return []*api.Node{{NodeSelector: &api.NodeSelector{Path: "moduleA.yaml"}}}, nil
-					}
-					if node.NodeSelector.Path == "moduleA.yaml" {
-						return []*api.Node{{NodeSelector: &testNodeSelector}}, nil
-					}
-					return []*api.Node{{Name: "resolvedNestedNode"}}, nil
-				},
-				testDocumentation: &api.Documentation{
-					Structure: []*api.Node{
-						&testNode,
-						{
-							Name:         "moduleA",
-							NodeSelector: &testNodeSelector,
-						},
-					},
-				},
-			},
-			wantErr: false,
-			// TODO: circular dependency should clear empty nodes
-			expectedDocumentation: &api.Documentation{
-				Structure: []*api.Node{
-					&testNode,
-					{
-						Name: "moduleA",
-						Nodes: []*api.Node{
-							{
-								Nodes: []*api.Node{
-									{},
-								},
-							},
-						},
-					},
-				},
-			},
+			wantErr: true,
 		},
 		{
 			name:        "merge_structure_&_node_selector_flat",
@@ -265,7 +210,7 @@ func TestResolveManifest(t *testing.T) {
 						{Name: "file1.md", Source: "source1"},
 						{Name: "file2.md", Source: "source2"},
 						{Name: "file3.md", Source: "source3"},
-						{Name: "file4.md", Source: "source4"},
+						{Name: "file4", Source: "source4"},
 						{Name: "file5.md", Source: "source5"},
 					}}},
 			},
@@ -310,10 +255,10 @@ func TestResolveManifest(t *testing.T) {
 							{Name: "file2.md", Source: "source2"},
 							{Name: "same_name_l3", Nodes: []*api.Node{
 								{Name: "file3.md", Source: "source3"},
-								{Name: "file5.md", Source: "source5"},
+								{Name: "file5", Source: "source5"},
 							}},
 						}},
-						{Name: "file4.md", Source: "source4"},
+						{Name: "file4", Source: "source4"},
 					}}},
 			},
 		},
@@ -382,8 +327,19 @@ func TestResolveManifest(t *testing.T) {
 				}
 			}
 			rh := new(testhandler.TestResourceHandler).WithResolveNodeSelector(tt.args.resolveNodeSelectorFunc)
-			resourcehandlers.NewRegistry(rh)
-			if err := ResolveManifest(tt.args.ctx, tt.args.testDocumentation, resourcehandlers.NewRegistry(rh), tt.args.manifestPath, []string{}); (err != nil) != tt.wantErr {
+			opt := &Options{
+				ResourceHandlers:             []resourcehandlers.ResourceHandler{rh},
+				ManifestPath:                 tt.args.manifestPath,
+				Hugo:                         &configuration.Hugo{},
+				Writer:                       &writersfakes.FakeWriter{},
+				ResourceDownloadWriter:       &writersfakes.FakeWriter{},
+				ResourceDownloadWorkersCount: 1,
+				DocumentWorkersCount:         1,
+				ValidationWorkersCount:       1,
+			}
+			r, err := NewReactor(opt)
+			assert.Equal(t, err, nil)
+			if err = r.ResolveManifest(tt.args.ctx, tt.args.testDocumentation); (err != nil) != tt.wantErr {
 				t.Errorf("ResolveManifest() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if tt.wantErr {
@@ -396,11 +352,10 @@ func TestResolveManifest(t *testing.T) {
 
 func Test_resolveNodeSelector(t *testing.T) {
 	type args struct {
-		ctx               context.Context
-		rhRegistry        resourcehandlers.Registry
-		node              *api.Node
-		visited           map[string]bool
-		globalLinksConfig *api.Links
+		ctx        context.Context
+		rhRegistry resourcehandlers.Registry
+		node       *api.Node
+		visited    map[string]int
 	}
 	tests := []struct {
 		name                     string
@@ -420,8 +375,7 @@ func Test_resolveNodeSelector(t *testing.T) {
 				node: &api.Node{
 					NodeSelector: &testNodeSelector,
 				},
-				visited:           make(map[string]bool),
-				globalLinksConfig: &api.Links{},
+				visited: make(map[string]int),
 			},
 			acceptFunc: func(uri string) bool {
 				return !(uri == testNodeSelector.Path)
@@ -437,8 +391,7 @@ func Test_resolveNodeSelector(t *testing.T) {
 				node: &api.Node{
 					NodeSelector: &testNodeSelector,
 				},
-				visited:           make(map[string]bool),
-				globalLinksConfig: &api.Links{},
+				visited: make(map[string]int),
 			},
 			resolveDocumentationFunc: func(ctx context.Context, uri string) (*api.Documentation, error) {
 				return nil, fmt.Errorf("error that should be thrown for this test case")
@@ -453,8 +406,7 @@ func Test_resolveNodeSelector(t *testing.T) {
 				node: &api.Node{
 					NodeSelector: &testNodeSelector,
 				},
-				visited:           make(map[string]bool),
-				globalLinksConfig: &api.Links{},
+				visited: make(map[string]int),
 			},
 			resolveDocumentationFunc: func(ctx context.Context, uri string) (*api.Documentation, error) {
 				module := &api.Documentation{
@@ -478,8 +430,7 @@ func Test_resolveNodeSelector(t *testing.T) {
 				node: &api.Node{
 					NodeSelector: &testNodeSelector,
 				},
-				visited:           make(map[string]bool),
-				globalLinksConfig: &api.Links{},
+				visited: make(map[string]int),
 			},
 			resolveNodeSelectorFunc: func(ctx context.Context, node *api.Node, excludePaths []string, frontMatter, excludeFrontMatter map[string]interface{}, depth int32) ([]*api.Node, error) {
 				if node.NodeSelector.Path == testNodeSelector2.Path {
@@ -514,28 +465,13 @@ func Test_resolveNodeSelector(t *testing.T) {
 				node: &api.Node{
 					NodeSelector: &testNodeSelector,
 				},
-				visited: make(map[string]bool),
-				globalLinksConfig: &api.Links{Rewrites: map[string]*api.LinkRewriteRule{
-					"example.com/sources": {
-						Destination: pointer.StringPtr("A"),
-					},
-				}},
+				visited: make(map[string]int),
 			},
 			resolveDocumentationFunc: func(ctx context.Context, uri string) (*api.Documentation, error) {
 				if uri == testPath {
 					module := &api.Documentation{
 						Structure: []*api.Node{
 							&testNode,
-						},
-						Links: &api.Links{
-							Rewrites: map[string]*api.LinkRewriteRule{
-								"example.com/sources": {
-									Destination: pointer.StringPtr("shouldn't override A"),
-								},
-								"example.com/blogs": {
-									Destination: pointer.StringPtr("should be added"),
-								},
-							},
 						},
 					}
 					return module, nil
@@ -545,13 +481,6 @@ func Test_resolveNodeSelector(t *testing.T) {
 			want: &api.Node{
 				Nodes: []*api.Node{
 					&testNode,
-				},
-				Links: &api.Links{
-					Rewrites: map[string]*api.LinkRewriteRule{
-						"example.com/blogs": {
-							Destination: pointer.StringPtr("should be added"),
-						},
-					},
 				},
 			},
 			wantErr: false,
@@ -562,47 +491,14 @@ func Test_resolveNodeSelector(t *testing.T) {
 			args: args{
 				node: &api.Node{
 					NodeSelector: &testNodeSelector,
-					Links: &api.Links{Rewrites: map[string]*api.LinkRewriteRule{
-						"example.com/sources": {
-							Destination: pointer.StringPtr("parent node sources link rewrite"),
-						},
-						"example.com/blogs": {
-							Destination: pointer.StringPtr("parent node blogs link rewrite"),
-						},
-					},
-					},
 				},
-				visited: make(map[string]bool),
-				globalLinksConfig: &api.Links{Rewrites: map[string]*api.LinkRewriteRule{
-					"example.com/sources": {
-						Destination: pointer.StringPtr("sources global destination rewrite"),
-					},
-					"example.com/news": {
-						Destination: pointer.StringPtr("news global destination rewrite"),
-					},
-				}},
+				visited: make(map[string]int),
 			},
 			resolveDocumentationFunc: func(ctx context.Context, uri string) (*api.Documentation, error) {
 				if uri == testPath {
 					module := &api.Documentation{
 						Structure: []*api.Node{
 							&testNode,
-						},
-						Links: &api.Links{
-							Rewrites: map[string]*api.LinkRewriteRule{
-								"example.com/sources": {
-									Destination: pointer.StringPtr("sources module destination rewrite"),
-								},
-								"example.com/fish": {
-									Destination: pointer.StringPtr("fish module destination rewrite"),
-								},
-								"example.com/news": {
-									Destination: pointer.StringPtr("news module destination rewrite"),
-								},
-								"example.com/blogs": {
-									Destination: pointer.StringPtr("blogs module destination rewrite"),
-								},
-							},
 						},
 					}
 					return module, nil
@@ -612,13 +508,6 @@ func Test_resolveNodeSelector(t *testing.T) {
 			want: &api.Node{
 				Nodes: []*api.Node{
 					&testNode,
-				},
-				Links: &api.Links{
-					Rewrites: map[string]*api.LinkRewriteRule{
-						"example.com/fish": {
-							Destination: pointer.StringPtr("fish module destination rewrite"),
-						},
-					},
 				},
 			},
 			wantErr: false,
@@ -629,53 +518,14 @@ func Test_resolveNodeSelector(t *testing.T) {
 			args: args{
 				node: &api.Node{
 					NodeSelector: &testNodeSelector,
-					Links: &api.Links{
-						Downloads: &api.Downloads{
-							Renames: api.ResourceRenameRules{
-								"example.com/images/image.png":           "parent node download renames that exist in module",
-								"example.com/images/overridesglobal.png": "parent node download renames that overridesglobal and exist in module",
-							},
-							Scope: map[string]api.ResourceRenameRules{
-								"example.com/own/repo": {
-									"images/": "",
-								},
-							},
-						},
-					},
 				},
-				visited: make(map[string]bool),
-				globalLinksConfig: &api.Links{
-					Downloads: &api.Downloads{
-						Renames: api.ResourceRenameRules{
-							"example.com/images/overridesglobal.png":  "global download renames that overridesglobal and exist in module",
-							"example.com/images/notexistonparent.png": "global download rename that doesn't exist on parent node",
-						},
-					},
-				},
+				visited: make(map[string]int),
 			},
 			resolveDocumentationFunc: func(ctx context.Context, uri string) (*api.Documentation, error) {
 				if uri == testPath {
 					module := &api.Documentation{
 						Structure: []*api.Node{
 							&testNode,
-						},
-						Links: &api.Links{
-							Downloads: &api.Downloads{
-								Renames: api.ResourceRenameRules{
-									"example.com/images/image.png":            "parent node download renames that exist in module",
-									"example.com/images/overridesglobal.png":  "parent node download renames that overridesglobal and exist in module",
-									"example.com/images/notexistonparent.png": "global download rename that doesn't exist on parent node",
-									"example.com/images/frommodule.png":       "renames from module",
-								},
-								Scope: map[string]api.ResourceRenameRules{
-									"example.com/own/repo": {
-										"images/": "images/2.0",
-									},
-									"example.com/notown/notrepo": {
-										"images/": "images/2.0",
-									},
-								},
-							},
 						},
 					}
 					return module, nil
@@ -685,19 +535,6 @@ func Test_resolveNodeSelector(t *testing.T) {
 			want: &api.Node{
 				Nodes: []*api.Node{
 					&testNode,
-				},
-				Links: &api.Links{
-					Downloads: &api.Downloads{
-						Renames: api.ResourceRenameRules{
-
-							"example.com/images/frommodule.png": "renames from module",
-						},
-						Scope: map[string]api.ResourceRenameRules{
-							"example.com/notown/notrepo": {
-								"images/": "images/2.0",
-							},
-						},
-					},
 				},
 			},
 			wantErr: false,
@@ -711,8 +548,18 @@ func Test_resolveNodeSelector(t *testing.T) {
 				}
 			}
 			rh := new(testhandler.TestResourceHandler).WithAccept(tt.acceptFunc).WithResolveDocumentation(tt.resolveDocumentationFunc).WithResolveNodeSelector(tt.resolveNodeSelectorFunc)
-			rhRegistry := resourcehandlers.NewRegistry(rh)
-			got, err := resolveNodeSelector(defaultCtxWithTimeout, rhRegistry, tt.args.node, tt.args.visited, tt.args.globalLinksConfig)
+			opt := &Options{
+				ResourceHandlers:             []resourcehandlers.ResourceHandler{rh},
+				Hugo:                         &configuration.Hugo{},
+				Writer:                       &writersfakes.FakeWriter{},
+				ResourceDownloadWriter:       &writersfakes.FakeWriter{},
+				ResourceDownloadWorkersCount: 1,
+				DocumentWorkersCount:         1,
+				ValidationWorkersCount:       1,
+			}
+			r, err := NewReactor(opt)
+			assert.Equal(t, err, nil)
+			got, err := r.resolveNodeSelector(defaultCtxWithTimeout, tt.args.node, tt.args.visited)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("resolveNodeSelector() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -749,7 +596,7 @@ func Test_resolveNodeName(t *testing.T) {
 				node: &api.Node{Source: ""},
 			},
 			want:    "",
-			wantErr: true,
+			wantErr: false, //todo: not a document node
 		},
 		{
 			name:        "missing_resource_handler",
@@ -830,18 +677,18 @@ func Test_resolveNodeName(t *testing.T) {
 				node: &api.Node{Name: "a_name"},
 			},
 			parent:  &api.Node{Nodes: []*api.Node{{Name: "n1", Properties: map[string]interface{}{"index": true}}, {Name: "n2", Properties: map[string]interface{}{"index": true}}}},
-			want:    "",
-			wantErr: true,
+			want:    "a_name",
+			wantErr: false, // todo: this is part of manifest validation
 		},
 		{
 			name:        "node_selected_to_be_index",
 			description: "if none of the peers has index = true and the node name matches indexFileNames, it will be selected for section file",
 			args: args{
-				node:           &api.Node{Name: "", Source: "https://fake.host/read.me"},
-				indexFileNames: []string{"readme", "read.me", "index"},
+				node:           &api.Node{Name: "", Source: "https://fake.host/readme.md"},
+				indexFileNames: []string{"readme.md", "read.me", "index"},
 			},
 			resourceName: func(link string) (string, string) {
-				return "read", "me"
+				return "readme", "md"
 			},
 			parent:  &api.Node{Nodes: []*api.Node{{Name: "n1"}, {Name: "n2"}}},
 			want:    "_index.md",
@@ -851,14 +698,29 @@ func Test_resolveNodeName(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			rh := new(testhandler.TestResourceHandler).WithAccept(tt.acceptFunc).WithResourceName(tt.resourceName)
-			rhRegistry := resourcehandlers.NewRegistry(rh)
+			opt := &Options{
+				ResourceHandlers: []resourcehandlers.ResourceHandler{rh},
+				Hugo: &configuration.Hugo{
+					Enabled:        true,
+					IndexFileNames: tt.args.indexFileNames,
+				},
+				Writer:                       &writersfakes.FakeWriter{},
+				ResourceDownloadWriter:       &writersfakes.FakeWriter{},
+				ResourceDownloadWorkersCount: 1,
+				DocumentWorkersCount:         1,
+				ValidationWorkersCount:       1,
+			}
+			r, err := NewReactor(opt)
+			assert.Equal(t, err, nil)
 			tt.args.node.SetParent(tt.parent)
-			got, err := resolveNodeName(defaultCtxWithTimeout, rhRegistry, tt.args.node, tt.args.indexFileNames)
+			nodes := []*api.Node{tt.args.node}
+			err = r.resolveNodeNames(nodes)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("resolveNodeName() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-
+			r.resolveSectionFiles(&api.Node{Nodes: nodes})
+			got := tt.args.node.Name
 			if !assert.Equal(t, tt.want, got) {
 				t.Errorf("resolveNodeName() = %v, want %v", got, tt.want)
 			}

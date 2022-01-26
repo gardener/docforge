@@ -30,8 +30,8 @@ type DocumentWorkTask struct {
 func (w *DocumentWorker) Work(ctx context.Context, task interface{}) error {
 	if dwTask, ok := task.(*DocumentWorkTask); ok {
 		var cnt []byte
-		path := api.Path(dwTask.Node, "/")
-		if len(dwTask.Node.Nodes) == 0 { // Node is considered a `Document Node`
+		path := dwTask.Node.Path("/")
+		if dwTask.Node.IsDocument() { // Node is considered a `Document Node`
 			// Process the node
 			bytesBuff := bufPool.Get().(*bytes.Buffer)
 			defer bufPool.Put(bytesBuff)

@@ -37,7 +37,7 @@ func newGenDocsFormat(formatString string) (genDocsFormat, error) {
 }
 
 // NewGenCmdDocs generates commands reference documentation
-// in markdown format
+// in Markdown format
 func NewGenCmdDocs() *cobra.Command {
 	flags := &genDocsCmdFlags{}
 	command := &cobra.Command{

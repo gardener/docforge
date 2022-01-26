@@ -197,8 +197,9 @@ func (tE *TreeExtractorGit) ExtractTree(ctx context.Context, rl *github.Resource
 		if path == root {
 			return nil
 		}
-		relativePath := strings.TrimPrefix(path, root+"/")
-		//dont include files from the .git folder, because they are not part of the repository
+		relativePath := strings.TrimPrefix(path, root + string(os.PathSeparator))
+		relativePath = filepath.ToSlash(relativePath)
+		//don't include files from the .git folder, because they are not part of the repository
 		if relativePath == ".git" || strings.HasPrefix(relativePath, ".git/") {
 			return nil
 		}

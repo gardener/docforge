@@ -20,26 +20,26 @@ func init() {
 
 var (
 	apiRefNode = &api.Node{
-		Name:             "apiRef",
-		ContentSelectors: []api.ContentSelector{{Source: "https://github.com/org/repo/tree/master/docs/architecture/apireference.md"}},
+		Name: "apiRef",
+		//ContentSelectors: []api.ContentSelector{{Source: "https://github.com/org/repo/tree/master/docs/architecture/apireference.md"}},
 	}
 
 	archNode = &api.Node{
-		Name:             "arch",
-		ContentSelectors: []api.ContentSelector{{Source: "https://github.com/org/repo/tree/master/docs/architecture"}},
+		Name: "arch",
+		//ContentSelectors: []api.ContentSelector{{Source: "https://github.com/org/repo/tree/master/docs/architecture"}},
 		Nodes: []*api.Node{
 			apiRefNode,
 		},
 	}
 
 	blogNode = &api.Node{
-		Name:             "blog",
-		ContentSelectors: []api.ContentSelector{{Source: "https://github.com/org/repo/tree/master/docs/blog/blog-part1.md"}},
+		Name: "blog",
+		//ContentSelectors: []api.ContentSelector{{Source: "https://github.com/org/repo/tree/master/docs/blog/blog-part1.md"}},
 	}
 
 	tasksNode = &api.Node{
-		Name:             "tasks",
-		ContentSelectors: []api.ContentSelector{{Source: "https://github.com/org/repo/tree/master/docs/tasks"}},
+		Name: "tasks",
+		//ContentSelectors: []api.ContentSelector{{Source: "https://github.com/org/repo/tree/master/docs/tasks"}},
 	}
 )
 
@@ -47,8 +47,8 @@ func createNewDocumentation() *api.Documentation {
 	return &api.Documentation{
 		Structure: []*api.Node{
 			{
-				Name:             "rootNode",
-				ContentSelectors: []api.ContentSelector{{Source: "https://github.com/org/repo/tree/master/docs"}},
+				Name: "rootNode",
+				//ContentSelectors: []api.ContentSelector{{Source: "https://github.com/org/repo/tree/master/docs"}},
 				Nodes: []*api.Node{
 					archNode,
 					blogNode,

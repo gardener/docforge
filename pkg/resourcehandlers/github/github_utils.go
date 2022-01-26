@@ -9,14 +9,13 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"sync"
 
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
-
 	"github.com/gardener/docforge/pkg/util/urls"
-
 	ghclient "github.com/google/go-github/v32/github"
 )
 
@@ -161,37 +160,6 @@ func isRawURL(u *url.URL) bool {
 	return strings.HasPrefix(u.Host, "raw.") || strings.HasPrefix(u.Path, "/raw")
 }
 
-// CleanupNodeTree cleanups node tree:
-// - remove contentSources that reference tree objects. They are used
-//   internally to build the structure but are not a valid contentSource
-// - remove empty nodes that do not contain markdowns. The build algorithm
-//   is blind for the content of a node and leaves nodes that are folders
-//   containing for example images only and thus irrelevant to the
-//   documentation structure
-func CleanupNodeTree(node *api.Node) {
-	if len(node.Source) > 0 {
-		source := node.Source
-		if rl, _ := Parse(source); rl.Type == Tree {
-			node.SetSourceLocation(node.Source)
-			node.Source = ""
-		}
-	}
-	for _, n := range node.Nodes {
-		// skip nested unresolved nodeSelector nodes from cleanup
-		if n.NodeSelector != nil && len(n.Nodes) == 0 {
-			continue
-		}
-		CleanupNodeTree(n)
-	}
-	children := node.Nodes[:0]
-	for _, n := range node.Nodes {
-		if len(n.Nodes) != 0 || n.NodeSelector != nil || len(n.Source) != 0 {
-			children = append(children, n)
-		}
-	}
-	node.Nodes = children
-}
-
 var (
 	defaultBranches map[string]string
 	mux             sync.Mutex
@@ -230,13 +198,13 @@ func BaseResolveNodeSelector(ctx context.Context, rl *ResourceLocator, rh resour
 		return nil, err
 	}
 
-	childNodes, err := buildNodes(ctx, rh, cache, node, excludePaths, frontMatter, excludeFrontMatter, depth, childResourceLocators, 0)
+	childNodes, err := buildNodes(ctx, rh, cache, node, node.NodeSelector.Path, excludePaths, depth, childResourceLocators, 0)
 	if err != nil {
 		return nil, err
 	}
 	// finally, cleanup folder entries from contentSelectors
 	for _, child := range childNodes {
-		CleanupNodeTree(child)
+		child.Cleanup()
 	}
 	if childNodes == nil {
 		return []*api.Node{}, nil
@@ -245,21 +213,13 @@ func BaseResolveNodeSelector(ctx context.Context, rl *ResourceLocator, rh resour
 	return childNodes, nil
 }
 
-func buildNodes(ctx context.Context, rh resourcehandlers.ResourceHandler, cache *Cache, node *api.Node, excludePaths []string, frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32, childResourceLocators []*ResourceLocator, currentDepth int32) ([]*api.Node, error) {
-	var (
-		nodesResult []*api.Node
-		nodePath    string
-	)
-	if node.NodeSelector != nil {
-		nodePath = node.NodeSelector.Path
-	} else if len(node.Source) > 0 {
-		nodePath = node.Source
-	}
+func buildNodes(ctx context.Context, rh resourcehandlers.ResourceHandler, cache *Cache, node *api.Node, nodePath string, excludePaths []string, depth int32, childResourceLocators []*ResourceLocator, currentDepth int32) ([]*api.Node, error) {
+	var nodesResult []*api.Node
 	nodePathRL, err := Parse(nodePath)
 	if err != nil {
 		return nil, err
 	}
-	//reformated
+	//reformatted
 	nodeResourceLocator, err := cache.GetWithInit(ctx, nodePathRL)
 	if nodeResourceLocator == nil || err != nil {
 		panic(fmt.Sprintf("Node is not available as ResourceLocator %v: %v", nodePath, err))
@@ -285,33 +245,35 @@ func buildNodes(ctx context.Context, rh resourcehandlers.ResourceHandler, cache 
 		}
 		if !exclude {
 			childPathSegmentsCount := len(strings.Split(childResourceLocator.Path, "/"))
+			childName := childResourceLocator.GetName()
 			// 1 sublevel only
 			if (childPathSegmentsCount - nodePathSegmentsCount) == 1 {
+				// creating new node
+				nextNodeChild := &api.Node{
+					Name: childName,
+				}
+				nextNodeChild.SetParent(node)
 				// folders and .md files only
-				childName := childResourceLocator.GetName()
 				if childResourceLocator.Type == Blob {
 					if !strings.HasSuffix(strings.ToLower(childName), ".md") {
 						//not a md file
 						continue
 					}
-
-				}
-				// creating new node
-				nextNodeChild := &api.Node{
-					Name:   childName,
-					Source: childResourceLocator.String(),
-				}
-				nextNodeChild.SetParent(node)
-				// recursively build subnodes if entry is sub-tree
-				if childResourceLocator.Type == Tree {
+					nextNodeChild.Source = childResourceLocator.String()
+				} else if childResourceLocator.Type == Tree { // recursively build sub-nodes if entry is subtree
 					if depth > 0 && depth == currentDepth {
 						continue
 					}
 					currentDepth++
-					if childResourceLocators, err = cache.GetSubsetWithInit(ctx, childResourceLocator.String()); err != nil {
+					nodeSource := childResourceLocator.String()
+					if childResourceLocators, err = cache.GetSubsetWithInit(ctx, nodeSource); err != nil {
 						return nil, err
 					}
-					childNodes, err := buildNodes(ctx, rh, cache, nextNodeChild, excludePaths, frontMatter, excludeFrontMatter, depth, childResourceLocators, currentDepth)
+					if nextNodeChild.Properties == nil {
+						nextNodeChild.Properties = make(map[string]interface{})
+						nextNodeChild.Properties[api.ContainerNodeSourceLocation] = nodeSource
+					}
+					childNodes, err := buildNodes(ctx, rh, cache, nextNodeChild, nodeSource, excludePaths, depth, childResourceLocators, currentDepth)
 					if err != nil {
 						return nil, err
 					}
@@ -325,5 +287,8 @@ func buildNodes(ctx context.Context, rh resourcehandlers.ResourceHandler, cache 
 			}
 		}
 	}
+	sort.Slice(nodesResult, func(i, j int) bool {
+		return nodesResult[i].Name < nodesResult[j].Name
+	})
 	return nodesResult, nil
 }

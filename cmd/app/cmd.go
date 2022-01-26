@@ -7,7 +7,7 @@ package app
 import (
 	"context"
 	"flag"
-	"io"
+	"k8s.io/utils/pointer"
 	"os"
 	"path/filepath"
 	"strings"
@@ -20,8 +20,8 @@ import (
 )
 
 type cmdFlags struct {
-	maxWorkersCount              int
-	minWorkersCount              int
+	documentWorkersCount         int
+	validationWorkersCount       int
 	failFast                     bool
 	destinationPath              string
 	documentationManifestPath    string
@@ -35,7 +35,6 @@ type cmdFlags struct {
 	ghThrottling                 bool
 	dryRun                       bool
 	resolve                      bool
-	clientMetering               bool
 	hugo                         bool
 	hugoPrettyUrls               bool
 	hugoSectionFiles             []string
@@ -48,7 +47,7 @@ type cmdFlags struct {
 
 // NewCommand creates a new root command and propagates
 // the context and cancel function to its Run callback closure
-func NewCommand(ctx context.Context, cancel context.CancelFunc) *cobra.Command {
+func NewCommand(ctx context.Context) *cobra.Command {
 	flags := &cmdFlags{}
 	cmd := &cobra.Command{
 		Use:   "docforge",
@@ -62,20 +61,21 @@ func NewCommand(ctx context.Context, cancel context.CancelFunc) *cobra.Command {
 			)
 
 			options := NewOptions(flags, new(configuration.DefaultConfigurationLoader))
-			if rhs, err = initResourceHandlers(ctx, options); err != nil {
+			if rhs, err = initResourceHandlers(ctx, flags, options); err != nil {
 				return err
 			}
+			// TODO: HOW API CAN CONSUME CONFIGURATION
 			api.SetFlagsVariables(flags.variables)
 			api.SetDefaultBranches(flags.mainBranch, options.DefaultBranches)
 			api.SetNVersions(flags.lastNVersions, options.LastNVersions)
 			if doc, err = manifest(ctx, flags.documentationManifestPath, rhs); err != nil {
 				return err
 			}
-			reactor, err := NewReactor(ctx, options, rhs, doc.Links)
+			reactor, err := NewReactor(flags, options, rhs)
 			if err != nil {
 				return err
 			}
-			if err := reactor.Run(ctx, doc, flags.dryRun); err != nil {
+			if err = reactor.Run(ctx, doc, flags.dryRun); err != nil {
 				return err
 			}
 			return nil
@@ -117,7 +117,7 @@ func (flags *cmdFlags) Configure(command *cobra.Command) {
 	command.Flags().StringVar(&flags.ghInfoDestination, "github-info-destination", "",
 		"If specified, docforge will download also additional github info for the files from the documentation structure into this destination.")
 	command.Flags().BoolVar(&flags.rewriteEmbedded, "rewrite-embedded-to-raw", true,
-		"Rewrites absolute link destinations for embedded resources (images) to reference embedable media (e.g. for GitHub - reference to a 'raw' version of an image).")
+		"Rewrites absolute link destinations for embedded resources (images) to reference embeddable media (e.g. for GitHub - reference to a 'raw' version of an image).")
 	command.Flags().StringToStringVar(&flags.variables, "variables", map[string]string{},
 		"Variables applied to parameterized (using Go template) manifest.")
 	command.Flags().BoolVar(&flags.failFast, "fail-fast", false,
@@ -126,80 +126,28 @@ func (flags *cmdFlags) Configure(command *cobra.Command) {
 		"Runs the command end-to-end but instead of writing files, it will output the projected file/folder hierarchy to the standard output and statistics for the processing of each file.")
 	command.Flags().BoolVar(&flags.resolve, "resolve", false,
 		"Resolves the documentation structure and prints it to the standard output. The resolution expands nodeSelector constructs into node hierarchies.")
-	command.Flags().IntVar(&flags.minWorkersCount, "min-workers", 10,
-		"Minimum number of parallel workers.")
-	command.Flags().IntVar(&flags.maxWorkersCount, "max-workers", 25,
-		"Maximum number of parallel workers.")
+	command.Flags().IntVar(&flags.documentWorkersCount, "document-workers", 25,
+		"Number of parallel workers for document processing.")
+	command.Flags().IntVar(&flags.validationWorkersCount, "validation-workers", 50,
+		"Number of parallel workers to validate the markdown links")
 	command.Flags().IntVar(&flags.resourceDownloadWorkersCount, "download-workers", 10,
 		"Number of workers downloading document resources in parallel.")
-	// Disabled until "fatal error: concurrent map writes" is fixed
-	// 	"Enables client-side networking metering to produce Prometheus compliant series.")
 	command.Flags().BoolVar(&flags.hugo, "hugo", false,
 		"Build documentation bundle for hugo.")
 	command.Flags().BoolVar(&flags.hugoPrettyUrls, "hugo-pretty-urls", true,
 		"Build documentation bundle for hugo with pretty URLs (./sample.md -> ../sample). Only useful with --hugo=true")
-	command.Flags().StringVar(&flags.hugoBaseURL, "hugo-base-url", "", "Rewrites the raltive links of documentation files to root-relative where possible.")
-	command.Flags().BoolVar(&flags.useGit, "use-git", false, "Use Git for replication")
+	command.Flags().StringVar(&flags.hugoBaseURL, "hugo-base-url", "",
+		"Rewrites the relative links of documentation files to root-relative where possible.")
+	command.Flags().BoolVar(&flags.useGit, "use-git", false,
+		"Use Git for replication")
 	command.Flags().StringSliceVar(&flags.hugoSectionFiles, "hugo-section-files", []string{"readme.md", "readme", "read.me", "index.md", "index"},
-		"When building a Hugo-compliant documentaton bundle, files with filename matching one form this list (in that order) will be renamed to _index.md. Only useful with --hugo=true")
+		"When building a Hugo-compliant documentation bundle, files with filename matching one form this list (in that order) will be renamed to _index.md. Only useful with --hugo=true")
+	command.Flags().StringVar(&flags.cacheHomeDir, "cache-dir", "",
+		"Cache directory, used for repository cache.")
 	command.Flags().StringToIntVar(&flags.lastNVersions, "versions", map[string]int{},
 		"Specify default number of versions and per uri that will be supported")
 	command.Flags().StringToStringVar(&flags.mainBranch, "main-branches", map[string]string{},
 		"Specify default main branch and per uri")
-}
-
-// NewOptions creates an options object from flags and configuration
-func NewOptions(f *cmdFlags, c configuration.Loader) *Options {
-	config, err := c.Load()
-	if err != nil {
-		panic(err)
-	}
-
-	var (
-		dryRunWriter io.Writer
-		metering     *Metering
-	)
-
-	if f.clientMetering {
-		metering = &Metering{
-			Enabled: f.clientMetering,
-		}
-	}
-
-	if f.dryRun {
-		dryRunWriter = os.Stdout
-	}
-
-	path, err := os.Getwd()
-	if err != nil {
-		panic(err)
-	}
-
-	// TODO: try to use filepath.Abs(f.documentationManifestPath)
-	manifestAbsPath := filepath.Join(path, (f.documentationManifestPath))
-
-	return &Options{
-		DestinationPath:              f.destinationPath,
-		FailFast:                     f.failFast,
-		MaxWorkersCount:              f.maxWorkersCount,
-		MinWorkersCount:              f.minWorkersCount,
-		ResourceDownloadWorkersCount: f.resourceDownloadWorkersCount,
-		ResourcesPath:                f.resourcesPath,
-		RewriteEmbedded:              f.rewriteEmbedded,
-		Credentials:                  gatherCredentials(f, config),
-		GitHubClientThrottling:       f.ghThrottling,
-		Metering:                     metering,
-		DryRunWriter:                 dryRunWriter,
-		Resolve:                      f.resolve,
-		GitHubInfoPath:               f.ghInfoDestination,
-		Hugo:                         hugoOptions(f, config),
-		ManifestAbsPath:              manifestAbsPath,
-		UseGit:                       f.useGit,
-		HomeDir:                      cacheHomeDir(f, config),
-		LocalMappings:                config.ResourceMappings,
-		DefaultBranches:              config.DefaultBranches,
-		LastNVersions:                config.LastNVersions,
-	}
 }
 
 // AddFlags adds go flags to rootCmd
@@ -209,20 +157,55 @@ func AddFlags(rootCmd *cobra.Command) {
 	})
 }
 
-func gatherCredentials(flags *cmdFlags, config *configuration.Config) []*Credentials {
-	credentialsByHost := make(map[string]*Credentials)
+// NewOptions creates a configuration.Options object from flags and configuration file
+// flags overwrites values from configuration file
+func NewOptions(f *cmdFlags, c configuration.Loader) *Options {
+	config, err := c.Load()
+	if err != nil {
+		panic(err)
+	}
+	var (
+		defaultBranches = config.DefaultBranches
+		lastNVersions   = config.LastNVersions
+	)
+	if f.mainBranch != nil {
+		if defaultBranches == nil {
+			defaultBranches = f.mainBranch
+		} else {
+			for k, v := range f.mainBranch {
+				defaultBranches[k] = v
+			}
+		}
+	}
+	if f.lastNVersions != nil {
+		if lastNVersions == nil {
+			lastNVersions = f.lastNVersions
+		} else {
+			for k, v := range f.lastNVersions {
+				lastNVersions[k] = v
+			}
+		}
+	}
+	return &Options{
+		Credentials:     gatherCredentials(f, config),
+		Hugo:            hugoOptions(f, config),
+		HomeDir:         cacheHomeDir(f, config),
+		LocalMappings:   config.ResourceMappings,
+		DefaultBranches: defaultBranches,
+		LastNVersions:   lastNVersions,
+	}
+}
+
+func gatherCredentials(flags *cmdFlags, config *configuration.Config) []*configuration.Credentials {
+	credentialsByHost := make(map[string]*configuration.Credentials)
 	if config != nil {
 		// when no token specified consider the configuration incorrect
-		for _, source := range config.Sources {
-			if source.OAuthToken == nil {
-				klog.Warning("configuration is considered incorrect because of missing oauth token for source with host: " + source.Host)
+		for _, cred := range config.Credentials {
+			if cred.OAuthToken == nil {
+				klog.Warningf("configuration is considered incorrect because of missing oauth token for host: %s\n", cred.Host)
 				continue
 			}
-			credentialsByHost[source.Host] = &Credentials{
-				Host:       source.Host,
-				Username:   source.Username,
-				OAuthToken: *source.OAuthToken,
-			}
+			credentialsByHost[cred.Host] = cred
 		}
 	}
 
@@ -235,11 +218,13 @@ func gatherCredentials(flags *cmdFlags, config *configuration.Config) []*Credent
 			username = usernameAndToken[0]
 			credentials = usernameAndToken[1]
 		}
-
-		credentialsByHost[instance] = &Credentials{
+		if _, ok := credentialsByHost[instance]; ok {
+			klog.Warningf("%s token is overridden by the provided token with `--github-oauth-token-map flag`\n", instance)
+		}
+		credentialsByHost[instance] = &configuration.Credentials{
 			Host:       instance,
 			Username:   &username,
-			OAuthToken: credentials,
+			OAuthToken: &credentials,
 		}
 	}
 
@@ -248,7 +233,7 @@ func gatherCredentials(flags *cmdFlags, config *configuration.Config) []*Credent
 		var username string
 		token := flags.ghOAuthToken
 		if _, ok := credentialsByHost["github.com"]; ok {
-			klog.Warning("github.com token is overridden by the provided token with `--github-oauth-token flag` ")
+			klog.Warning("github.com token is overridden by the provided token with `--github-oauth-token flag`\n")
 		}
 		usernameAndToken := strings.Split(flags.ghOAuthToken, ":")
 		if len(usernameAndToken) == 2 {
@@ -256,30 +241,25 @@ func gatherCredentials(flags *cmdFlags, config *configuration.Config) []*Credent
 			token = usernameAndToken[1]
 		}
 
-		credentialsByHost["github.com"] = &Credentials{
+		credentialsByHost["github.com"] = &configuration.Credentials{
 			Host:       "github.com",
 			Username:   &username,
-			OAuthToken: token,
+			OAuthToken: &token,
 		}
 	} else {
 		if _, ok := credentialsByHost["github.com"]; !ok {
+			klog.Infof("using unauthenticated github access`\n")
 			//credentialByHost at github.com is not set and should be set to empty string
-			empty := ""
-			credentialsByHost["github.com"] = &Credentials{
+			credentialsByHost["github.com"] = &configuration.Credentials{
 				Host:       "github.com",
-				Username:   &empty,
-				OAuthToken: "",
+				Username:   pointer.StringPtr(""),
+				OAuthToken: pointer.StringPtr(""),
 			}
 		}
-
 	}
-	return getCredentialsSlice(credentialsByHost)
-}
-
-func getCredentialsSlice(credentialsByHost map[string]*Credentials) []*Credentials {
-	var credentials = make([]*Credentials, 0)
-	for _, creds := range credentialsByHost {
-		credentials = append(credentials, creds)
+	var credentials = make([]*configuration.Credentials, 0, len(credentialsByHost))
+	for _, cred := range credentialsByHost {
+		credentials = append(credentials, cred)
 	}
 	return credentials
 }
@@ -287,7 +267,7 @@ func getCredentialsSlice(credentialsByHost map[string]*Credentials) []*Credentia
 func cacheHomeDir(f *cmdFlags, config *configuration.Config) string {
 	if cacheDir, found := os.LookupEnv("DOCFORGE_CACHE_DIR"); found {
 		if cacheDir == "" {
-			klog.Warning("DOCFORGE_CACHE_DIR is set to empty string. Docforge will use the current dir for the cache")
+			klog.Warning("DOCFORGE_CACHE_DIR is set to empty string. Docforge will use the current dir for the cache\n")
 		}
 		return cacheDir
 	}
@@ -309,60 +289,38 @@ func cacheHomeDir(f *cmdFlags, config *configuration.Config) string {
 	return filepath.Join(userHomeDir, configuration.DocforgeHomeDir)
 }
 
-func hugoOptions(f *cmdFlags, config *configuration.Config) *Hugo {
-	if !f.hugo && (config == nil || config.Hugo == nil) {
-		return nil
+func hugoOptions(f *cmdFlags, config *configuration.Config) *configuration.Hugo {
+	hugo := config.Hugo
+	if hugo == nil {
+		hugo = &configuration.Hugo{}
 	}
-
-	ho := &Hugo{
-		PrettyUrls:     prettyURLs(f.hugoPrettyUrls, config.Hugo),
-		IndexFileNames: combineSectionFiles(f.hugoSectionFiles, config.Hugo),
+	hugo.Enabled = f.hugo
+	if !hugo.Enabled {
+		return hugo
 	}
+	// overwrites with flags
+	hugo.PrettyURLs = f.hugoPrettyUrls
 
 	if f.hugoBaseURL != "" {
-		ho.BaseURL = f.hugoBaseURL
-		return ho
+		hugo.BaseURL = f.hugoBaseURL
 	}
-
-	if config.Hugo != nil {
-		if config.Hugo.BaseURL != nil {
-			ho.BaseURL = *config.Hugo.BaseURL
+	if len(f.hugoSectionFiles) > 0 || len(hugo.IndexFileNames) > 0 {
+		var files []string
+		fileSet := make(map[string]struct{})
+		// merge
+		for _, fn := range f.hugoSectionFiles {
+			if _, ok := fileSet[fn]; !ok {
+				files = append(files, fn)
+				fileSet[fn] = struct{}{}
+			}
 		}
-	}
-	return ho
-}
-
-func combineSectionFiles(sectionFilesFromFlags []string, hugoConfig *configuration.Hugo) []string {
-	var sectionFilesSet = make(map[string]struct{})
-	for _, sectionFileName := range sectionFilesFromFlags {
-		sectionFilesSet[sectionFileName] = struct{}{}
-	}
-
-	if hugoConfig != nil {
-		for _, sectionFileName := range hugoConfig.SectionFiles {
-			sectionFilesSet[sectionFileName] = struct{}{}
+		for _, fn := range f.hugoSectionFiles {
+			if _, ok := fileSet[fn]; !ok {
+				files = append(files, fn)
+				fileSet[fn] = struct{}{}
+			}
 		}
+		hugo.IndexFileNames = files
 	}
-
-	sectionFiles := make([]string, len(sectionFilesSet))
-	i := 0
-	for sectionFileName := range sectionFilesSet {
-		sectionFiles[i] = sectionFileName
-		i++
-	}
-	return sectionFiles
-}
-
-func prettyURLs(flagPrettyURLs bool, hugoConfig *configuration.Hugo) bool {
-	// if config is missing use the flag value
-	if hugoConfig == nil || hugoConfig.PrettyURLs == nil {
-		return flagPrettyURLs
-	}
-
-	// if either is false return false
-	if !flagPrettyURLs || !*hugoConfig.PrettyURLs {
-		return false
-	}
-
-	return true
+	return hugo
 }

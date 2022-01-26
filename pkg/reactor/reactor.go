@@ -10,6 +10,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/gardener/docforge/cmd/configuration"
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/jobs"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
@@ -25,12 +26,12 @@ import (
 // Options encapsulates the parameters for creating
 // new Reactor objects with NewReactor
 type Options struct {
-	MaxWorkersCount              int
-	MinWorkersCount              int
+	DocumentWorkersCount         int
+	ValidationWorkersCount       int
 	FailFast                     bool
 	DestinationPath              string
 	ResourcesPath                string
-	ManifestAbsPath              string
+	ManifestPath                 string
 	ResourceDownloadWorkersCount int
 	RewriteEmbedded              bool
 	ResourceDownloadWriter       writers.Writer
@@ -39,11 +40,9 @@ type Options struct {
 	ResourceHandlers             []resourcehandlers.ResourceHandler
 	DryRunWriter                 writers.DryRunWriter
 	Resolve                      bool
-	GlobalLinksConfig            *api.Links
-	Hugo                         bool
-	PrettyUrls                   bool
-	IndexFileNames               []string
-	BaseURL                      string
+	Hugo                         *configuration.Hugo
+	DefaultBranches              map[string]string
+	LastNVersions                map[string]int
 }
 
 // NewReactor creates a Reactor from Options
@@ -81,19 +80,20 @@ func NewReactor(o *Options) (*Reactor, error) {
 	if err != nil {
 		return nil, err
 	}
-	validatorTasks, _ := jobs.NewJobQueue("Validator", o.MaxWorkersCount, valWork, o.FailFast, reactorWG)
+	validatorTasks, _ := jobs.NewJobQueue("Validator", o.ValidationWorkersCount, valWork, o.FailFast, reactorWG)
 	v := NewValidator(validatorTasks)
 	worker := &DocumentWorker{
 		writer:               o.Writer,
 		reader:               &GenericReader{ResourceHandlers: rhRegistry},
-		NodeContentProcessor: NewNodeContentProcessor(o.ResourcesPath, o.GlobalLinksConfig, dScheduler, v, o.RewriteEmbedded, rhRegistry, o.Hugo, o.PrettyUrls, o.IndexFileNames, o.BaseURL),
+		NodeContentProcessor: NewNodeContentProcessor(o.ResourcesPath, dScheduler, v, o.RewriteEmbedded, rhRegistry, o.Hugo.Enabled, o.Hugo.PrettyURLs, o.Hugo.IndexFileNames, o.Hugo.BaseURL),
 		gitHubInfo:           ghInfo,
 	}
-	docTasks, err := jobs.NewJobQueue("Document", o.MaxWorkersCount, worker.Work, o.FailFast, reactorWG)
+	docTasks, err := jobs.NewJobQueue("Document", o.DocumentWorkersCount, worker.Work, o.FailFast, reactorWG)
 	if err != nil {
 		return nil, err
 	}
 	r := &Reactor{
+		Options:          o,
 		FailFast:         o.FailFast,
 		ResourceHandlers: rhRegistry,
 		DocumentWorker:   worker,
@@ -103,15 +103,15 @@ func NewReactor(o *Options) (*Reactor, error) {
 		ValidatorTasks:   validatorTasks,
 		DryRunWriter:     o.DryRunWriter,
 		Resolve:          o.Resolve,
-		IndexFileNames:   o.IndexFileNames,
-		manifestAbsPath:  o.ManifestAbsPath,
 		reactorWaitGroup: reactorWG,
+		sources:          make(map[string][]*api.Node),
 	}
 	return r, nil
 }
 
 // Reactor orchestrates the documentation build workflow
 type Reactor struct {
+	Options          *Options
 	FailFast         bool
 	ResourceHandlers resourcehandlers.Registry
 	DocumentWorker   *DocumentWorker
@@ -121,10 +121,9 @@ type Reactor struct {
 	ValidatorTasks   *jobs.JobQueue
 	DryRunWriter     writers.DryRunWriter
 	Resolve          bool
-	IndexFileNames   []string
-	manifestAbsPath  string
 	// reactorWaitGroup used to determine when all parallel tasks are done
 	reactorWaitGroup *sync.WaitGroup
+	sources          map[string][]*api.Node
 }
 
 // Run starts build operation on documentation
@@ -132,7 +131,7 @@ func (r *Reactor) Run(ctx context.Context, manifest *api.Documentation, dryRun b
 	ctx, cancel := context.WithCancel(ctx)
 	defer func() {
 		if r.Resolve {
-			if err := printResolved(ctx, manifest, os.Stdout); err != nil {
+			if err := printResolved(manifest, os.Stdout); err != nil {
 				klog.Errorf("failed to print resolved manifest: %s", err.Error())
 			}
 		}
@@ -142,17 +141,22 @@ func (r *Reactor) Run(ctx context.Context, manifest *api.Documentation, dryRun b
 		}
 	}()
 
-	if err := ResolveManifest(ctx, manifest, r.ResourceHandlers, r.manifestAbsPath, r.IndexFileNames); err != nil {
-		return fmt.Errorf("failed to resolve manifest: %s. %+v", r.manifestAbsPath, err)
+	if err := r.ResolveManifest(ctx, manifest); err != nil {
+		return fmt.Errorf("failed to resolve manifest: %s. %+v", r.Options.ManifestPath, err)
+	}
+
+	for _, n := range manifest.Structure {
+		printNodeName(n)
 	}
 
 	if err := checkForCollisions(manifest.Structure); err != nil {
 		return err
 	}
 
-	sourceLocations := getSourceLocationsMap(manifest.Structure)
+	r.fillSources(manifest.Structure)
+
 	if ncp, ok := r.DocumentWorker.NodeContentProcessor.(*nodeContentProcessor); ok {
-		ncp.sourceLocations = sourceLocations
+		ncp.sourceLocations = r.sources
 	}
 	klog.V(4).Info("Building documentation structure\n\n")
 	if err := r.Build(ctx, manifest.Structure); err != nil {
@@ -162,34 +166,49 @@ func (r *Reactor) Run(ctx context.Context, manifest *api.Documentation, dryRun b
 	return nil
 }
 
-func getSourceLocationsMap(structure []*api.Node) map[string][]*api.Node {
-	locations := make(map[string][]*api.Node)
-	for _, node := range structure {
-		addSourceLocation(locations, node)
+func printNodeName(n *api.Node) {
+	if n.Name == "" {
+		fmt.Println("EmptyName", n.FullName("/"))
 	}
-	return locations
+	for _, cn := range n.Nodes {
+		printNodeName(cn)
+	}
+
 }
 
-// TODO: add content selector & template locations ???
+func (r *Reactor) fillSources(structure []*api.Node) {
+	for _, node := range structure {
+		addSourceLocation(r.sources, node)
+	}
+}
+
 func addSourceLocation(locations map[string][]*api.Node, node *api.Node) {
 	if node.Source != "" {
 		locations[node.Source] = append(locations[node.Source], node)
-	}
-	if node.GetSourceLocation() != "" {
-		locations[node.GetSourceLocation()] = append(locations[node.GetSourceLocation()], node)
+	} else if len(node.MultiSource) > 0 {
+		for _, s := range node.MultiSource {
+			locations[s] = append(locations[s], node)
+		}
+	} else if len(node.Properties) > 0 {
+		if val, found := node.Properties[api.ContainerNodeSourceLocation]; found {
+			if sl, ok := val.(string); ok {
+				locations[sl] = append(locations[sl], node)
+				delete(node.Properties, api.ContainerNodeSourceLocation)
+			}
+		}
 	}
 	for _, childNode := range node.Nodes {
 		addSourceLocation(locations, childNode)
 	}
 }
 
-func printResolved(ctx context.Context, manifest *api.Documentation, writer io.Writer) error {
+func printResolved(manifest *api.Documentation, writer io.Writer) error {
 	s, err := api.Serialize(manifest)
 	if err != nil {
 		return fmt.Errorf("failed to serialize the manifest. %+v", err)
 	}
-	writer.Write([]byte(s))
-	writer.Write([]byte("\n\n"))
+	_, _ = writer.Write([]byte(s))
+	_, _ = writer.Write([]byte("\n\n"))
 	return nil
 }
 

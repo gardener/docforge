@@ -16,9 +16,6 @@ import (
 	"github.com/yuin/goldmark/text"
 	"golang.org/x/net/html"
 	"io/ioutil"
-	"os"
-	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -67,24 +64,8 @@ func TestCMarkGFMAfl(t *testing.T) {
 }
 
 func loadSpec(specName string) ([]spec, error) {
-	path, err := os.Getwd()
-	if err != nil {
-		return nil, fmt.Errorf("error getting working folder %v", err)
-	}
-	sep := string(filepath.Separator)
-	path = strings.TrimSuffix(path, sep)
-	// adjust path if test is not run from repo root
-	d, f := filepath.Split(path)
-	if f == "markdown" {
-		path = strings.TrimSuffix(d, sep)
-		d, f = filepath.Split(path)
-	}
-	if f == "pkg" {
-		path = strings.TrimSuffix(d, sep)
-	}
-	specFile := filepath.Join(path, "pkg", "markdown", "spec", specName)
-	var specBytes []byte
-	specBytes, err = ioutil.ReadFile(specFile)
+	specFile := "spec/" + specName
+	specBytes, err := ioutil.ReadFile(specFile)
 	if err != nil {
 		return nil, fmt.Errorf("error reading spec file %s: %v", specFile, err)
 	}
@@ -105,7 +86,6 @@ func (tc *spec) executeSpecTest(t *testing.T) {
 	if doc == nil {
 		t.Errorf("parsing example %d returns nil", tc.Example)
 	}
-	//r := markdown.NewLinkModifierRenderer()
 	buf := &bytes.Buffer{}
 	err = lmr.Render(buf, []byte(tc.Markdown), doc)
 	if err != nil {

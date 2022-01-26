@@ -24,7 +24,7 @@ type DryRunWriter interface {
 	// same backend but for different roots (e.g. for
 	// resources and docs)
 	GetWriter(root string) Writer
-	// Flush wraps up dryrun writing and flushes
+	// Flush wraps up dry run writing and flushes
 	// results to the underlying writer (e.g. os.Stdout)
 	Flush() bool
 }
@@ -37,8 +37,7 @@ type dryRunWriter struct {
 }
 
 type file struct {
-	path  string
-	stats []*api.Stat
+	path string
 }
 
 type writer struct {
@@ -72,20 +71,17 @@ func (d *dryRunWriter) GetWriter(root string) Writer {
 }
 
 func (w *writer) Write(name, path string, docBlob []byte, node *api.Node) error {
-	var stats []*api.Stat
 	if len(docBlob) > 0 && node != nil {
 		if !strings.HasSuffix(name, ".md") {
 			name = fmt.Sprintf("%s.md", name)
 		}
-		stats = node.GetStats()
 	}
 	root := filepath.Clean(w.root)
 	path = filepath.Clean(path)
 	filePath := fmt.Sprintf("%s/%s/%s", root, path, name)
 	filePath = filepath.Clean(filePath)
 	f := &file{
-		path:  filePath,
-		stats: stats,
+		path: filePath,
 	}
 	*w.files = append(*w.files, f)
 	return nil
@@ -95,29 +91,29 @@ func (w *writer) Write(name, path string, docBlob []byte, node *api.Node) error 
 // underlying writer
 func (d *dryRunWriter) Flush() bool {
 	var (
-		b     bytes.Buffer
-		bytes []byte
-		err   error
+		buf bytes.Buffer
+		b   []byte
+		err error
 	)
 
 	sort.Slice(d.files, func(i, j int) bool { return d.files[i].path < d.files[j].path })
-	format(d.files, &b)
+	format(d.files, &buf)
 
 	elapsedTime := time.Since(d.t1)
-	b.WriteString(fmt.Sprintf("\nBuild finished in %f seconds\n", elapsedTime.Seconds()))
+	buf.WriteString(fmt.Sprintf("\nBuild finished in %f seconds\n", elapsedTime.Seconds()))
 
-	if bytes, err = ioutil.ReadAll(&b); err != nil {
+	if b, err = ioutil.ReadAll(&buf); err != nil {
 		fmt.Println(err.Error())
 		return false
 	}
-	if _, err := d.Writer.Write(bytes); err != nil {
+	if _, err := d.Writer.Write(b); err != nil {
 		fmt.Println(err.Error())
 	}
 	return true
 }
 
 func format(files []*file, b *bytes.Buffer) {
-	all := []string{}
+	var all []string
 	for _, f := range files {
 		p := f.path
 		p = filepath.Clean(p)
@@ -137,22 +133,13 @@ func format(files []*file, b *bytes.Buffer) {
 					b.Write(bytes.Repeat([]byte("  "), i))
 					continue
 				}
-				for _, st := range f.stats {
-					b.Write([]byte("  "))
-					b.Write(bytes.Repeat([]byte("  "), indent))
-					b.WriteString(fmt.Sprintf("%s stats: %s\n", st.Title, st.Figures))
-					for _, detail := range st.Details {
-						b.Write(bytes.Repeat([]byte("  "), indent+2))
-						b.WriteString(fmt.Sprintf("%s\n", detail))
-					}
-				}
 			}
 		}
 	}
 }
 
-func any(s []string, str string) bool {
-	for _, s := range s {
+func any(all []string, str string) bool {
+	for _, s := range all {
 		if s == str {
 			return true
 		}

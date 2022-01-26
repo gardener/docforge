@@ -60,16 +60,14 @@ var _ = Describe("GithubInfo", func() {
 			)
 			BeforeEach(func() {
 				reader.ReadReturnsOnCall(0, []byte("source_content\n"), nil)
-				reader.ReadReturnsOnCall(1, []byte("selector_content\n"), nil)
-				reader.ReadReturnsOnCall(2, []byte("template_content\n"), nil)
+				reader.ReadReturnsOnCall(1, []byte("multi_source_content\n"), nil)
 				writer.WriteReturns(nil)
 				ctx = context.Background()
 				task = &reactor.GitHubInfoTask{
 					Node: &api.Node{
-						Name:             "fake_name",
-						Source:           "fake_source",
-						ContentSelectors: []api.ContentSelector{{Source: "fake_selector_source"}},
-						Template:         &api.Template{Sources: map[string]*api.ContentSelector{"fake_key": {Source: "fake_template_source"}}},
+						Name:        "fake_name",
+						Source:      "fake_source",
+						MultiSource: []string{"fake_multi_source"},
 					},
 				}
 			})
@@ -80,14 +78,12 @@ var _ = Describe("GithubInfo", func() {
 			})
 			It("succeeded", func() {
 				Expect(err).NotTo(HaveOccurred())
-				Expect(reader.ReadCallCount()).To(Equal(3))
+				Expect(reader.ReadCallCount()).To(Equal(2))
 				c, source := reader.ReadArgsForCall(0)
 				Expect(c).To(Equal(ctx))
 				Expect(source).To(Equal("fake_source"))
 				_, source = reader.ReadArgsForCall(1)
-				Expect(source).To(Equal("fake_selector_source"))
-				_, source = reader.ReadArgsForCall(2)
-				Expect(source).To(Equal("fake_template_source"))
+				Expect(source).To(Equal("fake_multi_source"))
 				Expect(writer.WriteCallCount()).To(Equal(1))
 				name, path, content, node := writer.WriteArgsForCall(0)
 				Expect(node).NotTo(BeNil())
@@ -95,7 +91,7 @@ var _ = Describe("GithubInfo", func() {
 				Expect(node.Source).To(Equal("fake_source"))
 				Expect(path).To(Equal(""))
 				Expect(name).To(Equal("fake_name"))
-				Expect(string(content)).To(Equal("source_content\nselector_content\ntemplate_content\n"))
+				Expect(string(content)).To(Equal("source_content\nmulti_source_content\n"))
 			})
 			Context("task is invalid", func() {
 				BeforeEach(func() {
@@ -140,10 +136,10 @@ var _ = Describe("GithubInfo", func() {
 				})
 				It("succeeded", func() {
 					Expect(err).NotTo(HaveOccurred())
-					Expect(reader.ReadCallCount()).To(Equal(3))
+					Expect(reader.ReadCallCount()).To(Equal(2))
 					Expect(writer.WriteCallCount()).To(Equal(1))
 					_, _, content, _ := writer.WriteArgsForCall(0)
-					Expect(string(content)).To(Equal("selector_content\ntemplate_content\n"))
+					Expect(string(content)).To(Equal("multi_source_content\n"))
 				})
 			})
 			Context("read returns nil []byte", func() {
@@ -152,10 +148,10 @@ var _ = Describe("GithubInfo", func() {
 				})
 				It("succeeded", func() {
 					Expect(err).NotTo(HaveOccurred())
-					Expect(reader.ReadCallCount()).To(Equal(3))
+					Expect(reader.ReadCallCount()).To(Equal(2))
 					Expect(writer.WriteCallCount()).To(Equal(1))
 					_, _, content, _ := writer.WriteArgsForCall(0)
-					Expect(string(content)).To(Equal("selector_content\ntemplate_content\n"))
+					Expect(string(content)).To(Equal("multi_source_content\n"))
 				})
 			})
 			Context("write fails", func() {

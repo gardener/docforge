@@ -142,7 +142,6 @@ func (jq *JobQueue) work(ctx context.Context) {
 			{
 				klog.V(6).Infof("context is done for %s queue\n", jq.id)
 				jq.Stop()
-				return
 			}
 		case t, ok := <-jq.tasks:
 			{

@@ -65,15 +65,9 @@ func (w *gitHubInfoWorker) GitHubInfoWork(ctx context.Context, task interface{})
 		if len(node.Source) > 0 {
 			sources = append(sources, node.Source)
 		}
-		// append content selectors
-		for _, cs := range node.ContentSelectors {
-			sources = append(sources, cs.Source)
-		}
-		// append template content selectors
-		if node.Template != nil {
-			for _, tsv := range node.Template.Sources {
-				sources = append(sources, tsv.Source)
-			}
+		// append multi content
+		for _, src := range node.MultiSource {
+			sources = append(sources, src)
 		}
 		var (
 			b    bytes.Buffer
@@ -99,7 +93,7 @@ func (w *gitHubInfoWorker) GitHubInfoWork(ctx context.Context, task interface{})
 			}
 			b.Write(info)
 		}
-		nodePath := api.Path(node, "/")
+		nodePath := node.Path("/")
 		klog.V(6).Infof("writing git info for node %s/%s\n", nodePath, node.Name)
 		if err = w.writer.Write(node.Name, nodePath, b.Bytes(), node); err != nil {
 			return err
