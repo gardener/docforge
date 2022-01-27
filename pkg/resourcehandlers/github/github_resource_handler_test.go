@@ -228,7 +228,7 @@ var _ = Describe("Github", func() {
 		)
 
 		JustBeforeEach(func() {
-			github.CleanupNodeTree(node)
+			node.Cleanup()
 		})
 
 		Describe("general use case", func() {
@@ -241,8 +241,7 @@ var _ = Describe("Github", func() {
 							Source: "https://github.com/gardener/gardener/blob/master/docs/01.md",
 						},
 						{
-							Name:   "02",
-							Source: "https://github.com/gardener/gardener/tree/master/docs/02",
+							Name: "02",
 							Nodes: []*api.Node{
 								{
 									Name:   "021.md",
@@ -251,14 +250,12 @@ var _ = Describe("Github", func() {
 							},
 						},
 						{
-							Name:   "03",
-							Source: "https://github.com/gardener/gardener/tree/master/docs/03",
-							Nodes:  []*api.Node{},
+							Name:  "03",
+							Nodes: []*api.Node{},
 						},
 						{
-							Name:   "04",
-							Source: "https://github.com/gardener/gardener/tree/master/docs/04",
-							Nodes:  []*api.Node{},
+							Name:  "04",
+							Nodes: []*api.Node{},
 						},
 					},
 				}
@@ -280,8 +277,6 @@ var _ = Describe("Github", func() {
 						},
 					},
 				}
-				// set source location for container nodes
-				wantNode.Nodes[1].SetSourceLocation("https://github.com/gardener/gardener/tree/master/docs/02")
 			})
 
 			It("should process it correctly", func() {
@@ -671,10 +666,10 @@ var _ = Describe("Github", func() {
 
 		When("valid url", func() {
 			BeforeEach(func() {
-				link = "http://github.com/index.html?page=1"
+				link = "https://github.com/index.html?page=1"
 			})
 
-			It("should return resource and extention", func() {
+			It("should return resource and extension", func() {
 				Expect(resource).Should(Equal("index"))
 				Expect(extention).Should(Equal("html"))
 			})
@@ -1178,17 +1173,10 @@ source: https://github.com/gardener/docforge/blob/{{$version}}/integration-test/
 			frontMatter        map[string]interface{}
 			excludeFrontMatter map[string]interface{}
 			depth              int32
-
-			mux func(mux *http.ServeMux)
-
-			//fakeTreeExtractor githubfakes.FakeTreeExtractor
-
-			//cache *github.Cache
-
-			got      []*api.Node
-			expected []*api.Node
-
-			err error
+			mux                func(mux *http.ServeMux)
+			got                []*api.Node
+			expected           []*api.Node
+			err                error
 		)
 
 		BeforeEach(func() {
@@ -1244,71 +1232,10 @@ source: https://github.com/gardener/docforge/blob/{{$version}}/integration-test/
 						}`)))
 				})
 			}
-			/*
-					fakeTreeExtractorRes := []*github.ResourceLocator{
-						&github.ResourceLocator{
-							Scheme:   "https",
-							Host:     "github.com",
-							Owner:    "testorg",
-							Repo:     "testrepo",
-							Type:     github.Tree,
-							SHAAlias: "testbranch",
-							Path:     "testdir",
-						},
-						&github.ResourceLocator{
-							Scheme:   "https",
-							Host:     "github.com",
-							Owner:    "testorg",
-							Repo:     "testrepo",
-							Type:     github.Blob,
-							SHAAlias: "testbranch",
-							Path:     "testdir/testfile.md",
-						},
-						&github.ResourceLocator{
-							Scheme:   "https",
-							Host:     "github.com",
-							Owner:    "testorg",
-							Repo:     "testrepo",
-							Type:     github.Tree,
-							SHAAlias: "testbranch",
-							Path:     "testdir/testdir_sub",
-						},
-						&github.ResourceLocator{
-							Scheme:   "https",
-							Host:     "github.com",
-							Owner:    "testorg",
-							Repo:     "testrepo",
-							Type:     github.Tree,
-							SHAAlias: "testbranch",
-							Path:     "testdir/testdir_sub/testdir_sub2",
-						},
-						&github.ResourceLocator{
-							Scheme:   "https",
-							Host:     "github.com",
-							Owner:    "testorg",
-							Repo:     "testrepo",
-							Type:     github.Blob,
-							SHAAlias: "testbranch",
-							Path:     "testdir/testdir_sub/testdir_sub2/testfile3.md",
-						},
-						&github.ResourceLocator{
-							Scheme:   "https",
-							Host:     "github.com",
-							Owner:    "testorg",
-							Repo:     "testrepo",
-							Type:     github.Blob,
-							SHAAlias: "testbranch",
-							Path:     "testfile2.md",
-						},
-					}
-					fakeTreeExtractor.ExtractTreeReturns(fakeTreeExtractorRes, nil)
-
-				cache = github.NewEmptyCache(&fakeTreeExtractor)
-			*/
 		})
 
 		JustBeforeEach(func() {
-			ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+			ctx, cancel := context.WithTimeout(context.Background(), 100*time.Minute)
 			defer cancel()
 
 			client, muxRes, _, teardown := setup()
@@ -1323,21 +1250,19 @@ source: https://github.com/gardener/docforge/blob/{{$version}}/integration-test/
 
 		Context("given the general use case", func() {
 			BeforeEach(func() {
-
-				root := api.Node{
+				root := &api.Node{
 					NodeSelector: &api.NodeSelector{Path: "https://github.com/testorg/testrepo/tree/testbranch/testdir"},
 				}
-				testfile3 := api.NewNodeForTesting("testfile3.md", "https://github.com/testorg/testrepo/blob/testbranch/testdir/testdir_sub/testdir_sub2/testfile3.md", nil, "")
-				testdir_sub2 := api.NewNodeForTesting("testdir_sub2", "", []*api.Node{&testfile3}, "https://github.com/testorg/testrepo/tree/testbranch/testdir/testdir_sub/testdir_sub2")
-				testdir_sub := api.NewNodeForTesting("testdir_sub", "", []*api.Node{&testdir_sub2}, "https://github.com/testorg/testrepo/tree/testbranch/testdir/testdir_sub")
-				testdir_sub.SetParent(&root)
-				testfile := api.NewNodeForTesting("testfile.md", "https://github.com/testorg/testrepo/blob/testbranch/testdir/testfile.md", nil, "")
-				testfile.SetParent(&root)
-				testdir_sub.SetParentsDownwards()
-
+				testFile3 := &api.Node{Name: "testfile3.md", Source: "https://github.com/testorg/testrepo/blob/testbranch/testdir/testdir_sub/testdir_sub2/testfile3.md"}
+				testSubDir2 := &api.Node{Name: "testdir_sub2", Nodes: []*api.Node{testFile3}, Properties: map[string]interface{}{api.ContainerNodeSourceLocation: "https://github.com/testorg/testrepo/tree/testbranch/testdir/testdir_sub/testdir_sub2"}}
+				testSubDir := &api.Node{Name: "testdir_sub", Nodes: []*api.Node{testSubDir2}, Properties: map[string]interface{}{api.ContainerNodeSourceLocation: "https://github.com/testorg/testrepo/tree/testbranch/testdir/testdir_sub"}}
+				testSubDir.SetParent(root)
+				testFile := &api.Node{Name: "testfile.md", Source: "https://github.com/testorg/testrepo/blob/testbranch/testdir/testfile.md"}
+				testFile.SetParent(root)
+				testSubDir.SetParentsDownwards()
 				expected = []*api.Node{
-					&testfile,
-					&testdir_sub,
+					testSubDir,
+					testFile,
 				}
 			})
 
@@ -1345,8 +1270,6 @@ source: https://github.com/gardener/docforge/blob/{{$version}}/integration-test/
 				Expect(err).NotTo(HaveOccurred())
 				rootGot := api.Node{Nodes: got}
 				rootExpected := api.Node{Nodes: expected}
-				api.SortNodesByName(&rootGot)
-				api.SortNodesByName(&rootExpected)
 				Expect(rootGot).To(Equal(rootExpected))
 			})
 
@@ -1356,18 +1279,18 @@ source: https://github.com/gardener/docforge/blob/{{$version}}/integration-test/
 			BeforeEach(func() {
 				depth = 1
 
-				root := api.Node{
+				root := &api.Node{
 					NodeSelector: &api.NodeSelector{Path: "https://github.com/testorg/testrepo/tree/testbranch/testdir"},
 				}
-				testdir_sub := api.NewNodeForTesting("testdir_sub", "", []*api.Node{}, "https://github.com/testorg/testrepo/tree/testbranch/testdir/testdir_sub")
-				testdir_sub.SetParent(&root)
-				testfile := api.NewNodeForTesting("testfile.md", "https://github.com/testorg/testrepo/blob/testbranch/testdir/testfile.md", nil, "")
-				testfile.SetParent(&root)
-				testdir_sub.SetParentsDownwards()
+				testSubDir := &api.Node{Name: "testdir_sub", Nodes: []*api.Node{}, Properties: map[string]interface{}{api.ContainerNodeSourceLocation: "https://github.com/testorg/testrepo/tree/testbranch/testdir/testdir_sub"}}
+				testSubDir.SetParent(root)
+				testFile := &api.Node{Name: "testfile.md", Source: "https://github.com/testorg/testrepo/blob/testbranch/testdir/testfile.md"}
+				testFile.SetParent(root)
+				testSubDir.SetParentsDownwards()
 
 				expected = []*api.Node{
-					&testfile,
-					&testdir_sub,
+					testSubDir,
+					testFile,
 				}
 
 			})
@@ -1376,8 +1299,6 @@ source: https://github.com/gardener/docforge/blob/{{$version}}/integration-test/
 				Expect(err).NotTo(HaveOccurred())
 				rootGot := api.Node{Nodes: got}
 				rootExpected := api.Node{Nodes: expected}
-				api.SortNodesByName(&rootGot)
-				api.SortNodesByName(&rootExpected)
 				Expect(rootGot).To(Equal(rootExpected))
 			})
 
@@ -1387,15 +1308,15 @@ source: https://github.com/gardener/docforge/blob/{{$version}}/integration-test/
 			BeforeEach(func() {
 				excludePaths = []string{"testdir_sub2", "testfile.md"}
 
-				root := api.Node{
+				root := &api.Node{
 					NodeSelector: &api.NodeSelector{Path: "https://github.com/testorg/testrepo/tree/testbranch/testdir"},
 				}
-				testdir_sub := api.NewNodeForTesting("testdir_sub", "", []*api.Node{}, "https://github.com/testorg/testrepo/tree/testbranch/testdir/testdir_sub")
-				testdir_sub.SetParent(&root)
-				testdir_sub.SetParentsDownwards()
+				testSubDir := &api.Node{Name: "testdir_sub", Nodes: []*api.Node{}, Properties: map[string]interface{}{api.ContainerNodeSourceLocation: "https://github.com/testorg/testrepo/tree/testbranch/testdir/testdir_sub"}}
+				testSubDir.SetParent(root)
+				testSubDir.SetParentsDownwards()
 
 				expected = []*api.Node{
-					&testdir_sub,
+					testSubDir,
 				}
 			})
 
@@ -1403,8 +1324,6 @@ source: https://github.com/gardener/docforge/blob/{{$version}}/integration-test/
 				Expect(err).NotTo(HaveOccurred())
 				rootGot := api.Node{Nodes: got}
 				rootExpected := api.Node{Nodes: expected}
-				api.SortNodesByName(&rootGot)
-				api.SortNodesByName(&rootExpected)
 				Expect(rootGot).To(Equal(rootExpected))
 			})
 
@@ -1414,15 +1333,15 @@ source: https://github.com/gardener/docforge/blob/{{$version}}/integration-test/
 			BeforeEach(func() {
 				excludeFrontMatter = make(map[string]interface{})
 				excludeFrontMatter[".title"] = "Test"
-				testdir_sub := api.NewNodeForTesting("testdir_sub", "", []*api.Node{}, "https://github.com/testorg/testrepo/tree/testbranch/testdir/testdir_sub")
+				testSubDir := &api.Node{Name: "testdir_sub", Nodes: []*api.Node{}, Properties: map[string]interface{}{api.ContainerNodeSourceLocation: "https://github.com/testorg/testrepo/tree/testbranch/testdir/testdir_sub"}}
 				root := api.Node{
 					NodeSelector: &api.NodeSelector{Path: "https://github.com/testorg/testrepo/tree/testbranch/testdir"},
 				}
-				testdir_sub.SetParent(&root)
-				testdir_sub.SetParentsDownwards()
+				testSubDir.SetParent(&root)
+				testSubDir.SetParentsDownwards()
 
 				expected = []*api.Node{
-					&testdir_sub,
+					testSubDir,
 				}
 			})
 
@@ -1430,8 +1349,6 @@ source: https://github.com/gardener/docforge/blob/{{$version}}/integration-test/
 				Expect(err).NotTo(HaveOccurred())
 				rootGot := api.Node{Nodes: got}
 				rootExpected := api.Node{Nodes: expected}
-				api.SortNodesByName(&rootGot)
-				api.SortNodesByName(&rootExpected)
 				Expect(rootGot).To(Equal(rootExpected))
 			})
 
@@ -1442,15 +1359,15 @@ source: https://github.com/gardener/docforge/blob/{{$version}}/integration-test/
 				frontMatter = make(map[string]interface{})
 				frontMatter[".title"] = "broken Test"
 
-				testdir_sub := api.NewNodeForTesting("testdir_sub", "", []*api.Node{}, "https://github.com/testorg/testrepo/tree/testbranch/testdir/testdir_sub")
-				root := api.Node{
+				testSubDir := &api.Node{Name: "testdir_sub", Nodes: []*api.Node{}, Properties: map[string]interface{}{api.ContainerNodeSourceLocation: "https://github.com/testorg/testrepo/tree/testbranch/testdir/testdir_sub"}}
+				root := &api.Node{
 					NodeSelector: &api.NodeSelector{Path: "https://github.com/testorg/testrepo/tree/testbranch/testdir"},
 				}
-				testdir_sub.SetParent(&root)
-				testdir_sub.SetParentsDownwards()
+				testSubDir.SetParent(root)
+				testSubDir.SetParentsDownwards()
 
 				expected = []*api.Node{
-					&testdir_sub,
+					testSubDir,
 				}
 			})
 
@@ -1458,8 +1375,6 @@ source: https://github.com/gardener/docforge/blob/{{$version}}/integration-test/
 				Expect(err).NotTo(HaveOccurred())
 				rootGot := api.Node{Nodes: got}
 				rootExpected := api.Node{Nodes: expected}
-				api.SortNodesByName(&rootGot)
-				api.SortNodesByName(&rootExpected)
 				Expect(rootGot).To(Equal(rootExpected))
 			})
 

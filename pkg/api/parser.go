@@ -7,12 +7,12 @@ package api
 import (
 	"bytes"
 	"fmt"
+	"github.com/Masterminds/semver"
+	"github.com/hashicorp/go-multierror"
+	"gopkg.in/yaml.v3"
 	"html/template"
 	"sort"
 	"strings"
-
-	"github.com/Masterminds/semver"
-	"gopkg.in/yaml.v3"
 )
 
 // flagsVars variables for template resolving
@@ -149,7 +149,10 @@ func Parse(b []byte) (*Documentation, error) {
 	if err = yaml.Unmarshal(blob, docs); err != nil {
 		return nil, err
 	}
-
+	// init parents
+	for _, n := range docs.Structure {
+		n.SetParentsDownwards()
+	}
 	if err = validateDocumentation(docs); err != nil {
 		return nil, err
 	}
@@ -157,92 +160,109 @@ func Parse(b []byte) (*Documentation, error) {
 	return docs, nil
 }
 
+// TODO: CHECK FOR COLLISIONS
+
 func validateDocumentation(d *Documentation) error {
-	var err error
-
+	var errs error
 	if d.Structure == nil && d.NodeSelector == nil {
-		err = fmt.Errorf("the document structure must contains at least one of these propperties: structure, nodesSelector")
-		return err
+		errs = multierror.Append(errs, fmt.Errorf("the document structure must contains at least one of these properties: structure, nodesSelector"))
 	}
-
-	if d.NodeSelector != nil && d.NodeSelector.Path == "" {
-		err = fmt.Errorf("the document structure must always contains path property in the nodesSelector")
-		return err
+	if err := validateSectionFile(d.Structure); err != nil {
+		errs = multierror.Append(errs, err)
 	}
-
-	allNodes := getAllNodes(d.Structure)
-	for _, node := range allNodes {
-		if node.isDocument() && node.Source == "" && node.Name == "" {
-			err = fmt.Errorf("document node must contains at least one of these properties: source, name. node: %+v", node)
-			return err
-		}
-
-		if node.Source == "" && node.NodeSelector == nil && node.ContentSelectors == nil && node.Nodes == nil && node.Template == nil {
-			err = fmt.Errorf("node must contains at least one of these propperties: source, nodesSelector, contentsSelector, template, nodes. node: %+v", node)
-			return err
-		}
-
-		if node.isDocument() && (node.Nodes != nil || node.NodeSelector != nil) {
-			err = fmt.Errorf("node must be categorized as a document or a container node. Please specify only one of the following groups of propperties: %s, for node: %+v", "(source/contentSelector/Template),(nodes,nodesSelector)", node)
-			return err
-		}
-
-		if node.NodeSelector != nil && node.NodeSelector.Path == "" {
-			err = fmt.Errorf("document nodesSelector %+v must always contains a path property", node.NodeSelector)
-			return err
-		}
-
-		contentSelectors := make([]ContentSelector, 0)
-		if node.ContentSelectors != nil {
-			contentSelectors = append(contentSelectors, node.ContentSelectors...)
-		}
-
-		if node.Template != nil {
-			if node.Template.Path == "" {
-				err = fmt.Errorf("node template must always contains a path property. node: %+v", node)
-				return err
-			}
-
-			for key, cs := range node.Template.Sources {
-				if key == "" {
-					err = fmt.Errorf("the key of a template selector must not be empty. node: %+v", node)
-					return err
-				}
-
-				if cs == nil {
-					err = fmt.Errorf("template must always contains a map of contentSelectors. node: %+v", node)
-					return err
-				}
-
-				contentSelectors = append(contentSelectors, *cs)
-			}
-		}
-
-		for _, cs := range contentSelectors {
-			if cs.Source == "" {
-				err = fmt.Errorf("contentSelector must always contains a source property. node: %+v", node)
-				return err
-			}
-
-			if cs.Selector != nil {
-				err = fmt.Errorf("selector property is not supported in the ContentSelector. node: %+v", node)
-				return err
-			}
+	for _, n := range d.Structure {
+		if err := validateNode(n); err != nil {
+			errs = multierror.Append(errs, err)
 		}
 	}
+	if err := validateNodeSelector(d.NodeSelector, "/"); err != nil {
+		errs = multierror.Append(errs, err)
+	}
+	return errs
+}
 
+func validateNodeSelector(selector *NodeSelector, root string) error {
+	if selector != nil && selector.Path == "" {
+		return fmt.Errorf("nodesSelector under %s must contains a path property", root)
+	}
 	return nil
 }
 
-func getAllNodes(currentNodes []*Node) []*Node {
-	allNodes := make([]*Node, 0)
-
-	for _, node := range currentNodes {
-		allNodes = append(allNodes, node)
-		allNodes = append(allNodes, getAllNodes(node.Nodes)...)
+func validateNode(n *Node) error {
+	var errs error
+	if n.IsDocument() && n.Source == "" && n.Name == "" { // TODO: Apply this check on container nodes as well, once all manifests are fixed
+		errs = multierror.Append(errs, fmt.Errorf("node %s must contains at least one of these properties: source, name", n.FullName("/")))
 	}
+	if n.Source == "" && n.NodeSelector == nil && n.MultiSource == nil && n.Nodes == nil {
+		errs = multierror.Append(errs, fmt.Errorf("node %s must contains at least one of these properties: source, nodesSelector, multiSource, nodes", n.FullName("/")))
+	}
+	if len(n.Sources()) > 0 && (n.Nodes != nil || n.NodeSelector != nil) {
+		errs = multierror.Append(errs, fmt.Errorf("node %s must be categorized as a document or a container, please specify only one of the following groups of properties: %s",
+			n.FullName("/"), "(source/multiSource),(nodes,nodesSelector)"))
+	}
+	if n.NodeSelector != nil {
+		if err := validateNodeSelector(n.NodeSelector, n.FullName("/")); err != nil {
+			errs = multierror.Append(errs, err)
+		}
+	}
+	if len(n.Nodes) > 0 {
+		if err := validateSectionFile(n.Nodes); err != nil {
+			errs = multierror.Append(errs, err)
+		}
+		for _, cn := range n.Nodes {
+			if err := validateNode(cn); err != nil {
+				errs = multierror.Append(errs, err)
+			}
+		}
+	}
+	for i, ms := range n.MultiSource {
+		if ms == "" {
+			errs = multierror.Append(errs, fmt.Errorf("node %s contains empty multiSource value at position %d", n.FullName("/"), i))
+		}
+	}
+	// TODO: this is workaround to move child nodes in parent if this node name is empty, delete it once manifests are fixed !!!
+	if n.Name == "" && !n.IsDocument() && n.Parent() != nil && len(n.Parent().Nodes) == 1 && n.Parent().NodeSelector == nil && n.NodeSelector != nil && len(n.Nodes) == 0 {
+		n.Parent().NodeSelector = n.NodeSelector
+		n.Parent().Nodes = n.Nodes
+	}
+	// TODO: end !!!
+	return errs
+}
 
-	return allNodes
+// validateSectionFile ensures one section file per folder
+func validateSectionFile(nodes []*Node) error {
+	var errs error
+	var idx, names []string
+	for _, n := range nodes {
+		if n.IsDocument() {
+			// check 'index=true' property
+			if len(n.Properties) > 0 {
+				if val, found := n.Properties["index"]; found {
+					if isIdx, ok := val.(bool); ok {
+						if isIdx {
+							idx = append(idx, n.FullName("/"))
+							continue
+						}
+					}
+				}
+			}
+			// check node name
+			if n.Name == "_index.md" || n.Name == "_index" {
+				names = append(names, n.FullName("/"))
+			}
+		}
+
+	}
+	if len(idx) > 1 {
+		errs = multierror.Append(errs, fmt.Errorf("property index: true defined for multiple peer nodes: %s", strings.Join(idx, ",")))
+	}
+	if len(names) > 1 {
+		errs = multierror.Append(errs, fmt.Errorf("_index.md defined for multiple peer nodes: %s", strings.Join(names, ",")))
+	}
+	if len(idx) == 1 && len(names) > 0 {
+		errs = multierror.Append(errs, fmt.Errorf("index node %s collides with peer nodes: %s", idx[0], strings.Join(names, ",")))
+	}
+	return errs
 }
 
 // Serialize marshals the given documentation and transforms it to string

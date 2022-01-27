@@ -26,7 +26,7 @@ func manifest(ctx context.Context, uri string, resourceHandlers []resourcehandle
 	uri = strings.TrimSpace(uri)
 	registry := resourcehandlers.NewRegistry(resourceHandlers...)
 
-	//chekc if uri is in file system
+	//check if uri is in file system
 	fileInfo, err := os.Stat(uri)
 	if err == nil {
 		//uri is from file system

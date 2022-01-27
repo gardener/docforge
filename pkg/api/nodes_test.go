@@ -2,262 +2,222 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-package api
+package api_test
 
 import (
-	"reflect"
-	"testing"
+	"github.com/gardener/docforge/pkg/api"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/extensions/table"
+	. "github.com/onsi/gomega"
 )
 
-//       A                    A1
-//    /	    \               /
-//   B	     C             B1
-//  / \	    / \           /
-// D   E   F   G         C1
-//      \
-//       I
-// 	      \
-// 	       J
-func initTestStructure() (*Node, map[string]*Node) {
-	idx := make(map[string]*Node)
-	jNode := &Node{
-		Name: "J",
-	}
-	idx["J"] = jNode
-	iNode := &Node{
-		Name: "I",
-		Nodes: []*Node{
-			jNode,
-		},
-	}
-	idx["I"] = iNode
-	eNode := &Node{
-		Name: "E",
-		Nodes: []*Node{
-			iNode,
-		},
-	}
-	idx["E"] = eNode
-	dNode := &Node{
-		Name: "D",
-	}
-	idx["D"] = dNode
-	bNode := &Node{
-		Name: "B",
-		Nodes: []*Node{
-			dNode,
-			eNode,
-		},
-	}
-	idx["B"] = bNode
-	gNode := &Node{
-		Name: "G",
-	}
-	idx["G"] = gNode
-	fNode := &Node{
-		Name: "F",
-	}
-	idx["F"] = fNode
-	cNode := &Node{
-		Name: "C",
-		Nodes: []*Node{
-			fNode,
-			gNode,
-		},
-	}
-	idx["C"] = cNode
-	aNode := &Node{
-		Name: "A",
-		Nodes: []*Node{
-			bNode,
-			cNode,
-		},
-	}
-	aNode.SetParentsDownwards()
-	idx["A"] = aNode
-	// new tree
-	cNode1 := &Node{
-		Name: "C1",
-	}
-	idx["C1"] = cNode1
-	bNode1 := &Node{
-		Name: "B1",
-		Nodes: []*Node{
-			cNode1,
-		},
-	}
-	idx["B1"] = bNode1
-	aNode1 := &Node{
-		Name: "A1",
-		Nodes: []*Node{
-			bNode1,
-		},
-	}
-	aNode1.SetParentsDownwards()
-	idx["A1"] = aNode1
-	return aNode, idx
-}
-
-func hashOfNodes(names ...string) map[string]*Node {
-	h := make(map[string]*Node)
-	for _, name := range names {
-		h[name] = &Node{Name: name}
-	}
-	return h
-}
-
-func TestParents(t *testing.T) {
-	_, idx := initTestStructure()
-	cases := []struct {
-		description string
-		inNode      *Node
-		want        []*Node
-	}{
-		{
-			"get parents of node",
-			idx["J"],
-			[]*Node{idx["A"], idx["B"], idx["E"], idx["I"]},
-		},
-		{
-			"get parents of root",
-			idx["A"],
-			nil,
-		},
-	}
-	for _, c := range cases {
-		t.Run(c.description, func(t *testing.T) {
-			got := c.inNode.Parents()
-			if !reflect.DeepEqual(got, c.want) {
-				t.Errorf("parents(%v) == %v, want %v", c.inNode.Name, got, c.want)
-			}
+var _ = Describe("API Nodes", func() {
+	Context("Parents & Helpers", func() {
+		var (
+			child, parent, ancestor *api.Node
+			res                     string
+		)
+		BeforeEach(func() {
+			child = &api.Node{Name: "child"}
+			parent = &api.Node{Name: "parent", Nodes: []*api.Node{child}}
+			ancestor = &api.Node{Name: "ancestor", Nodes: []*api.Node{parent}}
 		})
-	}
-}
-
-func TestPath(t *testing.T) {
-	_, idx := initTestStructure()
-	tests := []struct {
-		name     string
-		from     *Node
-		to       *Node
-		expected string
-	}{
-		{
-			"path to self",
-			idx["I"],
-			idx["I"],
-			"I",
-		},
-		{
-			"path to parent node",
-			idx["J"],
-			idx["I"],
-			"../I",
-		},
-		{
-			"path to sibling node",
-			idx["D"],
-			idx["E"],
-			"./E",
-		},
-		{
-			"path to descendent node",
-			idx["E"],
-			idx["J"],
-			"./I/J",
-		},
-		{
-			"path to ancestor node",
-			idx["J"],
-			idx["E"],
-			"../../E",
-		},
-		{
-			"path to node on another branch",
-			idx["I"],
-			idx["G"],
-			"../../C/G",
-		},
-		{
-			"path to root",
-			idx["I"],
-			idx["A"],
-			"../../../A",
-		},
-		{
-			"path from I to A1",
-			idx["I"],
-			idx["A1"],
-			"../../../A1",
-		},
-		{
-			"path from I to C1",
-			idx["I"],
-			idx["C1"],
-			"../../../A1/B1/C1",
-		},
-		{
-			"path from C1 to I",
-			idx["C1"],
-			idx["I"],
-			"../../A/B/E/I",
-		},
-		{
-			"path from A1 to A",
-			idx["A1"],
-			idx["A"],
-			"./A",
-		},
-		{
-			"path from A to A1",
-			idx["A"],
-			idx["A1"],
-			"./A1",
-		},
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			s := relativePath(tc.from, tc.to)
-			if !reflect.DeepEqual(s, tc.expected) {
-				t.Errorf("expected %v !=  %v", tc.expected, s)
-			}
+		When("set parent", func() {
+			JustBeforeEach(func() {
+				child.SetParent(parent)
+			})
+			It("sets the parent", func() {
+				Expect(child.Parent()).To(Equal(parent))
+			})
 		})
-	}
-}
-
-func TestIntersect(t *testing.T) {
-	nodes := hashOfNodes("A", "B", "C", "D", "E", "F")
-	tests := []struct {
-		name     string
-		a        []*Node
-		b        []*Node
-		expected []*Node
-	}{
-		{
-			"it should have intersection of several elements",
-			[]*Node{nodes["A"], nodes["B"], nodes["C"]},
-			[]*Node{nodes["D"], nodes["B"], nodes["C"]},
-			[]*Node{nodes["B"], nodes["C"]},
-		},
-		{
-			"it should have intersection of one element",
-			[]*Node{nodes["A"], nodes["B"], nodes["C"]},
-			[]*Node{nodes["D"], nodes["E"], nodes["C"]},
-			[]*Node{nodes["C"]},
-		},
-		{
-			"it should have no intersection",
-			[]*Node{nodes["A"], nodes["B"], nodes["C"]},
-			[]*Node{nodes["D"], nodes["E"], nodes["F"]},
-			[]*Node{},
-		},
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			got := intersect(tc.a, tc.b)
-			if !reflect.DeepEqual(got, tc.expected) {
-				t.Errorf("expected %v !=  %v", tc.expected, got)
-			}
+		When("set parents downwards", func() {
+			JustBeforeEach(func() {
+				ancestor.SetParentsDownwards()
+			})
+			It("sets the parents downwards", func() {
+				Expect(child.Parents()).To(Equal([]*api.Node{ancestor, parent}))
+			})
 		})
-	}
-}
+		When("get node path", func() {
+			BeforeEach(func() {
+				ancestor.SetParentsDownwards()
+			})
+			JustBeforeEach(func() {
+				res = child.Path("/")
+			})
+			It("returns path to the node", func() {
+				Expect(res).To(Equal("ancestor/parent"))
+			})
+		})
+		When("get node full name", func() {
+			BeforeEach(func() {
+				ancestor.SetParentsDownwards()
+			})
+			JustBeforeEach(func() {
+				res = child.FullName("/")
+			})
+			It("returns path to the node", func() {
+				Expect(res).To(Equal("ancestor/parent/child"))
+			})
+		})
+		Context("to string", func() {
+			BeforeEach(func() {
+				child.Source = "https://test/child.md"
+				ancestor.SetParentsDownwards()
+			})
+			JustBeforeEach(func() {
+				res = ancestor.String()
+			})
+			It("represents node as a yaml string", func() {
+				Expect(res).To(Equal("name: ancestor\nnodes:\n    - name: parent\n      nodes:\n        - name: child\n          source: https://test/child.md\n"))
+			})
+		})
+		Context("node sources", func() {
+			JustBeforeEach(func() {
+				res = child.Sources()
+			})
+			When("get single source", func() {
+				BeforeEach(func() {
+					child.Source = "https://test/child.md"
+				})
+				It("returns single source location", func() {
+					Expect(res).To(Equal("https://test/child.md"))
+				})
+			})
+			When("get multi source", func() {
+				BeforeEach(func() {
+					child.MultiSource = []string{"https://test/part1.md", "https://test/part2.md"}
+				})
+				It("returns multi source locations", func() {
+					Expect(res).To(Equal("https://test/part1.md,https://test/part2.md"))
+				})
+			})
+		})
+	})
+	Context("Relative path", func() {
+		//       A                    A1
+		//    /	    \               /
+		//   B	     C             B1
+		//  / \	    / \           /
+		// D   E   F   G         C1
+		//      \
+		//       I
+		// 	      \
+		// 	       J
+		var nodeMap map[string]*api.Node
+		BeforeEach(func() {
+			nodeMap = make(map[string]*api.Node)
+			nodeMap["J"] = &api.Node{Name: "J"}
+			nodeMap["I"] = &api.Node{Name: "I", Nodes: []*api.Node{nodeMap["J"]}}
+			nodeMap["E"] = &api.Node{Name: "E", Nodes: []*api.Node{nodeMap["I"]}}
+			nodeMap["D"] = &api.Node{Name: "D"}
+			nodeMap["B"] = &api.Node{Name: "B", Nodes: []*api.Node{nodeMap["D"], nodeMap["E"]}}
+			nodeMap["F"] = &api.Node{Name: "F"}
+			nodeMap["G"] = &api.Node{Name: "G"}
+			nodeMap["C"] = &api.Node{Name: "C", Nodes: []*api.Node{nodeMap["F"], nodeMap["G"]}}
+			nodeMap["A"] = &api.Node{Name: "A", Nodes: []*api.Node{nodeMap["B"], nodeMap["C"]}}
+			nodeMap["C1"] = &api.Node{Name: "C1"}
+			nodeMap["B1"] = &api.Node{Name: "B1", Nodes: []*api.Node{nodeMap["C1"]}}
+			nodeMap["A1"] = &api.Node{Name: "A1", Nodes: []*api.Node{nodeMap["B1"]}}
+			nodeMap["A"].SetParentsDownwards()
+			nodeMap["A1"].SetParentsDownwards()
+		})
+		DescribeTable("path from -> to", func(from, to, relPath string) {
+			Expect(nodeMap[from].RelativePath(nodeMap[to])).To(Equal(relPath))
+		},
+			Entry("path to self", "I", "I", "I"),
+			Entry("path to parent node", "J", "I", "../I"),
+			Entry("path to sibling node", "D", "E", "./E"),
+			Entry("path to descendent node", "E", "J", "./I/J"),
+			Entry("path to ancestor node", "J", "E", "../../E"),
+			Entry("path to node on another branch", "I", "G", "../../C/G"),
+			Entry("path to root", "I", "A", "../../../A"),
+			Entry("path from I to A1", "I", "A1", "../../../A1"),
+			Entry("path from I to C1", "I", "C1", "../../../A1/B1/C1"),
+			Entry("path from C1 to I", "C1", "I", "../../A/B/E/I"),
+			Entry("path from A1 to A", "A1", "A", "./A"),
+			Entry("path from A to A1", "A", "A1", "./A1"),
+		)
+	})
+	Context("Union", func() {
+		var (
+			node  *api.Node
+			nodes []*api.Node
+			err   error
+			exp   *api.Node
+		)
+		JustBeforeEach(func() {
+			node.SetParentsDownwards()
+			exp.SetParentsDownwards()
+			for _, n := range nodes {
+				n.SetParentsDownwards()
+			}
+			err = node.Union(nodes)
+		})
+		When("no collisions exists", func() {
+			BeforeEach(func() {
+				node = &api.Node{Name: "docs", Nodes: []*api.Node{{Name: "sub", Nodes: []*api.Node{{Name: "a.md", Source: "https://test/a.md"}}}}}
+				nodes = []*api.Node{{Name: "r.md", Source: "https://test/r.md"}, {Name: "sub", Nodes: []*api.Node{{Name: "b.md", Source: "https://test/b.md"}}}}
+				exp = &api.Node{Name: "docs", Nodes: []*api.Node{{Name: "sub", Nodes: []*api.Node{{Name: "a.md", Source: "https://test/a.md"}, {Name: "b.md", Source: "https://test/b.md"}}}, {Name: "r.md", Source: "https://test/r.md"}}}
+			})
+			It("merge nodes as expected", func() {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(node).To(Equal(exp))
+			})
+		})
+		When("collision with duplicate node exists", func() {
+			BeforeEach(func() {
+				node = &api.Node{Name: "docs", Nodes: []*api.Node{{Name: "sub", Nodes: []*api.Node{{Name: "a.md", Source: "https://test/a.md"}}}}}
+				nodes = []*api.Node{{Name: "r.md", Source: "https://test/r.md"}, {Name: "sub", Nodes: []*api.Node{{Name: "a.md", Source: "https://test/a.md"}}}}
+				exp = &api.Node{Name: "docs", Nodes: []*api.Node{{Name: "sub", Nodes: []*api.Node{{Name: "a.md", Source: "https://test/a.md"}}}, {Name: "r.md", Source: "https://test/r.md"}}}
+			})
+			It("skips the duplicate", func() {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(node).To(Equal(exp))
+			})
+		})
+		When("collision with different document nodes exists", func() {
+			BeforeEach(func() {
+				node = &api.Node{Name: "docs", Nodes: []*api.Node{{Name: "sub", Nodes: []*api.Node{{Name: "a.md", Source: "https://test/a.md"}}}}}
+				nodes = []*api.Node{{Name: "r.md", Source: "https://test/r.md"}, {Name: "sub", Nodes: []*api.Node{{Name: "a.md", Source: "https://test/another.md"}}}}
+				exp = &api.Node{Name: "docs", Nodes: []*api.Node{{Name: "sub", Nodes: []*api.Node{{Name: "a.md", Source: "https://test/a.md"}}}, {Name: "r.md", Source: "https://test/r.md"}}}
+			})
+			It("keeps the explicitly defined one", func() {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(node).To(Equal(exp))
+			})
+		})
+		When("collision with different document and container nodes exists", func() {
+			BeforeEach(func() {
+				node = &api.Node{Name: "docs", Nodes: []*api.Node{{Name: "sub", Nodes: []*api.Node{{Name: "a", Source: "https://test/a.md"}}}}}
+				nodes = []*api.Node{{Name: "r.md", Source: "https://test/r.md"}, {Name: "sub", Nodes: []*api.Node{{Name: "a", Nodes: []*api.Node{{Name: "c", Source: "https://test/another.md"}}}}}}
+				exp = &api.Node{Name: "docs", Nodes: []*api.Node{{Name: "sub", Nodes: []*api.Node{{Name: "a", Source: "https://test/a.md"}}}, {Name: "r.md", Source: "https://test/r.md"}}}
+			})
+			It("keeps the explicitly defined document", func() {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(node).To(Equal(exp))
+			})
+		})
+		When("collision with different container and document nodes exists", func() {
+			BeforeEach(func() {
+				node = &api.Node{Name: "docs", Nodes: []*api.Node{{Name: "sub", Nodes: []*api.Node{{Name: "a.md", Source: "https://test/a.md"}}}}}
+				nodes = []*api.Node{{Name: "r.md", Source: "https://test/r.md"}, {Name: "sub", Source: "https://test/sub.md"}}
+				exp = &api.Node{Name: "docs", Nodes: []*api.Node{{Name: "sub", Nodes: []*api.Node{{Name: "a.md", Source: "https://test/a.md"}}}, {Name: "r.md", Source: "https://test/r.md"}}}
+			})
+			It("keeps the explicitly defined container", func() {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(node).To(Equal(exp))
+			})
+		})
+		When("union on document node", func() {
+			BeforeEach(func() {
+				node = &api.Node{Name: "doc.md", Source: "https://test/doc.md"}
+				nodes = []*api.Node{{Name: "node1.md", Source: "https://test/node1.md"}, {Name: "node2.md", Source: "https://test/node2.md"}}
+			})
+			It("should error", func() {
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("doc.md"))
+			})
+		})
+	})
+})

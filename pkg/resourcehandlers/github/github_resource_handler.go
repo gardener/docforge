@@ -234,9 +234,7 @@ func (gh *GitHub) ResolveNodeSelector(ctx context.Context, node *api.Node, exclu
 		}
 		return nil, err
 	}
-
 	return BaseResolveNodeSelector(ctx, rl, gh, gh.cache, node, excludePaths, frontMatter, excludeFrontMatter, depth)
-
 }
 
 // ResolveDocumentation for a given path and return it as a *api.Documentation
@@ -251,9 +249,9 @@ func (gh *GitHub) ResolveDocumentation(ctx context.Context, path string) (*api.D
 	if !(rl.Type == Blob || rl.Type == Raw) || urls.Ext(rl.String()) == ".md" {
 		return nil, nil
 	}
-	//here rl.SHAAlias on the right side is the repo current branch
+	// here rl.SHAAlias on the right side is the repo current branch
 	rl.SHAAlias = api.ChooseTargetBranch(path, rl.SHAAlias)
-	//getting nVersions based on configuration
+	// getting nVersions based on configuration
 	nVersions := api.ChooseNVersions(path)
 	tags, err := gh.GetAllTags(ctx, rl)
 	if err != nil {

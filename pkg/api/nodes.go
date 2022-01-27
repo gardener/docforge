@@ -6,23 +6,17 @@ package api
 
 import (
 	"fmt"
-	"reflect"
-	"sort"
-	"strings"
-
 	"gopkg.in/yaml.v3"
 	"k8s.io/klog/v2"
+	"strings"
 )
 
-// NewNodeForTesting a function needed for node creation. NOTE: used only for testing
-func NewNodeForTesting(name string, source string, nodes []*Node, sourceLocator string) Node {
-	return Node{
-		Name:           name,
-		Source:         source,
-		Nodes:          nodes,
-		sourceLocation: sourceLocator,
-	}
-}
+const (
+	// CachedNodeContent - key used to store Node content into properties
+	CachedNodeContent = "\x00cachedNodeContent"
+	// ContainerNodeSourceLocation - key used to store container Node source location into properties
+	ContainerNodeSourceLocation = "\x00containerNodeSourceLocation"
+)
 
 // Parent returns the parent node (if any) of this node n
 func (n *Node) Parent() *Node {
@@ -55,7 +49,40 @@ func (n *Node) SetParentsDownwards() {
 	}
 }
 
-// RelativePath returns the relative path between two nodes on the same tree or the forest under a api#Documentation.Structure,
+// Path serializes the node parents path to root
+// as string of segments that are the parents names
+// and delimited by separator
+func (n *Node) Path(separator string) string {
+	var pathSegments []string
+	for _, parent := range n.Parents() {
+		pathSegments = append(pathSegments, parent.Name)
+	}
+	return strings.Join(pathSegments, separator)
+}
+
+// FullName returns fully qualified name of this node
+// i.e. Node.Path + Node.Name
+func (n *Node) FullName(separator string) string {
+	return fmt.Sprintf("%s%s%s", n.Path(separator), separator, n.Name)
+}
+
+// Sources returns either  Node.Source or comma separated Node.MultiSource values
+func (n *Node) Sources() string {
+	if len(n.Source) > 0 {
+		return n.Source
+	}
+	if len(n.MultiSource) > 0 {
+		return strings.Join(n.MultiSource, ",")
+	}
+	return ""
+}
+
+// IsDocument returns true if the node is a document node
+func (n *Node) IsDocument() bool {
+	return len(n.MultiSource) > 0 || len(n.Source) > 0
+}
+
+// RelativePath returns the relative path between two nodes on the same tree or the forest under a Documentation.Structure,
 // formatted with `..` for ancestors path if any and `.` for current node in relative
 // path to descendant. The function can also calculate path to a node on another
 // branch
@@ -73,7 +100,7 @@ func relativePath(from, to *Node) string {
 		// to is descendant
 		if intersection[len(intersection)-1] == from {
 			toPathToRoot = toPathToRoot[(len(intersection) - 1):]
-			s := []string{}
+			var s []string
 			for _, n := range toPathToRoot {
 				s = append(s, n.Name)
 			}
@@ -83,7 +110,7 @@ func relativePath(from, to *Node) string {
 		// to is ancestor
 		if intersection[len(intersection)-1] == to {
 			fromPathToRoot = fromPathToRoot[(len(intersection)):]
-			s := []string{}
+			var s []string
 			for range fromPathToRoot {
 				s = append(s, "..")
 			}
@@ -92,7 +119,7 @@ func relativePath(from, to *Node) string {
 		}
 		// to is on another branch
 		fromPathToRoot = fromPathToRoot[len(intersection):]
-		s := []string{}
+		var s []string
 		if len(fromPathToRoot) > 1 {
 			for range fromPathToRoot[1:] {
 				s = append(s, "..")
@@ -124,7 +151,7 @@ func relativePath(from, to *Node) string {
 }
 
 func intersect(a, b []*Node) []*Node {
-	intersection := make([]*Node, 0)
+	var intersection []*Node
 	hash := make(map[*Node]struct{})
 	for _, v := range a {
 		hash[v] = struct{}{}
@@ -137,111 +164,6 @@ func intersect(a, b []*Node) []*Node {
 	return intersection
 }
 
-// GetRootNode returns the root node in the parents path
-// for a node object n
-func (n *Node) GetRootNode() *Node {
-	parentNodes := n.Parents()
-	if len(parentNodes) > 0 {
-		return parentNodes[0]
-	}
-	return nil
-}
-
-// Peers returns the peer nodes of the node
-func (n *Node) Peers() []*Node {
-	var parent *Node
-	if parent = n.Parent(); parent == nil {
-		return nil
-	}
-	peers := []*Node{}
-	for _, node := range parent.Nodes {
-		if node != n {
-			peers = append(peers, node)
-		}
-	}
-	return peers
-}
-
-// GetStats returns statistics for this node
-func (n *Node) GetStats() []*Stat {
-	return n.stats
-}
-
-// AddStats appends Stats
-func (n *Node) AddStats(s ...*Stat) {
-	for _, stat := range s {
-		n.stats = append(n.stats, stat)
-	}
-}
-
-// FindNodeBySource traverses up and then all around the
-// tree paths in the node's documentation structure, looking for
-// a node that has the source string either in source, contentSelector
-// or template
-func FindNodeBySource(source string, node *Node) *Node {
-	if node == nil {
-		return nil
-	}
-	if n := matchAnySource(source, node); n != nil {
-		return n
-	}
-	root := node.GetRootNode()
-	if root == nil {
-		root = node
-	}
-	return withMatchinContentSelectorSource(source, root)
-}
-
-func matchAnySource(source string, node *Node) *Node {
-	if node.Source == source {
-		return node
-	}
-	for _, contentSelector := range node.ContentSelectors {
-		if contentSelector.Source == source {
-			return node
-		}
-	}
-	if t := node.Template; t != nil {
-		for _, contentSelector := range t.Sources {
-			if contentSelector.Source == source {
-				return node
-			}
-		}
-	}
-	return nil
-}
-
-func withMatchinContentSelectorSource(source string, node *Node) *Node {
-	if node == nil {
-		return nil
-	}
-	if n := matchAnySource(source, node); n != nil {
-		return n
-	}
-
-	for i := range node.Nodes {
-		foundNode := withMatchinContentSelectorSource(source, node.Nodes[i])
-		if foundNode != nil {
-			return foundNode
-		}
-	}
-
-	return nil
-}
-
-// SortNodesByName recursively sorts all child nodes in the
-// node hierarchy by node Name
-func SortNodesByName(node *Node) {
-	if nodes := node.Nodes; nodes != nil {
-		sort.Slice(nodes, func(i, j int) bool {
-			return nodes[i].Name > nodes[j].Name
-		})
-		for _, n := range nodes {
-			SortNodesByName(n)
-		}
-	}
-}
-
 func (n *Node) String() string {
 	node, err := yaml.Marshal(n)
 	if err != nil {
@@ -250,72 +172,69 @@ func (n *Node) String() string {
 	return string(node)
 }
 
-// SetSourceLocation sets the source location path for this container node
-func (n *Node) SetSourceLocation(sourceLocation string) {
-	n.sourceLocation = sourceLocation
-}
-
-// GetSourceLocation returns source location path if any
-func (n *Node) GetSourceLocation() string {
-	return n.sourceLocation
-}
-
 // Union merges the Node`s list of nodes, with the provided list recursively.
 func (n *Node) Union(nodes []*Node) error {
 	// merge is relevant for container nodes only
-	if n.isDocument() {
-		return fmt.Errorf("not a container node %s/%s", Path(n, "/"), n.Name)
+	if n.IsDocument() {
+		return fmt.Errorf("not a container node %s", n.FullName("/"))
+	}
+	if len(nodes) == 0 {
+		return nil // nothing to merge
 	}
 	// name -> node map
 	nodesByName := make(map[string]*Node)
 	for _, node := range n.Nodes {
 		nodesByName[node.Name] = node
 	}
-
 	for _, node := range nodes {
 		if existingNode, ok := nodesByName[node.Name]; ok {
-			if reflect.DeepEqual(existingNode, node) {
-				continue // same node
-			}
-
-			if node.isDocument() {
-				if existingNode.isDocument() {
-					klog.Warningf("Document collision conflict between %s/%s and %s/%s. Taking the explicitly defined %s/%s", Path(existingNode, "/"), existingNode.Name, Path(node, "/"), node.Name, Path(existingNode, "/"), existingNode.Name)
+			if node.IsDocument() {
+				if existingNode.IsDocument() {
+					if existingNode.String() != node.String() { // yaml compare to skip parents check
+						klog.Warningf("Document nodes name collision: %s. Taking the explicitly defined %s and skipping %s", existingNode.FullName("/"), existingNode.Sources(), node.Sources())
+					}
 				} else {
-					klog.Warningf("Folder and document collision conflict between %s/%s and %s/%s. Taking the explicitly defined folder %s/%s", Path(existingNode, "/"), existingNode.Name, Path(node, "/"), node.Name, Path(existingNode, "/"), existingNode.Name)
+					klog.Warningf("Container and document nodes name collision: %s. Taking the explicitly defined directory and skipping: %s", existingNode.FullName("/"), node.String())
 				}
 			} else {
-				if len(node.Nodes) > 0 {
+				if !existingNode.IsDocument() {
 					// merge recursively
 					// note: node properties merge is not supported; the properties from first node <existingNode> are active,
 					// as it is expected that they are defined explicitly in the manifest
 					if err := existingNode.Union(node.Nodes); err != nil {
 						return err
 					}
+				} else {
+					klog.Warningf("Document and container nodes collision: %s. Taking the explicitly defined document and skipping: %s", existingNode.FullName("/"), node.String())
 				}
 			}
 		} else {
 			// just append the node
 			n.Nodes = append(n.Nodes, node)
+			node.SetParent(n)
 		}
 	}
 	return nil
 }
 
-func (n *Node) isDocument() bool {
-	return n.Source != "" || n.Template != nil || n.ContentSelectors != nil
-}
-
-// Path serializes the node parents path to root
-// as string of segments that are the parents names
-// and delimited by separator
-func Path(node *Node, separator string) string {
-	var pathSegments []string
-	for _, parent := range node.Parents() {
-		if parent.Name != "" {
-			pathSegments = append(pathSegments, parent.Name)
+// Cleanup removes empty nodes that do not contain markdowns
+func (n *Node) Cleanup() {
+	var children []*Node
+	idx := 0
+	for i, child := range n.Nodes {
+		// skip document nodes
+		if child.IsDocument() {
+			continue
+		}
+		child.Cleanup()
+		// child is empty container -> remove it
+		if len(child.Nodes) == 0 && child.NodeSelector == nil {
+			children = append(children, n.Nodes[idx:i]...)
+			idx = i + 1
 		}
 	}
-
-	return strings.Join(pathSegments, separator)
+	if idx > 0 { // add the rest
+		children = append(children, n.Nodes[idx:]...)
+		n.Nodes = children
+	}
 }

@@ -7,12 +7,11 @@ package main
 import (
 	"context"
 	"flag"
+	"github.com/gardener/docforge/cmd/app"
 	"os"
 	"os/signal"
 	"runtime"
 	"syscall"
-
-	"github.com/gardener/docforge/cmd/app"
 )
 
 func main() {
@@ -21,6 +20,7 @@ func main() {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
+
 	c := make(chan os.Signal, 2)
 	signal.Notify(c, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	defer func() {
@@ -34,7 +34,7 @@ func main() {
 		os.Exit(1)
 	}()
 
-	command := app.NewCommand(ctx, cancel)
+	command := app.NewCommand(ctx)
 	if err := flag.CommandLine.Parse([]string{}); err != nil {
 		panic(err.Error())
 	}

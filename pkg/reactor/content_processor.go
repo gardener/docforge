@@ -7,6 +7,8 @@ package reactor
 import (
 	"bytes"
 	"context"
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/markdown"
@@ -37,42 +39,38 @@ type NodeContentProcessor interface {
 }
 
 type nodeContentProcessor struct {
-	resourcesRoot     string
-	globalLinksConfig *api.Links
-	downloader        DownloadScheduler
-	validator         Validator
-	rewriteEmbedded   bool
-	resourceHandlers  resourcehandlers.Registry
-	sourceLocations   map[string][]*api.Node
-	hugo              bool
-	PrettyUrls        bool
-	IndexFileNames    []string
-	BaseURL           string
-	mux               sync.Mutex
-	resourceAbsLinks  map[string]string
-	templates         map[string]*template.Template
-	rwLock            sync.RWMutex
+	resourcesRoot    string
+	downloader       DownloadScheduler
+	validator        Validator
+	rewriteEmbedded  bool
+	resourceHandlers resourcehandlers.Registry
+	sourceLocations  map[string][]*api.Node
+	hugo             bool
+	PrettyUrls       bool
+	IndexFileNames   []string
+	BaseURL          string
+	//mux              sync.Mutex
+	templates map[string]*template.Template
+	rwLock    sync.RWMutex
 }
 
 // NewNodeContentProcessor creates NodeContentProcessor objects
-func NewNodeContentProcessor(resourcesRoot string, globalLinksConfig *api.Links, downloadJob DownloadScheduler, validator Validator, rewriteEmbedded bool, rh resourcehandlers.Registry,
+func NewNodeContentProcessor(resourcesRoot string, downloadJob DownloadScheduler, validator Validator, rewriteEmbedded bool, rh resourcehandlers.Registry,
 	hugo bool, PrettyUrls bool, IndexFileNames []string, BaseURL string) NodeContentProcessor {
 	c := &nodeContentProcessor{
 		// resourcesRoot specifies the root location for downloaded resource.
 		// It is used to rewrite resource links in documents to relative paths.
-		resourcesRoot:     resourcesRoot,
-		globalLinksConfig: globalLinksConfig,
-		downloader:        downloadJob,
-		validator:         validator,
-		rewriteEmbedded:   rewriteEmbedded,
-		resourceHandlers:  rh,
-		hugo:              hugo,
-		PrettyUrls:        PrettyUrls,
-		IndexFileNames:    IndexFileNames,
-		BaseURL:           BaseURL,
-		sourceLocations:   make(map[string][]*api.Node),
-		resourceAbsLinks:  make(map[string]string),
-		templates:         map[string]*template.Template{},
+		resourcesRoot:    resourcesRoot,
+		downloader:       downloadJob,
+		validator:        validator,
+		rewriteEmbedded:  rewriteEmbedded,
+		resourceHandlers: rh,
+		hugo:             hugo,
+		PrettyUrls:       PrettyUrls,
+		IndexFileNames:   IndexFileNames,
+		BaseURL:          BaseURL,
+		sourceLocations:  make(map[string][]*api.Node),
+		templates:        map[string]*template.Template{},
 	}
 	return c
 }
@@ -80,107 +78,58 @@ func NewNodeContentProcessor(resourcesRoot string, globalLinksConfig *api.Links,
 func (c *nodeContentProcessor) Process(ctx context.Context, b *bytes.Buffer, r Reader, n *api.Node) error {
 	// api.Node content by priority
 	var nc []*docContent
-	path := api.Path(n, "/")
+	path := n.Path("/")
 	// 1. Process Source
 	if len(n.Source) > 0 {
-		source, err := r.Read(ctx, n.Source)
-		if err != nil {
-			if resourceNotFound, ok := err.(resourcehandlers.ErrResourceNotFound); ok {
-				klog.Warningf("reading source %s from node %s/%s failed: %s\n", n.Source, path, n.Name, resourceNotFound)
-			} else {
-				return fmt.Errorf("reading source %s from node %s/%s failed: %w", n.Source, path, n.Name, err)
-			}
-		}
-		if len(source) == 0 {
-			klog.Warningf("no content read from node %s/%s source %s\n", path, n.Name, n.Source)
-		} else {
-			dc := &docContent{docCnt: source, docURI: n.Source}
-			dc.docAst, err = markdown.Parse(source)
-			if err != nil {
-				return fmt.Errorf("fail to parse source %s from node %s/%s: %w", n.Source, path, n.Name, err)
-			}
+		if dc := getCachedContent(n); dc != nil {
 			nc = append(nc, dc)
-		}
-	}
-	// 2. Process ContentSelectors
-	if len(n.ContentSelectors) > 0 {
-		for _, content := range n.ContentSelectors {
-			source, err := r.Read(ctx, content.Source)
+		} else {
+			source, err := r.Read(ctx, n.Source)
 			if err != nil {
 				if resourceNotFound, ok := err.(resourcehandlers.ErrResourceNotFound); ok {
-					klog.Warningf("reading content selector source %s from node %s/%s failed: %s\n", content.Source, path, n.Name, resourceNotFound)
+					klog.Warningf("reading source %s from node %s/%s failed: %s\n", n.Source, path, n.Name, resourceNotFound)
 				} else {
-					return fmt.Errorf("reading content selector source %s from node %s/%s failed: %w", content.Source, path, n.Name, err)
+					return fmt.Errorf("reading source %s from node %s/%s failed: %w", n.Source, path, n.Name, err)
 				}
 			}
-			if len(source) == 0 {
-				klog.Warningf("no content read from node %s/%s content selector source %s\n", path, n.Name, content.Source)
-			} else {
-				dc := &docContent{docCnt: source, docURI: content.Source}
+			if len(source) > 0 {
+				dc = &docContent{docCnt: source, docURI: n.Source}
 				dc.docAst, err = markdown.Parse(source)
 				if err != nil {
-					return fmt.Errorf("fail to parse content selector source %s from node %s/%s: %w", content.Source, path, n.Name, err)
+					return fmt.Errorf("fail to parse source %s from node %s/%s: %w", n.Source, path, n.Name, err)
 				}
 				nc = append(nc, dc)
+			} else if err == nil {
+				klog.Warningf("no content read from node %s/%s source %s\n", path, n.Name, n.Source)
 			}
 		}
 	}
-	// 3. Process Template
-	var tmplBlob []byte
-	if n.Template != nil {
-		// init template
-		tmpl, err := c.initTemplate(ctx, path, r, n)
-		if err != nil {
-			return err
-		}
-		// init placeholders content
-		vars := map[string]string{}
-		for varName, content := range n.Template.Sources {
-			var source []byte
-			var doc ast.Node
-			source, err = r.Read(ctx, content.Source)
+	// 2. Process MultiSource
+	if len(n.MultiSource) > 0 {
+		for i, src := range n.MultiSource {
+			source, err := r.Read(ctx, src)
 			if err != nil {
 				if resourceNotFound, ok := err.(resourcehandlers.ErrResourceNotFound); ok {
-					klog.Warningf("reading template source %s:%s from node %s/%s failed: %s\n", varName, content.Source, path, n.Name, resourceNotFound)
+					klog.Warningf("reading multiSource[%d] %s from node %s/%s failed: %s\n", i, src, path, n.Name, resourceNotFound)
 				} else {
-					return fmt.Errorf("reading template source %s:%s from node %s/%s failed: %w", varName, content.Source, path, n.Name, err)
+					return fmt.Errorf("reading multiSource[%d] %s from node %s/%s failed: %w", i, src, path, n.Name, err)
 				}
 			}
-			if len(source) == 0 {
-				klog.Warningf("no content read from node %s/%s template source %s:%s\n", path, n.Name, varName, content.Source)
-			} else {
-				doc, err = markdown.Parse(source)
+			if len(source) > 0 {
+				dc := &docContent{docCnt: source, docURI: src}
+				dc.docAst, err = markdown.Parse(source)
 				if err != nil {
-					return fmt.Errorf("fail to parse template source %s:%s from node %s/%s: %w", varName, content.Source, path, n.Name, err)
+					return fmt.Errorf("fail to parse multiSource[%d] %s from node %s/%s: %w", i, src, path, n.Name, err)
 				}
-			}
-			if doc != nil {
-				// remove frontmatter for template placeholder values
-				if doc.Kind() == ast.KindDocument {
-					doc.(*ast.Document).SetMeta(nil)
-				}
-				// render content
-				var value string
-				value, err = c.renderTemplatePlaceholderValue(source, doc, n, content.Source)
-				if err != nil {
-					return fmt.Errorf("fail to render template source %s:%s from node %s/%s: %w", varName, content.Source, path, n.Name, err)
-				}
-				vars[varName] = value
-			} else {
-				// add empty string
-				vars[varName] = ""
+				nc = append(nc, dc)
+			} else if err == nil {
+				klog.Warningf("no content read from node %s/%s multiSource[%d] %s\n", path, n.Name, i, src)
 			}
 		}
-		if tmplBlob, err = applyTemplate(tmpl, vars, path, n); err != nil {
-			return err
-		}
-		// add empty doc content to prepend node frontmatter if only a template is defined
-		dc := &docContent{docAst: ast.NewDocument(), docCnt: []byte{}, docURI: ""}
-		nc = append(nc, dc)
 	}
 	// if no content -> return
 	if len(nc) == 0 {
-		return nil
+		return nil //TODO: ?
 	}
 	// render node content
 	// 1 - frontmatter preprocessing
@@ -201,9 +150,6 @@ func (c *nodeContentProcessor) Process(ctx context.Context, b *bytes.Buffer, r R
 			return err
 		}
 	}
-	if len(tmplBlob) > 0 {
-		_, _ = b.Write(tmplBlob)
-	}
 	return nil
 }
 
@@ -211,6 +157,18 @@ type docContent struct {
 	docAst ast.Node
 	docCnt []byte
 	docURI string
+}
+
+func getCachedContent(n *api.Node) *docContent {
+	if len(n.Properties) > 0 {
+		if val, found := n.Properties[api.CachedNodeContent]; found {
+			if dc, ok := val.(*docContent); ok {
+				delete(n.Properties, api.CachedNodeContent)
+				return dc
+			}
+		}
+	}
+	return nil
 }
 
 func preprocessFrontmatter(nc []*docContent, fmp *frontmatterProcessor) error {
@@ -247,67 +205,6 @@ func mergeFrontmatter(base, add map[string]interface{}) {
 	}
 }
 
-// TODO: how to ensure that template will produce valid Markdown ?
-func applyTemplate(tmpl *template.Template, vars map[string]string, nodePath string, n *api.Node) ([]byte, error) {
-	tmplBytes := &bytes.Buffer{}
-	if err := tmpl.Execute(tmplBytes, vars); err != nil {
-		return nil, fmt.Errorf("executing template %s from node %s/%s failed: %w", n.Template.Path, nodePath, n.Name, err)
-	}
-	return tmplBytes.Bytes(), nil
-}
-
-func (c *nodeContentProcessor) renderTemplatePlaceholderValue(source []byte, doc ast.Node, n *api.Node, sourceURI string) (string, error) {
-	rnd := c.getRenderer(n, sourceURI)
-	bytesBuff := bufPool.Get().(*bytes.Buffer)
-	defer bufPool.Put(bytesBuff)
-	bytesBuff.Reset()
-	if err := rnd.Render(bytesBuff, source, doc); err != nil {
-		return "", err
-	}
-	return string(bytesBuff.Bytes()), nil
-}
-
-func (c *nodeContentProcessor) getTemplate(templatePath string) (*template.Template, bool) {
-	c.rwLock.RLock()
-	defer c.rwLock.RUnlock()
-	tmpl, ok := c.templates[templatePath]
-	return tmpl, ok
-}
-
-func (c *nodeContentProcessor) initTemplate(ctx context.Context, nodePath string, r Reader, n *api.Node) (*template.Template, error) {
-	if tmpl, ok := c.getTemplate(n.Template.Path); ok {
-		if tmpl == nil {
-			return nil, fmt.Errorf("template %s from node %s/%s initialization failed", n.Template.Path, nodePath, n.Name)
-		}
-		return tmpl, nil
-	}
-	c.rwLock.Lock()
-	defer c.rwLock.Unlock()
-	if tmpl, ok := c.templates[n.Template.Path]; ok {
-		return tmpl, nil
-	}
-	blob, err := r.Read(ctx, n.Template.Path)
-	if err != nil {
-		if resourceNotFound, ok := err.(resourcehandlers.ErrResourceNotFound); ok {
-			klog.Warningf("reading template blob %s from node %s/%s failed: %s\n", n.Template.Path, nodePath, n.Name, resourceNotFound)
-		} else {
-			return nil, fmt.Errorf("reading template blob %s from node %s/%s failed: %w", n.Template.Path, nodePath, n.Name, err)
-		}
-	}
-	if len(blob) == 0 {
-		c.templates[n.Template.Path] = nil
-		return nil, fmt.Errorf("no content read from node %s/%s template blob %s", nodePath, n.Name, n.Template.Path)
-	}
-	var tmpl *template.Template
-	tmpl, err = template.New(n.Template.Path).Parse(string(blob))
-	if err != nil {
-		c.templates[n.Template.Path] = nil
-		return nil, err
-	}
-	c.templates[n.Template.Path] = tmpl
-	return tmpl, nil
-}
-
 func (c *nodeContentProcessor) getRenderer(n *api.Node, sourceURI string) renderer.Renderer {
 	lr := c.newLinkResolver(n, sourceURI)
 	return markdown.NewLinkModifierRenderer(markdown.WithLinkResolver(lr.resolveLink))
@@ -330,7 +227,7 @@ func (c *nodeContentProcessor) newLinkResolver(node *api.Node, sourceURI string)
 
 // implements markdown.ResolveLink
 func (l *linkResolver) resolveLink(dest string, isEmbeddable bool) (string, error) {
-	baseLink, err := l.resolveBaseLink(dest)
+	baseLink, err := l.resolveBaseLink(dest, isEmbeddable)
 	if err != nil {
 		return "", err
 	}
@@ -341,7 +238,6 @@ func (l *linkResolver) resolveLink(dest string, isEmbeddable bool) (string, erro
 			}
 		}
 	}
-	// TODO: include stats?
 	if l.hugo {
 		err = l.rewriteDestination(baseLink)
 	}
@@ -349,7 +245,7 @@ func (l *linkResolver) resolveLink(dest string, isEmbeddable bool) (string, erro
 }
 
 // resolve base link
-func (l *linkResolver) resolveBaseLink(dest string) (*Link, error) {
+func (l *linkResolver) resolveBaseLink(dest string, isEmbeddable bool) (*Link, error) {
 	link := &Link{
 		OriginalDestination: dest,
 		Destination:         &dest,
@@ -391,48 +287,6 @@ func (l *linkResolver) resolveBaseLink(dest string) (*Link, error) {
 			return link, err
 		}
 	}
-	// rewrite link if required - TODO: remove link rewrites using rewrite rules?
-	var globalRewrites map[string]*api.LinkRewriteRule
-	if gLinks := l.globalLinksConfig; gLinks != nil {
-		globalRewrites = gLinks.Rewrites
-	}
-	_a := absLink
-	if l.node != nil {
-		if version, substituteDestination, _, _, ok := MatchForLinkRewrite(absLink, l.node, globalRewrites); ok {
-			if substituteDestination != nil {
-				if len(*substituteDestination) == 0 {
-					// quit early. substitution is a request to remove this link
-					s := ""
-					link.Destination = &s
-					return link, nil
-				}
-				absLink = *substituteDestination
-			}
-			if version != nil {
-				handler := l.resourceHandlers.Get(absLink)
-				if handler == nil {
-					link.Destination = &absLink
-					return link, nil
-				}
-				absLink, err = handler.SetVersion(absLink, *version) // TODO: SetVersion?
-				if err != nil {
-					klog.Warningf("Failed to set version %s to %s: %s\n", *version, absLink, err.Error())
-					link.Destination = &absLink
-					return link, nil
-				}
-			}
-		}
-	}
-
-	// validate potentially rewritten links
-	u, err = urls.Parse(absLink)
-	if err != nil {
-		return link, err
-	}
-	if _a != absLink {
-		klog.V(6).Infof("[%s] Link rewritten %s -> %s\n", l.source, _a, absLink)
-	}
-
 	if l.node != nil {
 		// Links to other documents are enforced relative when
 		// linking documents from the node structure.
@@ -467,26 +321,29 @@ func (l *linkResolver) resolveBaseLink(dest string) (*Link, error) {
 		// assessed for download eligibility and if applicable their
 		// destination is updated to relative path to predefined location
 		// for resources.
-		var globalDownloadsConfig *api.Downloads
-		if l.globalLinksConfig != nil {
-			globalDownloadsConfig = l.globalLinksConfig.Downloads
-		}
-		if downloadResourceName, ok := MatchForDownload(u, l.node, globalDownloadsConfig); ok {
-			resourceName := l.getDownloadResourceName(u, downloadResourceName)
-			resLocation := buildDownloadDestination(l.node, resourceName, l.resourcesRoot)
+		if isEmbeddable && (!u.IsAbs() || strings.HasPrefix(u.Path, "/gardener")) { // TODO: cfg for own organizations
+			hash := md5.Sum([]byte(absLink)) // hash based on absolute link
+			downloadResourceName := "$name_$hash$ext"
+			downloadResourceName = strings.ReplaceAll(downloadResourceName, "$name", u.ResourceName)
+			downloadResourceName = strings.ReplaceAll(downloadResourceName, "$hash", hex.EncodeToString(hash[:])[:6])
+			downloadResourceName = strings.ReplaceAll(downloadResourceName, "$ext", fmt.Sprintf(".%s", u.Extension))
+
+			resLocation := buildDownloadDestination(l.node, downloadResourceName, l.resourcesRoot)
 			if resLocation != dest {
 				link.Destination = &resLocation
 				klog.V(6).Infof("[%s] %s -> %s\n", l.source, resLocation, dest)
 			}
 			link.IsResource = true
+
 			if err = l.downloader.Schedule(&DownloadTask{
 				absLink,
-				resourceName,
+				downloadResourceName,
 				l.source,
 				dest,
 			}); err != nil {
 				return link, err
 			}
+
 			return link, nil
 		}
 	}
@@ -511,7 +368,7 @@ func (f *frontmatterProcessor) processFrontmatter(docFrontmatter map[string]inte
 	if val, ok := f.node.Properties["frontmatter"]; ok {
 		nodeMeta, ok = val.(map[string]interface{})
 		if !ok {
-			return nil, fmt.Errorf("invalid frontmatter properties for node:  %s/%s", api.Path(f.node, "/"), f.node.Name)
+			return nil, fmt.Errorf("invalid frontmatter properties for node: %s", f.node.FullName("/"))
 		}
 	}
 	// 2 front matter from doc node parent (only if the current one is section file)
@@ -519,7 +376,7 @@ func (f *frontmatterProcessor) processFrontmatter(docFrontmatter map[string]inte
 		if val, ok := f.node.Parent().Properties["frontmatter"]; ok {
 			parentMeta, ok = val.(map[string]interface{})
 			if !ok {
-				return nil, fmt.Errorf("invalid frontmatter properties for node:  %s", api.Path(f.node, "/"))
+				return nil, fmt.Errorf("invalid frontmatter properties for node: %s", f.node.Path("/"))
 			}
 		}
 	}
@@ -555,7 +412,7 @@ func (f *frontmatterProcessor) getNodeTitle() string {
 }
 
 // Compares a node name to the configured list of index file
-// and a default name '_index.md' to determin if this node
+// and a default name '_index.md' to determine if this node
 // is an index document node.
 func (f *frontmatterProcessor) nodeIsIndexFile(name string) bool {
 	for _, s := range f.IndexFileNames {
@@ -564,18 +421,6 @@ func (f *frontmatterProcessor) nodeIsIndexFile(name string) bool {
 		}
 	}
 	return name == "_index.md"
-}
-
-// Check for cached resource name first and return that if found. Otherwise,
-// return the downloadName
-// TODO:
-func (l *linkResolver) getDownloadResourceName(u *urls.URL, downloadName string) string {
-	l.mux.Lock()
-	defer l.mux.Unlock()
-	if cachedDownloadName, ok := l.resourceAbsLinks[u.Path]; ok {
-		return cachedDownloadName
-	}
-	return downloadName
 }
 
 // rewrite abs links to embedded objects to their raw link format if necessary, to
@@ -617,7 +462,7 @@ func (l *linkResolver) rewriteDestination(lnk *Link) error {
 		_l := link
 		link = u.Path
 		if lnk.DestinationNode != nil {
-			absPath := api.Path(lnk.DestinationNode, "/")
+			absPath := lnk.DestinationNode.Path("/")
 			link = fmt.Sprintf("%s/%s/%s", l.BaseURL, absPath, strings.ToLower(lnk.DestinationNode.Name))
 		}
 		if lnk.IsResource {
