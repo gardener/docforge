@@ -7,21 +7,30 @@ package github
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"net/url"
 	"strings"
 	"sync"
 
 	"github.com/gardener/docforge/pkg/resourcehandlers"
-	"github.com/google/go-github/v32/github"
 )
 
 // Cache is indexes GitHub TreeEntries by website resource URLs as keys,
 // mapping ResourceLocator objects to them.
 type Cache struct {
-	cache    map[string]*ResourceLocator
-	mux      sync.RWMutex
-	ghClient *github.Client
+	cache         map[string]*ResourceLocator
+	mux           sync.RWMutex
+	treeExtractor TreeExtractor
+}
+
+// NewCache returns cahce given a tree extractor interface
+func NewCache(te TreeExtractor) *Cache {
+	return &Cache{cache: map[string]*ResourceLocator{}, treeExtractor: te}
+}
+
+//counterfeiter:generate . TreeExtractor
+// TreeExtractor a interface that represents extracting the structure of a given resource locator
+type TreeExtractor interface {
+	ExtractTree(ctx context.Context, rl *ResourceLocator) ([]*ResourceLocator, error)
 }
 
 // Get returns a ResourceLocator object mapped to the path (URL).
@@ -94,7 +103,7 @@ func (c *Cache) GetSubsetWithInit(ctx context.Context, pathPrefix string) ([]*Re
 	if keyPrefix, err = c.key(rl, false); err != nil {
 		return nil, err
 	}
-	if rl, ok = c.get(keyPrefix); !ok {
+	if _, ok = c.get(keyPrefix); !ok {
 		// init repository
 		if _, err = c.set(ctx, rl); err != nil {
 			return nil, err
@@ -170,21 +179,17 @@ func (c *Cache) set(ctx context.Context, rl *ResourceLocator) (bool, error) {
 		return false, nil
 	}
 	// grab the index of this repo
-	gitTree, resp, err := c.ghClient.Git.GetTree(ctx, rl.Owner, rl.Repo, rl.SHAAlias, true)
+	treeRls, err := c.treeExtractor.ExtractTree(ctx, rl)
 	if err != nil {
-		if resp != nil && resp.StatusCode == http.StatusNotFound {
-			// add repo key to avoid further calls to this repo
+		if _, ok := err.(resourcehandlers.ErrResourceNotFound); ok {
 			c.cache[repo] = nil
-			return false, resourcehandlers.ErrResourceNotFound(rl.String())
 		}
 		return false, err
-	}
-	if resp.StatusCode >= 400 {
-		return false, fmt.Errorf("request for %s://%s/repos/%s/%s/git/trees/%s failed with status: %s", rl.Scheme, rl.Host, rl.Owner, rl.Repo, rl.SHAAlias, resp.Status)
+
 	}
 	var eKey string
-	for _, entry := range gitTree.Entries {
-		if eRL := TreeEntryToGitHubLocator(entry, rl.SHAAlias); eRL != nil {
+	for _, eRL := range treeRls {
+		if eRL != nil {
 			if eKey, err = c.key(eRL, false); err != nil {
 				return false, err
 			}

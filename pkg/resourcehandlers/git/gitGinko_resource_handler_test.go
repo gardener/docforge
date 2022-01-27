@@ -17,10 +17,12 @@ import (
 	"os"
 
 	"github.com/gardener/docforge/pkg/api"
+	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/gardener/docforge/pkg/resourcehandlers/git"
 	"github.com/gardener/docforge/pkg/resourcehandlers/git/gitfakes"
 	"github.com/gardener/docforge/pkg/resourcehandlers/git/gitinterface/gitinterfacefakes"
 	ghub "github.com/gardener/docforge/pkg/resourcehandlers/github"
+	"github.com/gardener/docforge/pkg/resourcehandlers/github/githubfakes"
 
 	"github.com/google/go-github/v32/github"
 )
@@ -67,19 +69,6 @@ func setup() (client *github.Client, mux *http.ServeMux, serverURL string, teard
 }
 
 var (
-	manifestData = []byte(fmt.Sprintf(`structure:
-- name: community
-  source: https://github.com/gardener/docforge/edit/master/integration-test/tested-doc/merge-test/testFile.md
-{{- $vers := Split .versions "," -}}
-{{- range $i, $version := $vers -}}
-{{- if eq $i 0  }}
-- name: docs
-{{- else }}
-- name: {{$version}}
-{{- end }}
-  source: https://github.com/gardener/docforge/blob/{{$version}}/integration-test/tested-doc/merge-test/testFile.md
-{{- end }}`))
-
 	mux = func(mux *http.ServeMux) {
 		mux.HandleFunc("/repos/testOrg/testRepo/git/trees/testMainBranch", func(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte(fmt.Sprintf(`
@@ -113,70 +102,375 @@ var (
 
 var _ = Describe("Git", func() {
 
-	Describe("resolving documentation", func() {
-		var (
-			repositoryPath string
-			tags           []string
+	var (
+		repositoryPath string
 
-			uri            string
-			fakeGit        gitinterfacefakes.FakeGit
-			fakeFileSystem gitfakes.FakeFileReader
-			fakeFileInfo   gitfakes.FakeFileInfo
-			got            *api.Documentation
-			err            error
+		fakeGit        gitinterfacefakes.FakeGit
+		fakeFileSystem gitfakes.FakeFileReader
+
+		ctx      context.Context
+		teardown func()
+		cancel   context.CancelFunc
+
+		cache *ghub.Cache
+		gh    resourcehandlers.ResourceHandler
+
+		err error
+	)
+
+	BeforeEach(func() {
+		cache = ghub.NewCache(nil)
+	})
+
+	JustBeforeEach(func() {
+		//creating git resource handler
+		ctx, cancel = context.WithTimeout(context.Background(), 100*time.Millisecond)
+
+		var (
+			muxRes *http.ServeMux
+			client *github.Client
+		)
+		client, muxRes, _, teardown = setup()
+		if mux != nil {
+			mux(muxRes)
+		}
+
+		repo := make(map[string]*git.Repository)
+		repo[repositoryPath] = &git.Repository{
+			State:     git.Prepared,
+			Git:       &fakeGit,
+			LocalPath: repositoryPath,
+		}
+
+		gh = git.NewResourceHandlerExtended("", nil, "", client, nil, nil, nil, &fakeGit, repo, &fakeFileSystem, cache)
+
+	})
+
+	JustAfterEach(func() {
+		cancel()
+		teardown()
+	})
+
+	Describe("resolving node selector", func() {
+		var (
+			node               *api.Node
+			excludePaths       []string
+			frontMatter        map[string]interface{}
+			excludeFrontMatter map[string]interface{}
+			depth              int32
+
+			fakeTreeExtractor githubfakes.FakeTreeExtractor
+
+			got      []*api.Node
+			expected []*api.Node
 		)
 
-		JustBeforeEach(func() {
-			ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
-			defer cancel()
-			client, muxRes, _, teardown := setup()
-			repo := make(map[string]*git.Repository)
+		BeforeEach(func() {
+			var (
+				fakeRepository gitinterfacefakes.FakeRepository
+				fakeWorktree   gitinterfacefakes.FakeRepositoryWorktree
+				fakeFileInfo   gitfakes.FakeFileInfo
+			)
 
-			repo[repositoryPath] = &git.Repository{
-				State:     git.Prepared,
-				Git:       &fakeGit,
-				LocalPath: repositoryPath,
+			fakeGit.PlainOpenReturns(&fakeRepository, nil)
+			fakeRepository.WorktreeReturns(&fakeWorktree, nil)
+
+			fakeFileSystem.IsNotExistReturns(false)
+			fakeFileInfo.IsDirReturns(false)
+			fakeFileSystem.StatReturns(&fakeFileInfo, nil)
+
+			fileData := []byte(fmt.Sprintf(`
+---
+title: Test
+---
+This is test file`))
+
+			node = &api.Node{
+				NodeSelector: &api.NodeSelector{
+					Path: "https://github.com/testorg/testrepo/tree/testbranch/testdir",
+				},
 			}
 
-			gh := git.NewResourceHandlerExtended("", nil, "", client, nil, nil, nil, &fakeGit, repo, &fakeFileSystem)
+			fakeFileSystem.ReadFileReturns(fileData, nil)
 
-			defer teardown()
-			if mux != nil {
-				mux(muxRes)
+			fakeTreeExtractorRes := []*ghub.ResourceLocator{
+				&ghub.ResourceLocator{
+					Scheme:   "https",
+					Host:     "github.com",
+					Owner:    "testorg",
+					Repo:     "testrepo",
+					Type:     ghub.Tree,
+					SHAAlias: "testbranch",
+					Path:     "testdir",
+				},
+				&ghub.ResourceLocator{
+					Scheme:   "https",
+					Host:     "github.com",
+					Owner:    "testorg",
+					Repo:     "testrepo",
+					Type:     ghub.Blob,
+					SHAAlias: "testbranch",
+					Path:     "testdir/testfile.md",
+				},
+				&ghub.ResourceLocator{
+					Scheme:   "https",
+					Host:     "github.com",
+					Owner:    "testorg",
+					Repo:     "testrepo",
+					Type:     ghub.Tree,
+					SHAAlias: "testbranch",
+					Path:     "testdir/testdir_sub",
+				},
+				&ghub.ResourceLocator{
+					Scheme:   "https",
+					Host:     "github.com",
+					Owner:    "testorg",
+					Repo:     "testrepo",
+					Type:     ghub.Tree,
+					SHAAlias: "testbranch",
+					Path:     "testdir/testdir_sub/testdir_sub2",
+				},
+				&ghub.ResourceLocator{
+					Scheme:   "https",
+					Host:     "github.com",
+					Owner:    "testorg",
+					Repo:     "testrepo",
+					Type:     ghub.Blob,
+					SHAAlias: "testbranch",
+					Path:     "testdir/testdir_sub/testdir_sub2/testfile3.md",
+				},
+				&ghub.ResourceLocator{
+					Scheme:   "https",
+					Host:     "github.com",
+					Owner:    "testorg",
+					Repo:     "testrepo",
+					Type:     ghub.Blob,
+					SHAAlias: "testbranch",
+					Path:     "testfile2.md",
+				},
 			}
-			var s map[string]int = make(map[string]int)
-			s[uri] = len(tags)
-			api.SetNVersions(s, s)
-			api.SetFlagsVariables(make(map[string]string))
-			//clear default branch cache
-			ghub.ClearDefaultBranchesCache()
-			got, err = gh.ResolveDocumentation(ctx, uri)
+			fakeTreeExtractor.ExtractTreeReturns(fakeTreeExtractorRes, nil)
+
+			cache = ghub.NewCache(&fakeTreeExtractor)
 		})
+
+		JustBeforeEach(func() {
+			got, err = gh.ResolveNodeSelector(ctx, node, excludePaths, frontMatter, excludeFrontMatter, depth)
+		})
+
 		Context("given the general use case", func() {
 			BeforeEach(func() {
-				repositoryPath = "github.com/testOrg/testRepo/testMainBranch"
-				//	manifestName = "testManifest.yaml"
-				tags = []string{"v4.9", "v5.7", "v6.1", "v7.7"}
-				uri = "https://github.com/testOrg/testRepo/blob/DEFAULT_BRANCH/testManifest.yaml"
-				var (
-					fakeRepository = &gitinterfacefakes.FakeRepository{}
-					fakeWorktree   = &gitinterfacefakes.FakeRepositoryWorktree{}
-				)
 
-				//fakeGit.PlainCloneContextReturns(&fakeRepository, nil)
-				fakeGit.PlainOpenReturns(fakeRepository, nil)
-				fakeRepository.TagsReturns(tags, nil)
-				fakeRepository.WorktreeReturns(fakeWorktree, nil)
+				root := api.Node{
+					NodeSelector: &api.NodeSelector{Path: "https://github.com/testorg/testrepo/tree/testbranch/testdir"},
+				}
+				testfile3 := api.NewNodeForTesting("testfile3.md", "https://github.com/testorg/testrepo/blob/testbranch/testdir/testdir_sub/testdir_sub2/testfile3.md", nil, "")
+				testdir_sub2 := api.NewNodeForTesting("testdir_sub2", "", []*api.Node{&testfile3}, "https://github.com/testorg/testrepo/tree/testbranch/testdir/testdir_sub/testdir_sub2")
+				testdir_sub := api.NewNodeForTesting("testdir_sub", "", []*api.Node{&testdir_sub2}, "https://github.com/testorg/testrepo/tree/testbranch/testdir/testdir_sub")
+				testdir_sub.SetParent(&root)
+				testfile := api.NewNodeForTesting("testfile.md", "https://github.com/testorg/testrepo/blob/testbranch/testdir/testfile.md", nil, "")
+				testfile.SetParent(&root)
+				testdir_sub.SetParentsDownwards()
 
-				fakeFileSystem.IsNotExistReturns(false)
-				fakeFileSystem.ReadFileReturns(manifestData, nil)
-				fakeFileInfo.IsDirReturns(false)
-				fakeFileSystem.StatReturns(&fakeFileInfo, nil)
+				expected = []*api.Node{
+					&testfile,
+					&testdir_sub,
+				}
 			})
 
 			It("should process it correctly", func() {
 				Expect(err).NotTo(HaveOccurred())
-				Expect(got).To(Equal(&api.Documentation{
+				rootGot := api.Node{Nodes: got}
+				rootExpected := api.Node{Nodes: expected}
+				api.SortNodesByName(&rootGot)
+				api.SortNodesByName(&rootExpected)
+				Expect(rootGot).To(Equal(rootExpected))
+			})
+
+		})
+
+		Context("given a depth parameter", func() {
+			BeforeEach(func() {
+				depth = 1
+
+				root := api.Node{
+					NodeSelector: &api.NodeSelector{Path: "https://github.com/testorg/testrepo/tree/testbranch/testdir"},
+				}
+				testdir_sub := api.NewNodeForTesting("testdir_sub", "", []*api.Node{}, "https://github.com/testorg/testrepo/tree/testbranch/testdir/testdir_sub")
+				testdir_sub.SetParent(&root)
+				testfile := api.NewNodeForTesting("testfile.md", "https://github.com/testorg/testrepo/blob/testbranch/testdir/testfile.md", nil, "")
+				testfile.SetParent(&root)
+				testdir_sub.SetParentsDownwards()
+
+				expected = []*api.Node{
+					&testfile,
+					&testdir_sub,
+				}
+
+			})
+
+			It("should process it correctly", func() {
+				Expect(err).NotTo(HaveOccurred())
+				rootGot := api.Node{Nodes: got}
+				rootExpected := api.Node{Nodes: expected}
+				api.SortNodesByName(&rootGot)
+				api.SortNodesByName(&rootExpected)
+				Expect(rootGot).To(Equal(rootExpected))
+			})
+
+		})
+
+		Context("given a excludePath parameter", func() {
+			BeforeEach(func() {
+				excludePaths = []string{"testdir_sub2", "testfile.md"}
+
+				root := api.Node{
+					NodeSelector: &api.NodeSelector{Path: "https://github.com/testorg/testrepo/tree/testbranch/testdir"},
+				}
+				testdir_sub := api.NewNodeForTesting("testdir_sub", "", []*api.Node{}, "https://github.com/testorg/testrepo/tree/testbranch/testdir/testdir_sub")
+				testdir_sub.SetParent(&root)
+				testdir_sub.SetParentsDownwards()
+
+				expected = []*api.Node{
+					&testdir_sub,
+				}
+			})
+
+			It("should process it correctly", func() {
+				Expect(err).NotTo(HaveOccurred())
+				rootGot := api.Node{Nodes: got}
+				rootExpected := api.Node{Nodes: expected}
+				api.SortNodesByName(&rootGot)
+				api.SortNodesByName(&rootExpected)
+				Expect(rootGot).To(Equal(rootExpected))
+			})
+
+		})
+
+		Context("given a excludeFrontMatter parameter", func() {
+			BeforeEach(func() {
+				excludeFrontMatter = make(map[string]interface{})
+				excludeFrontMatter[".title"] = "Test"
+				testdir_sub := api.NewNodeForTesting("testdir_sub", "", []*api.Node{}, "https://github.com/testorg/testrepo/tree/testbranch/testdir/testdir_sub")
+				root := api.Node{
+					NodeSelector: &api.NodeSelector{Path: "https://github.com/testorg/testrepo/tree/testbranch/testdir"},
+				}
+				testdir_sub.SetParent(&root)
+				testdir_sub.SetParentsDownwards()
+
+				expected = []*api.Node{
+					&testdir_sub,
+				}
+			})
+
+			It("should process it correctly", func() {
+				Expect(err).NotTo(HaveOccurred())
+				rootGot := api.Node{Nodes: got}
+				rootExpected := api.Node{Nodes: expected}
+				api.SortNodesByName(&rootGot)
+				api.SortNodesByName(&rootExpected)
+				Expect(rootGot).To(Equal(rootExpected))
+			})
+
+		})
+
+		Context("given a frontMatter parameter", func() {
+			BeforeEach(func() {
+				frontMatter = make(map[string]interface{})
+				frontMatter[".title"] = "broken Test"
+
+				testdir_sub := api.NewNodeForTesting("testdir_sub", "", []*api.Node{}, "https://github.com/testorg/testrepo/tree/testbranch/testdir/testdir_sub")
+				root := api.Node{
+					NodeSelector: &api.NodeSelector{Path: "https://github.com/testorg/testrepo/tree/testbranch/testdir"},
+				}
+				testdir_sub.SetParent(&root)
+				testdir_sub.SetParentsDownwards()
+
+				expected = []*api.Node{
+					&testdir_sub,
+				}
+			})
+
+			It("should process it correctly", func() {
+				Expect(err).NotTo(HaveOccurred())
+				rootGot := api.Node{Nodes: got}
+				rootExpected := api.Node{Nodes: expected}
+				api.SortNodesByName(&rootGot)
+				api.SortNodesByName(&rootExpected)
+				Expect(rootGot).To(Equal(rootExpected))
+			})
+
+		})
+
+	})
+
+	Describe("resolving documentation", func() {
+		var (
+			tags []string
+			uri  string
+
+			expected *api.Documentation
+			got      *api.Documentation
+		)
+
+		BeforeEach(func() {
+			var (
+				fakeFileInfo gitfakes.FakeFileInfo
+			)
+
+			fakeFileSystem.IsNotExistReturns(false)
+			fakeFileInfo.IsDirReturns(false)
+			fakeFileSystem.StatReturns(&fakeFileInfo, nil)
+
+			manifestData := []byte(fmt.Sprintf(`
+structure:
+- name: community
+  source: https://github.com/gardener/docforge/edit/master/integration-test/tested-doc/merge-test/testFile.md
+{{- $vers := Split .versions "," -}}
+{{- range $i, $version := $vers -}}
+{{- if eq $i 0  }}
+- name: docs
+{{- else }}
+- name: {{$version}}
+{{- end }}
+  source: https://github.com/gardener/docforge/blob/{{$version}}/integration-test/tested-doc/merge-test/testFile.md
+{{- end }}`))
+			fakeFileSystem.ReadFileReturns(manifestData, nil)
+
+			api.SetFlagsVariables(make(map[string]string))
+		})
+
+		JustBeforeEach(func() {
+
+			var (
+				fakeRepository gitinterfacefakes.FakeRepository
+				fakeWorktree   gitinterfacefakes.FakeRepositoryWorktree
+			)
+
+			fakeGit.PlainOpenReturns(&fakeRepository, nil)
+			fakeRepository.TagsReturns(tags, nil)
+			fakeRepository.WorktreeReturns(&fakeWorktree, nil)
+
+			s := make(map[string]int)
+			s[uri] = len(tags)
+			api.SetNVersions(s, s)
+
+			got, err = gh.ResolveDocumentation(ctx, uri)
+		})
+
+		JustAfterEach(func() {
+			//clear default branch cache
+			ghub.ClearDefaultBranchesCache()
+		})
+
+		Context("given the general use case", func() {
+			BeforeEach(func() {
+				repositoryPath = "github.com/testOrg/testRepo/testMainBranch"
+				uri = "https://github.com/testOrg/testRepo/blob/DEFAULT_BRANCH/testManifest.yaml"
+
+				tags = []string{"v4.9", "v5.7", "v6.1", "v7.7"}
+
+				expected = &api.Documentation{
 					Structure: []*api.Node{
 						&api.Node{
 							Name:   "community",
@@ -203,15 +497,19 @@ var _ = Describe("Git", func() {
 							Source: "https://github.com/gardener/docforge/blob/v4.9/integration-test/tested-doc/merge-test/testFile.md",
 						},
 					},
-				}))
+				}
 			})
+
+			It("should process it correctly", func() {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(got).To(Equal(expected))
+			})
+
 			Context("and no versions", func() {
 				BeforeEach(func() {
 					tags = []string{}
-				})
-				It("should apply only the main branch", func() {
-					Expect(err).NotTo(HaveOccurred())
-					Expect(got).To(Equal(&api.Documentation{
+
+					expected = &api.Documentation{
 						Structure: []*api.Node{
 							&api.Node{
 								Name:   "community",
@@ -222,7 +520,12 @@ var _ = Describe("Git", func() {
 								Source: "https://github.com/gardener/docforge/blob/testMainBranch/integration-test/tested-doc/merge-test/testFile.md",
 							},
 						},
-					}))
+					}
+				})
+
+				It("should apply only the main branch", func() {
+					Expect(err).NotTo(HaveOccurred())
+					Expect(got).To(Equal(expected))
 				})
 			})
 		})

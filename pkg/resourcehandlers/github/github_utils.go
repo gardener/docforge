@@ -8,10 +8,12 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"regexp"
 	"strings"
 	"sync"
 
 	"github.com/gardener/docforge/pkg/api"
+	"github.com/gardener/docforge/pkg/resourcehandlers"
 
 	"github.com/gardener/docforge/pkg/util/urls"
 
@@ -219,4 +221,109 @@ func GetDefaultBranch(ctx context.Context, client *ghclient.Client, rl *Resource
 	defaultBranch := repo.GetDefaultBranch()
 	defaultBranches[strRL] = defaultBranch
 	return defaultBranch, nil
+}
+
+// BaseResolveNodeSelector is the base function used when resolving node selectors
+func BaseResolveNodeSelector(ctx context.Context, rl *ResourceLocator, rh resourcehandlers.ResourceHandler, cache *Cache, node *api.Node, excludePaths []string, frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32) ([]*api.Node, error) {
+	childResourceLocators, err := cache.GetSubsetWithInit(ctx, rl.String())
+	if err != nil {
+		return nil, err
+	}
+
+	childNodes, err := buildNodes(ctx, rh, cache, node, excludePaths, frontMatter, excludeFrontMatter, depth, childResourceLocators, 0)
+	if err != nil {
+		return nil, err
+	}
+	// finally, cleanup folder entries from contentSelectors
+	for _, child := range childNodes {
+		CleanupNodeTree(child)
+	}
+	if childNodes == nil {
+		return []*api.Node{}, nil
+	}
+
+	return childNodes, nil
+}
+
+func buildNodes(ctx context.Context, rh resourcehandlers.ResourceHandler, cache *Cache, node *api.Node, excludePaths []string, frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32, childResourceLocators []*ResourceLocator, currentDepth int32) ([]*api.Node, error) {
+	var (
+		nodesResult []*api.Node
+		nodePath    string
+	)
+	if node.NodeSelector != nil {
+		nodePath = node.NodeSelector.Path
+	} else if len(node.Source) > 0 {
+		nodePath = node.Source
+	}
+	nodePathRL, err := Parse(nodePath)
+	if err != nil {
+		return nil, err
+	}
+	//reformated
+	nodeResourceLocator, err := cache.GetWithInit(ctx, nodePathRL)
+	if nodeResourceLocator == nil || err != nil {
+		panic(fmt.Sprintf("Node is not available as ResourceLocator %v: %v", nodePath, err))
+	}
+	nodePathSegmentsCount := len(strings.Split(nodeResourceLocator.Path, "/"))
+	for _, childResourceLocator := range childResourceLocators {
+		if !hasPathPrefix(childResourceLocator.Path, nodeResourceLocator.Path) {
+			// invalid child. Why is it here?
+			continue
+		}
+		// check if this resource path has to be excluded
+		exclude := false
+		for _, excludePath := range excludePaths {
+			regex, err := regexp.Compile(excludePath)
+			if err != nil {
+				return nil, fmt.Errorf("invalid path exclude expression %s: %w", excludePath, err)
+			}
+			urlString := childResourceLocator.String()
+			if regex.Match([]byte(urlString)) {
+				exclude = true
+				break
+			}
+		}
+		if !exclude {
+			childPathSegmentsCount := len(strings.Split(childResourceLocator.Path, "/"))
+			// 1 sublevel only
+			if (childPathSegmentsCount - nodePathSegmentsCount) == 1 {
+				// folders and .md files only
+				childName := childResourceLocator.GetName()
+				if childResourceLocator.Type == Blob {
+					if !strings.HasSuffix(strings.ToLower(childName), ".md") {
+						//not a md file
+						continue
+					}
+
+				}
+				// creating new node
+				nextNodeChild := &api.Node{
+					Name:   childName,
+					Source: childResourceLocator.String(),
+				}
+				nextNodeChild.SetParent(node)
+				// recursively build subnodes if entry is sub-tree
+				if childResourceLocator.Type == Tree {
+					if depth > 0 && depth == currentDepth {
+						continue
+					}
+					currentDepth++
+					if childResourceLocators, err = cache.GetSubsetWithInit(ctx, childResourceLocator.String()); err != nil {
+						return nil, err
+					}
+					childNodes, err := buildNodes(ctx, rh, cache, nextNodeChild, excludePaths, frontMatter, excludeFrontMatter, depth, childResourceLocators, currentDepth)
+					if err != nil {
+						return nil, err
+					}
+					if nextNodeChild.Nodes == nil {
+						nextNodeChild.Nodes = make([]*api.Node, 0)
+					}
+					nextNodeChild.Nodes = append(nextNodeChild.Nodes, childNodes...)
+					currentDepth--
+				}
+				nodesResult = append(nodesResult, nextNodeChild)
+			}
+		}
+	}
+	return nodesResult, nil
 }

@@ -19,9 +19,6 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 )
 
-// TODO: do not use depth if git info is not enabled.
-const depth = 0
-
 // State defines state of a git repo
 type State int
 
@@ -75,7 +72,6 @@ func (r *Repository) prepare(ctx context.Context, version string) error {
 	if fetch {
 		if err := repository.FetchContext(ctx, &gogit.FetchOptions{
 			Auth:       r.Auth,
-			Depth:      depth,
 			RemoteName: gogit.DefaultRemoteName,
 		}); err != nil && err != gogit.NoErrAlreadyUpToDate {
 			if err == transport.ErrRepositoryNotFound {
@@ -90,17 +86,8 @@ func (r *Repository) prepare(ctx context.Context, version string) error {
 		return err
 	}
 
-	var checkoutDestination plumbing.ReferenceName
-	_, err1 := repository.Reference(plumbing.NewRemoteReferenceName(gogit.DefaultRemoteName, version), true)
-	_, err2 := repository.Reference(plumbing.NewTagReferenceName(version), true)
-	if err1 == nil {
-		checkoutDestination = plumbing.NewRemoteReferenceName(gogit.DefaultRemoteName, version)
-	} else if err2 == nil {
-		checkoutDestination = plumbing.NewTagReferenceName(version)
-	}
-
 	if err := w.Checkout(&gogit.CheckoutOptions{
-		Branch: checkoutDestination,
+		Branch: getCheckoutReferenceName(repository, version),
 		Force:  true,
 	}); err != nil {
 		return fmt.Errorf("couldn't checkout version %s for repository %s: %v", version, r.LocalPath, err)
@@ -117,7 +104,6 @@ func (r *Repository) repository(ctx context.Context) (gitinterface.Repository, b
 		if gitRepo, err = r.Git.PlainCloneContext(ctx, r.LocalPath, false, &gogit.CloneOptions{
 			URL:        r.RemoteURL,
 			RemoteName: gogit.DefaultRemoteName,
-			Depth:      depth,
 			Auth:       r.Auth,
 		}); err != nil {
 			if err == transport.ErrRepositoryNotFound {
@@ -128,4 +114,16 @@ func (r *Repository) repository(ctx context.Context) (gitinterface.Repository, b
 		return gitRepo, false, nil
 	}
 	return gitRepo, true, nil
+}
+
+func getCheckoutReferenceName(repository gitinterface.Repository, version string) plumbing.ReferenceName {
+	var checkoutDestination plumbing.ReferenceName
+	_, err1 := repository.Reference(plumbing.NewRemoteReferenceName(gogit.DefaultRemoteName, version), true)
+	_, err2 := repository.Reference(plumbing.NewTagReferenceName(version), true)
+	if err1 == nil {
+		checkoutDestination = plumbing.NewRemoteReferenceName(gogit.DefaultRemoteName, version)
+	} else if err2 == nil {
+		checkoutDestination = plumbing.NewTagReferenceName(version)
+	}
+	return checkoutDestination
 }

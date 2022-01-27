@@ -4,13 +4,14 @@
 
 package github
 
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate -header ../../../license_prefix.txt
+
 import (
 	"context"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"regexp"
 	"strings"
 
 	"github.com/gardener/docforge/pkg/api"
@@ -80,101 +81,6 @@ func TreeEntryToGitHubLocator(treeEntry *github.TreeEntry, shaAlias string) *Res
 	}
 }
 
-// Recursively adds or merges nodes built from flat ResourceLocators list to node.Nodes
-func (gh *GitHub) buildNodes(ctx context.Context, node *api.Node, excludePaths []string, frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32, childResourceLocators []*ResourceLocator, currentDepth int32) ([]*api.Node, error) {
-	var (
-		nodesResult []*api.Node
-		nodePath    string
-	)
-	if node.NodeSelector != nil {
-		nodePath = node.NodeSelector.Path
-	} else if len(node.Source) > 0 {
-		nodePath = node.Source
-	}
-	nodePathRL, err := Parse(nodePath)
-	if err != nil {
-		return nil, err
-	}
-	nodeResourceLocator, err := gh.cache.GetWithInit(ctx, nodePathRL)
-	if nodeResourceLocator == nil || err != nil {
-		panic(fmt.Sprintf("Node is not available as ResourceLocator %v: %v", nodePath, err))
-	}
-	nodePathSegmentsCount := len(strings.Split(nodeResourceLocator.Path, "/"))
-	for _, childResourceLocator := range childResourceLocators {
-		if !hasPathPrefix(childResourceLocator.Path, nodeResourceLocator.Path) {
-			continue
-		}
-		// check if this resource path has to be excluded
-		exclude := false
-		for _, excludePath := range excludePaths {
-			regex, err := regexp.Compile(excludePath)
-			if err != nil {
-				return nil, fmt.Errorf("invalid path exclude expression %s: %w", excludePath, err)
-			}
-			urlString := childResourceLocator.String()
-			if regex.Match([]byte(urlString)) {
-				exclude = true
-				break
-			}
-		}
-		if !exclude {
-			childPathSegmentsCount := len(strings.Split(childResourceLocator.Path, "/"))
-			childName := childResourceLocator.GetName()
-			// 1 sublevel only
-			if (childPathSegmentsCount - nodePathSegmentsCount) == 1 {
-				// folders and .md files only
-				if childResourceLocator.Type == Blob {
-					if !strings.HasSuffix(strings.ToLower(childName), ".md") {
-						continue
-					}
-					// check for frontMatter filter compliance
-					if frontMatter != nil || excludeFrontMatter != nil {
-						// TODO: cache and reuse to avoid redundant reads when the structure nodes are processed
-						// TODO: filter nodes once the content is read & parsed
-						//b, err := gh.Read(ctx, childResourceLocator.String())
-						//if err != nil {
-						//	return nil, err
-						//}
-						selected := true //, err := markdown.MatchFrontMatterRules(b, frontMatter, excludeFrontMatter)
-						//if err != nil {
-						//	return nil, err
-						//}
-						if !selected {
-							continue
-						}
-					}
-				}
-				n := &api.Node{
-					Name:   childName,
-					Source: childResourceLocator.String(),
-				}
-				n.SetParent(node)
-				// recursively build subnodes if entry is sub-tree
-				if childResourceLocator.Type == Tree {
-					if depth > 0 && depth == currentDepth {
-						continue
-					}
-					currentDepth++
-					if childResourceLocators, err = gh.cache.GetSubsetWithInit(ctx, childResourceLocator.String()); err != nil {
-						return nil, err
-					}
-					childNodes, err := gh.buildNodes(ctx, n, excludePaths, frontMatter, excludeFrontMatter, depth, childResourceLocators, currentDepth)
-					if err != nil {
-						return nil, err
-					}
-					if n.Nodes == nil {
-						n.Nodes = make([]*api.Node, 0)
-					}
-					n.Nodes = append(n.Nodes, childNodes...)
-					currentDepth--
-				}
-				nodesResult = append(nodesResult, n)
-			}
-		}
-	}
-	return nodesResult, nil
-}
-
 func hasPathPrefix(path, prefix string) bool {
 	if strings.HasPrefix(path, prefix) {
 		if strings.HasSuffix(prefix, "/") {
@@ -197,14 +103,35 @@ type GitHub struct {
 // NewResourceHandler creates new GitHub ResourceHandler objects
 func NewResourceHandler(client *github.Client, httpClient *http.Client, acceptedHosts []string) resourcehandlers.ResourceHandler {
 	return &GitHub{
-		Client:     client,
-		httpClient: httpClient,
-		cache: &Cache{
-			cache:    map[string]*ResourceLocator{},
-			ghClient: client,
-		},
+		Client:        client,
+		httpClient:    httpClient,
+		cache:         NewCache(&githubTreeExtractor{client: client}),
 		acceptedHosts: acceptedHosts,
 	}
+}
+
+type githubTreeExtractor struct {
+	client *github.Client
+}
+
+func (tE *githubTreeExtractor) ExtractTree(ctx context.Context, rl *ResourceLocator) ([]*ResourceLocator, error) {
+	gitTree, resp, err := tE.client.Git.GetTree(ctx, rl.Owner, rl.Repo, rl.SHAAlias, true)
+	if err != nil {
+		if resp != nil && resp.StatusCode == http.StatusNotFound {
+			// add repo key to avoid further calls to this repo
+			return nil, resourcehandlers.ErrResourceNotFound(rl.String())
+		}
+		return nil, err
+	}
+	if resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("request for %s://%s/repos/%s/%s/git/trees/%s failed with status: %s", rl.Scheme, rl.Host, rl.Owner, rl.Repo, rl.SHAAlias, resp.Status)
+	}
+	result := make([]*ResourceLocator, 0)
+
+	for _, entry := range gitTree.Entries {
+		result = append(result, TreeEntryToGitHubLocator(entry, rl.SHAAlias))
+	}
+	return result, nil
 }
 
 // URLToGitHubLocator produces a ResourceLocator from a GitHub website URL.
@@ -296,25 +223,8 @@ func (gh *GitHub) ResolveNodeSelector(ctx context.Context, node *api.Node, exclu
 		return nil, err
 	}
 
-	childResourceLocators, err := gh.cache.GetSubsetWithInit(ctx, rl.String())
-	if err != nil {
-		return nil, err
-	}
-	childNodes, err := gh.buildNodes(ctx, node, excludePaths, frontMatter, excludeFrontMatter, depth, childResourceLocators, 0)
-	if err != nil {
-		return nil, err
-	}
-	// finally, cleanup folder entries from contentSelectors
-	_node := &api.Node{
-		Nodes: childNodes,
-	}
-	CleanupNodeTree(_node)
-	childNodes = _node.Nodes
-	if childNodes == nil {
-		return []*api.Node{}, nil
-	}
+	return BaseResolveNodeSelector(ctx, rl, gh, gh.cache, node, excludePaths, frontMatter, excludeFrontMatter, depth)
 
-	return childNodes, nil
 }
 
 // ResolveDocumentation for a given path and return it as a *api.Documentation
