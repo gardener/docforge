@@ -105,17 +105,29 @@ func NewResourceHandler(client *github.Client, httpClient *http.Client, accepted
 	return &GitHub{
 		Client:        client,
 		httpClient:    httpClient,
-		cache:         NewCache(&githubTreeExtractor{client: client}),
+		cache:         NewEmptyCache(&TreeExtractorGithub{Client: client}),
 		acceptedHosts: acceptedHosts,
 	}
 }
 
-type githubTreeExtractor struct {
-	client *github.Client
+// NewResourceHandlerTest used for testing
+func NewResourceHandlerTest(client *github.Client, httpClient *http.Client, acceptedHosts []string, cache *Cache) resourcehandlers.ResourceHandler {
+	return &GitHub{
+		Client:        client,
+		httpClient:    httpClient,
+		cache:         cache,
+		acceptedHosts: acceptedHosts,
+	}
 }
 
-func (tE *githubTreeExtractor) ExtractTree(ctx context.Context, rl *ResourceLocator) ([]*ResourceLocator, error) {
-	gitTree, resp, err := tE.client.Git.GetTree(ctx, rl.Owner, rl.Repo, rl.SHAAlias, true)
+//TreeExtractorGithub extracts the tree structure from a github client
+type TreeExtractorGithub struct {
+	Client *github.Client
+}
+
+//ExtractTree extracts the tree structure from a github repo
+func (tE *TreeExtractorGithub) ExtractTree(ctx context.Context, rl *ResourceLocator) ([]*ResourceLocator, error) {
+	gitTree, resp, err := tE.Client.Git.GetTree(ctx, rl.Owner, rl.Repo, rl.SHAAlias, true)
 	if err != nil {
 		if resp != nil && resp.StatusCode == http.StatusNotFound {
 			// add repo key to avoid further calls to this repo
