@@ -224,6 +224,7 @@ func (gh *GitHub) ResolveNodeSelector(ctx context.Context, node *api.Node, exclu
 	}
 
 	return BaseResolveNodeSelector(ctx, rl, gh, gh.cache, node, excludePaths, frontMatter, excludeFrontMatter, depth)
+
 }
 
 // ResolveDocumentation for a given path and return it as a *api.Documentation

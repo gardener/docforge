@@ -5,20 +5,17 @@
 package reactor
 
 import (
-	"context"
+	"github.com/gardener/docforge/pkg/api"
+	"github.com/gardener/docforge/pkg/resourcehandlers"
+	githubHandler "github.com/gardener/docforge/pkg/resourcehandlers/github"
 	"github.com/gardener/docforge/pkg/resourcehandlers/testhandler"
+	"github.com/gardener/docforge/pkg/util/tests"
 	"github.com/gardener/docforge/pkg/util/urls"
+	"github.com/google/go-github/v32/github"
+	"github.com/stretchr/testify/assert"
 	"net/http"
 	"strings"
 	"testing"
-
-	"github.com/gardener/docforge/pkg/api"
-	"github.com/gardener/docforge/pkg/processors"
-	"github.com/gardener/docforge/pkg/resourcehandlers"
-	githubHandler "github.com/gardener/docforge/pkg/resourcehandlers/github"
-	"github.com/gardener/docforge/pkg/util/tests"
-	"github.com/google/go-github/v32/github"
-	"github.com/stretchr/testify/assert"
 )
 
 // TODO: This is a flaky test. In the future the ResourceHandler should be mocked.
@@ -40,11 +37,11 @@ func Test_processLink(t *testing.T) {
 		destination       string
 		contentSourcePath string
 		wantDestination   *string
-		wantText          *string
-		wantTitle         *string
-		wantDownload      *DownloadTask
-		wantErr           error
-		mutate            func(c *nodeContentProcessor)
+		//wantText          *string
+		//wantTitle         *string
+		//wantDownload      *DownloadTask
+		wantErr error
+		mutate  func(c *nodeContentProcessor)
 	}{
 		// skipped links
 		{
@@ -52,40 +49,40 @@ func Test_processLink(t *testing.T) {
 			destination:       "#internal-link",
 			contentSourcePath: "",
 			wantDestination:   tests.StrPtr("#internal-link"),
-			wantText:          nil,
-			wantTitle:         nil,
-			wantDownload:      nil,
-			wantErr:           nil,
+			//wantText:          nil,
+			//wantTitle:         nil,
+			//wantDownload:      nil,
+			wantErr: nil,
 		},
 		{
 			name:              "mailto protocol is not processed",
 			destination:       "mailto:a@b.com",
 			contentSourcePath: "",
 			wantDestination:   tests.StrPtr("mailto:a@b.com"),
-			wantText:          nil,
-			wantTitle:         nil,
-			wantDownload:      nil,
-			wantErr:           nil,
+			//wantText:          nil,
+			//wantTitle:         nil,
+			//wantDownload:      nil,
+			wantErr: nil,
 		},
 		{
 			name:              "Absolute links to releases not processed",
 			destination:       "https://github.com/gardener/gardener/releases/tag/v1.4.0",
 			contentSourcePath: nodeA.Source,
 			wantDestination:   tests.StrPtr("https://github.com/gardener/gardener/releases/tag/v1.4.0"),
-			wantText:          nil,
-			wantTitle:         nil,
-			wantDownload:      nil,
-			wantErr:           nil,
+			//wantText:          nil,
+			//wantTitle:         nil,
+			//wantDownload:      nil,
+			wantErr: nil,
 		},
 		{
 			name:              "Relative links to releases not processed",
 			destination:       "../../../releases/tag/v1.4.0",
 			contentSourcePath: nodeA.Source,
 			wantDestination:   tests.StrPtr("https://github.com/gardener/gardener/releases/tag/v1.4.0"),
-			wantText:          nil,
-			wantTitle:         nil,
-			wantDownload:      nil,
-			wantErr:           nil,
+			//wantText:          nil,
+			//wantTitle:         nil,
+			//wantDownload:      nil,
+			wantErr: nil,
 		},
 		// links to resources
 		{
@@ -93,10 +90,10 @@ func Test_processLink(t *testing.T) {
 			destination:       "./image.png",
 			contentSourcePath: "https://github.com/gardener/gardener/blob/v1.10.0/docs/README.md",
 			wantDestination:   tests.StrPtr("https://github.com/gardener/gardener/blob/v1.10.0/docs/image.png"),
-			wantText:          nil,
-			wantTitle:         nil,
-			wantDownload:      nil,
-			wantErr:           nil,
+			//wantText:          nil,
+			//wantTitle:         nil,
+			//wantDownload:      nil,
+			wantErr: nil,
 		},
 		{
 			name: "Relative link to resource in download scope",
@@ -106,14 +103,14 @@ func Test_processLink(t *testing.T) {
 			destination:       "./image.png",
 			contentSourcePath: "https://github.com/gardener/gardener/blob/v1.10.0/docs/README.md",
 			wantDestination:   tests.StrPtr("/__resources"),
-			wantText:          nil,
-			wantTitle:         nil,
-			wantDownload: &DownloadTask{
-				Source:    "https://github.com/gardener/gardener/blob/v1.10.0/docs/image.png",
-				Target:    "",
-				Referer:   "https://github.com/gardener/gardener/blob/v1.10.0/docs/README.md",
-				Reference: "./image.png",
-			},
+			//wantText:          nil,
+			//wantTitle:         nil,
+			//wantDownload: &DownloadTask{
+			//	Source:    "https://github.com/gardener/gardener/blob/v1.10.0/docs/image.png",
+			//	Target:    "",
+			//	Referer:   "https://github.com/gardener/gardener/blob/v1.10.0/docs/README.md",
+			//	Reference: "./image.png",
+			//},
 			wantErr: nil,
 			mutate: func(c *nodeContentProcessor) {
 				h := testhandler.NewTestResourceHandler().WithAccept(func(uri string) bool {
@@ -146,10 +143,10 @@ func Test_processLink(t *testing.T) {
 			destination:       "../image.png",
 			contentSourcePath: "https://github.com/gardener/gardener/blob/v1.10.0/docs/README.md",
 			wantDestination:   tests.StrPtr("https://github.com/gardener/gardener/blob/v1.10.0/image.png"),
-			wantText:          nil,
-			wantTitle:         nil,
-			wantDownload:      nil,
-			wantErr:           nil,
+			//wantText:          nil,
+			//wantTitle:         nil,
+			//wantDownload:      nil,
+			wantErr: nil,
 		},
 		{
 			name:              "Absolute link to resource NOT in download scope",
@@ -157,10 +154,10 @@ func Test_processLink(t *testing.T) {
 			destination:       "https://github.com/owner/repo/blob/master/docs/image.png",
 			contentSourcePath: nodeA.Source,
 			wantDestination:   tests.StrPtr("https://github.com/owner/repo/blob/master/docs/image.png"),
-			wantText:          nil,
-			wantTitle:         nil,
-			wantDownload:      nil,
-			wantErr:           nil,
+			//wantText:          nil,
+			//wantTitle:         nil,
+			//wantDownload:      nil,
+			wantErr: nil,
 		},
 		{
 			name: "Absolute link to resource in download scope",
@@ -170,14 +167,14 @@ func Test_processLink(t *testing.T) {
 			destination:       "https://github.com/gardener/gardener/blob/v1.10.0/docs/image.png",
 			contentSourcePath: "https://github.com/gardener/gardener/blob/v1.10.0/docs/README.md",
 			wantDestination:   tests.StrPtr("/__resources"),
-			wantText:          nil,
-			wantTitle:         nil,
-			wantDownload: &DownloadTask{
-				Source:    "https://github.com/gardener/gardener/blob/v1.10.0/docs/image.png",
-				Target:    "",
-				Referer:   "https://github.com/gardener/gardener/blob/v1.10.0/docs/README.md",
-				Reference: "https://github.com/gardener/gardener/blob/v1.10.0/docs/image.png",
-			},
+			//wantText:          nil,
+			//wantTitle:         nil,
+			//wantDownload: &DownloadTask{
+			//	Source:    "https://github.com/gardener/gardener/blob/v1.10.0/docs/image.png",
+			//	Target:    "",
+			//	Referer:   "https://github.com/gardener/gardener/blob/v1.10.0/docs/README.md",
+			//	Reference: "https://github.com/gardener/gardener/blob/v1.10.0/docs/image.png",
+			//},
 			wantErr: nil,
 			mutate: func(c *nodeContentProcessor) {
 				c.globalLinksConfig = &api.Links{
@@ -201,10 +198,10 @@ func Test_processLink(t *testing.T) {
 			destination:       "https://github.com/owner/repo/blob/master/docs/doc.md",
 			contentSourcePath: nodeA.Source,
 			wantDestination:   tests.StrPtr("https://github.com/owner/repo/blob/master/docs/doc.md"),
-			wantText:          nil,
-			wantTitle:         nil,
-			wantDownload:      nil,
-			wantErr:           nil,
+			//wantText:          nil,
+			//wantTitle:         nil,
+			//wantDownload:      nil,
+			wantErr: nil,
 		},
 		{
 			name:              "Absolute link to document in download scope and from structure",
@@ -212,10 +209,10 @@ func Test_processLink(t *testing.T) {
 			destination:       nodeB.Source,
 			contentSourcePath: nodeA.Source,
 			wantDestination:   tests.StrPtr("./node_B.md"),
-			wantText:          nil,
-			wantTitle:         nil,
-			wantDownload:      nil,
-			wantErr:           nil,
+			//wantText:          nil,
+			//wantTitle:         nil,
+			//wantDownload:      nil,
+			wantErr: nil,
 			mutate: func(c *nodeContentProcessor) {
 				c.sourceLocations = map[string][]*api.Node{nodeB.Source: {nodeB}}
 				c.globalLinksConfig = &api.Links{
@@ -238,10 +235,10 @@ func Test_processLink(t *testing.T) {
 			destination:       "https://github.com/owner/repo/blob/master/docs/doc.md",
 			contentSourcePath: nodeA.Source,
 			wantDestination:   tests.StrPtr("https://github.com/owner/repo/blob/master/docs/doc.md"),
-			wantText:          nil,
-			wantTitle:         nil,
-			wantDownload:      nil,
-			wantErr:           nil,
+			//wantText:          nil,
+			//wantTitle:         nil,
+			//wantDownload:      nil,
+			wantErr: nil,
 		},
 		{
 			name:              "Relative link to document in download scope and NOT from structure",
@@ -249,10 +246,10 @@ func Test_processLink(t *testing.T) {
 			destination:       "./another.md",
 			contentSourcePath: nodeA.Source,
 			wantDestination:   tests.StrPtr("https://github.com/gardener/gardener/blob/v1.10.0/docs/another.md"),
-			wantText:          nil,
-			wantTitle:         nil,
-			wantDownload:      nil,
-			wantErr:           nil,
+			//wantText:          nil,
+			//wantTitle:         nil,
+			//wantDownload:      nil,
+			wantErr: nil,
 			mutate: func(c *nodeContentProcessor) {
 				c.globalLinksConfig = &api.Links{
 					Rewrites: map[string]*api.LinkRewriteRule{
@@ -275,10 +272,10 @@ func Test_processLink(t *testing.T) {
 			destination:       "https://github.com/gardener/gardener/blob/master/sample.md",
 			contentSourcePath: nodeA.Source,
 			wantDestination:   tests.StrPtr("https://github.com/gardener/gardener/blob/v1.10.0/sample.md"),
-			wantText:          nil,
-			wantTitle:         nil,
-			wantDownload:      nil,
-			wantErr:           nil,
+			//wantText:          nil,
+			//wantTitle:         nil,
+			//wantDownload:      nil,
+			wantErr: nil,
 			mutate: func(c *nodeContentProcessor) {
 				c.globalLinksConfig = &api.Links{
 					Rewrites: map[string]*api.LinkRewriteRule{
@@ -295,14 +292,14 @@ func Test_processLink(t *testing.T) {
 			destination:       "https://github.com/gardener/gardener/blob/master/docs/image.png",
 			contentSourcePath: nodeA.Source,
 			wantDestination:   tests.StrPtr("/__resources"),
-			wantText:          nil,
-			wantTitle:         nil,
-			wantDownload: &DownloadTask{
-				Source:    "https://github.com/gardener/gardener/blob/v1.10.0/docs/image.png",
-				Target:    "",
-				Referer:   "https://github.com/gardener/gardener/blob/v1.10.0/docs/README.md",
-				Reference: "https://github.com/gardener/gardener/blob/master/docs/image.png",
-			},
+			//wantText:          nil,
+			//wantTitle:         nil,
+			//wantDownload: &DownloadTask{
+			//	Source:    "https://github.com/gardener/gardener/blob/v1.10.0/docs/image.png",
+			//	Target:    "",
+			//	Referer:   "https://github.com/gardener/gardener/blob/v1.10.0/docs/README.md",
+			//	Reference: "https://github.com/gardener/gardener/blob/master/docs/image.png",
+			//},
 			wantErr: nil,
 			mutate: func(c *nodeContentProcessor) {
 				c.globalLinksConfig = &api.Links{
@@ -335,14 +332,14 @@ func Test_processLink(t *testing.T) {
 			destination:       "./image.png",
 			contentSourcePath: "https://github.com/gardener/gardener/blob/v1.10.0/docs/README.md",
 			wantDestination:   tests.StrPtr("/__resources"),
-			wantText:          tests.StrPtr("Test text"),
-			wantTitle:         tests.StrPtr("Test title"),
-			wantDownload: &DownloadTask{
-				Source:    "https://github.com/gardener/gardener/blob/v1.10.0/docs/image.png",
-				Target:    "",
-				Referer:   "https://github.com/gardener/gardener/blob/v1.10.0/docs/README.md",
-				Reference: "./image.png",
-			},
+			//wantText:          tests.StrPtr("Test text"),
+			//wantTitle:         tests.StrPtr("Test title"),
+			//wantDownload: &DownloadTask{
+			//	Source:    "https://github.com/gardener/gardener/blob/v1.10.0/docs/image.png",
+			//	Target:    "",
+			//	Referer:   "https://github.com/gardener/gardener/blob/v1.10.0/docs/README.md",
+			//	Reference: "./image.png",
+			//},
 			wantErr: nil,
 			mutate: func(c *nodeContentProcessor) {
 				h := testhandler.NewTestResourceHandler().WithAccept(func(uri string) bool {
@@ -376,26 +373,29 @@ func Test_processLink(t *testing.T) {
 				resourceHandlers: resourcehandlers.NewRegistry(githubHandler.NewResourceHandler(github.NewClient(nil), http.DefaultClient, []string{"github.com"})),
 				rewriteEmbedded:  true,
 				validator:        &fakeValidator{},
+				downloader:       &fakeDownload{},
 			}
 			if tc.mutate != nil {
 				tc.mutate(c)
 			}
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
+			//ctx, cancel := context.WithCancel(context.Background())
+			//defer cancel()
 
-			document := &processors.Document{
-				Node: tc.node,
+			lr := &linkResolver{
+				nodeContentProcessor: c,
+				node:                 tc.node,
+				source:               tc.contentSourcePath,
 			}
-			link, gotDownload, gotErr := c.resolveLink(ctx, document, tc.destination, tc.contentSourcePath)
+			link, gotErr := lr.resolveBaseLink(tc.destination)
 
 			assert.Equal(t, tc.wantErr, gotErr)
-			if gotDownload != nil {
-				if tc.wantDownload != nil {
-					tc.wantDownload.Target = gotDownload.Target
-				}
-			}
-			assert.Equal(t, tc.wantDownload, gotDownload)
-			var destination, text, title string
+			//if gotDownload != nil {
+			//	if tc.wantDownload != nil {
+			//		tc.wantDownload.Target = gotDownload.Target
+			//	}
+			//}
+			//assert.Equal(t, tc.wantDownload, gotDownload)
+			var destination /*, text, title*/ string
 			if link.Destination != nil {
 				destination = *link.Destination
 			}
@@ -407,130 +407,22 @@ func Test_processLink(t *testing.T) {
 			} else {
 				assert.Equal(t, tc.wantDestination, link.Destination)
 			}
-			if link.Text != nil {
-				text = *link.Text
-			}
-			if tc.wantText != nil {
-				assert.Equal(t, *tc.wantText, text)
-			} else {
-				assert.Equal(t, tc.wantText, link.Text)
-			}
-			if link.Title != nil {
-				title = *link.Title
-			}
-			if tc.wantText != nil {
-				assert.Equal(t, *tc.wantTitle, title)
-			} else {
-				assert.Equal(t, tc.wantTitle, link.Title)
-			}
-		})
-	}
-}
-
-func Test_matchHTMLLinks(t *testing.T) {
-	testCases := []struct {
-		name string
-		in   string
-		want string
-	}{
-		{
-			name: "rewrite_to_cde",
-			in:   `<script src="abc/a.js" />`,
-			want: `<script src="cde" />`,
-		},
-		{
-			name: "rewrite_to_cde_leave_whitespace_in_tag",
-			in:   `<script src=   "abc/a.js" />`,
-			want: `<script src=   "cde" />`,
-		},
-		{
-			name: "rewrite_to_cde_trim_whitespace_in_link",
-			in:   `<script src="   abc/a.js" />`,
-			want: `<script src="cde" />`,
-		},
-		{
-			name: "rewrite_to_cde_trim_whitespace_in_link",
-			in:   `<script SRC = "   abc/a.js" />`,
-			want: `<script SRC = "cde" />`,
-		},
-		{
-			name: "rewrite_to_cde_trim_white_space_in_link_leave_whitespace_in_html_tag_single_quatation",
-			in:   `<script SRC = '   abc/a.js' />`,
-			want: `<script SRC = 'cde' />`,
-		},
-		{
-			name: "successful_rewrite_with_html_attributes",
-			in:   `<script SRC = '   abc/a.js  ' title="test" />`,
-			want: `<script SRC = 'cde' title="test" />`,
-		},
-		{
-			name: "successful_rewrite_without_quatation",
-			in:   `<script src= abc/a.js />`,
-			want: `<script src= cde />`,
-		},
-		{
-			name: "rewrite_script_src",
-			in:   `<script SRC = "   abc/a.js" `,
-			want: `<script SRC = "cde" `,
-		},
-		{
-			name: "rewrite_img_tags",
-			in:   `<img src="abc/a.js">`,
-			want: `<img src="cde">`,
-		},
-		{
-			name: "rewrite_href_with_surrounding_tag",
-			in:   `<a href="abc/a.js">A</a>`,
-			want: `<a href="cde">A</a>`,
-		},
-		{
-			name: "unmodified_if_no_tag",
-			in:   `< src="abc/a.js" />`,
-			want: `< src="abc/a.js" />`,
-		},
-		{
-			name: "unmodified_different_beggining_and_end_quatation",
-			in:   `<script src="   abc/a.js' />`,
-			want: `<script src="   abc/a.js' />`,
-		},
-	}
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			c := &nodeContentProcessor{
-				resourceAbsLinks: make(map[string]string),
-				resourcesRoot:    "/__resources",
-				resourceHandlers: resourcehandlers.NewRegistry(testhandler.NewTestResourceHandler().WithBuildAbsLink(func(source, link string) (string, error) {
-					return link, nil
-				}).WithGetRawFormatLink(func(absLink string) (string, error) {
-					return absLink, nil
-				}).WithSetVersion(func(absLink, version string) (string, error) {
-					return absLink, nil
-				})),
-				validator:       &fakeValidator{},
-				rewriteEmbedded: true,
-				globalLinksConfig: &api.Links{
-					Rewrites: map[string]*api.LinkRewriteRule{
-						"abc": {
-							Destination: tests.StrPtr("cde"),
-						},
-					},
-				},
-			}
-			node := &api.Node{
-				Name:   "node_A.md",
-				Source: "https://github.com/gardener/gardener/blob/v1.10.0/docs/README.md",
-			}
-			var (
-				b   []byte
-				err error
-			)
-			doc := &processors.Document{
-				Node: node,
-			}
-			if b, err = c.reconcileHTMLLinks(context.TODO(), doc, []byte(tc.in), ""); err != nil {
-				t.Fatal(err)
-			}
-			assert.Equal(t, tc.want, string(b))
+			//if link.Text != nil {
+			//	text = *link.Text
+			//}
+			//if tc.wantText != nil {
+			//	assert.Equal(t, *tc.wantText, text)
+			//} else {
+			//	assert.Equal(t, tc.wantText, link.Text)
+			//}
+			//if link.Title != nil {
+			//	title = *link.Title
+			//}
+			//if tc.wantText != nil {
+			//	assert.Equal(t, *tc.wantTitle, title)
+			//} else {
+			//	assert.Equal(t, tc.wantTitle, link.Title)
+			//}
 		})
 	}
 }
@@ -539,4 +431,10 @@ type fakeValidator struct{}
 
 func (f *fakeValidator) ValidateLink(linkUrl *urls.URL, linkDestination, contentSourcePath string) bool {
 	return true
+}
+
+type fakeDownload struct{}
+
+func (f fakeDownload) Schedule(task *DownloadTask) error {
+	return nil
 }

@@ -18,15 +18,12 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/gardener/docforge/pkg/api"
-	"github.com/gardener/docforge/pkg/hugo"
-	"github.com/gardener/docforge/pkg/resourcehandlers"
-	"github.com/gardener/docforge/pkg/writers"
-	"github.com/hashicorp/go-multierror"
-
-	"github.com/gardener/docforge/pkg/processors"
 	"github.com/gardener/docforge/pkg/reactor"
+	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/gardener/docforge/pkg/resourcehandlers/git"
 	ghrs "github.com/gardener/docforge/pkg/resourcehandlers/github"
+	"github.com/gardener/docforge/pkg/writers"
+	"github.com/hashicorp/go-multierror"
 
 	"github.com/google/go-github/v32/github"
 	"golang.org/x/oauth2"
@@ -56,12 +53,28 @@ type Options struct {
 	GitHubInfoPath               string
 	DryRunWriter                 io.Writer
 	Resolve                      bool
-	Hugo                         *hugo.Options
+	Hugo                         *Hugo
 	UseGit                       bool
 	HomeDir                      string
 	LocalMappings                map[string]string
 	DefaultBranches              map[string]string
 	LastNVersions                map[string]int
+}
+
+// Hugo is the configuration options for creating HUGO implementations
+// docforge interfaces
+type Hugo struct {
+	// PrettyUrls indicates if links will rewritten for Hugo will be
+	// formatted for pretty url support or not. Pretty urls in Hugo
+	// place built source content in index.html, which resides in a path segment with
+	// the name of the file, making request URLs more resource-oriented.
+	// Example: (source) sample.md -> (build) sample/index.html -> (runtime) ./sample
+	PrettyUrls bool
+	// IndexFileNames defines a list of file names that indicate
+	// their content can be used as Hugo section files (_index.md).
+	IndexFileNames []string
+	// BaseURL is used from the Hugo processor to rewrite relative links to root-relative
+	BaseURL string
 }
 
 // Credentials holds repositories access credentials
@@ -89,7 +102,6 @@ func NewReactor(ctx context.Context, options *Options, rhs []resourcehandlers.Re
 		ResourcesPath:                options.ResourcesPath,
 		ResourceDownloadWorkersCount: options.ResourceDownloadWorkersCount,
 		RewriteEmbedded:              options.RewriteEmbedded,
-		Processor:                    nil,
 		ResourceHandlers:             rhs,
 		DryRunWriter:                 dryRunWriters,
 		Resolve:                      options.Resolve,
@@ -103,6 +115,7 @@ func NewReactor(ctx context.Context, options *Options, rhs []resourcehandlers.Re
 	} else {
 		o.Writer = &writers.FSWriter{
 			Root: options.DestinationPath,
+			Hugo: options.Hugo != nil,
 		}
 		o.ResourceDownloadWriter = &writers.FSWriter{
 			Root: filepath.Join(options.DestinationPath, options.ResourcesPath),
@@ -117,32 +130,13 @@ func NewReactor(ctx context.Context, options *Options, rhs []resourcehandlers.Re
 	}
 
 	if options.Hugo != nil {
-		WithHugo(o, options)
+		o.Hugo = true
+		o.PrettyUrls = options.Hugo.PrettyUrls
+		o.IndexFileNames = options.Hugo.IndexFileNames
+		o.BaseURL = options.Hugo.BaseURL
 	}
-	return reactor.NewReactor(o)
-}
 
-// WithHugo adapts the reactor.Options object with Hugo-specific
-// settings for writer and processor
-func WithHugo(reactorOptions *reactor.Options, o *Options) {
-	hugoOptions := o.Hugo
-	reactorOptions.Processor = &processors.ProcessorChain{
-		Processors: []processors.Processor{
-			&processors.FrontMatter{
-				IndexFileNames: hugoOptions.IndexFileNames,
-			},
-			hugo.NewProcessor(hugoOptions),
-		},
-	}
-	if o.DryRunWriter != nil {
-		hugoOptions.Writer = reactorOptions.Writer
-	} else {
-		hugoOptions.Writer = &writers.FSWriter{
-			Root: filepath.Join(o.DestinationPath),
-		}
-	}
-	reactorOptions.IndexFileNames = hugoOptions.IndexFileNames
-	reactorOptions.Writer = hugo.NewWriter(hugoOptions)
+	return reactor.NewReactor(o)
 }
 
 func initResourceHandlers(ctx context.Context, o *Options) ([]resourcehandlers.ResourceHandler, error) {

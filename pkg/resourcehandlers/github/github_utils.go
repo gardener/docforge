@@ -13,7 +13,6 @@ import (
 	"sync"
 
 	"github.com/gardener/docforge/pkg/api"
-	"github.com/gardener/docforge/pkg/markdown"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 
 	"github.com/gardener/docforge/pkg/util/urls"
@@ -165,7 +164,7 @@ func isRawURL(u *url.URL) bool {
 // CleanupNodeTree cleanups node tree:
 // - remove contentSources that reference tree objects. They are used
 //   internally to build the structure but are not a valid contentSource
-// - remove empty nodes that do not contain markdown. The build algorithm
+// - remove empty nodes that do not contain markdowns. The build algorithm
 //   is blind for the content of a node and leaves nodes that are folders
 //   containing for example images only and thus irrelevant to the
 //   documentation structure
@@ -295,21 +294,7 @@ func buildNodes(ctx context.Context, rh resourcehandlers.ResourceHandler, cache 
 						//not a md file
 						continue
 					}
-					// check for frontMatter filter compliance
-					if frontMatter != nil || excludeFrontMatter != nil {
-						// TODO: cache and reuse to avoid redundant reads when the structure nodes are processed
-						b, err := rh.Read(ctx, childResourceLocator.String())
-						if err != nil {
-							return nil, err
-						}
-						selected, err := markdown.MatchFrontMatterRules(b, frontMatter, excludeFrontMatter)
-						if err != nil {
-							return nil, err
-						}
-						if !selected {
-							continue
-						}
-					}
+
 				}
 				// creating new node
 				nextNodeChild := &api.Node{

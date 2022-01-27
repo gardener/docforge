@@ -5,122 +5,12 @@
 package app
 
 import (
-	"reflect"
 	"testing"
 
 	"github.com/gardener/docforge/cmd/configuration"
-	"github.com/gardener/docforge/pkg/hugo"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/utils/pointer"
 )
-
-func Test_hugoOptions(t *testing.T) {
-	type args struct {
-		f      *cmdFlags
-		config *configuration.Config
-	}
-	tests := []struct {
-		name string
-		args args
-		want *hugo.Options
-	}{
-		{
-			name: "return_nil_when_no_config_or_flag_provided",
-			args: args{
-				f: &cmdFlags{
-					hugo: false,
-				},
-				config: &configuration.Config{
-					Hugo: nil,
-				},
-			},
-			want: nil,
-		},
-		{
-			name: "return_default_hugo_options",
-			args: args{
-				f: &cmdFlags{
-					hugo:           true,
-					hugoPrettyUrls: true,
-				},
-				config: &configuration.Config{
-					Hugo: nil,
-				},
-			},
-			want: &hugo.Options{
-				PrettyUrls:     true,
-				IndexFileNames: []string{},
-				BaseURL:        "",
-			},
-		},
-		{
-			name: "use_base_url_from_config_when_not_specified_in_flags",
-			args: args{
-				f: &cmdFlags{
-					hugo:           true,
-					hugoPrettyUrls: true,
-				},
-				config: &configuration.Config{
-					Hugo: &configuration.Hugo{
-						BaseURL: pointer.StringPtr("/new/baseURL"),
-					},
-				},
-			},
-			want: &hugo.Options{
-				PrettyUrls:     true,
-				IndexFileNames: []string{},
-				BaseURL:        "/new/baseURL",
-			},
-		},
-		{
-			name: "use_base_url_from_flags_with_priority",
-			args: args{
-				f: &cmdFlags{
-					hugo:           true,
-					hugoPrettyUrls: true,
-					hugoBaseURL:    "/override",
-				},
-				config: &configuration.Config{
-					Hugo: &configuration.Hugo{
-						BaseURL: pointer.StringPtr("/new/baseURL"),
-					},
-				},
-			},
-			want: &hugo.Options{
-				PrettyUrls:     true,
-				IndexFileNames: []string{},
-				BaseURL:        "/override",
-			},
-		},
-		{
-			name: "set_hugo_base_url_from_flags",
-			args: args{
-				f: &cmdFlags{
-					hugo:           true,
-					hugoPrettyUrls: true,
-					hugoBaseURL:    "/fromFlag",
-				},
-				config: &configuration.Config{
-					Hugo: &configuration.Hugo{
-						BaseURL: nil,
-					},
-				},
-			},
-			want: &hugo.Options{
-				PrettyUrls:     true,
-				IndexFileNames: []string{},
-				BaseURL:        "/fromFlag",
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := hugoOptions(tt.args.f, tt.args.config); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("hugoOptions() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
 
 func Test_prettyURLs(t *testing.T) {
 	type args struct {

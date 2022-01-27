@@ -1,6 +1,7 @@
 ---
 title: TestedMarkdownFile3
 ---
+
 # Tested markdown file 3
 
 ### Link relatively file which is in the structure

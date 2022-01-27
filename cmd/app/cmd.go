@@ -14,7 +14,6 @@ import (
 
 	"github.com/gardener/docforge/cmd/configuration"
 	"github.com/gardener/docforge/pkg/api"
-	"github.com/gardener/docforge/pkg/hugo"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/spf13/cobra"
 	"k8s.io/klog/v2"
@@ -310,27 +309,27 @@ func cacheHomeDir(f *cmdFlags, config *configuration.Config) string {
 	return filepath.Join(userHomeDir, configuration.DocforgeHomeDir)
 }
 
-func hugoOptions(f *cmdFlags, config *configuration.Config) *hugo.Options {
+func hugoOptions(f *cmdFlags, config *configuration.Config) *Hugo {
 	if !f.hugo && (config == nil || config.Hugo == nil) {
 		return nil
 	}
 
-	hugoOptions := &hugo.Options{
+	ho := &Hugo{
 		PrettyUrls:     prettyURLs(f.hugoPrettyUrls, config.Hugo),
 		IndexFileNames: combineSectionFiles(f.hugoSectionFiles, config.Hugo),
 	}
 
 	if f.hugoBaseURL != "" {
-		hugoOptions.BaseURL = f.hugoBaseURL
-		return hugoOptions
+		ho.BaseURL = f.hugoBaseURL
+		return ho
 	}
 
 	if config.Hugo != nil {
 		if config.Hugo.BaseURL != nil {
-			hugoOptions.BaseURL = *config.Hugo.BaseURL
+			ho.BaseURL = *config.Hugo.BaseURL
 		}
 	}
-	return hugoOptions
+	return ho
 }
 
 func combineSectionFiles(sectionFilesFromFlags []string, hugoConfig *configuration.Hugo) []string {
