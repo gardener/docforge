@@ -2,12 +2,14 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-package resourcehandlers
+package resourcehandlers_test
 
 import (
-	"github.com/gardener/docforge/pkg/resourcehandlers/testhandler"
 	"reflect"
 	"testing"
+
+	"github.com/gardener/docforge/pkg/resourcehandlers"
+	"github.com/gardener/docforge/pkg/resourcehandlers/resourcehandlersfakes"
 
 	"github.com/gardener/docforge/pkg/util/tests"
 )
@@ -17,21 +19,23 @@ func init() {
 }
 
 func TestGet(t *testing.T) {
-	nonAcceptingHandler := testhandler.NewTestResourceHandler().WithAccept(func(uri string) bool {
+	nonAcceptingHandler := &resourcehandlersfakes.FakeResourceHandler{}
+	nonAcceptingHandler.AcceptStub = func(uri string) bool {
 		return false
-	})
-	acceptingHandler := testhandler.NewTestResourceHandler().WithAccept(func(uri string) bool {
+	}
+	acceptingHandler := &resourcehandlersfakes.FakeResourceHandler{}
+	acceptingHandler.AcceptStub = func(uri string) bool {
 		return true
-	})
+	}
 
 	testCases := []struct {
 		description string
-		handlers    []ResourceHandler
-		want        ResourceHandler
+		handlers    []resourcehandlers.ResourceHandler
+		want        resourcehandlers.ResourceHandler
 	}{
 		{
 			"should return handler",
-			[]ResourceHandler{
+			[]resourcehandlers.ResourceHandler{
 				nonAcceptingHandler,
 				acceptingHandler,
 			},
@@ -39,7 +43,7 @@ func TestGet(t *testing.T) {
 		},
 		{
 			"should not return handler",
-			[]ResourceHandler{
+			[]resourcehandlers.ResourceHandler{
 				nonAcceptingHandler,
 			},
 			nil,
@@ -47,7 +51,7 @@ func TestGet(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
-			r := NewRegistry(tc.handlers...)
+			r := resourcehandlers.NewRegistry(tc.handlers...)
 			got := r.Get("")
 			if !reflect.DeepEqual(got, tc.want) {
 				t.Errorf("expected ResourceHandler %q != %q", got, tc.want)

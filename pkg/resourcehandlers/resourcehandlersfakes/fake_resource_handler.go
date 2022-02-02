@@ -104,15 +104,11 @@ type FakeResourceHandler struct {
 		result1 *api.Documentation
 		result2 error
 	}
-	ResolveNodeSelectorStub        func(context.Context, *api.Node, []string, map[string]interface{}, map[string]interface{}, int32) ([]*api.Node, error)
+	ResolveNodeSelectorStub        func(context.Context, *api.Node) ([]*api.Node, error)
 	resolveNodeSelectorMutex       sync.RWMutex
 	resolveNodeSelectorArgsForCall []struct {
 		arg1 context.Context
 		arg2 *api.Node
-		arg3 []string
-		arg4 map[string]interface{}
-		arg5 map[string]interface{}
-		arg6 int32
 	}
 	resolveNodeSelectorReturns struct {
 		result1 []*api.Node
@@ -591,28 +587,19 @@ func (fake *FakeResourceHandler) ResolveDocumentationReturnsOnCall(i int, result
 	}{result1, result2}
 }
 
-func (fake *FakeResourceHandler) ResolveNodeSelector(arg1 context.Context, arg2 *api.Node, arg3 []string, arg4 map[string]interface{}, arg5 map[string]interface{}, arg6 int32) ([]*api.Node, error) {
-	var arg3Copy []string
-	if arg3 != nil {
-		arg3Copy = make([]string, len(arg3))
-		copy(arg3Copy, arg3)
-	}
+func (fake *FakeResourceHandler) ResolveNodeSelector(arg1 context.Context, arg2 *api.Node) ([]*api.Node, error) {
 	fake.resolveNodeSelectorMutex.Lock()
 	ret, specificReturn := fake.resolveNodeSelectorReturnsOnCall[len(fake.resolveNodeSelectorArgsForCall)]
 	fake.resolveNodeSelectorArgsForCall = append(fake.resolveNodeSelectorArgsForCall, struct {
 		arg1 context.Context
 		arg2 *api.Node
-		arg3 []string
-		arg4 map[string]interface{}
-		arg5 map[string]interface{}
-		arg6 int32
-	}{arg1, arg2, arg3Copy, arg4, arg5, arg6})
+	}{arg1, arg2})
 	stub := fake.ResolveNodeSelectorStub
 	fakeReturns := fake.resolveNodeSelectorReturns
-	fake.recordInvocation("ResolveNodeSelector", []interface{}{arg1, arg2, arg3Copy, arg4, arg5, arg6})
+	fake.recordInvocation("ResolveNodeSelector", []interface{}{arg1, arg2})
 	fake.resolveNodeSelectorMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2, arg3, arg4, arg5, arg6)
+		return stub(arg1, arg2)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -626,17 +613,17 @@ func (fake *FakeResourceHandler) ResolveNodeSelectorCallCount() int {
 	return len(fake.resolveNodeSelectorArgsForCall)
 }
 
-func (fake *FakeResourceHandler) ResolveNodeSelectorCalls(stub func(context.Context, *api.Node, []string, map[string]interface{}, map[string]interface{}, int32) ([]*api.Node, error)) {
+func (fake *FakeResourceHandler) ResolveNodeSelectorCalls(stub func(context.Context, *api.Node) ([]*api.Node, error)) {
 	fake.resolveNodeSelectorMutex.Lock()
 	defer fake.resolveNodeSelectorMutex.Unlock()
 	fake.ResolveNodeSelectorStub = stub
 }
 
-func (fake *FakeResourceHandler) ResolveNodeSelectorArgsForCall(i int) (context.Context, *api.Node, []string, map[string]interface{}, map[string]interface{}, int32) {
+func (fake *FakeResourceHandler) ResolveNodeSelectorArgsForCall(i int) (context.Context, *api.Node) {
 	fake.resolveNodeSelectorMutex.RLock()
 	defer fake.resolveNodeSelectorMutex.RUnlock()
 	argsForCall := fake.resolveNodeSelectorArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5, argsForCall.arg6
+	return argsForCall.arg1, argsForCall.arg2
 }
 
 func (fake *FakeResourceHandler) ResolveNodeSelectorReturns(result1 []*api.Node, result2 error) {
