@@ -23,7 +23,6 @@ import (
 	"github.com/gardener/docforge/pkg/resourcehandlers/git/gitfakes"
 	"github.com/gardener/docforge/pkg/resourcehandlers/git/gitinterface/gitinterfacefakes"
 	ghub "github.com/gardener/docforge/pkg/resourcehandlers/github"
-	"github.com/gardener/docforge/pkg/resourcehandlers/github/githubfakes"
 
 	"github.com/google/go-github/v32/github"
 )
@@ -210,8 +209,7 @@ var _ = Describe("Git", func() {
 		teardown func()
 		cancel   context.CancelFunc
 
-		cache *ghub.Cache
-		gh    resourcehandlers.ResourceHandler
+		gh resourcehandlers.ResourceHandler
 
 		localMappings map[string]string
 
@@ -220,7 +218,6 @@ var _ = Describe("Git", func() {
 
 	BeforeEach(func() {
 		localMappings = make(map[string]string)
-		cache = ghub.NewEmptyCache(nil)
 	})
 
 	JustBeforeEach(func() {
@@ -241,95 +238,9 @@ var _ = Describe("Git", func() {
 			Git:       &fakeGit,
 			LocalPath: repositoryPath,
 		}
-		gh = git.NewResourceHandlerCachedTest("", nil, "", client, nil, nil, localMappings, &fakeGit, repo, &fakeFileSystem, cache)
+		gh = git.NewResourceHandlerTest("", nil, "", client, nil, nil, localMappings, &fakeGit, repo, &fakeFileSystem, nil)
 
 	})
-
-	Describe("ExtractTree", func() {
-		var (
-			rl ghub.ResourceLocator
-
-			got  []*ghub.ResourceLocator
-			want []*ghub.ResourceLocator
-			err  error
-		)
-		JustBeforeEach(func() {
-			var (
-				fakeRepository gitinterfacefakes.FakeRepository
-				fakeWorktree   gitinterfacefakes.FakeRepositoryWorktree
-
-				fakeFile gitfakes.FakeFileInfo
-				fakeDir  gitfakes.FakeFileInfo
-			)
-
-			fakeGit.PlainOpenReturns(&fakeRepository, nil)
-			fakeRepository.WorktreeReturns(&fakeWorktree, nil)
-
-			ghConverted := gh.(*git.Git)
-
-			fakeFile.IsDirReturns(false)
-			fakeDir.IsDirReturns(true)
-			te := git.NewTreeExtractorTest(ghConverted, func(root string, walkerFunc filepath.WalkFunc) error {
-				walkerFunc(root, &fakeDir, nil)
-				walkerFunc(root+"/.git", &fakeDir, nil)
-				walkerFunc(root+"/.git/.config", &fakeDir, nil)
-				walkerFunc(root+"/1", &fakeDir, nil)
-				walkerFunc(root+"/1/1", &fakeDir, nil)
-				walkerFunc(root+"/1/1/1.file", &fakeFile, nil)
-				walkerFunc(root+"/2", &fakeDir, nil)
-				walkerFunc(root+"/2/1.file", &fakeFile, nil)
-				walkerFunc(root+"/2/2.file", &fakeFile, nil)
-				walkerFunc(root+"/3.file", &fakeFile, nil)
-				return nil
-			})
-			got, err = te.ExtractTree(ctx, &rl)
-
-		})
-
-		Describe("the general use case", func() {
-
-			BeforeEach(func() {
-				rl = ghub.ResourceLocator{Host: "github.com", Owner: "testOrg", Repo: "testRepo", SHAAlias: "master"}
-				want = []*ghub.ResourceLocator{
-					{Host: "github.com", Owner: "testOrg", Repo: "testRepo", SHAAlias: "master", Path: "1", Type: ghub.Tree},
-					{Host: "github.com", Owner: "testOrg", Repo: "testRepo", SHAAlias: "master", Path: "1/1", Type: ghub.Tree},
-					{Host: "github.com", Owner: "testOrg", Repo: "testRepo", SHAAlias: "master", Path: "1/1/1.file", Type: ghub.Blob},
-					{Host: "github.com", Owner: "testOrg", Repo: "testRepo", SHAAlias: "master", Path: "2", Type: ghub.Tree},
-					{Host: "github.com", Owner: "testOrg", Repo: "testRepo", SHAAlias: "master", Path: "2/1.file", Type: ghub.Blob},
-					{Host: "github.com", Owner: "testOrg", Repo: "testRepo", SHAAlias: "master", Path: "2/2.file", Type: ghub.Blob},
-					{Host: "github.com", Owner: "testOrg", Repo: "testRepo", SHAAlias: "master", Path: "3.file", Type: ghub.Blob},
-				}
-			})
-
-			It("should process it correctly", func() {
-				Expect(err).NotTo(HaveOccurred())
-				Expect(got).Should(Equal(want))
-			})
-		})
-
-		When("resource locator is an element of the repository", func() {
-
-			BeforeEach(func() {
-				rl = ghub.ResourceLocator{Host: "github.com", Owner: "testOrg", Repo: "testRepo", SHAAlias: "master", Path: "1/1"}
-				want = []*ghub.ResourceLocator{
-					{Host: "github.com", Owner: "testOrg", Repo: "testRepo", SHAAlias: "master", Path: "1", Type: ghub.Tree},
-					{Host: "github.com", Owner: "testOrg", Repo: "testRepo", SHAAlias: "master", Path: "1/1", Type: ghub.Tree},
-					{Host: "github.com", Owner: "testOrg", Repo: "testRepo", SHAAlias: "master", Path: "1/1/1.file", Type: ghub.Blob},
-					{Host: "github.com", Owner: "testOrg", Repo: "testRepo", SHAAlias: "master", Path: "2", Type: ghub.Tree},
-					{Host: "github.com", Owner: "testOrg", Repo: "testRepo", SHAAlias: "master", Path: "2/1.file", Type: ghub.Blob},
-					{Host: "github.com", Owner: "testOrg", Repo: "testRepo", SHAAlias: "master", Path: "2/2.file", Type: ghub.Blob},
-					{Host: "github.com", Owner: "testOrg", Repo: "testRepo", SHAAlias: "master", Path: "3.file", Type: ghub.Blob},
-				}
-			})
-
-			It("should process it as a repository correctly", func() {
-				Expect(err).NotTo(HaveOccurred())
-				Expect(got).Should(Equal(want))
-			})
-		})
-
-	})
-
 	JustAfterEach(func() {
 		cancel()
 		teardown()
@@ -726,13 +637,9 @@ var _ = Describe("Git", func() {
 
 	Describe("Resolving node selector", func() {
 		var (
-			node               *api.Node
-			excludePaths       []string
-			frontMatter        map[string]interface{}
-			excludeFrontMatter map[string]interface{}
-			depth              int32
-
-			fakeTreeExtractor githubfakes.FakeTreeExtractor
+			node         *api.Node
+			excludePaths []string
+			depth        int32
 
 			got      []*api.Node
 			expected []*api.Node
@@ -766,82 +673,63 @@ This is test file`))
 
 			fakeFileSystem.ReadFileReturns(fileData, nil)
 
-			fakeTreeExtractorRes := []*ghub.ResourceLocator{
-				&ghub.ResourceLocator{
-					Scheme:   "https",
-					Host:     "github.com",
-					Owner:    "testorg",
-					Repo:     "testrepo",
-					Type:     ghub.Tree,
-					SHAAlias: "testbranch",
-					Path:     "testdir",
-				},
-				&ghub.ResourceLocator{
-					Scheme:   "https",
-					Host:     "github.com",
-					Owner:    "testorg",
-					Repo:     "testrepo",
-					Type:     ghub.Blob,
-					SHAAlias: "testbranch",
-					Path:     "testdir/testfile.md",
-				},
-				&ghub.ResourceLocator{
-					Scheme:   "https",
-					Host:     "github.com",
-					Owner:    "testorg",
-					Repo:     "testrepo",
-					Type:     ghub.Tree,
-					SHAAlias: "testbranch",
-					Path:     "testdir/testdir_sub",
-				},
-				&ghub.ResourceLocator{
-					Scheme:   "https",
-					Host:     "github.com",
-					Owner:    "testorg",
-					Repo:     "testrepo",
-					Type:     ghub.Tree,
-					SHAAlias: "testbranch",
-					Path:     "testdir/testdir_sub/testdir_sub2",
-				},
-				&ghub.ResourceLocator{
-					Scheme:   "https",
-					Host:     "github.com",
-					Owner:    "testorg",
-					Repo:     "testrepo",
-					Type:     ghub.Blob,
-					SHAAlias: "testbranch",
-					Path:     "testdir/testdir_sub/testdir_sub2/testfile3.md",
-				},
-				&ghub.ResourceLocator{
-					Scheme:   "https",
-					Host:     "github.com",
-					Owner:    "testorg",
-					Repo:     "testrepo",
-					Type:     ghub.Blob,
-					SHAAlias: "testbranch",
-					Path:     "testfile2.md",
-				},
-			}
-			fakeTreeExtractor.ExtractTreeReturns(fakeTreeExtractorRes, nil)
+			depth = 0
+			excludePaths = nil
 
-			cache = ghub.NewEmptyCache(&fakeTreeExtractor)
 		})
 
 		JustBeforeEach(func() {
-			got, err = gh.ResolveNodeSelector(ctx, node, excludePaths, frontMatter, excludeFrontMatter, depth)
+			node.NodeSelector.ExcludePaths = excludePaths
+			node.NodeSelector.Depth = depth
+
+			var (
+				//fakeFile  gitfakes.FakeFileInfo
+				fakeFile1 gitfakes.FakeFileInfo
+				fakeFile2 gitfakes.FakeFileInfo
+				fakeFile3 gitfakes.FakeFileInfo
+				fakeDir   gitfakes.FakeFileInfo
+				fakeDir1  gitfakes.FakeFileInfo
+				fakeDir2  gitfakes.FakeFileInfo
+			)
+
+			fakeFile1.IsDirReturns(false)
+			fakeFile1.NameReturns(".config")
+
+			fakeFile1.IsDirReturns(false)
+			fakeFile1.NameReturns("testfile.md")
+
+			fakeFile2.IsDirReturns(false)
+			fakeFile2.NameReturns("testfile2.md")
+
+			fakeFile3.IsDirReturns(false)
+			fakeFile3.NameReturns("testfile3.md")
+
+			fakeDir.IsDirReturns(true)
+			fakeDir.NameReturns("")
+
+			fakeDir1.IsDirReturns(true)
+			fakeDir1.NameReturns("testdir_sub")
+
+			fakeDir2.IsDirReturns(true)
+			fakeDir2.NameReturns("testdir_sub2")
+			gh = git.NewResourceHandlerTest("", nil, "", client, nil, nil, localMappings, &fakeGit, repo, &fakeFileSystem, func(root string, walkerFunc filepath.WalkFunc) error {
+				walkerFunc(root, &fakeDir, nil)
+				walkerFunc(root+"/testfile.md", &fakeFile1, nil)
+				walkerFunc(root+"/testdir_sub", &fakeDir1, nil)
+				walkerFunc(root+"/testdir_sub/testdir_sub2", &fakeDir2, nil)
+				walkerFunc(root+"/testdir_sub/testdir_sub2/testfile3.md", &fakeFile3, nil)
+				return nil
+			})
+
+			got, err = gh.ResolveNodeSelector(ctx, node)
 		})
 
 		Context("given the general use case", func() {
 			BeforeEach(func() {
-				root := &api.Node{
-					NodeSelector: &api.NodeSelector{Path: "https://github.com/testorg/testrepo/tree/testbranch/testdir"},
-				}
 				testFile3 := &api.Node{Name: "testfile3.md", Source: "https://github.com/testorg/testrepo/blob/testbranch/testdir/testdir_sub/testdir_sub2/testfile3.md"}
 				testSubDir2 := &api.Node{Name: "testdir_sub2", Nodes: []*api.Node{testFile3}, Properties: map[string]interface{}{api.ContainerNodeSourceLocation: "https://github.com/testorg/testrepo/tree/testbranch/testdir/testdir_sub/testdir_sub2"}}
 				testSubDir := &api.Node{Name: "testdir_sub", Nodes: []*api.Node{testSubDir2}, Properties: map[string]interface{}{api.ContainerNodeSourceLocation: "https://github.com/testorg/testrepo/tree/testbranch/testdir/testdir_sub"}}
-				testSubDir.SetParent(root)
 				testFile := &api.Node{Name: "testfile.md", Source: "https://github.com/testorg/testrepo/blob/testbranch/testdir/testfile.md"}
-				testFile.SetParent(root)
 				testSubDir.SetParentsDownwards()
 
 				expected = []*api.Node{
@@ -863,17 +751,9 @@ This is test file`))
 			BeforeEach(func() {
 				depth = 1
 
-				root := &api.Node{
-					NodeSelector: &api.NodeSelector{Path: "https://github.com/testorg/testrepo/tree/testbranch/testdir"},
-				}
-				testSubDir := &api.Node{Name: "testdir_sub", Nodes: []*api.Node{}, Properties: map[string]interface{}{api.ContainerNodeSourceLocation: "https://github.com/testorg/testrepo/tree/testbranch/testdir/testdir_sub"}}
-				testSubDir.SetParent(root)
 				testFile := &api.Node{Name: "testfile.md", Source: "https://github.com/testorg/testrepo/blob/testbranch/testdir/testfile.md"}
-				testFile.SetParent(root)
-				testSubDir.SetParentsDownwards()
 
 				expected = []*api.Node{
-					testSubDir,
 					testFile,
 				}
 
@@ -892,67 +772,7 @@ This is test file`))
 			BeforeEach(func() {
 				excludePaths = []string{"testdir_sub2", "testfile.md"}
 
-				root := &api.Node{
-					NodeSelector: &api.NodeSelector{Path: "https://github.com/testorg/testrepo/tree/testbranch/testdir"},
-				}
-				testSubDir := &api.Node{Name: "testdir_sub", Nodes: []*api.Node{}, Properties: map[string]interface{}{api.ContainerNodeSourceLocation: "https://github.com/testorg/testrepo/tree/testbranch/testdir/testdir_sub"}}
-				testSubDir.SetParent(root)
-				testSubDir.SetParentsDownwards()
-
-				expected = []*api.Node{
-					testSubDir,
-				}
-			})
-
-			It("should process it correctly", func() {
-				Expect(err).NotTo(HaveOccurred())
-				rootGot := api.Node{Nodes: got}
-				rootExpected := api.Node{Nodes: expected}
-				Expect(rootGot).To(Equal(rootExpected))
-			})
-
-		})
-
-		Context("given a excludeFrontMatter parameter", func() {
-			BeforeEach(func() {
-				excludeFrontMatter = make(map[string]interface{})
-				excludeFrontMatter[".title"] = "Test"
-				testSubDir := &api.Node{Name: "testdir_sub", Nodes: []*api.Node{}, Properties: map[string]interface{}{api.ContainerNodeSourceLocation: "https://github.com/testorg/testrepo/tree/testbranch/testdir/testdir_sub"}}
-				root := &api.Node{
-					NodeSelector: &api.NodeSelector{Path: "https://github.com/testorg/testrepo/tree/testbranch/testdir"},
-				}
-				testSubDir.SetParent(root)
-				testSubDir.SetParentsDownwards()
-
-				expected = []*api.Node{
-					testSubDir,
-				}
-			})
-
-			It("should process it correctly", func() {
-				Expect(err).NotTo(HaveOccurred())
-				rootGot := api.Node{Nodes: got}
-				rootExpected := api.Node{Nodes: expected}
-				Expect(rootGot).To(Equal(rootExpected))
-			})
-
-		})
-
-		Context("given a frontMatter parameter", func() {
-			BeforeEach(func() {
-				frontMatter = make(map[string]interface{})
-				frontMatter[".title"] = "broken Test"
-
-				testSubDir := &api.Node{Name: "testdir_sub", Nodes: []*api.Node{}, Properties: map[string]interface{}{api.ContainerNodeSourceLocation: "https://github.com/testorg/testrepo/tree/testbranch/testdir/testdir_sub"}}
-				root := &api.Node{
-					NodeSelector: &api.NodeSelector{Path: "https://github.com/testorg/testrepo/tree/testbranch/testdir"},
-				}
-				testSubDir.SetParent(root)
-				testSubDir.SetParentsDownwards()
-
-				expected = []*api.Node{
-					testSubDir,
-				}
+				expected = []*api.Node{}
 			})
 
 			It("should process it correctly", func() {
@@ -1125,27 +945,27 @@ structure:
 
 				expected = &api.Documentation{
 					Structure: []*api.Node{
-						&api.Node{
+						{
 							Name:   "community",
 							Source: "https://github.com/gardener/docforge/edit/master/integration-test/tested-doc/merge-test/testFile.md",
 						},
-						&api.Node{
+						{
 							Name:   "docs",
 							Source: "https://github.com/gardener/docforge/blob/testMainBranch/integration-test/tested-doc/merge-test/testFile.md",
 						},
-						&api.Node{
+						{
 							Name:   "v7.7",
 							Source: "https://github.com/gardener/docforge/blob/v7.7/integration-test/tested-doc/merge-test/testFile.md",
 						},
-						&api.Node{
+						{
 							Name:   "v6.1",
 							Source: "https://github.com/gardener/docforge/blob/v6.1/integration-test/tested-doc/merge-test/testFile.md",
 						},
-						&api.Node{
+						{
 							Name:   "v5.7",
 							Source: "https://github.com/gardener/docforge/blob/v5.7/integration-test/tested-doc/merge-test/testFile.md",
 						},
-						&api.Node{
+						{
 							Name:   "v4.9",
 							Source: "https://github.com/gardener/docforge/blob/v4.9/integration-test/tested-doc/merge-test/testFile.md",
 						},
@@ -1164,11 +984,11 @@ structure:
 
 					expected = &api.Documentation{
 						Structure: []*api.Node{
-							&api.Node{
+							{
 								Name:   "community",
 								Source: "https://github.com/gardener/docforge/edit/master/integration-test/tested-doc/merge-test/testFile.md",
 							},
-							&api.Node{
+							{
 								Name:   "docs",
 								Source: "https://github.com/gardener/docforge/blob/testMainBranch/integration-test/tested-doc/merge-test/testFile.md",
 							},

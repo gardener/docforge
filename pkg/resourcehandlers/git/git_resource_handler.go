@@ -16,6 +16,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"sync"
 
@@ -73,11 +74,11 @@ type Git struct {
 	mutex         sync.RWMutex
 
 	fileReader FileReader
-	cache      *github.Cache
+	walker     func(root string, walkerFunc filepath.WalkFunc) error
 }
 
-// NewResourceHandlerCachedTest creates new GitHub ResourceHandler objects given more arguments. Used when testing
-func NewResourceHandlerCachedTest(gitRepositoriesAbsPath string, user *string, oauthToken string, githubOAuthClient *ghclient.Client, httpClient *nethttp.Client, acceptedHosts []string, localMappings map[string]string, gitArg gitinterface.Git, prepRepos map[string]*Repository, fileR FileReader, cache *github.Cache) resourcehandlers.ResourceHandler {
+// NewResourceHandlerTest creates new GitHub ResourceHandler objects given more arguments. Used when testing
+func NewResourceHandlerTest(gitRepositoriesAbsPath string, user *string, oauthToken string, githubOAuthClient *ghclient.Client, httpClient *nethttp.Client, acceptedHosts []string, localMappings map[string]string, gitArg gitinterface.Git, prepRepos map[string]*Repository, fileR FileReader, walkerF func(root string, walkerFunc filepath.WalkFunc) error) resourcehandlers.ResourceHandler {
 	out := &Git{
 		client:                 githubOAuthClient,
 		httpClient:             httpClient,
@@ -86,9 +87,9 @@ func NewResourceHandlerCachedTest(gitRepositoriesAbsPath string, user *string, o
 		gitRepositoriesAbsPath: gitRepositoriesAbsPath,
 		acceptedHosts:          acceptedHosts,
 		git:                    gitArg,
-		fileReader:             fileR,
 		preparedRepos:          prepRepos,
-		cache:                  cache,
+		fileReader:             fileR,
+		walker:                 walkerF,
 	}
 	return out
 }
@@ -104,9 +105,9 @@ func NewResourceHandler(gitRepositoriesAbsPath string, user *string, oauthToken 
 		acceptedHosts:          acceptedHosts,
 		git:                    gitinterface.NewGit(),
 		fileReader:             &osReader{},
+		walker:                 filepath.Walk,
 	}
 
-	out.cache = github.NewEmptyCache(&TreeExtractorGit{gitRH: out, walker: filepath.Walk})
 	return out
 
 }
@@ -154,74 +155,114 @@ func (g *Git) Accept(uri string) bool {
 }
 
 // ResolveNodeSelector implements resourcehandlers.ResourceHandler#ResolveNodeSelector
-func (g *Git) ResolveNodeSelector(ctx context.Context, node *api.Node, excludePaths []string, frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32) ([]*api.Node, error) {
+func (g *Git) ResolveNodeSelector(ctx context.Context, node *api.Node) ([]*api.Node, error) {
 	rl, err := github.Parse(node.NodeSelector.Path)
 	if err != nil {
-		if _, ok := err.(resourcehandlers.ErrResourceNotFound); ok {
-			return []*api.Node{}, nil
-		}
 		return nil, err
 	}
-
-	//preparing repository
+	repositoryPath := g.repositoryPathFromResourceLocator(rl)
 	if err := g.prepareGitRepository(ctx, rl); err != nil {
 		return nil, err
 	}
 
-	return github.BaseResolveNodeSelector(ctx, rl, g, g.cache, node, excludePaths, frontMatter, excludeFrontMatter, depth)
-}
-
-//TreeExtractorGit extracts the tree structure from a local git repository
-type TreeExtractorGit struct {
-	gitRH  *Git
-	walker func(root string, walkerFunc filepath.WalkFunc) error
-}
-
-//NewTreeExtractorTest creates a new git tree extractor for testing
-func NewTreeExtractorTest(gitRH *Git, walker func(root string, walkerFunc filepath.WalkFunc) error) *TreeExtractorGit {
-	return &TreeExtractorGit{gitRH: gitRH, walker: walker}
-}
-
-//ExtractTree extracts the content given a resource locator, ignoring its path. In other words, it treats it as a repo
-func (tE *TreeExtractorGit) ExtractTree(ctx context.Context, rl *github.ResourceLocator) ([]*github.ResourceLocator, error) {
-	//preparing repository
-	repositoryPath := tE.gitRH.repositoryPathFromResourceLocator(rl)
-	if err := tE.gitRH.prepareGitRepository(ctx, rl); err != nil {
-		return nil, err
-	}
-	nodesSelectorLocalPath := tE.gitRH.getNodeSelectorLocalPath(repositoryPath, rl)
-	root := strings.Split(nodesSelectorLocalPath, rl.SHAAlias)[0] + rl.SHAAlias
-
-	result := make([]*github.ResourceLocator, 0)
-	err := tE.walker(root, func(path string, info os.FileInfo, err error) error {
-		if path == root {
-			return nil
-		}
-		relativePath := strings.TrimPrefix(path, root + string(os.PathSeparator))
-		relativePath = filepath.ToSlash(relativePath)
-		//don't include files from the .git folder, because they are not part of the repository
-		if relativePath == ".git" || strings.HasPrefix(relativePath, ".git/") {
-			return nil
-		}
-		resourceType := github.Blob
-		if info.IsDir() {
-			resourceType = github.Tree
-		}
-		result = append(result, &github.ResourceLocator{
-			Scheme:   rl.Scheme,
-			Host:     rl.Host,
-			Owner:    rl.Owner,
-			Repo:     rl.Repo,
-			SHAAlias: rl.SHAAlias,
-			Type:     resourceType,
-			Path:     relativePath,
-		})
-		return nil
-	})
+	nodesSelectorLocalPath := g.getNodeSelectorLocalPath(repositoryPath, rl)
+	fileInfo, err := g.fileReader.Stat(nodesSelectorLocalPath)
 	if err != nil {
+		if g.fileReader.IsNotExist(err) {
+			return nil, resourcehandlers.ErrResourceNotFound(node.NodeSelector.Path)
+		}
 		return nil, err
 	}
-	return result, nil
+	if !fileInfo.IsDir() && filepath.Ext(fileInfo.Name()) == ".yaml" {
+		return nil, fmt.Errorf("nodeSelector path is neither directory or module")
+	}
+	_node := &api.Node{
+		Nodes:        []*api.Node{},
+		NodeSelector: node.NodeSelector,
+	}
+	nb := &nodeBuilder{
+		rootNodePath:    nodesSelectorLocalPath,
+		depth:           int(node.NodeSelector.Depth),
+		excludePaths:    node.NodeSelector.ExcludePaths,
+		someMap:         make(map[string]*api.Node),
+		resourceLocator: rl,
+	}
+	g.walker(nodesSelectorLocalPath, nb.build)
+	for path, n := range nb.someMap {
+		parentPath := filepath.Dir(path)
+		parent, exists := nb.someMap[parentPath]
+		if !exists { // If a parent does not exist, this is the root.
+			_node = n
+		} else {
+			n.SetParent(parent)
+			n.Parent().Nodes = append(n.Parent().Nodes, n)
+		}
+	}
+	//removing child parrent
+	for _, child := range _node.Nodes {
+		child.SetParent(nil)
+	}
+	// finally, cleanup folder entries from contentSelectors
+	_node.Cleanup()
+	if len(_node.Nodes) > 0 {
+		sort.Slice(_node.Nodes, func(i, j int) bool {
+			return _node.Nodes[i].Name < _node.Nodes[j].Name
+		})
+		return _node.Nodes, nil
+	}
+	return []*api.Node{}, nil
+}
+
+type nodeBuilder struct {
+	rootNodePath    string
+	depth           int
+	excludePaths    []string
+	someMap         map[string]*api.Node
+	resourceLocator *github.ResourceLocator
+}
+
+func (nb *nodeBuilder) build(path string, info os.FileInfo, err error) error {
+	if err != nil {
+		return err
+	}
+	newNode := &api.Node{
+		Name: info.Name(),
+	}
+	source := filepath.ToSlash(strings.TrimPrefix(path, nb.rootNodePath))
+	for _, excludePath := range nb.excludePaths {
+		regex, err := regexp.Compile(excludePath)
+		if err != nil {
+			return fmt.Errorf("invalid path exclude expression %s: %w", excludePath, err)
+		}
+		urlString := source
+		if regex.Match([]byte(urlString)) {
+			return nil
+		}
+	}
+
+	childPathSegmentsCount := len(strings.Split(source, "/")) - 1
+	if nb.depth != 0 && childPathSegmentsCount > nb.depth {
+		return nil
+	}
+	if info.IsDir() {
+		newNode.Nodes = []*api.Node{}
+		if newNode.Properties == nil {
+			newNode.Properties = make(map[string]interface{})
+			newNode.Properties[api.ContainerNodeSourceLocation] = nb.resourceLocator.String() + source
+		}
+	} else {
+		if filepath.Ext(info.Name()) != ".md" {
+			return nil
+		}
+		// Change file types of the tree leafs from tree to blob
+		currentPath := nb.resourceLocator.String()
+		pathAsBlob := reHasTree.ReplaceAllString(currentPath, repStr)
+
+		newNode.Source = pathAsBlob + source
+	}
+
+	nb.someMap[path] = newNode
+	return nil
 }
 
 func (g *Git) getNodeSelectorLocalPath(repositoryPath string, rl *github.ResourceLocator) string {

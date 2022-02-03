@@ -31,7 +31,7 @@ type ResourceHandler interface {
 	Accept(uri string) bool
 	// ResolveNodeSelector resolves the NodeSelector rules of a Node into subnodes
 	// hierarchy (Node.Nodes)
-	ResolveNodeSelector(ctx context.Context, node *api.Node, excludePaths []string, frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32) ([]*api.Node, error)
+	ResolveNodeSelector(ctx context.Context, node *api.Node) ([]*api.Node, error)
 	// Read a resource content at uri into a byte array
 	Read(ctx context.Context, uri string) ([]byte, error)
 	// ReadGitInfo reads git info for the resource

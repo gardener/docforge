@@ -7,14 +7,15 @@ package reactor
 import (
 	"context"
 	"fmt"
-	"github.com/gardener/docforge/cmd/configuration"
-	"github.com/gardener/docforge/pkg/writers/writersfakes"
 	"testing"
 	"time"
 
+	"github.com/gardener/docforge/cmd/configuration"
+	"github.com/gardener/docforge/pkg/writers/writersfakes"
+
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
-	"github.com/gardener/docforge/pkg/resourcehandlers/testhandler"
+	"github.com/gardener/docforge/pkg/resourcehandlers/resourcehandlersfakes"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -30,10 +31,9 @@ var testNode2 = api.Node{Name: "testNodeName2", Source: "testNodeSource2"}
 func TestResolveManifest(t *testing.T) {
 	type args struct {
 		ctx                     context.Context
-		resolveNodeSelectorFunc func(ctx context.Context, node *api.Node, excludePaths []string,
-			frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32) ([]*api.Node, error)
-		manifestPath      string
-		testDocumentation *api.Documentation
+		resolveNodeSelectorFunc func(ctx context.Context, node *api.Node) ([]*api.Node, error)
+		manifestPath            string
+		testDocumentation       *api.Documentation
 	}
 	tests := []struct {
 		name                  string
@@ -47,8 +47,7 @@ func TestResolveManifest(t *testing.T) {
 			description: "has error when there are no nodes after NodeSelector resolving and there are no nodes defined in Documentation.Structure",
 			args: args{
 				ctx: defaultCtxWithTimeout,
-				resolveNodeSelectorFunc: func(ctx context.Context, node *api.Node, excludePaths []string,
-					frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32) ([]*api.Node, error) {
+				resolveNodeSelectorFunc: func(ctx context.Context, node *api.Node) ([]*api.Node, error) {
 					return []*api.Node{}, nil
 				},
 				testDocumentation: &api.Documentation{
@@ -62,8 +61,7 @@ func TestResolveManifest(t *testing.T) {
 			description: "should resolve documentation nodeSelector on root level and append nodes to Documentation.Structure",
 			args: args{
 				ctx: defaultCtxWithTimeout,
-				resolveNodeSelectorFunc: func(ctx context.Context, node *api.Node, excludePaths []string,
-					frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32) ([]*api.Node, error) {
+				resolveNodeSelectorFunc: func(ctx context.Context, node *api.Node) ([]*api.Node, error) {
 					return []*api.Node{&testNode}, nil
 				},
 				testDocumentation: &api.Documentation{
@@ -80,8 +78,7 @@ func TestResolveManifest(t *testing.T) {
 			description: "should resolve manifest and add the resolved nodesSelector nodes to existing structure",
 			args: args{
 				ctx: defaultCtxWithTimeout,
-				resolveNodeSelectorFunc: func(ctx context.Context, node *api.Node, excludePaths []string,
-					frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32) ([]*api.Node, error) {
+				resolveNodeSelectorFunc: func(ctx context.Context, node *api.Node) ([]*api.Node, error) {
 					return []*api.Node{&testNode}, nil
 				},
 				testDocumentation: &api.Documentation{
@@ -104,8 +101,7 @@ func TestResolveManifest(t *testing.T) {
 			description: "should resolve Node.NodeSelector nodes and append to the Node",
 			args: args{
 				ctx: defaultCtxWithTimeout,
-				resolveNodeSelectorFunc: func(ctx context.Context, node *api.Node, excludePaths []string,
-					frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32) ([]*api.Node, error) {
+				resolveNodeSelectorFunc: func(ctx context.Context, node *api.Node) ([]*api.Node, error) {
 					return []*api.Node{&testNode}, nil
 				},
 				testDocumentation: &api.Documentation{
@@ -135,8 +131,7 @@ func TestResolveManifest(t *testing.T) {
 			description: "resolve module specified on root level and append to structure",
 			args: args{
 				ctx: defaultCtxWithTimeout,
-				resolveNodeSelectorFunc: func(ctx context.Context, node *api.Node, excludePaths []string,
-					frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32) ([]*api.Node, error) {
+				resolveNodeSelectorFunc: func(ctx context.Context, node *api.Node) ([]*api.Node, error) {
 					if node.NodeSelector.Path == testNodeSelector.Path {
 						return []*api.Node{{NodeSelector: &api.NodeSelector{Path: "module.yaml"}}}, nil
 					}
@@ -164,8 +159,7 @@ func TestResolveManifest(t *testing.T) {
 			description: "breaks recursive import of modules for example if the documentation imports A that imports B it should stop resolving if B imports A",
 			args: args{
 				ctx: defaultCtxWithTimeout,
-				resolveNodeSelectorFunc: func(ctx context.Context, node *api.Node, excludePaths []string,
-					frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32) ([]*api.Node, error) {
+				resolveNodeSelectorFunc: func(ctx context.Context, node *api.Node) ([]*api.Node, error) {
 					if node.NodeSelector.Path == testNodeSelector.Path {
 						return []*api.Node{{NodeSelector: &api.NodeSelector{Path: "moduleA.yaml"}}}, nil
 					}
@@ -183,8 +177,7 @@ func TestResolveManifest(t *testing.T) {
 			description: "should merge container nodes with same names into one node",
 			args: args{
 				ctx: defaultCtxWithTimeout,
-				resolveNodeSelectorFunc: func(ctx context.Context, node *api.Node, excludePaths []string,
-					frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32) ([]*api.Node, error) {
+				resolveNodeSelectorFunc: func(ctx context.Context, node *api.Node) ([]*api.Node, error) {
 					return []*api.Node{
 						{Name: "same_name", Nodes: []*api.Node{
 							{Name: "file3.md", Source: "source3"},
@@ -220,8 +213,7 @@ func TestResolveManifest(t *testing.T) {
 			description: "should merge container nodes with same names into one node recursively",
 			args: args{
 				ctx: defaultCtxWithTimeout,
-				resolveNodeSelectorFunc: func(ctx context.Context, node *api.Node, excludePaths []string,
-					frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32) ([]*api.Node, error) {
+				resolveNodeSelectorFunc: func(ctx context.Context, node *api.Node) ([]*api.Node, error) {
 					return []*api.Node{
 						{Name: "same_name_l1", Nodes: []*api.Node{
 							{Name: "file4", Source: "source4"},
@@ -267,8 +259,7 @@ func TestResolveManifest(t *testing.T) {
 			description: "should't return error when merging container nodes that contains files with same names. Instead it should take the node that is explicitly defined",
 			args: args{
 				ctx: defaultCtxWithTimeout,
-				resolveNodeSelectorFunc: func(ctx context.Context, node *api.Node, excludePaths []string,
-					frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32) ([]*api.Node, error) {
+				resolveNodeSelectorFunc: func(ctx context.Context, node *api.Node) ([]*api.Node, error) {
 					return []*api.Node{
 						{Name: "same_name", Nodes: []*api.Node{
 							{Name: "same_name.md", Source: "source_ns"},
@@ -295,8 +286,7 @@ func TestResolveManifest(t *testing.T) {
 			description: "should skip duplicate nodes when merging",
 			args: args{
 				ctx: defaultCtxWithTimeout,
-				resolveNodeSelectorFunc: func(ctx context.Context, node *api.Node, excludePaths []string,
-					frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32) ([]*api.Node, error) {
+				resolveNodeSelectorFunc: func(ctx context.Context, node *api.Node) ([]*api.Node, error) {
 					return []*api.Node{
 						{Name: "same_name", Nodes: []*api.Node{
 							{Name: "same_name.md", Source: "source"},
@@ -326,7 +316,9 @@ func TestResolveManifest(t *testing.T) {
 					node.SetParentsDownwards()
 				}
 			}
-			rh := new(testhandler.TestResourceHandler).WithResolveNodeSelector(tt.args.resolveNodeSelectorFunc)
+			rh := new(resourcehandlersfakes.FakeResourceHandler)
+			rh.AcceptReturns(true)
+			rh.ResolveNodeSelectorStub = tt.args.resolveNodeSelectorFunc
 			opt := &Options{
 				ResourceHandlers:             []resourcehandlers.ResourceHandler{rh},
 				ManifestPath:                 tt.args.manifestPath,
@@ -363,10 +355,9 @@ func Test_resolveNodeSelector(t *testing.T) {
 		args                     args
 		acceptFunc               func(uri string) bool
 		resolveDocumentationFunc func(ctx context.Context, uri string) (*api.Documentation, error)
-		resolveNodeSelectorFunc  func(ctx context.Context, node *api.Node, excludePaths []string,
-			frontMatter map[string]interface{}, excludeFrontMatter map[string]interface{}, depth int32) ([]*api.Node, error)
-		want    *api.Node
-		wantErr bool
+		resolveNodeSelectorFunc  func(ctx context.Context, node *api.Node) ([]*api.Node, error)
+		want                     *api.Node
+		wantErr                  bool
 	}{
 		{
 			name:        "missing_resource_handler",
@@ -432,7 +423,7 @@ func Test_resolveNodeSelector(t *testing.T) {
 				},
 				visited: make(map[string]int),
 			},
-			resolveNodeSelectorFunc: func(ctx context.Context, node *api.Node, excludePaths []string, frontMatter, excludeFrontMatter map[string]interface{}, depth int32) ([]*api.Node, error) {
+			resolveNodeSelectorFunc: func(ctx context.Context, node *api.Node) ([]*api.Node, error) {
 				if node.NodeSelector.Path == testNodeSelector2.Path {
 					return []*api.Node{&testNode2}, nil
 				}
@@ -547,7 +538,14 @@ func Test_resolveNodeSelector(t *testing.T) {
 					node.SetParentsDownwards()
 				}
 			}
-			rh := new(testhandler.TestResourceHandler).WithAccept(tt.acceptFunc).WithResolveDocumentation(tt.resolveDocumentationFunc).WithResolveNodeSelector(tt.resolveNodeSelectorFunc)
+			rh := new(resourcehandlersfakes.FakeResourceHandler)
+			if tt.acceptFunc == nil {
+				rh.AcceptReturns(true)
+			} else {
+				rh.AcceptStub = tt.acceptFunc
+			}
+			rh.ResolveDocumentationStub = tt.resolveDocumentationFunc
+			rh.ResolveNodeSelectorStub = tt.resolveNodeSelectorFunc
 			opt := &Options{
 				ResourceHandlers:             []resourcehandlers.ResourceHandler{rh},
 				Hugo:                         &configuration.Hugo{},
@@ -697,7 +695,13 @@ func Test_resolveNodeName(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rh := new(testhandler.TestResourceHandler).WithAccept(tt.acceptFunc).WithResourceName(tt.resourceName)
+			rh := new(resourcehandlersfakes.FakeResourceHandler)
+			if tt.acceptFunc == nil {
+				rh.AcceptReturns(true)
+			} else {
+				rh.AcceptStub = tt.acceptFunc
+			}
+			rh.ResourceNameStub = tt.resourceName
 			opt := &Options{
 				ResourceHandlers: []resourcehandlers.ResourceHandler{rh},
 				Hugo: &configuration.Hugo{

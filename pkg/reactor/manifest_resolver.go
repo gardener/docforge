@@ -7,6 +7,9 @@ package reactor
 import (
 	"context"
 	"fmt"
+	"reflect"
+	"strings"
+
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/markdown"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
@@ -14,8 +17,6 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/yuin/goldmark/ast"
 	"k8s.io/klog/v2"
-	"reflect"
-	"strings"
 )
 
 // ResolveManifest resolves the root manifests into buildable model
@@ -128,7 +129,7 @@ func (r *Reactor) resolveNodeSelector(ctx context.Context, node *api.Node, visit
 		return result, nil
 	}
 	// if path points to directory -> resolve node selector
-	nodes, err := rh.ResolveNodeSelector(ctx, node, node.NodeSelector.ExcludePaths, node.NodeSelector.ExcludeFrontMatter, node.NodeSelector.FrontMatter, node.NodeSelector.Depth)
+	nodes, err := rh.ResolveNodeSelector(ctx, node)
 	if err != nil {
 		return nil, err
 	}

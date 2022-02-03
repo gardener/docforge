@@ -1116,27 +1116,27 @@ source: https://github.com/gardener/docforge/blob/{{$version}}/integration-test/
 				Expect(err).NotTo(HaveOccurred())
 				Expect(got).To(Equal(&api.Documentation{
 					Structure: []*api.Node{
-						&api.Node{
+						{
 							Name:   "community",
 							Source: "https://github.com/gardener/docforge/edit/master/integration-test/tested-doc/merge-test/testFile.md",
 						},
-						&api.Node{
+						{
 							Name:   "docs",
 							Source: "https://github.com/gardener/docforge/blob/testMainBranch/integration-test/tested-doc/merge-test/testFile.md",
 						},
-						&api.Node{
+						{
 							Name:   "v7.7",
 							Source: "https://github.com/gardener/docforge/blob/v7.7/integration-test/tested-doc/merge-test/testFile.md",
 						},
-						&api.Node{
+						{
 							Name:   "v6.1",
 							Source: "https://github.com/gardener/docforge/blob/v6.1/integration-test/tested-doc/merge-test/testFile.md",
 						},
-						&api.Node{
+						{
 							Name:   "v5.7",
 							Source: "https://github.com/gardener/docforge/blob/v5.7/integration-test/tested-doc/merge-test/testFile.md",
 						},
-						&api.Node{
+						{
 							Name:   "v4.9",
 							Source: "https://github.com/gardener/docforge/blob/v4.9/integration-test/tested-doc/merge-test/testFile.md",
 						},
@@ -1151,11 +1151,11 @@ source: https://github.com/gardener/docforge/blob/{{$version}}/integration-test/
 					Expect(err).NotTo(HaveOccurred())
 					Expect(got).To(Equal(&api.Documentation{
 						Structure: []*api.Node{
-							&api.Node{
+							{
 								Name:   "community",
 								Source: "https://github.com/gardener/docforge/edit/master/integration-test/tested-doc/merge-test/testFile.md",
 							},
-							&api.Node{
+							{
 								Name:   "docs",
 								Source: "https://github.com/gardener/docforge/blob/testMainBranch/integration-test/tested-doc/merge-test/testFile.md",
 							},
@@ -1168,18 +1168,18 @@ source: https://github.com/gardener/docforge/blob/{{$version}}/integration-test/
 
 	Describe("Resolving node selector", func() {
 		var (
-			node               *api.Node
-			excludePaths       []string
-			frontMatter        map[string]interface{}
-			excludeFrontMatter map[string]interface{}
-			depth              int32
-			mux                func(mux *http.ServeMux)
-			got                []*api.Node
-			expected           []*api.Node
-			err                error
+			node         *api.Node
+			excludePaths []string
+			depth        int32
+			mux          func(mux *http.ServeMux)
+			got          []*api.Node
+			expected     []*api.Node
+			err          error
 		)
 
 		BeforeEach(func() {
+			depth = 0
+			excludePaths = nil
 			node = &api.Node{
 				NodeSelector: &api.NodeSelector{
 					Path: "https://github.com/testorg/testrepo/tree/testbranch/testdir",
@@ -1245,20 +1245,20 @@ source: https://github.com/gardener/docforge/blob/{{$version}}/integration-test/
 			if mux != nil {
 				mux(muxRes)
 			}
-			got, err = gh.ResolveNodeSelector(ctx, node, excludePaths, frontMatter, excludeFrontMatter, depth)
+			node.NodeSelector.ExcludePaths = excludePaths
+			node.NodeSelector.Depth = depth
+
+			got, err = gh.ResolveNodeSelector(ctx, node)
 		})
 
 		Context("given the general use case", func() {
 			BeforeEach(func() {
-				root := &api.Node{
-					NodeSelector: &api.NodeSelector{Path: "https://github.com/testorg/testrepo/tree/testbranch/testdir"},
-				}
+
 				testFile3 := &api.Node{Name: "testfile3.md", Source: "https://github.com/testorg/testrepo/blob/testbranch/testdir/testdir_sub/testdir_sub2/testfile3.md"}
 				testSubDir2 := &api.Node{Name: "testdir_sub2", Nodes: []*api.Node{testFile3}, Properties: map[string]interface{}{api.ContainerNodeSourceLocation: "https://github.com/testorg/testrepo/tree/testbranch/testdir/testdir_sub/testdir_sub2"}}
 				testSubDir := &api.Node{Name: "testdir_sub", Nodes: []*api.Node{testSubDir2}, Properties: map[string]interface{}{api.ContainerNodeSourceLocation: "https://github.com/testorg/testrepo/tree/testbranch/testdir/testdir_sub"}}
-				testSubDir.SetParent(root)
 				testFile := &api.Node{Name: "testfile.md", Source: "https://github.com/testorg/testrepo/blob/testbranch/testdir/testfile.md"}
-				testFile.SetParent(root)
+
 				testSubDir.SetParentsDownwards()
 				expected = []*api.Node{
 					testSubDir,
@@ -1279,17 +1279,9 @@ source: https://github.com/gardener/docforge/blob/{{$version}}/integration-test/
 			BeforeEach(func() {
 				depth = 1
 
-				root := &api.Node{
-					NodeSelector: &api.NodeSelector{Path: "https://github.com/testorg/testrepo/tree/testbranch/testdir"},
-				}
-				testSubDir := &api.Node{Name: "testdir_sub", Nodes: []*api.Node{}, Properties: map[string]interface{}{api.ContainerNodeSourceLocation: "https://github.com/testorg/testrepo/tree/testbranch/testdir/testdir_sub"}}
-				testSubDir.SetParent(root)
 				testFile := &api.Node{Name: "testfile.md", Source: "https://github.com/testorg/testrepo/blob/testbranch/testdir/testfile.md"}
-				testFile.SetParent(root)
-				testSubDir.SetParentsDownwards()
 
 				expected = []*api.Node{
-					testSubDir,
 					testFile,
 				}
 
@@ -1308,67 +1300,7 @@ source: https://github.com/gardener/docforge/blob/{{$version}}/integration-test/
 			BeforeEach(func() {
 				excludePaths = []string{"testdir_sub2", "testfile.md"}
 
-				root := &api.Node{
-					NodeSelector: &api.NodeSelector{Path: "https://github.com/testorg/testrepo/tree/testbranch/testdir"},
-				}
-				testSubDir := &api.Node{Name: "testdir_sub", Nodes: []*api.Node{}, Properties: map[string]interface{}{api.ContainerNodeSourceLocation: "https://github.com/testorg/testrepo/tree/testbranch/testdir/testdir_sub"}}
-				testSubDir.SetParent(root)
-				testSubDir.SetParentsDownwards()
-
-				expected = []*api.Node{
-					testSubDir,
-				}
-			})
-
-			It("should process it correctly", func() {
-				Expect(err).NotTo(HaveOccurred())
-				rootGot := api.Node{Nodes: got}
-				rootExpected := api.Node{Nodes: expected}
-				Expect(rootGot).To(Equal(rootExpected))
-			})
-
-		})
-
-		Context("given a excludeFrontMatter parameter", func() {
-			BeforeEach(func() {
-				excludeFrontMatter = make(map[string]interface{})
-				excludeFrontMatter[".title"] = "Test"
-				testSubDir := &api.Node{Name: "testdir_sub", Nodes: []*api.Node{}, Properties: map[string]interface{}{api.ContainerNodeSourceLocation: "https://github.com/testorg/testrepo/tree/testbranch/testdir/testdir_sub"}}
-				root := api.Node{
-					NodeSelector: &api.NodeSelector{Path: "https://github.com/testorg/testrepo/tree/testbranch/testdir"},
-				}
-				testSubDir.SetParent(&root)
-				testSubDir.SetParentsDownwards()
-
-				expected = []*api.Node{
-					testSubDir,
-				}
-			})
-
-			It("should process it correctly", func() {
-				Expect(err).NotTo(HaveOccurred())
-				rootGot := api.Node{Nodes: got}
-				rootExpected := api.Node{Nodes: expected}
-				Expect(rootGot).To(Equal(rootExpected))
-			})
-
-		})
-
-		Context("given a frontMatter parameter", func() {
-			BeforeEach(func() {
-				frontMatter = make(map[string]interface{})
-				frontMatter[".title"] = "broken Test"
-
-				testSubDir := &api.Node{Name: "testdir_sub", Nodes: []*api.Node{}, Properties: map[string]interface{}{api.ContainerNodeSourceLocation: "https://github.com/testorg/testrepo/tree/testbranch/testdir/testdir_sub"}}
-				root := &api.Node{
-					NodeSelector: &api.NodeSelector{Path: "https://github.com/testorg/testrepo/tree/testbranch/testdir"},
-				}
-				testSubDir.SetParent(root)
-				testSubDir.SetParentsDownwards()
-
-				expected = []*api.Node{
-					testSubDir,
-				}
+				expected = []*api.Node{}
 			})
 
 			It("should process it correctly", func() {

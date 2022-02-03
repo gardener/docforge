@@ -6,17 +6,18 @@ package reactor
 
 import (
 	"fmt"
+	"net/http"
+	"strings"
+	"testing"
+
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	githubHandler "github.com/gardener/docforge/pkg/resourcehandlers/github"
-	"github.com/gardener/docforge/pkg/resourcehandlers/testhandler"
+	"github.com/gardener/docforge/pkg/resourcehandlers/resourcehandlersfakes"
 	"github.com/gardener/docforge/pkg/util/tests"
 	"github.com/gardener/docforge/pkg/util/urls"
 	"github.com/google/go-github/v32/github"
 	"github.com/stretchr/testify/assert"
-	"net/http"
-	"strings"
-	"testing"
 )
 
 // TODO: This is a flaky test. In the future the ResourceHandler should be mocked.
@@ -91,14 +92,13 @@ func Test_processLink(t *testing.T) {
 			wantErr:           nil,
 			embeddable:        true,
 			mutate: func(c *nodeContentProcessor) {
-				h := testhandler.NewTestResourceHandler().WithAccept(func(uri string) bool {
-					return true
-				}).WithBuildAbsLink(func(source, link string) (string, error) {
-					return "https://github.com/gardener/gardener/blob/v1.10.0/docs/image.png", nil
-				}).WithSetVersion(func(absLink, version string) (string, error) {
+				h := resourcehandlersfakes.FakeResourceHandler{}
+				h.AcceptReturns(true)
+				h.BuildAbsLinkReturns("https://github.com/gardener/gardener/blob/v1.10.0/docs/image.png", nil)
+				h.SetVersionStub = func(absLink, version string) (string, error) {
 					return absLink, nil
-				})
-				c.resourceHandlers = resourcehandlers.NewRegistry(h)
+				}
+				c.resourceHandlers = resourcehandlers.NewRegistry(&h)
 			},
 		},
 		{
@@ -175,14 +175,13 @@ func Test_processLink(t *testing.T) {
 			embeddable:        true,
 			wantErr:           nil,
 			mutate: func(c *nodeContentProcessor) {
-				h := testhandler.NewTestResourceHandler().WithAccept(func(uri string) bool {
-					return true
-				}).WithBuildAbsLink(func(source, link string) (string, error) {
-					return "https://github.com/gardener/gardener/blob/v1.10.0/docs/image.png", nil
-				}).WithSetVersion(func(absLink, version string) (string, error) {
+				h := resourcehandlersfakes.FakeResourceHandler{}
+				h.AcceptReturns(true)
+				h.BuildAbsLinkReturns("https://github.com/gardener/gardener/blob/v1.10.0/docs/image.png", nil)
+				h.SetVersionStub = func(absLink, version string) (string, error) {
 					return absLink, nil
-				})
-				c.resourceHandlers = resourcehandlers.NewRegistry(h)
+				}
+				c.resourceHandlers = resourcehandlers.NewRegistry(&h)
 			},
 		},
 	}
