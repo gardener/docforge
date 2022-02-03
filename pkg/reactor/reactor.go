@@ -80,7 +80,10 @@ func NewReactor(o *Options) (*Reactor, error) {
 	if err != nil {
 		return nil, err
 	}
-	validatorTasks, _ := jobs.NewJobQueue("Validator", o.ValidationWorkersCount, valWork, o.FailFast, reactorWG)
+	validatorTasks, err := jobs.NewJobQueue("Validator", o.ValidationWorkersCount, valWork, o.FailFast, reactorWG)
+	if err != nil {
+		return nil, err
+	}
 	v := NewValidator(validatorTasks)
 	worker := &DocumentWorker{
 		writer:               o.Writer,
@@ -94,15 +97,12 @@ func NewReactor(o *Options) (*Reactor, error) {
 	}
 	r := &Reactor{
 		Options:          o,
-		FailFast:         o.FailFast,
 		ResourceHandlers: rhRegistry,
 		DocumentWorker:   worker,
 		DocumentTasks:    docTasks,
 		DownloadTasks:    downloadTasks,
 		GitHubInfoTasks:  ghInfoTasks,
 		ValidatorTasks:   validatorTasks,
-		DryRunWriter:     o.DryRunWriter,
-		Resolve:          o.Resolve,
 		reactorWaitGroup: reactorWG,
 		sources:          make(map[string][]*api.Node),
 	}
@@ -112,15 +112,12 @@ func NewReactor(o *Options) (*Reactor, error) {
 // Reactor orchestrates the documentation build workflow
 type Reactor struct {
 	Options          *Options
-	FailFast         bool
 	ResourceHandlers resourcehandlers.Registry
 	DocumentWorker   *DocumentWorker
 	DocumentTasks    *jobs.JobQueue
 	DownloadTasks    *jobs.JobQueue
 	GitHubInfoTasks  *jobs.JobQueue
 	ValidatorTasks   *jobs.JobQueue
-	DryRunWriter     writers.DryRunWriter
-	Resolve          bool
 	// reactorWaitGroup used to determine when all parallel tasks are done
 	reactorWaitGroup *sync.WaitGroup
 	sources          map[string][]*api.Node
@@ -130,23 +127,19 @@ type Reactor struct {
 func (r *Reactor) Run(ctx context.Context, manifest *api.Documentation, dryRun bool) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer func() {
-		if r.Resolve {
+		if r.Options.Resolve {
 			if err := printResolved(manifest, os.Stdout); err != nil {
 				klog.Errorf("failed to print resolved manifest: %s", err.Error())
 			}
 		}
 		cancel()
 		if dryRun {
-			r.DryRunWriter.Flush()
+			r.Options.DryRunWriter.Flush()
 		}
 	}()
 
 	if err := r.ResolveManifest(ctx, manifest); err != nil {
 		return fmt.Errorf("failed to resolve manifest: %s. %+v", r.Options.ManifestPath, err)
-	}
-
-	for _, n := range manifest.Structure {
-		printNodeName(n)
 	}
 
 	if err := checkForCollisions(manifest.Structure); err != nil {
@@ -164,16 +157,6 @@ func (r *Reactor) Run(ctx context.Context, manifest *api.Documentation, dryRun b
 	}
 
 	return nil
-}
-
-func printNodeName(n *api.Node) {
-	if n.Name == "" {
-		fmt.Println("EmptyName", n.FullName("/"))
-	}
-	for _, cn := range n.Nodes {
-		printNodeName(cn)
-	}
-
 }
 
 func (r *Reactor) fillSources(structure []*api.Node) {

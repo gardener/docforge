@@ -714,10 +714,10 @@ This is test file`))
 			fakeDir2.NameReturns("testdir_sub2")
 			gh = git.NewResourceHandlerTest("", nil, "", client, nil, nil, localMappings, &fakeGit, repo, &fakeFileSystem, func(root string, walkerFunc filepath.WalkFunc) error {
 				walkerFunc(root, &fakeDir, nil)
-				walkerFunc(root+"/testfile.md", &fakeFile1, nil)
-				walkerFunc(root+"/testdir_sub", &fakeDir1, nil)
-				walkerFunc(root+"/testdir_sub/testdir_sub2", &fakeDir2, nil)
-				walkerFunc(root+"/testdir_sub/testdir_sub2/testfile3.md", &fakeFile3, nil)
+				walkerFunc(filepath.Join(root, "testfile.md"), &fakeFile1, nil)
+				walkerFunc(filepath.Join(root, "testdir_sub"), &fakeDir1, nil)
+				walkerFunc(filepath.Join(root, "testdir_sub", "testdir_sub2"), &fakeDir2, nil)
+				walkerFunc(filepath.Join(root, "testdir_sub", "testdir_sub2", "testfile3.md"), &fakeFile3, nil)
 				return nil
 			})
 

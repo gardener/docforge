@@ -9,12 +9,14 @@ package github
 import (
 	"context"
 	"fmt"
+	"github.com/hashicorp/go-multierror"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
@@ -374,8 +376,56 @@ func (gh *GitHub) ResolveDocumentation(ctx context.Context, path string) (*api.D
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse manifest: %s. %+v", path, err)
 	}
-
+	if err = gh.resolveDocumentationRelativePaths(&api.Node{Nodes: doc.Structure, NodeSelector: doc.NodeSelector}, rl.String()); err != nil {
+		return nil, err
+	}
 	return doc, nil
+}
+
+// resolveDocumentationRelativePaths traverses api.Node#Nodes and resolve node Source, MultiSource and api.NodeSelector relative paths to absolute URLs
+func (gh *GitHub) resolveDocumentationRelativePaths(node *api.Node, moduleDocumentationPath string) error {
+	var errs error
+	if node.Source != "" {
+		u, err := url.Parse(node.Source)
+		if err != nil {
+			errs = multierror.Append(errs, fmt.Errorf("manifest %s with invalid node %s source: %s", moduleDocumentationPath, node.FullName("/"), node.Source))
+		} else if !u.IsAbs() {
+			// resolve relative path
+			if node.Source, err = gh.BuildAbsLink(moduleDocumentationPath, node.Source); err != nil {
+				errs = multierror.Append(errs, fmt.Errorf("cannot resolve source relative path %s in node %s and manifest %s", node.Source, node.FullName("/"), moduleDocumentationPath))
+			}
+		}
+	}
+	if len(node.MultiSource) > 0 {
+		for idx, src := range node.MultiSource {
+			u, err := url.Parse(src)
+			if err != nil {
+				errs = multierror.Append(errs, fmt.Errorf("manifest %s with invalid node %s multiSource[%d]: %s", moduleDocumentationPath, node.FullName("/"), idx, node.MultiSource[idx]))
+			} else if !u.IsAbs() {
+				// resolve relative path
+				if node.Source, err = gh.BuildAbsLink(moduleDocumentationPath, src); err != nil {
+					errs = multierror.Append(errs, fmt.Errorf("cannot resolve multiSource[%d] relative path %s in node %s and manifest %s", idx, node.MultiSource[idx], node.FullName("/"), moduleDocumentationPath))
+				}
+			}
+		}
+	}
+	if node.NodeSelector != nil {
+		u, err := url.Parse(node.NodeSelector.Path)
+		if err != nil {
+			errs = multierror.Append(errs, fmt.Errorf("manifest %s with invalid nodeSelector path %s in node %s", moduleDocumentationPath, node.NodeSelector.Path, node.FullName("/")))
+		} else if !u.IsAbs() {
+			// resolve relative path
+			if node.NodeSelector.Path, err = gh.BuildAbsLink(moduleDocumentationPath, node.NodeSelector.Path); err != nil {
+				errs = multierror.Append(errs, fmt.Errorf("cannot resolve nodeSelector relative path %s in node %s and manifest %s", node.NodeSelector.Path, node.FullName("/"), moduleDocumentationPath))
+			}
+		}
+	}
+	for _, n := range node.Nodes {
+		if err := gh.resolveDocumentationRelativePaths(n, moduleDocumentationPath); err != nil {
+			errs = multierror.Append(errs, err)
+		}
+	}
+	return errs
 }
 
 // GetAllTags returns all tags from a given resource locator
@@ -461,7 +511,7 @@ func (gh *GitHub) ResourceName(uri string) (string, string) {
 }
 
 // BuildAbsLink builds the abs link from the source and the relative path
-// Implements resourcehandlers/ResourceHandler#BuildAbsLink
+// Implements resourcehandlers.ResourceHandler#BuildAbsLink
 func (gh *GitHub) BuildAbsLink(source, relPath string) (string, error) {
 	u, err := url.Parse(relPath)
 	if err != nil {
@@ -558,4 +608,13 @@ func (gh *GitHub) GetRawFormatLink(absLink string) (string, error) {
 // GetClient implements resourcehandlers.ResourceHandler#GetClient
 func (gh *GitHub) GetClient() httpclient.Client {
 	return gh.httpClient
+}
+
+// GetRateLimit implements resourcehandlers.ResourceHandler#GetRateLimit
+func (gh *GitHub) GetRateLimit(ctx context.Context) (int, int, time.Time, error) {
+	r, _, err := gh.Client.RateLimits(ctx)
+	if err != nil {
+		return -1, -1, time.Now(), err
+	}
+	return r.Core.Limit, r.Core.Remaining, r.Core.Reset.Time, nil
 }

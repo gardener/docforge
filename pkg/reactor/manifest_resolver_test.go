@@ -30,10 +30,11 @@ var testNode2 = api.Node{Name: "testNodeName2", Source: "testNodeSource2"}
 
 func TestResolveManifest(t *testing.T) {
 	type args struct {
-		ctx                     context.Context
-		resolveNodeSelectorFunc func(ctx context.Context, node *api.Node) ([]*api.Node, error)
-		manifestPath            string
-		testDocumentation       *api.Documentation
+		ctx                      context.Context
+		resolveDocumentationFunc func(ctx context.Context, uri string) (*api.Documentation, error)
+		resolveNodeSelectorFunc  func(ctx context.Context, node *api.Node) ([]*api.Node, error)
+		manifestPath             string
+		testDocumentation        *api.Documentation
 	}
 	tests := []struct {
 		name                  string
@@ -160,13 +161,16 @@ func TestResolveManifest(t *testing.T) {
 			args: args{
 				ctx: defaultCtxWithTimeout,
 				resolveNodeSelectorFunc: func(ctx context.Context, node *api.Node) ([]*api.Node, error) {
-					if node.NodeSelector.Path == testNodeSelector.Path {
-						return []*api.Node{{NodeSelector: &api.NodeSelector{Path: "moduleA.yaml"}}}, nil
+					return []*api.Node{}, nil
+				},
+				resolveDocumentationFunc: func(ctx context.Context, uri string) (*api.Documentation, error) {
+					if uri == testNodeSelector.Path {
+						return &api.Documentation{NodeSelector: &api.NodeSelector{Path: "moduleA.yaml"}}, nil
 					}
-					if node.NodeSelector.Path == "moduleA.yaml" {
-						return []*api.Node{{NodeSelector: &testNodeSelector}}, nil
+					if uri == "moduleA.yaml" {
+						return &api.Documentation{NodeSelector: &testNodeSelector}, nil
 					}
-					return []*api.Node{{Name: "resolvedNestedNode"}}, nil
+					return &api.Documentation{Structure: []*api.Node{{Name: "resolvedNestedNode"}}}, nil
 				},
 				testDocumentation: &api.Documentation{NodeSelector: &testNodeSelector},
 			},
@@ -318,6 +322,9 @@ func TestResolveManifest(t *testing.T) {
 			}
 			rh := new(resourcehandlersfakes.FakeResourceHandler)
 			rh.AcceptReturns(true)
+			if tt.args.resolveDocumentationFunc != nil {
+				rh.ResolveDocumentationStub = tt.args.resolveDocumentationFunc
+			}
 			rh.ResolveNodeSelectorStub = tt.args.resolveNodeSelectorFunc
 			opt := &Options{
 				ResourceHandlers:             []resourcehandlers.ResourceHandler{rh},
@@ -347,7 +354,7 @@ func Test_resolveNodeSelector(t *testing.T) {
 		ctx        context.Context
 		rhRegistry resourcehandlers.Registry
 		node       *api.Node
-		visited    map[string]int
+		visited    []string
 	}
 	tests := []struct {
 		name                     string
@@ -366,7 +373,7 @@ func Test_resolveNodeSelector(t *testing.T) {
 				node: &api.Node{
 					NodeSelector: &testNodeSelector,
 				},
-				visited: make(map[string]int),
+				visited: []string{},
 			},
 			acceptFunc: func(uri string) bool {
 				return !(uri == testNodeSelector.Path)
@@ -382,7 +389,7 @@ func Test_resolveNodeSelector(t *testing.T) {
 				node: &api.Node{
 					NodeSelector: &testNodeSelector,
 				},
-				visited: make(map[string]int),
+				visited: []string{},
 			},
 			resolveDocumentationFunc: func(ctx context.Context, uri string) (*api.Documentation, error) {
 				return nil, fmt.Errorf("error that should be thrown for this test case")
@@ -397,7 +404,7 @@ func Test_resolveNodeSelector(t *testing.T) {
 				node: &api.Node{
 					NodeSelector: &testNodeSelector,
 				},
-				visited: make(map[string]int),
+				visited: []string{},
 			},
 			resolveDocumentationFunc: func(ctx context.Context, uri string) (*api.Documentation, error) {
 				module := &api.Documentation{
@@ -421,7 +428,7 @@ func Test_resolveNodeSelector(t *testing.T) {
 				node: &api.Node{
 					NodeSelector: &testNodeSelector,
 				},
-				visited: make(map[string]int),
+				visited: []string{},
 			},
 			resolveNodeSelectorFunc: func(ctx context.Context, node *api.Node) ([]*api.Node, error) {
 				if node.NodeSelector.Path == testNodeSelector2.Path {
@@ -456,7 +463,7 @@ func Test_resolveNodeSelector(t *testing.T) {
 				node: &api.Node{
 					NodeSelector: &testNodeSelector,
 				},
-				visited: make(map[string]int),
+				visited: []string{},
 			},
 			resolveDocumentationFunc: func(ctx context.Context, uri string) (*api.Documentation, error) {
 				if uri == testPath {
@@ -483,7 +490,7 @@ func Test_resolveNodeSelector(t *testing.T) {
 				node: &api.Node{
 					NodeSelector: &testNodeSelector,
 				},
-				visited: make(map[string]int),
+				visited: []string{},
 			},
 			resolveDocumentationFunc: func(ctx context.Context, uri string) (*api.Documentation, error) {
 				if uri == testPath {
@@ -510,7 +517,7 @@ func Test_resolveNodeSelector(t *testing.T) {
 				node: &api.Node{
 					NodeSelector: &testNodeSelector,
 				},
-				visited: make(map[string]int),
+				visited: []string{},
 			},
 			resolveDocumentationFunc: func(ctx context.Context, uri string) (*api.Documentation, error) {
 				if uri == testPath {
