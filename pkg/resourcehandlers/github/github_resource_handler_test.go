@@ -1044,7 +1044,7 @@ source: https://github.com/gardener/docforge/blob/{{$version}}/integration-test/
 			}
 			var s map[string]int = make(map[string]int)
 			s["default"] = nDefaultVersions
-			api.SetNVersions(s, s)
+			api.SetNVersions(s)
 			api.SetFlagsVariables(make(map[string]string))
 			got, err = gh.ResolveDocumentation(ctx, uri)
 		})

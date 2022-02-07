@@ -7,82 +7,113 @@ package app
 import (
 	"context"
 	"flag"
-	"k8s.io/utils/pointer"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/gardener/docforge/cmd/configuration"
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"k8s.io/klog/v2"
 )
 
-type cmdFlags struct {
-	documentWorkersCount         int
-	validationWorkersCount       int
-	failFast                     bool
-	destinationPath              string
-	documentationManifestPath    string
-	resourcesPath                string
-	resourceDownloadWorkersCount int
-	rewriteEmbedded              bool
-	variables                    map[string]string
-	ghOAuthToken                 string
-	ghOAuthTokens                map[string]string
-	ghInfoDestination            string
-	ghThrottling                 bool
-	dryRun                       bool
-	resolve                      bool
-	hugo                         bool
-	hugoPrettyUrls               bool
-	hugoSectionFiles             []string
-	hugoBaseURL                  string
-	useGit                       bool
-	cacheHomeDir                 string
-	lastNVersions                map[string]int
-	mainBranch                   map[string]string
+const (
+	// DefaultConfigFileName default configuration filename under docforge home folder
+	DefaultConfigFileName = "config"
+	// DocforgeHomeDir defines the docforge home location
+	DocforgeHomeDir = ".docforge"
+)
+
+type loadedConfiguration struct {
+	baseConfig `mapstructure:",squash"`
+
+	GhOAuthToken  string            `mapstructure:"github-oauth-token"`
+	GhOAuthTokens map[string]string `mapstructure:"github-oauth-token-map"`
+	//credentials loaded from config file
+	Credidential  []configuration.Credential `mapstructure:"credidential"`
+	LastNVersions map[string]string          `mapstructure:"lastNVersions"`
 }
+
+type baseConfig struct {
+	DocumentWorkersCount         int               `mapstructure:"document-workers"`
+	ValidationWorkersCount       int               `mapstructure:"validation-workers"`
+	FailFast                     bool              `mapstructure:"fail-fast"`
+	DestinationPath              string            `mapstructure:"destination"`
+	DocumentationManifestPath    string            `mapstructure:"manifest"`
+	ResourcesPath                string            `mapstructure:"resources-download-path"`
+	ResourceDownloadWorkersCount int               `mapstructure:"download-workers"`
+	RewriteEmbedded              bool              `mapstructure:"rewrite-embedded-to-raw"`
+	Variables                    map[string]string `mapstructure:"variables"`
+	GhInfoDestination            string            `mapstructure:"github-info-destination"`
+	GhThrottling                 bool              `mapstructure:"github-throttling"`
+	DryRun                       bool              `mapstructure:"dry-run"`
+	Resolve                      bool              `mapstructure:"resolve"`
+	Hugo                         bool              `mapstructure:"hugo"`
+	HugoPrettyUrls               bool              `mapstructure:"hugo-pretty-urls"`
+	FlagsHugoSectionFiles        []string          `mapstructure:"hugo-section-files"`
+	HugoBaseURL                  string            `mapstructure:"hugo-base-url"`
+	UseGit                       bool              `mapstructure:"use-git"`
+	CacheHomeDir                 string            `mapstructure:"cache-dir"`
+
+	ResourceMappings map[string]string `mapstructure:"resourceMappings"`
+	DefaultBranches  map[string]string `mapstructure:"defaultBranches"`
+}
+
+// Options data structure with all the options for docforge
+type Options struct {
+	baseConfig
+
+	Hugo          *configuration.Hugo
+	Credentials   []*configuration.Credential
+	LastNVersions map[string]int
+}
+
+var vip *viper.Viper
 
 // NewCommand creates a new root command and propagates
 // the context and cancel function to its Run callback closure
 func NewCommand(ctx context.Context) *cobra.Command {
-	flags := &cmdFlags{}
 	cmd := &cobra.Command{
 		Use:   "docforge",
 		Short: "Forge a documentation bundle",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 			var (
-				doc *api.Documentation
-				rhs []resourcehandlers.ResourceHandler
-				err error
+				doc     *api.Documentation
+				rhs     []resourcehandlers.ResourceHandler
+				err     error
+				options *Options
 			)
 
-			options := NewOptions(flags, new(configuration.DefaultConfigurationLoader))
-			if rhs, err = initResourceHandlers(ctx, flags, options); err != nil {
-				return err
-			}
-			// TODO: HOW API CAN CONSUME CONFIGURATION
-			api.SetFlagsVariables(flags.variables)
-			api.SetDefaultBranches(flags.mainBranch, options.DefaultBranches)
-			api.SetNVersions(flags.lastNVersions, options.LastNVersions)
-			if doc, err = manifest(ctx, flags.documentationManifestPath, rhs); err != nil {
-				return err
-			}
-			reactor, err := NewReactor(flags, options, rhs)
+			options, err = NewOptions()
 			if err != nil {
 				return err
 			}
-			if err = reactor.Run(ctx, doc, flags.dryRun); err != nil {
+			if rhs, err = initResourceHandlers(ctx, options); err != nil {
+				return err
+			}
+			// TODO: HOW API CAN CONSUME CONFIGURATION
+			api.SetFlagsVariables(options.Variables)
+			api.SetDefaultBranches(options.DefaultBranches)
+			api.SetNVersions(options.LastNVersions)
+			if doc, err = manifest(ctx, options.DocumentationManifestPath, rhs); err != nil {
+				return err
+			}
+			reactor, err := NewReactor(options, rhs)
+			if err != nil {
+				return err
+			}
+			if err = reactor.Run(ctx, doc, options.DryRun); err != nil {
 				return err
 			}
 			return nil
 		},
 	}
 
-	flags.Configure(cmd)
+	Configure(cmd)
 
 	version := NewVersionCmd()
 	cmd.AddCommand(version)
@@ -99,55 +130,177 @@ func NewCommand(ctx context.Context) *cobra.Command {
 }
 
 // Configure configures flags for command
-func (flags *cmdFlags) Configure(command *cobra.Command) {
-	command.Flags().StringVarP(&flags.destinationPath, "destination", "d", "",
+func Configure(command *cobra.Command) {
+	//set delimiter to be ::
+	vip = viper.NewWithOptions(viper.KeyDelimiter("::"))
+	vip.SetDefault("chart::values", map[string]interface{}{
+		"ingress": map[string]interface{}{
+			"annotations": map[string]interface{}{
+				"traefik.frontend.rule.type":                 "PathPrefix",
+				"traefik.ingress.kubernetes.io/ssl-redirect": "true",
+			},
+		},
+	})
+
+	configureFlags(command)
+	configureConfigFile()
+}
+
+func configureFlags(command *cobra.Command) {
+	command.Flags().StringP("destination", "d", "",
 		"Destination path.")
 	command.MarkFlagRequired("destination")
-	command.Flags().StringVarP(&flags.documentationManifestPath, "manifest", "f", "",
+	vip.BindPFlag("destination", command.Flags().Lookup("destination"))
+
+	command.Flags().StringP("manifest", "f", "",
 		"Manifest path.")
 	command.MarkFlagRequired("manifest")
-	command.Flags().StringVar(&flags.resourcesPath, "resources-download-path", "__resources",
+	vip.BindPFlag("manifest", command.Flags().Lookup("manifest"))
+
+	command.Flags().String("resources-download-path", "__resources",
 		"Resources download path.")
-	command.Flags().StringVar(&flags.ghOAuthToken, "github-oauth-token", "",
+	vip.BindPFlag("resources-download-path", command.Flags().Lookup("resources-download-path"))
+
+	command.Flags().String("github-oauth-token", "",
 		"GitHub personal token authorizing read access from GitHub.com repositories. For authorization credentials for multiple GitHub instances, see --github-oauth-token-map")
-	command.Flags().StringToStringVar(&flags.ghOAuthTokens, "github-oauth-token-map", map[string]string{},
+	vip.BindPFlag("github-oauth-token", command.Flags().Lookup("github-oauth-token"))
+
+	command.Flags().StringToString("github-oauth-token-map", map[string]string{},
 		"GitHub personal tokens authorizing read access from repositories per GitHub instance. Note that if the GitHub token is already provided by `github-oauth-token` it will be overridden by it.")
-	command.Flags().BoolVar(&flags.ghThrottling, "github-throttling", false,
+	vip.BindPFlag("github-oauth-token-map", command.Flags().Lookup("github-oauth-token-map"))
+
+	command.Flags().Bool("github-throttling", false,
 		"Enable throttling of requests to GitHub API. The throttling is adaptive and will slow down execution with the approaching rate limit. Use to improve continuity. Disable to maximise performance.")
-	command.Flags().StringVar(&flags.ghInfoDestination, "github-info-destination", "",
+	vip.BindPFlag("github-throttling", command.Flags().Lookup("github-throttling"))
+
+	command.Flags().String("github-info-destination", "",
 		"If specified, docforge will download also additional github info for the files from the documentation structure into this destination.")
-	command.Flags().BoolVar(&flags.rewriteEmbedded, "rewrite-embedded-to-raw", true,
+	vip.BindPFlag("github-info-destination", command.Flags().Lookup("github-info-destination"))
+
+	command.Flags().Bool("rewrite-embedded-to-raw", true,
 		"Rewrites absolute link destinations for embedded resources (images) to reference embeddable media (e.g. for GitHub - reference to a 'raw' version of an image).")
-	command.Flags().StringToStringVar(&flags.variables, "variables", map[string]string{},
+	vip.BindPFlag("rewrite-embedded-to-raw", command.Flags().Lookup("rewrite-embedded-to-raw"))
+
+	command.Flags().StringToString("variables", map[string]string{},
 		"Variables applied to parameterized (using Go template) manifest.")
-	command.Flags().BoolVar(&flags.failFast, "fail-fast", false,
+	vip.BindPFlag("variables", command.Flags().Lookup("variables"))
+
+	command.Flags().Bool("fail-fast", false,
 		"Fail-fast vs fault tolerant operation.")
-	command.Flags().BoolVar(&flags.dryRun, "dry-run", false,
+	vip.BindPFlag("fail-fast", command.Flags().Lookup("fail-fast"))
+
+	command.Flags().Bool("dry-run", false,
 		"Runs the command end-to-end but instead of writing files, it will output the projected file/folder hierarchy to the standard output and statistics for the processing of each file.")
-	command.Flags().BoolVar(&flags.resolve, "resolve", false,
+	vip.BindPFlag("dry-run", command.Flags().Lookup("dry-run"))
+
+	command.Flags().Bool("resolve", false,
 		"Resolves the documentation structure and prints it to the standard output. The resolution expands nodeSelector constructs into node hierarchies.")
-	command.Flags().IntVar(&flags.documentWorkersCount, "document-workers", 25,
+	vip.BindPFlag("resolve", command.Flags().Lookup("resolve"))
+
+	command.Flags().Int("document-workers", 25,
 		"Number of parallel workers for document processing.")
-	command.Flags().IntVar(&flags.validationWorkersCount, "validation-workers", 50,
+	vip.BindPFlag("document-workers", command.Flags().Lookup("document-workers"))
+
+	command.Flags().Int("validation-workers", 50,
 		"Number of parallel workers to validate the markdown links")
-	command.Flags().IntVar(&flags.resourceDownloadWorkersCount, "download-workers", 10,
+	vip.BindPFlag("validation-workers", command.Flags().Lookup("validation-workers"))
+
+	command.Flags().Int("download-workers", 10,
 		"Number of workers downloading document resources in parallel.")
-	command.Flags().BoolVar(&flags.hugo, "hugo", false,
+	vip.BindPFlag("download-workers", command.Flags().Lookup("download-workers"))
+
+	command.Flags().Bool("hugo", false,
 		"Build documentation bundle for hugo.")
-	command.Flags().BoolVar(&flags.hugoPrettyUrls, "hugo-pretty-urls", true,
+	vip.BindPFlag("hugo", command.Flags().Lookup("hugo"))
+
+	command.Flags().Bool("hugo-pretty-urls", true,
 		"Build documentation bundle for hugo with pretty URLs (./sample.md -> ../sample). Only useful with --hugo=true")
-	command.Flags().StringVar(&flags.hugoBaseURL, "hugo-base-url", "",
+	vip.BindPFlag("hugo-pretty-urls", command.Flags().Lookup("hugo-pretty-urls"))
+
+	command.Flags().String("hugo-base-url", "",
 		"Rewrites the relative links of documentation files to root-relative where possible.")
-	command.Flags().BoolVar(&flags.useGit, "use-git", false,
+	vip.BindPFlag("hugo-base-url", command.Flags().Lookup("hugo-base-url"))
+
+	command.Flags().Bool("use-git", false,
 		"Use Git for replication")
-	command.Flags().StringSliceVar(&flags.hugoSectionFiles, "hugo-section-files", []string{"readme.md", "readme", "read.me", "index.md", "index"},
+	vip.BindPFlag("use-git", command.Flags().Lookup("use-git"))
+
+	command.Flags().StringSlice("hugo-section-files", []string{"readme.md", "readme", "read.me", "index.md", "index"},
 		"When building a Hugo-compliant documentation bundle, files with filename matching one form this list (in that order) will be renamed to _index.md. Only useful with --hugo=true")
-	command.Flags().StringVar(&flags.cacheHomeDir, "cache-dir", "",
-		"Cache directory, used for repository cache.")
-	command.Flags().StringToIntVar(&flags.lastNVersions, "versions", map[string]int{},
+	vip.BindPFlag("hugo-section-files", command.Flags().Lookup("hugo-section-files"))
+
+	userHomeDir, err := os.UserHomeDir()
+	if err == nil {
+		// default value $HOME/.docforge/cache
+		command.Flags().String("cache-dir", filepath.Join(userHomeDir, DocforgeHomeDir),
+			"Cache directory, used for repository cache.")
+	} else {
+		command.Flags().String("cache-dir", "",
+			"Cache directory, used for repository cache.")
+	}
+	vip.BindPFlag("cache-dir", command.Flags().Lookup("cache-dir"))
+
+	command.Flags().StringToString("lastNVersions", map[string]string{},
 		"Specify default number of versions and per uri that will be supported")
-	command.Flags().StringToStringVar(&flags.mainBranch, "main-branches", map[string]string{},
+	vip.BindPFlag("lastNVersions", command.Flags().Lookup("lastNVersions"))
+
+	command.Flags().StringToString("defaultBranches", map[string]string{},
 		"Specify default main branch and per uri")
+	vip.BindPFlag("defaultBranches", command.Flags().Lookup("defaultBranches"))
+
+}
+
+func configureConfigFile() {
+	userHomerDir, err := os.UserHomeDir()
+	if err != nil {
+		klog.Warningf("Non-fatal error in loading configuration: %s. No configuration file will be used", err.Error())
+		return
+	}
+	vip.AddConfigPath(filepath.Join(userHomerDir, DocforgeHomeDir))
+	vip.SetConfigName(DefaultConfigFileName)
+	vip.SetConfigType("yaml")
+	err = vip.ReadInConfig()
+	if err != nil {
+		klog.Warningf("Non-fatal error in loading configuration: %s. No configuration file will be used", err.Error())
+	} else {
+		klog.Warningf("Config file %s with path %s will be used", DefaultConfigFileName, filepath.Join(userHomerDir, DocforgeHomeDir))
+	}
+}
+
+// NewOptions creates a configuration.Options object from flags and configuration file
+// flags overwrites values from configuration file
+func NewOptions() (*Options, error) {
+	loadedOptions := &loadedConfiguration{}
+	err := vip.Unmarshal(loadedOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	hugo := configuration.Hugo{
+		Enabled:        vip.GetBool("hugo"),
+		PrettyURLs:     vip.GetBool("hugo-pretty-urls"),
+		BaseURL:        vip.GetString("hugo-base-url"),
+		IndexFileNames: vip.GetStringSlice("hugo-section-files"),
+	}
+
+	interfaceMap := vip.GetStringMapString("lastNVersions")
+	converted := make(map[string]int)
+	var toInt int
+	for key, value := range interfaceMap {
+		toInt, err = strconv.Atoi(value)
+		if err == nil {
+			converted[key] = toInt
+		} else {
+			klog.Warningf(`for key %s in lastNVersions provided %s while expecting a int type. Skipping it`, key, value)
+		}
+	}
+
+	return &Options{
+		baseConfig:    loadedOptions.baseConfig,
+		Credentials:   gatherCredentials(),
+		LastNVersions: converted,
+		Hugo:          &hugo,
+	}, nil
 }
 
 // AddFlags adds go flags to rootCmd
@@ -157,62 +310,29 @@ func AddFlags(rootCmd *cobra.Command) {
 	})
 }
 
-// NewOptions creates a configuration.Options object from flags and configuration file
-// flags overwrites values from configuration file
-func NewOptions(f *cmdFlags, c configuration.Loader) *Options {
-	config, err := c.Load()
+func gatherCredentials() []*configuration.Credential {
+	configCredentials := []configuration.Credential{}
+	err := vip.UnmarshalKey("credidential", &configCredentials)
 	if err != nil {
-		panic(err)
+		klog.Warningf("error in unmarshaling credidentails from config: %s", err.Error())
 	}
-	var (
-		defaultBranches = config.DefaultBranches
-		lastNVersions   = config.LastNVersions
-	)
-	if f.mainBranch != nil {
-		if defaultBranches == nil {
-			defaultBranches = f.mainBranch
-		} else {
-			for k, v := range f.mainBranch {
-				defaultBranches[k] = v
-			}
-		}
-	}
-	if f.lastNVersions != nil {
-		if lastNVersions == nil {
-			lastNVersions = f.lastNVersions
-		} else {
-			for k, v := range f.lastNVersions {
-				lastNVersions[k] = v
-			}
-		}
-	}
-	return &Options{
-		Credentials:     gatherCredentials(f, config),
-		Hugo:            hugoOptions(f, config),
-		HomeDir:         cacheHomeDir(f, config),
-		LocalMappings:   config.ResourceMappings,
-		DefaultBranches: defaultBranches,
-		LastNVersions:   lastNVersions,
-	}
-}
+	ghOAuthTokens := vip.GetStringMapString("github-oauth-token-map")
+	ghOAuthToken := vip.GetString("github-oauth-token")
 
-func gatherCredentials(flags *cmdFlags, config *configuration.Config) []*configuration.Credentials {
-	credentialsByHost := make(map[string]*configuration.Credentials)
-	if config != nil {
-		// when no token specified consider the configuration incorrect
-		for _, cred := range config.Credentials {
-			if cred.OAuthToken == nil {
-				klog.Warningf("configuration is considered incorrect because of missing oauth token for host: %s\n", cred.Host)
-				continue
-			}
-			credentialsByHost[cred.Host] = cred
-		}
-	}
+	credentialsByHost := make(map[string]*configuration.Credential)
 
+	// when no token specified consider the configuration incorrect
+	for _, cred := range configCredentials {
+		if cred.OAuthToken == "" {
+			klog.Warningf("configuration is considered incorrect because of missing oauth token for host: %s\n", cred.Host)
+			continue
+		}
+		credentialsByHost[cred.Host] = &cred
+	}
 	// tokens provided by flags will override the config
-	for instance, credentials := range flags.ghOAuthTokens {
-		var username, token string
-		token = credentials
+	for instance, credentials := range ghOAuthTokens {
+		var username string
+		token := credentials
 		// for cases where user credentials are in the format `username:token`
 		usernameAndToken := strings.Split(credentials, ":")
 		if len(usernameAndToken) == 2 {
@@ -222,106 +342,45 @@ func gatherCredentials(flags *cmdFlags, config *configuration.Config) []*configu
 		if _, ok := credentialsByHost[instance]; ok {
 			klog.Warningf("%s token is overridden by the provided token with `--github-oauth-token-map flag`\n", instance)
 		}
-		credentialsByHost[instance] = &configuration.Credentials{
+		credentialsByHost[instance] = &configuration.Credential{
 			Host:       instance,
-			Username:   &username,
-			OAuthToken: &token,
+			Username:   username,
+			OAuthToken: token,
 		}
 	}
 
-	if len(flags.ghOAuthToken) > 0 {
+	if len(ghOAuthToken) > 0 {
 		//provided ghOAuthToken may override credentialsByHost. This is the default logic
 		var username string
-		token := flags.ghOAuthToken
+		token := ghOAuthToken
 		if _, ok := credentialsByHost["github.com"]; ok {
 			klog.Warning("github.com token is overridden by the provided token with `--github-oauth-token flag`\n")
 		}
-		usernameAndToken := strings.Split(flags.ghOAuthToken, ":")
+		usernameAndToken := strings.Split(ghOAuthToken, ":")
 		if len(usernameAndToken) == 2 {
 			username = usernameAndToken[0]
 			token = usernameAndToken[1]
 		}
 
-		credentialsByHost["github.com"] = &configuration.Credentials{
+		credentialsByHost["github.com"] = &configuration.Credential{
 			Host:       "github.com",
-			Username:   &username,
-			OAuthToken: &token,
+			Username:   username,
+			OAuthToken: token,
 		}
 	} else {
 		if _, ok := credentialsByHost["github.com"]; !ok {
 			klog.Infof("using unauthenticated github access`\n")
 			//credentialByHost at github.com is not set and should be set to empty string
-			credentialsByHost["github.com"] = &configuration.Credentials{
+			credentialsByHost["github.com"] = &configuration.Credential{
 				Host:       "github.com",
-				Username:   pointer.StringPtr(""),
-				OAuthToken: pointer.StringPtr(""),
+				Username:   "",
+				OAuthToken: "",
 			}
 		}
 	}
-	var credentials = make([]*configuration.Credentials, 0, len(credentialsByHost))
+	var credentials = make([]*configuration.Credential, 0, len(credentialsByHost))
 	for _, cred := range credentialsByHost {
 		credentials = append(credentials, cred)
 	}
 	return credentials
-}
-
-func cacheHomeDir(f *cmdFlags, config *configuration.Config) string {
-	if cacheDir, found := os.LookupEnv("DOCFORGE_CACHE_DIR"); found {
-		if cacheDir == "" {
-			klog.Warning("DOCFORGE_CACHE_DIR is set to empty string. Docforge will use the current dir for the cache\n")
-		}
-		return cacheDir
-	}
-
-	if f.cacheHomeDir != "" {
-		return f.cacheHomeDir
-	}
-
-	if config != nil && config.CacheHome != nil {
-		return *config.CacheHome
-	}
-
-	userHomeDir, err := os.UserHomeDir()
-	if err != nil {
-		panic(err)
-	}
-
-	// default value $HOME/.docforge/cache
-	return filepath.Join(userHomeDir, configuration.DocforgeHomeDir)
-}
-
-func hugoOptions(f *cmdFlags, config *configuration.Config) *configuration.Hugo {
-	hugo := config.Hugo
-	if hugo == nil {
-		hugo = &configuration.Hugo{}
-	}
-	hugo.Enabled = f.hugo
-	if !hugo.Enabled {
-		return hugo
-	}
-	// overwrites with flags
-	hugo.PrettyURLs = f.hugoPrettyUrls
-
-	if f.hugoBaseURL != "" {
-		hugo.BaseURL = f.hugoBaseURL
-	}
-	if len(f.hugoSectionFiles) > 0 || len(hugo.IndexFileNames) > 0 {
-		var files []string
-		fileSet := make(map[string]struct{})
-		// merge
-		for _, fn := range f.hugoSectionFiles {
-			if _, ok := fileSet[fn]; !ok {
-				files = append(files, fn)
-				fileSet[fn] = struct{}{}
-			}
-		}
-		for _, fn := range f.hugoSectionFiles {
-			if _, ok := fileSet[fn]; !ok {
-				files = append(files, fn)
-				fileSet[fn] = struct{}{}
-			}
-		}
-		hugo.IndexFileNames = files
-	}
-	return hugo
 }

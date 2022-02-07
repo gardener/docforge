@@ -126,7 +126,7 @@ test "$GIT_OAUTH_TOKEN" #fail fast
 
 # Run docforge command with Git handler
 echo "Run ${docforge_bin}"
-${docforge_bin} -f "${int_test_manifest}" -d "${int_test_output_tree_dir}" --hugo --github-oauth-token "${GIT_OAUTH_TOKEN}" --github-info-destination ../generated-metadata --main-branches "default=${mainBranch}" --variables "org=${org}" --use-git=true
+${docforge_bin} -f "${int_test_manifest}" -d "${int_test_output_tree_dir}" --hugo --github-oauth-token "${GIT_OAUTH_TOKEN}" --github-info-destination ../generated-metadata --defaultBranches "default=${mainBranch}" --variables "org=${org}" --use-git=true
 
 #Remove untested metadata keys
 removeUntestedKeysFromMetadata "${int_test_expected_metadata_dir}"
@@ -142,7 +142,7 @@ rm -rf "${int_test_output_tree_dir}"
 rm -rf "${int_test_output_metadata_dir}"
 
 # Run docforge command with Github handler
-${docforge_bin} -f "${int_test_manifest}" -d "${int_test_output_tree_dir}" --hugo --github-oauth-token "${GIT_OAUTH_TOKEN}" --github-info-destination ../generated-metadata --main-branches "default=${mainBranch}" --versions "${int_test_manifest}=4"  --variables "org=${org}" || true
+${docforge_bin} -f "${int_test_manifest}" -d "${int_test_output_tree_dir}" --hugo --github-oauth-token "${GIT_OAUTH_TOKEN}" --github-info-destination ../generated-metadata --defaultBranches "default=${mainBranch}" --lastNVersions "${int_test_manifest}=4"  --variables "org=${org}" || true
 
 #Remove untested metadata keys
 removeUntestedKeysFromMetadata "${int_test_output_metadata_dir}"

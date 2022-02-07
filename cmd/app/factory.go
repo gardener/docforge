@@ -7,7 +7,6 @@ package app
 import (
 	"context"
 	"fmt"
-	"github.com/gardener/docforge/cmd/configuration"
 	"net/http"
 	"net/url"
 	"os"
@@ -36,51 +35,41 @@ const (
 	headerRateReset     = "X-RateLimit-Reset"
 )
 
-// Options is the set of parameters for creating reactor objects
-type Options struct {
-	Credentials     []*configuration.Credentials
-	Hugo            *configuration.Hugo
-	HomeDir         string
-	LocalMappings   map[string]string
-	DefaultBranches map[string]string
-	LastNVersions   map[string]int
-}
-
 // NewReactor creates a Reactor from Options
-func NewReactor(f *cmdFlags, o *Options, rhs []resourcehandlers.ResourceHandler) (*reactor.Reactor, error) {
+func NewReactor(o *Options, rhs []resourcehandlers.ResourceHandler) (*reactor.Reactor, error) {
 	opt := &reactor.Options{
-		DocumentWorkersCount:         f.documentWorkersCount,
-		ValidationWorkersCount:       f.validationWorkersCount,
-		FailFast:                     f.failFast,
-		DestinationPath:              f.destinationPath,
-		ResourcesPath:                f.resourcesPath,
-		ResourceDownloadWorkersCount: f.resourceDownloadWorkersCount,
-		RewriteEmbedded:              f.rewriteEmbedded,
+		DocumentWorkersCount:         o.DocumentWorkersCount,
+		ValidationWorkersCount:       o.ValidationWorkersCount,
+		FailFast:                     o.FailFast,
+		DestinationPath:              o.DestinationPath,
+		ResourcesPath:                o.ResourcesPath,
+		ResourceDownloadWorkersCount: o.ResourceDownloadWorkersCount,
+		RewriteEmbedded:              o.RewriteEmbedded,
 		ResourceHandlers:             rhs,
-		Resolve:                      f.resolve,
-		ManifestPath:                 f.documentationManifestPath,
+		Resolve:                      o.Resolve,
+		ManifestPath:                 o.DocumentationManifestPath,
 		Hugo:                         o.Hugo,
 		DefaultBranches:              o.DefaultBranches,
 		LastNVersions:                o.LastNVersions,
 	}
 
-	if f.dryRun {
+	if o.DryRun {
 		opt.DryRunWriter = writers.NewDryRunWritersFactory(os.Stdout)
-		opt.Writer = opt.DryRunWriter.GetWriter(f.destinationPath)
-		opt.ResourceDownloadWriter = opt.DryRunWriter.GetWriter(filepath.Join(f.destinationPath, f.resourcesPath))
+		opt.Writer = opt.DryRunWriter.GetWriter(opt.DestinationPath)
+		opt.ResourceDownloadWriter = opt.DryRunWriter.GetWriter(filepath.Join(opt.DestinationPath, opt.ResourcesPath))
 	} else {
 		opt.Writer = &writers.FSWriter{
-			Root: f.destinationPath,
+			Root: opt.DestinationPath,
 			Hugo: opt.Hugo.Enabled,
 		}
 		opt.ResourceDownloadWriter = &writers.FSWriter{
-			Root: filepath.Join(f.destinationPath, f.resourcesPath),
+			Root: filepath.Join(opt.DestinationPath, opt.ResourcesPath),
 		}
 	}
 
-	if len(f.ghInfoDestination) > 0 {
+	if len(o.GhInfoDestination) > 0 {
 		opt.GitInfoWriter = &writers.FSWriter{
-			Root: filepath.Join(f.destinationPath, f.ghInfoDestination),
+			Root: filepath.Join(opt.DestinationPath, o.GhInfoDestination),
 			Ext:  "json",
 		}
 	}
@@ -88,7 +77,7 @@ func NewReactor(f *cmdFlags, o *Options, rhs []resourcehandlers.ResourceHandler)
 	return reactor.NewReactor(opt)
 }
 
-func initResourceHandlers(ctx context.Context, f *cmdFlags, o *Options) ([]resourcehandlers.ResourceHandler, error) {
+func initResourceHandlers(ctx context.Context, o *Options) ([]resourcehandlers.ResourceHandler, error) {
 	var rhs []resourcehandlers.ResourceHandler
 	var errs *multierror.Error
 	for _, cred := range o.Credentials {
@@ -103,11 +92,11 @@ func initResourceHandlers(ctx context.Context, f *cmdFlags, o *Options) ([]resou
 			continue
 		}
 
-		client, httpClient, err := buildClient(ctx, *cred.OAuthToken, f.ghThrottling, instance)
+		client, httpClient, err := buildClient(ctx, cred.OAuthToken, o.GhThrottling, instance)
 		if err != nil {
 			errs = multierror.Append(errs, err)
 		}
-		rh := newResourceHandler(u.Host, o.HomeDir, cred.Username, *cred.OAuthToken, client, httpClient, f.useGit, o.LocalMappings)
+		rh := newResourceHandler(u.Host, o.CacheHomeDir, &cred.Username, cred.OAuthToken, client, httpClient, o.UseGit, o.ResourceMappings)
 		rhs = append(rhs, rh)
 	}
 

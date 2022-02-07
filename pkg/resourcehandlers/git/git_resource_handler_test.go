@@ -926,7 +926,7 @@ structure:
 
 			s := make(map[string]int)
 			s[uri] = len(tags)
-			api.SetNVersions(s, s)
+			api.SetNVersions(s)
 
 			got, err = gh.ResolveDocumentation(ctx, uri)
 		})
