@@ -296,11 +296,14 @@ func (l *linkResolver) resolveBaseLink(dest string, isEmbeddable bool) (*Link, e
 			if nl, ok := l.sourceLocations[strings.TrimSuffix(absLink, "/")]; ok {
 				path := ""
 				for _, n := range nl {
-					relPathBetweenNodes := l.node.RelativePath(n)
-					if swapPaths(path, relPathBetweenNodes) {
-						path = relPathBetweenNodes
-						link.DestinationNode = n
-						link.Destination = &relPathBetweenNodes
+					n = findVisibleNode(n)
+					if n != nil {
+						relPathBetweenNodes := l.node.RelativePath(n)
+						if swapPaths(path, relPathBetweenNodes) {
+							path = relPathBetweenNodes
+							link.DestinationNode = n
+							link.Destination = &relPathBetweenNodes
+						}
 					}
 				}
 				if dest != path {
@@ -354,6 +357,24 @@ func (l *linkResolver) resolveBaseLink(dest string, isEmbeddable bool) (*Link, e
 	u, err = urls.Parse(absLink)
 	l.validator.ValidateLink(u, dest, l.source)
 	return link, nil
+}
+
+// findVisibleNode returns
+// - the node if it is a document api.Node
+// - first container node that contains index file if the api.Node is container
+// - nil if no container node with index file found
+// otherwise link will display empty page
+// TODO: check if this works if HUGO Pretty URLs are disabled!
+func findVisibleNode(n *api.Node) *api.Node {
+	if n == nil || n.IsDocument() {
+		return n
+	}
+	for _, ch := range n.Nodes {
+		if ch.Name == "_index.md" {
+			return n
+		}
+	}
+	return findVisibleNode(n.Parent())
 }
 
 // used in Hugo mode
