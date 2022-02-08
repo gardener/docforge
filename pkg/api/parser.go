@@ -161,7 +161,6 @@ func Parse(b []byte) (*Documentation, error) {
 }
 
 // TODO: CHECK FOR COLLISIONS
-
 func validateDocumentation(d *Documentation) error {
 	var errs error
 	if d.Structure == nil && d.NodeSelector == nil {
@@ -221,9 +220,15 @@ func validateNode(n *Node) error {
 		}
 	}
 	// TODO: this is workaround to move child nodes in parent if this node name is empty, delete it once manifests are fixed !!!
-	if n.Name == "" && !n.IsDocument() && n.Parent() != nil && len(n.Parent().Nodes) == 1 && n.Parent().NodeSelector == nil && n.NodeSelector != nil && len(n.Nodes) == 0 {
+	if n.Name == "" && !n.IsDocument() && n.Parent() != nil && n.Parent().NodeSelector == nil && n.NodeSelector != nil && len(n.Nodes) == 0 {
 		n.Parent().NodeSelector = n.NodeSelector
-		n.Parent().Nodes = n.Nodes
+		var pNodes []*Node
+		for _, pn := range n.Parent().Nodes {
+			if pn != n {
+				pNodes = append(pNodes, pn)
+			}
+		}
+		n.Parent().Nodes = pNodes
 	}
 	// TODO: end !!!
 	return errs

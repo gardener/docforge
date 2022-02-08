@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"time"
 
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/util/httpclient"
@@ -29,7 +30,7 @@ type ResourceHandler interface {
 	// Accept accepts manifests if this ResourceHandler can manage the type of resources
 	// identified by the URI scheme of uri.
 	Accept(uri string) bool
-	// ResolveNodeSelector resolves the NodeSelector rules of a Node into subnodes
+	// ResolveNodeSelector resolves the NodeSelector rules of a Node into sub-nodes
 	// hierarchy (Node.Nodes)
 	ResolveNodeSelector(ctx context.Context, node *api.Node) ([]*api.Node, error)
 	// Read a resource content at uri into a byte array
@@ -37,13 +38,13 @@ type ResourceHandler interface {
 	// ReadGitInfo reads git info for the resource
 	ReadGitInfo(ctx context.Context, uri string) ([]byte, error)
 	// ResourceName returns a breakdown of a resource name in the link, consisting
-	// of name and potentially and extention without the dot.
+	// of name and potentially and extension without the dot.
 	ResourceName(link string) (string, string)
-	// BuildAbsLink should return an absolute path of a relative link in regards of the provided
+	// BuildAbsLink should return an absolute path of a relative link in regard to the provided
 	// source
 	BuildAbsLink(source, link string) (string, error)
-	// GetRawFormatLink returns a link to an embedable object (image) in raw format.
-	// If the provided link is not referencing an embedable object, the function
+	// GetRawFormatLink returns a link to an embeddable object (image) in raw format.
+	// If the provided link is not referencing an embeddable object, the function
 	// returns absLink without changes.
 	GetRawFormatLink(absLink string) (string, error)
 	// SetVersion sets version to absLink according to the API scheme. For GitHub
@@ -53,6 +54,9 @@ type ResourceHandler interface {
 	ResolveDocumentation(ctx context.Context, uri string) (*api.Documentation, error)
 	// GetClient returns an HTTP client for accessing handler's resources
 	GetClient() httpclient.Client
+	// GetRateLimit returns rate limit and remaining API calls for the resource handler backend (e.g. GitHub RateLimit)
+	// returns negative values if RateLimit is not applicable
+	GetRateLimit(ctx context.Context) (int, int, time.Time, error)
 }
 
 // Registry can register and return resource handlers for an url
@@ -101,7 +105,7 @@ func (r *registry) Remove(resourceHandlers ...ResourceHandler) {
 	if len(resourceHandlers) == 0 {
 		r.handlers = []ResourceHandler{}
 	}
-	idx := []int{}
+	var idx []int
 	rhs := append([]ResourceHandler{}, resourceHandlers...)
 	for _, rh := range rhs {
 		if i := indexOf(rh, r.handlers); i > -1 {

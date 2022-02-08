@@ -25,9 +25,8 @@ func (r *Reactor) ResolveManifest(ctx context.Context, manifest *api.Documentati
 	root := &api.Node{Nodes: manifest.Structure, NodeSelector: manifest.NodeSelector}
 	manifest.NodeSelector = nil
 	root.SetParentsDownwards()
-	// init visited map
-	visited := make(map[string]int)
-	visited[r.Options.ManifestPath] = 0
+	// init visited stack with root manifest
+	visited := []string{r.Options.ManifestPath}
 	// resolve manifest structure names
 	if err := r.resolveNodeNames(root.Nodes); err != nil {
 		return err
@@ -67,14 +66,10 @@ func (r *Reactor) ResolveManifest(ctx context.Context, manifest *api.Documentati
 // - node selector
 // - node children recursively
 // The resulting model is the actual flight plan for replicating resources.
-func (r *Reactor) resolveStructure(ctx context.Context, nodes []*api.Node, visited map[string]int) error {
+func (r *Reactor) resolveStructure(ctx context.Context, nodes []*api.Node, visited []string) error {
 	for _, node := range nodes {
 		// resolve node selector
 		if node.NodeSelector != nil {
-			if _, ok := visited[node.NodeSelector.Path]; ok {
-				return fmt.Errorf("circular dependency discovered: %s", buildCircularDepMessage(visited, node.NodeSelector.Path))
-			}
-			visited[node.NodeSelector.Path] = len(visited)
 			selected, err := r.resolveNodeSelector(ctx, node, visited)
 			if err != nil {
 				return err
@@ -92,19 +87,30 @@ func (r *Reactor) resolveStructure(ctx context.Context, nodes []*api.Node, visit
 	return nil
 }
 
-func (r *Reactor) resolveNodeSelector(ctx context.Context, node *api.Node, visited map[string]int) (*api.Node, error) {
+func (r *Reactor) resolveNodeSelector(ctx context.Context, node *api.Node, visited []string) (*api.Node, error) {
 	// get resource handler
 	rh := r.ResourceHandlers.Get(node.NodeSelector.Path)
 	if rh == nil {
 		return nil, fmt.Errorf("no suitable handler registered for path %s", node.NodeSelector.Path)
 	}
+	var err error
 	// if path points to manifest then resolve documentation, otherwise nil will be returned
-	manifest, err := rh.ResolveDocumentation(ctx, node.NodeSelector.Path)
+	var manifest *api.Documentation
+	manifest, err = rh.ResolveDocumentation(ctx, node.NodeSelector.Path)
 	if err != nil {
 		err = fmt.Errorf("failed to resolve imported documentation manifest for node %s with path %s: %v", node.FullName("/"), node.NodeSelector.Path, err)
 		return nil, err
 	}
 	if manifest != nil {
+		if isVisited(visited, node.NodeSelector.Path) {
+			visited = append(visited, node.NodeSelector.Path)
+			return nil, fmt.Errorf("circular dependency discovered %s", strings.Join(visited, " -> "))
+		}
+		visited = append(visited, node.NodeSelector.Path) // push
+		defer func() {
+			visited = visited[:len(visited)-1] // pop
+		}()
+		// init virtual result node
 		result := &api.Node{Nodes: manifest.Structure, NodeSelector: manifest.NodeSelector}
 		manifest.NodeSelector = nil
 		result.SetParentsDownwards()
@@ -113,12 +119,9 @@ func (r *Reactor) resolveNodeSelector(ctx context.Context, node *api.Node, visit
 			return nil, err
 		}
 		if result.NodeSelector != nil {
-			if _, ok := visited[result.NodeSelector.Path]; ok {
-				return nil, fmt.Errorf("circular dependency discovered %s", buildCircularDepMessage(visited, result.NodeSelector.Path))
-			}
-			visited[result.NodeSelector.Path] = len(visited)
-			selected, e := r.resolveNodeSelector(ctx, result, visited)
-			if e != nil {
+			var selected *api.Node
+			selected, err = r.resolveNodeSelector(ctx, result, visited)
+			if err != nil {
 				return nil, err
 			}
 			result.NodeSelector = nil
@@ -129,7 +132,8 @@ func (r *Reactor) resolveNodeSelector(ctx context.Context, node *api.Node, visit
 		return result, nil
 	}
 	// if path points to directory -> resolve node selector
-	nodes, err := rh.ResolveNodeSelector(ctx, node)
+	var nodes []*api.Node
+	nodes, err = rh.ResolveNodeSelector(ctx, node)
 	if err != nil {
 		return nil, err
 	}
@@ -145,6 +149,15 @@ func (r *Reactor) resolveNodeSelector(ctx context.Context, node *api.Node, visit
 		result.Cleanup()
 	}
 	return result, nil
+}
+
+func isVisited(visited []string, path string) bool {
+	for _, v := range visited {
+		if v == path {
+			return true
+		}
+	}
+	return false
 }
 
 // resolveNodeNames is applicable to explicitly defined nodes, it will evaluate Node name expression if such is defined
@@ -222,24 +235,6 @@ func (r *Reactor) resolveSectionFiles(container *api.Node) {
 			r.resolveSectionFiles(node)
 		}
 	}
-}
-
-// buildCircularDepMessage creates a circular dependency cycle, returns empty string if no cycle found
-func buildCircularDepMessage(visited map[string]int, path string) string {
-	// build visited order
-	ordered := make([]string, len(visited)+1)
-	for k, v := range visited {
-		ordered[v] = k
-	}
-	// add path at the end
-	ordered[len(visited)] = path
-	for i, v := range ordered {
-		if v == path { //
-			return strings.Join(ordered[i:], " -> ")
-		}
-	}
-	// no cycle
-	return ""
 }
 
 // TODO: on err just continue ... ?? only warning messages or exclude nodes with errors ???

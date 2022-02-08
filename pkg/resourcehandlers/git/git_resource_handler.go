@@ -11,6 +11,7 @@ package git
 import (
 	"context"
 	"fmt"
+	"github.com/hashicorp/go-multierror"
 	nethttp "net/http"
 	"net/url"
 	"os"
@@ -19,6 +20,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
@@ -32,11 +34,6 @@ import (
 
 // CacheDir is the name of repository cache directory
 const CacheDir string = "cache"
-
-var (
-	reHasTree = regexp.MustCompile("^(.*?)tree(.*)$")
-	repStr    = "${1}blob$2"
-)
 
 // FileReader defines interface for reading file attributes and content
 //counterfeiter:generate . FileReader
@@ -198,7 +195,7 @@ func (g *Git) ResolveNodeSelector(ctx context.Context, node *api.Node) ([]*api.N
 			n.Parent().Nodes = append(n.Parent().Nodes, n)
 		}
 	}
-	//removing child parrent
+	//removing child parent
 	for _, child := range _node.Nodes {
 		child.SetParent(nil)
 	}
@@ -248,21 +245,37 @@ func (nb *nodeBuilder) build(path string, info os.FileInfo, err error) error {
 		newNode.Nodes = []*api.Node{}
 		if newNode.Properties == nil {
 			newNode.Properties = make(map[string]interface{})
-			newNode.Properties[api.ContainerNodeSourceLocation] = nb.resourceLocator.String() + source
+			rl := getProperResourceLocator(nb.resourceLocator, github.Tree)
+			newNode.Properties[api.ContainerNodeSourceLocation] = rl.String() + source
 		}
 	} else {
 		if filepath.Ext(info.Name()) != ".md" {
 			return nil
 		}
-		// Change file types of the tree leafs from tree to blob
-		currentPath := nb.resourceLocator.String()
-		pathAsBlob := reHasTree.ReplaceAllString(currentPath, repStr)
-
-		newNode.Source = pathAsBlob + source
+		rl := getProperResourceLocator(nb.resourceLocator, github.Blob)
+		newNode.Source = rl.String() + source
 	}
 
 	nb.someMap[path] = newNode
 	return nil
+}
+
+func getProperResourceLocator(rl *github.ResourceLocator, desiredType github.ResourceType) *github.ResourceLocator {
+	if rl.Type == desiredType {
+		return rl
+	}
+	drl := &github.ResourceLocator{
+		Scheme:   rl.Scheme,
+		Host:     rl.Host,
+		Owner:    rl.Owner,
+		Repo:     rl.Repo,
+		SHA:      rl.SHA,
+		Type:     desiredType,
+		Path:     rl.Path,
+		SHAAlias: rl.SHAAlias,
+		IsRawAPI: rl.IsRawAPI,
+	}
+	return drl
 }
 
 func (g *Git) getNodeSelectorLocalPath(repositoryPath string, rl *github.ResourceLocator) string {
@@ -508,8 +521,56 @@ func (g *Git) ResolveDocumentation(ctx context.Context, uri string) (*api.Docume
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse manifest: %s. %+v", uri, err)
 	}
-
+	if err = g.resolveDocumentationRelativePaths(&api.Node{Nodes: doc.Structure, NodeSelector: doc.NodeSelector}, rl.String()); err != nil {
+		return nil, err
+	}
 	return doc, nil
+}
+
+// resolveDocumentationRelativePaths traverses api.Node#Nodes and resolve node Source, MultiSource and api.NodeSelector relative paths to absolute URLs
+func (g *Git) resolveDocumentationRelativePaths(node *api.Node, moduleDocumentationPath string) error {
+	var errs error
+	if node.Source != "" {
+		u, err := url.Parse(node.Source)
+		if err != nil {
+			errs = multierror.Append(errs, fmt.Errorf("manifest %s with invalid node %s source: %s", moduleDocumentationPath, node.FullName("/"), node.Source))
+		} else if !u.IsAbs() {
+			// resolve relative path
+			if node.Source, err = g.BuildAbsLink(moduleDocumentationPath, node.Source); err != nil {
+				errs = multierror.Append(errs, fmt.Errorf("cannot resolve source relative path %s in node %s and manifest %s", node.Source, node.FullName("/"), moduleDocumentationPath))
+			}
+		}
+	}
+	if len(node.MultiSource) > 0 {
+		for idx, src := range node.MultiSource {
+			u, err := url.Parse(src)
+			if err != nil {
+				errs = multierror.Append(errs, fmt.Errorf("manifest %s with invalid node %s multiSource[%d]: %s", moduleDocumentationPath, node.FullName("/"), idx, node.MultiSource[idx]))
+			} else if !u.IsAbs() {
+				// resolve relative path
+				if node.Source, err = g.BuildAbsLink(moduleDocumentationPath, src); err != nil {
+					errs = multierror.Append(errs, fmt.Errorf("cannot resolve multiSource[%d] relative path %s in node %s and manifest %s", idx, node.MultiSource[idx], node.FullName("/"), moduleDocumentationPath))
+				}
+			}
+		}
+	}
+	if node.NodeSelector != nil {
+		u, err := url.Parse(node.NodeSelector.Path)
+		if err != nil {
+			errs = multierror.Append(errs, fmt.Errorf("manifest %s with invalid nodeSelector path %s in node %s", moduleDocumentationPath, node.NodeSelector.Path, node.FullName("/")))
+		} else if !u.IsAbs() {
+			// resolve relative path
+			if node.NodeSelector.Path, err = g.BuildAbsLink(moduleDocumentationPath, node.NodeSelector.Path); err != nil {
+				errs = multierror.Append(errs, fmt.Errorf("cannot resolve nodeSelector relative path %s in node %s and manifest %s", node.NodeSelector.Path, node.FullName("/"), moduleDocumentationPath))
+			}
+		}
+	}
+	for _, n := range node.Nodes {
+		if err := g.resolveDocumentationRelativePaths(n, moduleDocumentationPath); err != nil {
+			errs = multierror.Append(errs, err)
+		}
+	}
+	return errs
 }
 
 //internally used
@@ -530,7 +591,17 @@ func (g *Git) GetClient() httpclient.Client {
 }
 
 func (g *Git) repositoryPathFromResourceLocator(rl *github.ResourceLocator) string {
-	return filepath.Join(g.gitRepositoriesAbsPath, rl.Host, rl.Owner, rl.Repo, rl.SHAAlias)
+	host := rl.Host
+	if strings.HasPrefix(rl.Host, "raw.") {
+		if rl.Host == "raw.githubusercontent.com" {
+			host = "github.com"
+		} else {
+			host = rl.Host[len("raw."):]
+		}
+	} else if host == "api.github.com" {
+		host = "github.com"
+	}
+	return filepath.Join(g.gitRepositoriesAbsPath, host, rl.Owner, rl.Repo, rl.SHAAlias)
 }
 
 // getOrInitRepository serves as a sync point to avoid more complicated logic for synchronization between workers working on the same repository. In case it returns false no one began working on
@@ -555,4 +626,13 @@ func (g *Git) getOrInitRepository(repositoryPath string, rl *github.ResourceLoca
 
 	g.preparedRepos[repositoryPath] = repository
 	return repository
+}
+
+// GetRateLimit implements resourcehandlers.ResourceHandler#GetRateLimit
+func (g *Git) GetRateLimit(ctx context.Context) (int, int, time.Time, error) {
+	r, _, err := g.client.RateLimits(ctx)
+	if err != nil {
+		return -1, -1, time.Now(), err
+	}
+	return r.Core.Limit, r.Core.Remaining, r.Core.Reset.Time, nil
 }

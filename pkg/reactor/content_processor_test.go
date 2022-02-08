@@ -5,7 +5,6 @@
 package reactor
 
 import (
-	"fmt"
 	"net/http"
 	"strings"
 	"testing"
@@ -185,7 +184,7 @@ func Test_processLink(t *testing.T) {
 			},
 		},
 	}
-	for i, tc := range testCases {
+	for _, tc := range testCases {
 		t.Run("", func(t *testing.T) {
 			c := &nodeContentProcessor{
 				resourcesRoot:    "/__resources",
@@ -203,9 +202,7 @@ func Test_processLink(t *testing.T) {
 				node:                 tc.node,
 				source:               tc.contentSourcePath,
 			}
-			if i == 10 {
-				fmt.Println("TEST ", i)
-			}
+
 			link, gotErr := lr.resolveBaseLink(tc.destination, tc.embeddable)
 
 			assert.Equal(t, tc.wantErr, gotErr)

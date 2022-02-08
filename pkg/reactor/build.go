@@ -9,6 +9,8 @@ import (
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/hashicorp/go-multierror"
 	"k8s.io/klog/v2"
+	"net/url"
+	"time"
 )
 
 func tasks(nodes []*api.Node, t *[]interface{}) {
@@ -63,6 +65,19 @@ func (r *Reactor) Build(ctx context.Context, documentationStructure []*api.Node)
 		klog.Infof("GitHub info tasks processed: %d\n", r.GitHubInfoTasks.GetProcessedTasksCount())
 	}
 	klog.Infof("Validation tasks processed: %d\n", r.ValidatorTasks.GetProcessedTasksCount())
+
+	for _, rhHost := range []string{"https://github.com/gardener", "https://github.tools.sap/kubernetes", "https://github.wdf.sap.corp/kubernetes"} {
+		rh := r.ResourceHandlers.Get(rhHost)
+		u, _ := url.Parse(rhHost)
+		if rh != nil {
+			l, rr, rt, err := rh.GetRateLimit(ctx)
+			if err != nil {
+				klog.Warningf("Error getting RateLimit for %s: %v\n", u.Host, err)
+			} else if l > 0 && rr > 0 {
+				klog.Infof("%s RateLimit: %d requests per hour, Remaining: %d, Reset after: %s\n", u.Host, l, rr, rt.Sub(time.Now()).Round(time.Second))
+			}
+		}
+	}
 
 	errList := r.DocumentTasks.GetErrorList()
 	if errList != nil {

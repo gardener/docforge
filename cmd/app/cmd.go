@@ -211,12 +211,13 @@ func gatherCredentials(flags *cmdFlags, config *configuration.Config) []*configu
 
 	// tokens provided by flags will override the config
 	for instance, credentials := range flags.ghOAuthTokens {
-		var username string
+		var username, token string
+		token = credentials
 		// for cases where user credentials are in the format `username:token`
 		usernameAndToken := strings.Split(credentials, ":")
 		if len(usernameAndToken) == 2 {
 			username = usernameAndToken[0]
-			credentials = usernameAndToken[1]
+			token = usernameAndToken[1]
 		}
 		if _, ok := credentialsByHost[instance]; ok {
 			klog.Warningf("%s token is overridden by the provided token with `--github-oauth-token-map flag`\n", instance)
@@ -224,7 +225,7 @@ func gatherCredentials(flags *cmdFlags, config *configuration.Config) []*configu
 		credentialsByHost[instance] = &configuration.Credentials{
 			Host:       instance,
 			Username:   &username,
-			OAuthToken: &credentials,
+			OAuthToken: &token,
 		}
 	}
 

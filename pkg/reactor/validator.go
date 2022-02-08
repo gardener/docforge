@@ -15,8 +15,11 @@ import (
 	"k8s.io/klog/v2"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"reflect"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -62,6 +65,27 @@ type ValidationTask struct {
 type validatorWorker struct {
 	httpClient       httpclient.Client
 	resourceHandlers resourcehandlers.Registry
+	validated        *linkSet
+}
+
+// linkSet holds link destinations that have been successfully validated
+// used to avoid redundant checks & HTTP Status 429
+type linkSet struct {
+	set map[string]struct{}
+	mux sync.RWMutex
+}
+
+func (l *linkSet) exist(dest string) bool {
+	l.mux.RLock()
+	defer l.mux.RUnlock()
+	_, ok := l.set[dest]
+	return ok
+}
+
+func (l *linkSet) add(dest string) {
+	l.mux.Lock()
+	defer l.mux.Unlock()
+	l.set[dest] = struct{}{}
 }
 
 // Validate checks if validationTask.LinkUrl is available and if it cannot be reached, a warning is logged
@@ -72,13 +96,25 @@ func (v *validatorWorker) Validate(ctx context.Context, task interface{}) error 
 		if host == "localhost" || host == "127.0.0.1" || host == "1.2.3.4" || strings.Contains(host, "foo.bar") {
 			return nil
 		}
+		// check if link URL is already validated
+		// unify links destination by excluding query, fragment & user info
+		u := &url.URL{
+			Scheme: vTask.LinkURL.Scheme,
+			Host:   vTask.LinkURL.Host,
+			Path:   vTask.LinkURL.Path,
+		}
+		unifiedURL := u.String()
+		if v.validated.exist(unifiedURL) {
+			return nil
+		}
 		client := v.httpClient
-		// check if link absolute destination exists locally
 		absLinkDestination := vTask.LinkURL.String()
+		// check if link absolute destination exists locally
 		handler := v.resourceHandlers.Get(absLinkDestination)
 		if handler != nil {
 			if _, err := handler.BuildAbsLink(vTask.ContentSourcePath, absLinkDestination); err == nil {
 				// no ErrResourceNotFound -> absolute destination exists locally
+				v.validated.add(unifiedURL)
 				return nil
 			}
 			// get appropriate http client, if any
@@ -92,7 +128,7 @@ func (v *validatorWorker) Validate(ctx context.Context, task interface{}) error 
 			err  error
 		)
 		// try HEAD
-		if req, err = http.NewRequestWithContext(ctx, http.MethodHead, vTask.LinkURL.String(), nil); err != nil {
+		if req, err = http.NewRequestWithContext(ctx, http.MethodHead, absLinkDestination, nil); err != nil {
 			return fmt.Errorf("failed to prepare HEAD validation request: %v", err)
 		}
 		if resp, err = doValidation(req, client); err != nil {
@@ -101,7 +137,7 @@ func (v *validatorWorker) Validate(ctx context.Context, task interface{}) error 
 		} else if resp.StatusCode >= 400 && resp.StatusCode != http.StatusForbidden && resp.StatusCode != http.StatusUnauthorized {
 			// on error status code different from authorization errors
 			// retry GET
-			if req, err = http.NewRequestWithContext(ctx, http.MethodGet, vTask.LinkURL.String(), nil); err != nil {
+			if req, err = http.NewRequestWithContext(ctx, http.MethodGet, absLinkDestination, nil); err != nil {
 				return fmt.Errorf("failed to prepare GET validation request: %v", err)
 			}
 			if resp, err = doValidation(req, client); err != nil {
@@ -112,10 +148,10 @@ func (v *validatorWorker) Validate(ctx context.Context, task interface{}) error 
 					vTask.LinkDestination, vTask.ContentSourcePath, fmt.Errorf("HTTP Status %s", resp.Status))
 			}
 		}
-	} else {
-		return fmt.Errorf("incorrect validation task: %T", task)
+		v.validated.add(unifiedURL)
+		return nil
 	}
-	return nil
+	return fmt.Errorf("incorrect validation task: %T", task)
 }
 
 // doValidation performs several attempts to execute http request if http status code is 429
@@ -128,7 +164,16 @@ func doValidation(req *http.Request, client httpclient.Client) (*http.Response, 
 	_ = resp.Body.Close()
 	attempts := 0
 	for resp.StatusCode == http.StatusTooManyRequests && attempts < len(intervals)-1 {
-		time.Sleep(time.Duration(intervals[attempts]+rand.Intn(attempts+1)) * time.Second)
+		sleep := intervals[attempts] + rand.Intn(attempts+1)
+		// check for Retry-After Header and overwrite sleep time
+		if retryAfter := resp.Header.Get("Retry-After"); retryAfter != "" {
+			// support only value in seconds <= 5 min
+			var after int
+			if after, err = strconv.Atoi(retryAfter); err == nil && after <= 5*60 {
+				sleep = after
+			}
+		}
+		time.Sleep(time.Duration(sleep) * time.Second)
 		resp, err = client.Do(req)
 		if err != nil {
 			return resp, err
@@ -150,6 +195,9 @@ func ValidateWorkerFunc(httpClient httpclient.Client, resourceHandlers resourceh
 	vWorker := &validatorWorker{
 		httpClient:       httpClient,
 		resourceHandlers: resourceHandlers,
+		validated: &linkSet{
+			set: make(map[string]struct{}),
+		},
 	}
 	return vWorker.Validate, nil
 }

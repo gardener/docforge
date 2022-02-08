@@ -62,7 +62,7 @@ type Node struct {
 	// Applicable to document nodes only.
 	// Alternative to Source.
 	MultiSource []string `yaml:"multiSource,omitempty"`
-	// The Nodes property is a list of nodes that are descendants of this Node in the
+	// Nodes is a list of nodes that are descendants of this Node in the
 	// documentation structure.
 	// Applicable to container nodes only.
 	Nodes []*Node `yaml:"nodes,omitempty"`

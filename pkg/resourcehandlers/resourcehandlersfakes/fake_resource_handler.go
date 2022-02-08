@@ -7,6 +7,7 @@ package resourcehandlersfakes
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
@@ -48,6 +49,23 @@ type FakeResourceHandler struct {
 	}
 	getClientReturnsOnCall map[int]struct {
 		result1 httpclient.Client
+	}
+	GetRateLimitStub        func(context.Context) (int, int, time.Time, error)
+	getRateLimitMutex       sync.RWMutex
+	getRateLimitArgsForCall []struct {
+		arg1 context.Context
+	}
+	getRateLimitReturns struct {
+		result1 int
+		result2 int
+		result3 time.Time
+		result4 error
+	}
+	getRateLimitReturnsOnCall map[int]struct {
+		result1 int
+		result2 int
+		result3 time.Time
+		result4 error
 	}
 	GetRawFormatLinkStub        func(string) (string, error)
 	getRawFormatLinkMutex       sync.RWMutex
@@ -326,6 +344,76 @@ func (fake *FakeResourceHandler) GetClientReturnsOnCall(i int, result1 httpclien
 	fake.getClientReturnsOnCall[i] = struct {
 		result1 httpclient.Client
 	}{result1}
+}
+
+func (fake *FakeResourceHandler) GetRateLimit(arg1 context.Context) (int, int, time.Time, error) {
+	fake.getRateLimitMutex.Lock()
+	ret, specificReturn := fake.getRateLimitReturnsOnCall[len(fake.getRateLimitArgsForCall)]
+	fake.getRateLimitArgsForCall = append(fake.getRateLimitArgsForCall, struct {
+		arg1 context.Context
+	}{arg1})
+	stub := fake.GetRateLimitStub
+	fakeReturns := fake.getRateLimitReturns
+	fake.recordInvocation("GetRateLimit", []interface{}{arg1})
+	fake.getRateLimitMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2, ret.result3, ret.result4
+	}
+	return fakeReturns.result1, fakeReturns.result2, fakeReturns.result3, fakeReturns.result4
+}
+
+func (fake *FakeResourceHandler) GetRateLimitCallCount() int {
+	fake.getRateLimitMutex.RLock()
+	defer fake.getRateLimitMutex.RUnlock()
+	return len(fake.getRateLimitArgsForCall)
+}
+
+func (fake *FakeResourceHandler) GetRateLimitCalls(stub func(context.Context) (int, int, time.Time, error)) {
+	fake.getRateLimitMutex.Lock()
+	defer fake.getRateLimitMutex.Unlock()
+	fake.GetRateLimitStub = stub
+}
+
+func (fake *FakeResourceHandler) GetRateLimitArgsForCall(i int) context.Context {
+	fake.getRateLimitMutex.RLock()
+	defer fake.getRateLimitMutex.RUnlock()
+	argsForCall := fake.getRateLimitArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *FakeResourceHandler) GetRateLimitReturns(result1 int, result2 int, result3 time.Time, result4 error) {
+	fake.getRateLimitMutex.Lock()
+	defer fake.getRateLimitMutex.Unlock()
+	fake.GetRateLimitStub = nil
+	fake.getRateLimitReturns = struct {
+		result1 int
+		result2 int
+		result3 time.Time
+		result4 error
+	}{result1, result2, result3, result4}
+}
+
+func (fake *FakeResourceHandler) GetRateLimitReturnsOnCall(i int, result1 int, result2 int, result3 time.Time, result4 error) {
+	fake.getRateLimitMutex.Lock()
+	defer fake.getRateLimitMutex.Unlock()
+	fake.GetRateLimitStub = nil
+	if fake.getRateLimitReturnsOnCall == nil {
+		fake.getRateLimitReturnsOnCall = make(map[int]struct {
+			result1 int
+			result2 int
+			result3 time.Time
+			result4 error
+		})
+	}
+	fake.getRateLimitReturnsOnCall[i] = struct {
+		result1 int
+		result2 int
+		result3 time.Time
+		result4 error
+	}{result1, result2, result3, result4}
 }
 
 func (fake *FakeResourceHandler) GetRawFormatLink(arg1 string) (string, error) {
@@ -790,6 +878,8 @@ func (fake *FakeResourceHandler) Invocations() map[string][][]interface{} {
 	defer fake.buildAbsLinkMutex.RUnlock()
 	fake.getClientMutex.RLock()
 	defer fake.getClientMutex.RUnlock()
+	fake.getRateLimitMutex.RLock()
+	defer fake.getRateLimitMutex.RUnlock()
 	fake.getRawFormatLinkMutex.RLock()
 	defer fake.getRawFormatLinkMutex.RUnlock()
 	fake.readMutex.RLock()
