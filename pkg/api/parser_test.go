@@ -5,12 +5,13 @@ package api_test
 
 import (
 	"fmt"
+	"io/ioutil"
+	"path/filepath"
+
 	"github.com/gardener/docforge/pkg/api"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
-	"io/ioutil"
-	"path/filepath"
 )
 
 var _ = Describe("Parser", func() {
@@ -225,7 +226,7 @@ var _ = Describe("Parser", func() {
 
 			api.SetFlagsVariables(vars)
 			v[url] = len(tags)
-			api.SetNVersions(v, v)
+			api.SetNVersions(v)
 			got, err = api.ParseWithMetadata(manifest, tags, nVersions, targetBranch)
 		})
 		Context("given a general use case", func() {

@@ -4,23 +4,11 @@
 
 package configuration
 
-// Config defines docforge configuration
-type Config struct {
-	// CacheHome defines git repositories cache location
-	CacheHome   *string        `yaml:"cacheHome,omitempty"`
-	Credentials []*Credentials `yaml:"credentials,omitempty"`
-	// ResourceMappings defines URL -> location mapping for existing git repositories
-	ResourceMappings map[string]string `yaml:"resourceMappings,omitempty"`
-	Hugo             *Hugo             `yaml:"hugo,omitempty"`
-	DefaultBranches  map[string]string `yaml:"defaultBranches,omitempty"`
-	LastNVersions    map[string]int    `yaml:"lastNVersions,omitempty"`
-}
-
-// Credentials holds repositories access credentials
-type Credentials struct {
-	Host       string  `yaml:"host"`
-	Username   *string `yaml:"username,omitempty"`
-	OAuthToken *string `yaml:"oauthToken,omitempty"`
+//Credential holds repository credential data
+type Credential struct {
+	Host       string
+	Username   string
+	OAuthToken string `mapstructure:"o-auth-token"`
 }
 
 // Hugo is the configuration options for creating HUGO implementations

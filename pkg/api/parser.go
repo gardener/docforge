@@ -7,21 +7,20 @@ package api
 import (
 	"bytes"
 	"fmt"
-	"github.com/Masterminds/semver"
-	"github.com/hashicorp/go-multierror"
-	"gopkg.in/yaml.v3"
 	"html/template"
 	"sort"
 	"strings"
+
+	"github.com/Masterminds/semver"
+	"github.com/hashicorp/go-multierror"
+	"gopkg.in/yaml.v3"
 )
 
 // flagsVars variables for template resolving
 var (
-	flagsVars         map[string]string
-	flagVersionsMap   map[string]int
-	configVersionsMap map[string]int
-	flagBranchesMap   map[string]string
-	configBranchesMap map[string]string
+	flagsVars   map[string]string
+	versionsMap map[string]int
+	branchesMap map[string]string
 )
 
 // SetFlagsVariables initialize flags variables
@@ -30,15 +29,13 @@ func SetFlagsVariables(vars map[string]string) {
 }
 
 // SetNVersions sets the mapping of repo uri to last n versions to be iterated over
-func SetNVersions(flagNVersions map[string]int, configNVersions map[string]int) {
-	flagVersionsMap = flagNVersions
-	configVersionsMap = configNVersions
+func SetNVersions(versions map[string]int) {
+	versionsMap = versions
 }
 
 // SetDefaultBranches sets the mappinf of repo uri to name of the default branch
-func SetDefaultBranches(flagBranches map[string]string, configBranches map[string]string) {
-	flagBranchesMap = flagBranches
-	configBranchesMap = configBranches
+func SetDefaultBranches(branches map[string]string) {
+	branchesMap = branches
 }
 
 // ChooseTargetBranch chooses the default branch of the uri based on command variable, config file and repo default branch setup
@@ -48,11 +45,9 @@ func ChooseTargetBranch(uri string, repoCurrentBranch string) string {
 		ok           bool
 	)
 	//choosing default branch
-	if targetBranch, ok = flagBranchesMap[uri]; !ok {
-		if targetBranch, ok = configBranchesMap[uri]; !ok {
-			if targetBranch, ok = flagBranchesMap["default"]; !ok {
-				targetBranch = repoCurrentBranch
-			}
+	if targetBranch, ok = branchesMap[uri]; !ok {
+		if targetBranch, ok = branchesMap["default"]; !ok {
+			targetBranch = repoCurrentBranch
 		}
 	}
 	return targetBranch
@@ -65,11 +60,9 @@ func ChooseNVersions(uri string) int {
 		ok    bool
 	)
 	//setting nTags
-	if nTags, ok = flagVersionsMap[uri]; !ok {
-		if nTags, ok = configVersionsMap[uri]; !ok {
-			if nTags, ok = flagVersionsMap["default"]; !ok {
-				nTags = 0
-			}
+	if nTags, ok = versionsMap[uri]; !ok {
+		if nTags, ok = versionsMap["default"]; !ok {
+			nTags = 0
 		}
 	}
 	return nTags
