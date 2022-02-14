@@ -18,6 +18,7 @@ import (
 
 // Manifest reads the resource at uri, resolves it as template applying vars,
 // and finally parses it into api.Documentation model
+// TODO: add options parameters from cmd.go and pass them to api.parse function
 func manifest(ctx context.Context, uri string, resourceHandlers []resourcehandlers.ResourceHandler) (*api.Documentation, error) {
 	var (
 		handler         resourcehandlers.ResourceHandler

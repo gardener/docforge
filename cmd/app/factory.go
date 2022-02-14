@@ -37,6 +37,14 @@ const (
 
 // NewReactor creates a Reactor from Options
 func NewReactor(o *Options, rhs []resourcehandlers.ResourceHandler) (*reactor.Reactor, error) {
+
+	hugo := &reactor.Hugo{
+		Enabled:        o.Hugo,
+		PrettyURLs:     o.HugoPrettyUrls,
+		BaseURL:        o.HugoBaseURL,
+		IndexFileNames: o.FlagsHugoSectionFiles,
+	}
+
 	opt := &reactor.Options{
 		DocumentWorkersCount:         o.DocumentWorkersCount,
 		ValidationWorkersCount:       o.ValidationWorkersCount,
@@ -48,9 +56,10 @@ func NewReactor(o *Options, rhs []resourcehandlers.ResourceHandler) (*reactor.Re
 		ResourceHandlers:             rhs,
 		Resolve:                      o.Resolve,
 		ManifestPath:                 o.DocumentationManifestPath,
-		Hugo:                         o.Hugo,
-		DefaultBranches:              o.DefaultBranches,
-		LastNVersions:                o.LastNVersions,
+		Hugo:                         hugo,
+		//TODO for parser api config task
+		DefaultBranches: o.DefaultBranches,
+		//LastNVersions:                o.LastNVersions,
 	}
 
 	if o.DryRun {
@@ -103,6 +112,7 @@ func initResourceHandlers(ctx context.Context, o *Options) ([]resourcehandlers.R
 	return rhs, errs.ErrorOrNil()
 }
 
+//TODO: pass parser options to rh constructor
 func newResourceHandler(host, homeDir string, user *string, token string, client *github.Client, httpClient *http.Client, useGit bool, localMappings map[string]string) resourcehandlers.ResourceHandler {
 	rawHost := "raw." + host
 	if host == "github.com" {
