@@ -103,15 +103,19 @@ type GitHub struct {
 	httpClient    *http.Client
 	cache         *Cache
 	acceptedHosts []string
+	branchesMap   map[string]string
+	flagVars      map[string]string
 }
 
 // NewResourceHandler creates new GitHub ResourceHandler objects
-func NewResourceHandler(client *github.Client, httpClient *http.Client, acceptedHosts []string) resourcehandlers.ResourceHandler {
+func NewResourceHandler(client *github.Client, httpClient *http.Client, acceptedHosts []string, branchesMap map[string]string, flagVars map[string]string) resourcehandlers.ResourceHandler {
 	return &GitHub{
 		Client:        client,
 		httpClient:    httpClient,
 		cache:         NewEmptyCache(&TreeExtractorGithub{Client: client}),
 		acceptedHosts: acceptedHosts,
+		branchesMap:   branchesMap,
+		flagVars:      flagVars,
 	}
 }
 
@@ -122,6 +126,8 @@ func NewResourceHandlerTest(client *github.Client, httpClient *http.Client, acce
 		httpClient:    httpClient,
 		cache:         cache,
 		acceptedHosts: acceptedHosts,
+		branchesMap:   map[string]string{},
+		flagVars:      map[string]string{},
 	}
 }
 
@@ -360,20 +366,23 @@ func (gh *GitHub) ResolveDocumentation(ctx context.Context, path string) (*api.D
 	if !(rl.Type == Blob || rl.Type == Raw) || urls.Ext(rl.String()) == ".md" {
 		return nil, nil
 	}
-	// here rl.SHAAlias on the right side is the repo current branch
-	rl.SHAAlias = api.ChooseTargetBranch(path, rl.SHAAlias)
-	// getting nVersions based on configuration
-	nVersions := api.ChooseNVersions(path)
-	tags, err := gh.GetAllTags(ctx, rl)
-	if err != nil {
-		return nil, err
+	var (
+		targetBranch string
+		ok           bool
+	)
+	//choosing default branch
+	if targetBranch, ok = gh.branchesMap[path]; !ok {
+		if targetBranch, ok = gh.branchesMap["default"]; !ok {
+			targetBranch = rl.SHAAlias
+		}
 	}
+	rl.SHAAlias = targetBranch
+
 	blob, err := gh.Read(ctx, rl.String())
 	if err != nil {
 		return nil, err
 	}
-	//TODO: use arguments from gh object
-	doc, err := api.ParseWithMetadata(blob, tags, nVersions, rl.SHAAlias)
+	doc, err := api.ParseWithMetadata(blob, rl.SHAAlias, gh.flagVars)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse manifest: %s. %+v", path, err)
 	}
@@ -427,20 +436,6 @@ func (gh *GitHub) resolveDocumentationRelativePaths(node *api.Node, moduleDocume
 		}
 	}
 	return errs
-}
-
-// GetAllTags returns all tags from a given resource locator
-func (gh *GitHub) GetAllTags(ctx context.Context, rl *ResourceLocator) ([]string, error) {
-	refs, _, err := gh.Client.Git.ListMatchingRefs(ctx, rl.Owner, rl.Repo, &github.ReferenceListOptions{Ref: "tags"})
-	if err != nil {
-		return nil, err
-	}
-	refString := []string{}
-	for _, ref := range refs {
-		parts := strings.Split(*ref.Ref, "refs/tags/")
-		refString = append(refString, parts[1])
-	}
-	return refString, nil
 }
 
 // Read implements resourcehandlers/ResourceHandler#Read

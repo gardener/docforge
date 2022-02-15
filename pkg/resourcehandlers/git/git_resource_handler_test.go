@@ -566,7 +566,7 @@ var _ = Describe("Git", func() {
 		)
 
 		JustBeforeEach(func() {
-			gh = git.NewResourceHandler("", nil, "", nil, nil, acceptedHosts, nil)
+			gh = git.NewResourceHandler("", nil, "", nil, nil, acceptedHosts, nil, map[string]string{}, map[string]string{})
 			got = gh.Accept(url)
 		})
 
@@ -910,7 +910,6 @@ structure:
 {{- end }}`))
 			fakeFileSystem.ReadFileReturns(manifestData, nil)
 
-			api.SetFlagsVariables(make(map[string]string))
 		})
 
 		JustBeforeEach(func() {
@@ -923,10 +922,6 @@ structure:
 			fakeGit.PlainOpenReturns(&fakeRepository, nil)
 			fakeRepository.TagsReturns(tags, nil)
 			fakeRepository.WorktreeReturns(&fakeWorktree, nil)
-
-			s := make(map[string]int)
-			s[uri] = len(tags)
-			api.SetNVersions(s)
 
 			got, err = gh.ResolveDocumentation(ctx, uri)
 		})
@@ -941,8 +936,6 @@ structure:
 				repositoryPath = "github.com/testOrg/testRepo/testMainBranch"
 				uri = "https://github.com/testOrg/testRepo/blob/DEFAULT_BRANCH/testManifest.yaml"
 
-				tags = []string{"v4.9", "v5.7", "v6.1", "v7.7"}
-
 				expected = &api.Documentation{
 					Structure: []*api.Node{
 						{
@@ -952,22 +945,6 @@ structure:
 						{
 							Name:   "docs",
 							Source: "https://github.com/gardener/docforge/blob/testMainBranch/integration-test/tested-doc/merge-test/testFile.md",
-						},
-						{
-							Name:   "v7.7",
-							Source: "https://github.com/gardener/docforge/blob/v7.7/integration-test/tested-doc/merge-test/testFile.md",
-						},
-						{
-							Name:   "v6.1",
-							Source: "https://github.com/gardener/docforge/blob/v6.1/integration-test/tested-doc/merge-test/testFile.md",
-						},
-						{
-							Name:   "v5.7",
-							Source: "https://github.com/gardener/docforge/blob/v5.7/integration-test/tested-doc/merge-test/testFile.md",
-						},
-						{
-							Name:   "v4.9",
-							Source: "https://github.com/gardener/docforge/blob/v4.9/integration-test/tested-doc/merge-test/testFile.md",
 						},
 					},
 				}

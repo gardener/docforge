@@ -75,7 +75,7 @@ var _ = Describe("Github", func() {
 	var gh resourcehandlers.ResourceHandler
 
 	BeforeEach(func() {
-		gh = github.NewResourceHandler(nil, nil, nil)
+		gh = github.NewResourceHandler(nil, nil, nil, map[string]string{}, map[string]string{})
 	})
 
 	Describe("UrlToGitHubLocator", func() {
@@ -777,7 +777,7 @@ var _ = Describe("Github", func() {
 		)
 
 		JustBeforeEach(func() {
-			gh = github.NewResourceHandler(nil, nil, acceptedHosts)
+			gh = github.NewResourceHandler(nil, nil, acceptedHosts, map[string]string{}, map[string]string{})
 			got = gh.Accept(url)
 		})
 
@@ -846,64 +846,6 @@ var _ = Describe("Github", func() {
 
 	})
 
-	Describe("Getting all tags", func() {
-		var (
-			rl  *github.ResourceLocator
-			mux func(mux *http.ServeMux)
-			got []string
-			err error
-		)
-		JustBeforeEach(func() {
-			ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
-			defer cancel()
-			ghrh := &github.GitHub{}
-			client, muxGot, _, teardown := setup()
-			defer teardown()
-			if mux != nil {
-				mux(muxGot)
-			}
-			ghrh.Client = client
-			got, err = ghrh.GetAllTags(ctx, rl)
-		})
-		Context("given the general use case", func() {
-			BeforeEach(func() {
-				rl = &github.ResourceLocator{
-					"https",
-					"github.com",
-					"gardener",
-					"gardener",
-					"",
-					github.Blob,
-					"",
-					"master",
-					false,
-				}
-				mux = func(mux *http.ServeMux) {
-					mux.HandleFunc("/repos/gardener/gardener/git/matching-refs/tags", func(w http.ResponseWriter, r *http.Request) {
-						w.Write([]byte(fmt.Sprintf(`
-						[
-							{
-							  "ref": "refs/tags/v0.0.1"
-							},
-							{
-							  "ref": "refs/tags/v0.1.0"
-							},
-							{
-							  "ref": "refs/tags/v0.2.0"
-							}
-						]`)))
-					})
-				}
-
-			})
-
-			It("should work as expected", func() {
-				Expect(err).NotTo(HaveOccurred())
-				Expect(got).To(Equal([]string{"v0.0.1", "v0.1.0", "v0.2.0"}))
-			})
-		})
-	})
-
 	Describe("Read", func() {
 		var (
 			mux func(mux *http.ServeMux)
@@ -946,15 +888,9 @@ var _ = Describe("Github", func() {
 					w.Write([]byte(fmt.Sprintf(`structure:
 - name: community
 source: https://github.com/gardener/docforge/edit/master/integration-test/tested-doc/merge-test/testFile.md
-{{- $vers := Split .versions "," -}}
-{{- range $i, $version := $vers -}}
-{{- if eq $i 0  }}
 - name: docs
-{{- else }}
-- name: {{$version}}
-{{- end }}
-source: https://github.com/gardener/docforge/blob/{{$version}}/integration-test/tested-doc/merge-test/testFile.md
-{{- end }}`)))
+source: https://github.com/gardener/docforge/blob/master/integration-test/tested-doc/merge-test/testFile.md
+`)))
 				})
 
 			}
@@ -964,7 +900,7 @@ source: https://github.com/gardener/docforge/blob/{{$version}}/integration-test/
 			ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 			defer cancel()
 			client, muxFromSetup, _, teardown := setup()
-			gh = github.NewResourceHandler(client, nil, nil)
+			gh = github.NewResourceHandler(client, nil, nil, map[string]string{}, map[string]string{})
 			defer teardown()
 			if mux != nil {
 				mux(muxFromSetup)
@@ -1006,15 +942,9 @@ source: https://github.com/gardener/docforge/blob/{{$version}}/integration-test/
 				want = []byte(fmt.Sprintf(`structure:
 - name: community
 source: https://github.com/gardener/docforge/edit/master/integration-test/tested-doc/merge-test/testFile.md
-{{- $vers := Split .versions "," -}}
-{{- range $i, $version := $vers -}}
-{{- if eq $i 0  }}
 - name: docs
-{{- else }}
-- name: {{$version}}
-{{- end }}
-source: https://github.com/gardener/docforge/blob/{{$version}}/integration-test/tested-doc/merge-test/testFile.md
-{{- end }}`))
+source: https://github.com/gardener/docforge/blob/master/integration-test/tested-doc/merge-test/testFile.md
+`))
 			})
 
 			It("should read it correctly", func() {
@@ -1026,32 +956,28 @@ source: https://github.com/gardener/docforge/blob/{{$version}}/integration-test/
 
 	Describe("Resolving documentation", func() {
 		var (
-			uri              string
-			nDefaultVersions int
-			mux              func(mux *http.ServeMux)
-			got              *api.Documentation
-			err              error
+			uri string
+			mux func(mux *http.ServeMux)
+			got *api.Documentation
+			err error
 		)
 
 		JustBeforeEach(func() {
 			ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 			defer cancel()
 			client, muxFromSetup, _, teardown := setup()
-			gh = github.NewResourceHandler(client, nil, nil)
+			gh = github.NewResourceHandler(client, nil, nil, map[string]string{}, map[string]string{})
 			defer teardown()
 			if mux != nil {
 				mux(muxFromSetup)
 			}
-			var s map[string]int = make(map[string]int)
-			s["default"] = nDefaultVersions
-			api.SetNVersions(s)
-			api.SetFlagsVariables(make(map[string]string))
+
 			got, err = gh.ResolveDocumentation(ctx, uri)
 		})
 		Context("given the general use case", func() {
 			BeforeEach(func() {
-				nDefaultVersions = 4
 				uri = "https://github.com/testOrg/testRepo/blob/DEFAULT_BRANCH/testManifest.yaml"
+
 				mux = func(mux *http.ServeMux) {
 					mux.HandleFunc("/repos/testOrg/testRepo/git/trees/testMainBranch", func(w http.ResponseWriter, r *http.Request) {
 						w.Write([]byte(fmt.Sprintf(`
@@ -1076,33 +1002,11 @@ source: https://github.com/gardener/docforge/blob/{{$version}}/integration-test/
 						w.Write([]byte(fmt.Sprintf(`structure:
 - name: community
   source: https://github.com/gardener/docforge/edit/master/integration-test/tested-doc/merge-test/testFile.md
-{{- $vers := Split .versions "," -}}
-{{- range $i, $version := $vers -}}
-{{- if eq $i 0  }}
 - name: docs
-{{- else }}
-- name: {{$version}}
-{{- end }}
-  source: https://github.com/gardener/docforge/blob/{{$version}}/integration-test/tested-doc/merge-test/testFile.md
-{{- end }}`)))
+  source: https://github.com/gardener/docforge/blob/master/integration-test/tested-doc/merge-test/testFile.md
+`)))
 					})
-					mux.HandleFunc("/repos/testOrg/testRepo/git/matching-refs/tags", func(w http.ResponseWriter, r *http.Request) {
-						w.Write([]byte(fmt.Sprintf(`
-						[
-							{
-							  "ref": "refs/tags/v4.9"
-							},
-							{
-							  "ref": "refs/tags/v5.7"
-							},
-							{
-							  "ref": "refs/tags/v6.1"
-							},
-							{
-							  "ref": "refs/tags/v7.7"
-							}
-						]`)))
-					})
+
 					mux.HandleFunc("/repos/testOrg/testRepo", func(w http.ResponseWriter, r *http.Request) {
 						w.Write([]byte(fmt.Sprintf(`
 							{	
@@ -1122,46 +1026,10 @@ source: https://github.com/gardener/docforge/blob/{{$version}}/integration-test/
 						},
 						{
 							Name:   "docs",
-							Source: "https://github.com/gardener/docforge/blob/testMainBranch/integration-test/tested-doc/merge-test/testFile.md",
-						},
-						{
-							Name:   "v7.7",
-							Source: "https://github.com/gardener/docforge/blob/v7.7/integration-test/tested-doc/merge-test/testFile.md",
-						},
-						{
-							Name:   "v6.1",
-							Source: "https://github.com/gardener/docforge/blob/v6.1/integration-test/tested-doc/merge-test/testFile.md",
-						},
-						{
-							Name:   "v5.7",
-							Source: "https://github.com/gardener/docforge/blob/v5.7/integration-test/tested-doc/merge-test/testFile.md",
-						},
-						{
-							Name:   "v4.9",
-							Source: "https://github.com/gardener/docforge/blob/v4.9/integration-test/tested-doc/merge-test/testFile.md",
+							Source: "https://github.com/gardener/docforge/blob/master/integration-test/tested-doc/merge-test/testFile.md",
 						},
 					},
 				}))
-			})
-			Context("and no versions", func() {
-				BeforeEach(func() {
-					nDefaultVersions = 0
-				})
-				It("should apply only the main branch", func() {
-					Expect(err).NotTo(HaveOccurred())
-					Expect(got).To(Equal(&api.Documentation{
-						Structure: []*api.Node{
-							{
-								Name:   "community",
-								Source: "https://github.com/gardener/docforge/edit/master/integration-test/tested-doc/merge-test/testFile.md",
-							},
-							{
-								Name:   "docs",
-								Source: "https://github.com/gardener/docforge/blob/testMainBranch/integration-test/tested-doc/merge-test/testFile.md",
-							},
-						},
-					}))
-				})
 			})
 		})
 	})

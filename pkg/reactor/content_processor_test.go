@@ -188,7 +188,7 @@ func Test_processLink(t *testing.T) {
 		t.Run("", func(t *testing.T) {
 			c := &nodeContentProcessor{
 				resourcesRoot:    "/__resources",
-				resourceHandlers: resourcehandlers.NewRegistry(githubHandler.NewResourceHandler(github.NewClient(nil), http.DefaultClient, []string{"github.com"})),
+				resourceHandlers: resourcehandlers.NewRegistry(githubHandler.NewResourceHandler(github.NewClient(nil), http.DefaultClient, []string{"github.com"}, map[string]string{}, map[string]string{})),
 				rewriteEmbedded:  true,
 				validator:        &fakeValidator{},
 				downloader:       &fakeDownload{},
