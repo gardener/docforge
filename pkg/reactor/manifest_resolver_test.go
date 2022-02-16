@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gardener/docforge/cmd/configuration"
 	"github.com/gardener/docforge/pkg/writers/writersfakes"
 
 	"github.com/gardener/docforge/pkg/api"
@@ -329,7 +328,7 @@ func TestResolveManifest(t *testing.T) {
 			opt := &Options{
 				ResourceHandlers:             []resourcehandlers.ResourceHandler{rh},
 				ManifestPath:                 tt.args.manifestPath,
-				Hugo:                         &configuration.Hugo{},
+				Hugo:                         &Hugo{},
 				Writer:                       &writersfakes.FakeWriter{},
 				ResourceDownloadWriter:       &writersfakes.FakeWriter{},
 				ResourceDownloadWorkersCount: 1,
@@ -555,7 +554,7 @@ func Test_resolveNodeSelector(t *testing.T) {
 			rh.ResolveNodeSelectorStub = tt.resolveNodeSelectorFunc
 			opt := &Options{
 				ResourceHandlers:             []resourcehandlers.ResourceHandler{rh},
-				Hugo:                         &configuration.Hugo{},
+				Hugo:                         &Hugo{},
 				Writer:                       &writersfakes.FakeWriter{},
 				ResourceDownloadWriter:       &writersfakes.FakeWriter{},
 				ResourceDownloadWorkersCount: 1,
@@ -711,7 +710,7 @@ func Test_resolveNodeName(t *testing.T) {
 			rh.ResourceNameStub = tt.resourceName
 			opt := &Options{
 				ResourceHandlers: []resourcehandlers.ResourceHandler{rh},
-				Hugo: &configuration.Hugo{
+				Hugo: &Hugo{
 					Enabled:        true,
 					IndexFileNames: tt.args.indexFileNames,
 				},

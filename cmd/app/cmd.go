@@ -12,7 +12,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gardener/docforge/cmd/configuration"
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/spf13/cobra"
@@ -27,17 +26,8 @@ const (
 	DocforgeHomeDir = ".docforge"
 )
 
-type loadedConfiguration struct {
-	baseConfig `mapstructure:",squash"`
-
-	GhOAuthToken  string            `mapstructure:"github-oauth-token"`
-	GhOAuthTokens map[string]string `mapstructure:"github-oauth-token-map"`
-	//credentials loaded from config file
-	Credidential  []configuration.Credential `mapstructure:"credidential"`
-	LastNVersions map[string]string          `mapstructure:"lastNVersions"`
-}
-
-type baseConfig struct {
+// Options data structure with all the options for docforge
+type Options struct {
 	DocumentWorkersCount         int               `mapstructure:"document-workers"`
 	ValidationWorkersCount       int               `mapstructure:"validation-workers"`
 	FailFast                     bool              `mapstructure:"fail-fast"`
@@ -57,18 +47,19 @@ type baseConfig struct {
 	HugoBaseURL                  string            `mapstructure:"hugo-base-url"`
 	UseGit                       bool              `mapstructure:"use-git"`
 	CacheHomeDir                 string            `mapstructure:"cache-dir"`
-
-	ResourceMappings map[string]string `mapstructure:"resourceMappings"`
-	DefaultBranches  map[string]string `mapstructure:"defaultBranches"`
+	Credentials                  []Credential      `mapstructure:"credidential"`
+	ResourceMappings             map[string]string `mapstructure:"resourceMappings"`
+	DefaultBranches              map[string]string `mapstructure:"defaultBranches"`
+	GhOAuthToken                 string            `mapstructure:"github-oauth-token"`
+	GhOAuthTokens                map[string]string `mapstructure:"github-oauth-token-map"`
+	LastNVersions                map[string]string `mapstructure:"lastNVersions"`
 }
 
-// Options data structure with all the options for docforge
-type Options struct {
-	baseConfig
-
-	Hugo          *configuration.Hugo
-	Credentials   []*configuration.Credential
-	LastNVersions map[string]int
+//Credential holds repository credential data
+type Credential struct {
+	Host       string
+	Username   string
+	OAuthToken string `mapstructure:"o-auth-token"`
 }
 
 var vip *viper.Viper
@@ -98,7 +89,18 @@ func NewCommand(ctx context.Context) *cobra.Command {
 			// TODO: HOW API CAN CONSUME CONFIGURATION
 			api.SetFlagsVariables(options.Variables)
 			api.SetDefaultBranches(options.DefaultBranches)
-			api.SetNVersions(options.LastNVersions)
+			interfaceMap := options.LastNVersions
+			converted := make(map[string]int)
+			var toInt int
+			for key, value := range interfaceMap {
+				toInt, err = strconv.Atoi(value)
+				if err == nil {
+					converted[key] = toInt
+				} else {
+					klog.Warningf(`for key %s in lastNVersions provided %s while expecting a int type. Skipping it`, key, value)
+				}
+			}
+			api.SetNVersions(converted)
 			if doc, err = manifest(ctx, options.DocumentationManifestPath, rhs); err != nil {
 				return err
 			}
@@ -270,37 +272,13 @@ func configureConfigFile() {
 // NewOptions creates a configuration.Options object from flags and configuration file
 // flags overwrites values from configuration file
 func NewOptions() (*Options, error) {
-	loadedOptions := &loadedConfiguration{}
+	loadedOptions := &Options{}
 	err := vip.Unmarshal(loadedOptions)
 	if err != nil {
 		return nil, err
 	}
-
-	hugo := configuration.Hugo{
-		Enabled:        vip.GetBool("hugo"),
-		PrettyURLs:     vip.GetBool("hugo-pretty-urls"),
-		BaseURL:        vip.GetString("hugo-base-url"),
-		IndexFileNames: vip.GetStringSlice("hugo-section-files"),
-	}
-
-	interfaceMap := vip.GetStringMapString("lastNVersions")
-	converted := make(map[string]int)
-	var toInt int
-	for key, value := range interfaceMap {
-		toInt, err = strconv.Atoi(value)
-		if err == nil {
-			converted[key] = toInt
-		} else {
-			klog.Warningf(`for key %s in lastNVersions provided %s while expecting a int type. Skipping it`, key, value)
-		}
-	}
-
-	return &Options{
-		baseConfig:    loadedOptions.baseConfig,
-		Credentials:   gatherCredentials(),
-		LastNVersions: converted,
-		Hugo:          &hugo,
-	}, nil
+	loadedOptions.Credentials = gatherCredentials()
+	return loadedOptions, nil
 }
 
 // AddFlags adds go flags to rootCmd
@@ -310,8 +288,8 @@ func AddFlags(rootCmd *cobra.Command) {
 	})
 }
 
-func gatherCredentials() []*configuration.Credential {
-	configCredentials := []configuration.Credential{}
+func gatherCredentials() []Credential {
+	configCredentials := []Credential{}
 	err := vip.UnmarshalKey("credidential", &configCredentials)
 	if err != nil {
 		klog.Warningf("error in unmarshaling credidentails from config: %s", err.Error())
@@ -319,7 +297,7 @@ func gatherCredentials() []*configuration.Credential {
 	ghOAuthTokens := vip.GetStringMapString("github-oauth-token-map")
 	ghOAuthToken := vip.GetString("github-oauth-token")
 
-	credentialsByHost := make(map[string]*configuration.Credential)
+	credentialsByHost := make(map[string]Credential)
 
 	// when no token specified consider the configuration incorrect
 	for _, cred := range configCredentials {
@@ -327,7 +305,7 @@ func gatherCredentials() []*configuration.Credential {
 			klog.Warningf("configuration is considered incorrect because of missing oauth token for host: %s\n", cred.Host)
 			continue
 		}
-		credentialsByHost[cred.Host] = &cred
+		credentialsByHost[cred.Host] = cred
 	}
 	// tokens provided by flags will override the config
 	for instance, credentials := range ghOAuthTokens {
@@ -342,7 +320,7 @@ func gatherCredentials() []*configuration.Credential {
 		if _, ok := credentialsByHost[instance]; ok {
 			klog.Warningf("%s token is overridden by the provided token with `--github-oauth-token-map flag`\n", instance)
 		}
-		credentialsByHost[instance] = &configuration.Credential{
+		credentialsByHost[instance] = Credential{
 			Host:       instance,
 			Username:   username,
 			OAuthToken: token,
@@ -362,7 +340,7 @@ func gatherCredentials() []*configuration.Credential {
 			token = usernameAndToken[1]
 		}
 
-		credentialsByHost["github.com"] = &configuration.Credential{
+		credentialsByHost["github.com"] = Credential{
 			Host:       "github.com",
 			Username:   username,
 			OAuthToken: token,
@@ -371,14 +349,14 @@ func gatherCredentials() []*configuration.Credential {
 		if _, ok := credentialsByHost["github.com"]; !ok {
 			klog.Infof("using unauthenticated github access`\n")
 			//credentialByHost at github.com is not set and should be set to empty string
-			credentialsByHost["github.com"] = &configuration.Credential{
+			credentialsByHost["github.com"] = Credential{
 				Host:       "github.com",
 				Username:   "",
 				OAuthToken: "",
 			}
 		}
 	}
-	var credentials = make([]*configuration.Credential, 0, len(credentialsByHost))
+	var credentials = make([]Credential, 0, len(credentialsByHost))
 	for _, cred := range credentialsByHost {
 		credentials = append(credentials, cred)
 	}

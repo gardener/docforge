@@ -10,17 +10,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/gardener/docforge/cmd/configuration"
-	"github.com/gardener/docforge/pkg/api"
-	"github.com/gardener/docforge/pkg/jobs"
-	"github.com/gardener/docforge/pkg/resourcehandlers"
-	"github.com/gardener/docforge/pkg/writers"
 	"io"
-	"k8s.io/klog/v2"
 	"net/http"
 	"os"
 	"strings"
 	"sync"
+
+	"github.com/gardener/docforge/pkg/api"
+	"github.com/gardener/docforge/pkg/jobs"
+	"github.com/gardener/docforge/pkg/resourcehandlers"
+	"github.com/gardener/docforge/pkg/writers"
+	"k8s.io/klog/v2"
 )
 
 // Options encapsulates the parameters for creating
@@ -40,9 +40,17 @@ type Options struct {
 	ResourceHandlers             []resourcehandlers.ResourceHandler
 	DryRunWriter                 writers.DryRunWriter
 	Resolve                      bool
-	Hugo                         *configuration.Hugo
+	Hugo                         *Hugo
 	DefaultBranches              map[string]string
 	LastNVersions                map[string]int
+}
+
+// Hugo is the configuration options for creating HUGO implementations
+type Hugo struct {
+	Enabled        bool
+	PrettyURLs     bool
+	BaseURL        string
+	IndexFileNames []string
 }
 
 // NewReactor creates a Reactor from Options

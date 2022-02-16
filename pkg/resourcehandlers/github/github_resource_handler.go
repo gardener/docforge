@@ -9,7 +9,6 @@ package github
 import (
 	"context"
 	"fmt"
-	"github.com/hashicorp/go-multierror"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -17,6 +16,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/hashicorp/go-multierror"
 
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
@@ -371,7 +372,7 @@ func (gh *GitHub) ResolveDocumentation(ctx context.Context, path string) (*api.D
 	if err != nil {
 		return nil, err
 	}
-
+	//TODO: use arguments from gh object
 	doc, err := api.ParseWithMetadata(blob, tags, nVersions, rl.SHAAlias)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse manifest: %s. %+v", path, err)
