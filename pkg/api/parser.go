@@ -8,132 +8,24 @@ import (
 	"bytes"
 	"fmt"
 	"html/template"
-	"sort"
 	"strings"
 
-	"github.com/Masterminds/semver"
 	"github.com/hashicorp/go-multierror"
 	"gopkg.in/yaml.v3"
 )
 
-// flagsVars variables for template resolving
-var (
-	flagsVars   map[string]string
-	versionsMap map[string]int
-	branchesMap map[string]string
-)
-
-// SetFlagsVariables initialize flags variables
-func SetFlagsVariables(vars map[string]string) {
-	flagsVars = vars
-}
-
-// SetNVersions sets the mapping of repo uri to last n versions to be iterated over
-func SetNVersions(versions map[string]int) {
-	versionsMap = versions
-}
-
-// SetDefaultBranches sets the mappinf of repo uri to name of the default branch
-func SetDefaultBranches(branches map[string]string) {
-	branchesMap = branches
-}
-
-// ChooseTargetBranch chooses the default branch of the uri based on command variable, config file and repo default branch setup
-func ChooseTargetBranch(uri string, repoCurrentBranch string) string {
-	var (
-		targetBranch string
-		ok           bool
-	)
-	//choosing default branch
-	if targetBranch, ok = branchesMap[uri]; !ok {
-		if targetBranch, ok = branchesMap["default"]; !ok {
-			targetBranch = repoCurrentBranch
-		}
-	}
-	return targetBranch
-}
-
-// ChooseNVersions chooses how many versions to be iterated over given a repo uri
-func ChooseNVersions(uri string) int {
-	var (
-		nTags int
-		ok    bool
-	)
-	//setting nTags
-	if nTags, ok = versionsMap[uri]; !ok {
-		if nTags, ok = versionsMap["default"]; !ok {
-			nTags = 0
-		}
-	}
-	return nTags
-}
-
 // ParseWithMetadata parses a document's byte content given some other metainformation
-func ParseWithMetadata(b []byte, allTags []string, nTags int, targetBranch string) (*Documentation, error) {
-	var (
-		err  error
-		tags []string
-	)
-	if tags, err = GetLastNVersions(allTags, nTags); err != nil {
-		return nil, err
-	}
+func ParseWithMetadata(b []byte, targetBranch string, flagsVars map[string]string) (*Documentation, error) {
 	versionList := make([]string, 0)
 	versionList = append(versionList, targetBranch)
-	versionList = append(versionList, tags...)
 
 	versions := strings.Join(versionList, ",")
 	flagsVars["versions"] = versions
-	return Parse(b)
-}
-
-// GetLastNVersions returns only the last patch version for each major and minor version
-func GetLastNVersions(tags []string, n int) ([]string, error) {
-	if n < 0 {
-		return nil, fmt.Errorf("n can't be negative")
-	} else if n == 0 {
-		return []string{}, nil
-	}
-
-	if len(tags) == 0 {
-		return nil, fmt.Errorf("number of tags is greater than the actual number of all tags: wanted - %d, actual - %d", n, len(tags))
-	}
-
-	versions := make([]*semver.Version, len(tags))
-	//convert strings to versions
-	for i, tag := range tags {
-		version, err := semver.NewVersion(tag)
-		if err != nil {
-			return nil, fmt.Errorf("Error parsing version: %s", tag)
-		}
-		versions[i] = version
-	}
-	sort.Sort(sort.Reverse(semver.Collection(versions)))
-
-	//get last patches of the last n major versions
-	latestVersions := make([]string, 0)
-	firstVersion := versions[0]
-	latestVersions = append(latestVersions, firstVersion.Original())
-
-	constaint, err := semver.NewVersion(fmt.Sprintf("%d.%d", firstVersion.Major(), firstVersion.Minor()))
-	if err != nil {
-		return nil, err
-	}
-	for i := 1; i < len(versions) && len(latestVersions) < n; i++ {
-		if versions[i].LessThan(constaint) {
-			latestVersions = append(latestVersions, versions[i].Original())
-			if constaint, err = semver.NewVersion(fmt.Sprintf("%d.%d", versions[i].Major(), versions[i].Minor())); err != nil {
-				return nil, err
-			}
-		}
-	}
-	if n > len(latestVersions) {
-		return nil, fmt.Errorf("number of tags is greater than the actual number of all tags: wanted - %d, actual - %d", n, len(latestVersions))
-	}
-	return latestVersions, nil
+	return Parse(b, flagsVars)
 }
 
 // Parse is a function which construct documentation struct from given byte array
-func Parse(b []byte) (*Documentation, error) {
+func Parse(b []byte, flagsVars map[string]string) (*Documentation, error) {
 	blob, err := resolveVariables(b, flagsVars)
 	if err != nil {
 		return nil, err

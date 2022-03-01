@@ -9,7 +9,6 @@ import (
 	"flag"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/gardener/docforge/pkg/api"
@@ -86,22 +85,7 @@ func NewCommand(ctx context.Context) *cobra.Command {
 			if rhs, err = initResourceHandlers(ctx, options); err != nil {
 				return err
 			}
-			// TODO: HOW API CAN CONSUME CONFIGURATION
-			api.SetFlagsVariables(options.Variables)
-			api.SetDefaultBranches(options.DefaultBranches)
-			interfaceMap := options.LastNVersions
-			converted := make(map[string]int)
-			var toInt int
-			for key, value := range interfaceMap {
-				toInt, err = strconv.Atoi(value)
-				if err == nil {
-					converted[key] = toInt
-				} else {
-					klog.Warningf(`for key %s in lastNVersions provided %s while expecting a int type. Skipping it`, key, value)
-				}
-			}
-			api.SetNVersions(converted)
-			if doc, err = manifest(ctx, options.DocumentationManifestPath, rhs); err != nil {
+			if doc, err = manifest(ctx, options.DocumentationManifestPath, rhs, options.DefaultBranches, options.Variables); err != nil {
 				return err
 			}
 			reactor, err := NewReactor(options, rhs)

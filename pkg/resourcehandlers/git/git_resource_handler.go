@@ -11,7 +11,6 @@ package git
 import (
 	"context"
 	"fmt"
-	"github.com/hashicorp/go-multierror"
 	nethttp "net/http"
 	"net/url"
 	"os"
@@ -21,6 +20,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/hashicorp/go-multierror"
 
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
@@ -72,6 +73,9 @@ type Git struct {
 
 	fileReader FileReader
 	walker     func(root string, walkerFunc filepath.WalkFunc) error
+
+	branchesMap map[string]string
+	flagVars    map[string]string
 }
 
 // NewResourceHandlerTest creates new GitHub ResourceHandler objects given more arguments. Used when testing
@@ -87,12 +91,14 @@ func NewResourceHandlerTest(gitRepositoriesAbsPath string, user *string, oauthTo
 		preparedRepos:          prepRepos,
 		fileReader:             fileR,
 		walker:                 walkerF,
+		branchesMap:            map[string]string{},
+		flagVars:               map[string]string{},
 	}
 	return out
 }
 
 // NewResourceHandler creates new GitHub ResourceHandler objects
-func NewResourceHandler(gitRepositoriesAbsPath string, user *string, oauthToken string, githubOAuthClient *ghclient.Client, httpClient *nethttp.Client, acceptedHosts []string, localMappings map[string]string) resourcehandlers.ResourceHandler {
+func NewResourceHandler(gitRepositoriesAbsPath string, user *string, oauthToken string, githubOAuthClient *ghclient.Client, httpClient *nethttp.Client, acceptedHosts []string, localMappings map[string]string, branchesMap map[string]string, flagVars map[string]string) resourcehandlers.ResourceHandler {
 	out := &Git{
 		client:                 githubOAuthClient,
 		httpClient:             httpClient,
@@ -103,6 +109,8 @@ func NewResourceHandler(gitRepositoriesAbsPath string, user *string, oauthToken 
 		git:                    gitinterface.NewGit(),
 		fileReader:             &osReader{},
 		walker:                 filepath.Walk,
+		branchesMap:            branchesMap,
+		flagVars:               flagVars,
 	}
 
 	return out
@@ -494,17 +502,19 @@ func (g *Git) ResolveDocumentation(ctx context.Context, uri string) (*api.Docume
 			return nil, err
 		}
 	}
-	//here rl.SHAAlias on the right side is the repo current branch
-	rl.SHAAlias = api.ChooseTargetBranch(uri, rl.SHAAlias)
-	//getting nVersions based on configuration
-	nVersions := api.ChooseNVersions(uri)
+	var (
+		targetBranch string
+		ok           bool
+	)
+	//choosing default branch
+	if targetBranch, ok = g.branchesMap[uri]; !ok {
+		if targetBranch, ok = g.branchesMap["default"]; !ok {
+			targetBranch = rl.SHAAlias
+		}
+	}
+	rl.SHAAlias = targetBranch
 
 	if err := g.prepareGitRepository(ctx, rl); err != nil {
-		return nil, err
-	}
-
-	tags, err := g.getAllTags(rl)
-	if err != nil {
 		return nil, err
 	}
 
@@ -517,7 +527,7 @@ func (g *Git) ResolveDocumentation(ctx context.Context, uri string) (*api.Docume
 	if blob == nil {
 		return nil, nil
 	}
-	doc, err := api.ParseWithMetadata(blob, tags, nVersions, rl.SHAAlias)
+	doc, err := api.ParseWithMetadata(blob, rl.SHAAlias, g.flagVars)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse manifest: %s. %+v", uri, err)
 	}
@@ -571,18 +581,6 @@ func (g *Git) resolveDocumentationRelativePaths(node *api.Node, moduleDocumentat
 		}
 	}
 	return errs
-}
-
-//internally used
-func (g *Git) getAllTags(rl *github.ResourceLocator) ([]string, error) {
-	repositoryPath := g.repositoryPathFromResourceLocator(rl)
-	repo := g.getOrInitRepository(repositoryPath, rl)
-	gitRepo, err := repo.Git.PlainOpen(repo.LocalPath)
-	if err != nil {
-		return nil, err
-	}
-	tags, err := gitRepo.Tags()
-	return tags, err
 }
 
 // GetClient implements resourcehandlers.ResourceHandler#GetClient

@@ -13,13 +13,11 @@ import (
 
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
-	"k8s.io/klog/v2"
 )
 
 // Manifest reads the resource at uri, resolves it as template applying vars,
 // and finally parses it into api.Documentation model
-// TODO: add options parameters from cmd.go and pass them to api.parse function
-func manifest(ctx context.Context, uri string, resourceHandlers []resourcehandlers.ResourceHandler) (*api.Documentation, error) {
+func manifest(ctx context.Context, uri string, resourceHandlers []resourcehandlers.ResourceHandler, branchesMap map[string]string, flagsVars map[string]string) (*api.Documentation, error) {
 	var (
 		handler         resourcehandlers.ResourceHandler
 		manifestContent []byte
@@ -35,16 +33,21 @@ func manifest(ctx context.Context, uri string, resourceHandlers []resourcehandle
 		if fileInfo.IsDir() {
 			return nil, fmt.Errorf("top level manifest %s is a directory", uri)
 		}
-		nVersions := api.ChooseNVersions(uri)
-		if nVersions > 0 {
-			klog.Warningf("There is a yaml file from file system not connected with a repository. Therefore LastNSupportedVersions is set to 0 for file %s", uri)
-		}
+
 		if manifestContent, err = ioutil.ReadFile(uri); err != nil {
 			return nil, err
 		}
-
-		targetBranch := api.ChooseTargetBranch(uri, "master")
-		doc, err := api.ParseWithMetadata(manifestContent, []string{}, 0, targetBranch)
+		var (
+			targetBranch string
+			ok           bool
+		)
+		//choosing default branch
+		if targetBranch, ok = branchesMap[uri]; !ok {
+			if targetBranch, ok = branchesMap["default"]; !ok {
+				targetBranch = "master"
+			}
+		}
+		doc, err := api.ParseWithMetadata(manifestContent, targetBranch, flagsVars)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse manifest: %s. %+v", uri, err)
 		}

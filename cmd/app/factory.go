@@ -57,9 +57,6 @@ func NewReactor(o *Options, rhs []resourcehandlers.ResourceHandler) (*reactor.Re
 		Resolve:                      o.Resolve,
 		ManifestPath:                 o.DocumentationManifestPath,
 		Hugo:                         hugo,
-		//TODO for parser api config task
-		DefaultBranches: o.DefaultBranches,
-		//LastNVersions:                o.LastNVersions,
 	}
 
 	if o.DryRun {
@@ -105,24 +102,23 @@ func initResourceHandlers(ctx context.Context, o *Options) ([]resourcehandlers.R
 		if err != nil {
 			errs = multierror.Append(errs, err)
 		}
-		rh := newResourceHandler(u.Host, o.CacheHomeDir, &cred.Username, cred.OAuthToken, client, httpClient, o.UseGit, o.ResourceMappings)
+		rh := newResourceHandler(u.Host, o.CacheHomeDir, &cred.Username, cred.OAuthToken, client, httpClient, o.UseGit, o.ResourceMappings, o.DefaultBranches, o.Variables)
 		rhs = append(rhs, rh)
 	}
 
 	return rhs, errs.ErrorOrNil()
 }
 
-//TODO: pass parser options to rh constructor
-func newResourceHandler(host, homeDir string, user *string, token string, client *github.Client, httpClient *http.Client, useGit bool, localMappings map[string]string) resourcehandlers.ResourceHandler {
+func newResourceHandler(host, homeDir string, user *string, token string, client *github.Client, httpClient *http.Client, useGit bool, localMappings map[string]string, branchesMap map[string]string, flagVars map[string]string) resourcehandlers.ResourceHandler {
 	rawHost := "raw." + host
 	if host == "github.com" {
 		rawHost = "raw.githubusercontent.com"
 	}
 
 	if useGit {
-		return git.NewResourceHandler(filepath.Join(homeDir, git.CacheDir), user, token, client, httpClient, []string{host, rawHost}, localMappings)
+		return git.NewResourceHandler(filepath.Join(homeDir, git.CacheDir), user, token, client, httpClient, []string{host, rawHost}, localMappings, branchesMap, flagVars)
 	}
-	return ghrs.NewResourceHandler(client, httpClient, []string{host, rawHost})
+	return ghrs.NewResourceHandler(client, httpClient, []string{host, rawHost}, branchesMap, flagVars)
 }
 
 func buildClient(ctx context.Context, accessToken string, withClientThrottling bool, host string) (*github.Client, *http.Client, error) {
