@@ -5,7 +5,7 @@ title: TestedHTMLFile5
 <h1>Tested HTML file 5</h1>
 
 <h3>Link relatively file which is in the structure</h3>
-<a href="/mainTree/html-tests/file1">test1</a>
+<a href="/maintree/html-tests/file1/">test1</a>
 
 <h3>Link file which is not in the structure</h3>
 <a href="https://github.com/gardener/gardener/blob/v1.30.0/README.md">test2</a>

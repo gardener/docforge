@@ -12,7 +12,6 @@ import (
 	"github.com/gardener/docforge/pkg/reactor"
 	"github.com/gardener/docforge/pkg/resourcehandlers/resourcehandlersfakes"
 	"github.com/gardener/docforge/pkg/util/httpclient/httpclientfakes"
-	"github.com/gardener/docforge/pkg/util/urls"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"io"
@@ -64,7 +63,7 @@ var _ = Describe("Validator", func() {
 			var (
 				ctx     context.Context
 				task    interface{}
-				linkURL *urls.URL
+				linkURL *url.URL
 			)
 			BeforeEach(func() {
 				ctx = context.Background()
@@ -72,7 +71,7 @@ var _ = Describe("Validator", func() {
 					StatusCode: http.StatusOK,
 					Body:       io.NopCloser(bytes.NewReader([]byte(""))),
 				}, nil)
-				linkURL, err = urls.Parse("https://fake_host/fake_link")
+				linkURL, err = url.Parse("https://fake_host/fake_link")
 				Expect(err).NotTo(HaveOccurred())
 				task = &reactor.ValidationTask{
 					LinkURL:           linkURL,
@@ -115,7 +114,7 @@ var _ = Describe("Validator", func() {
 			})
 			Context("localhost", func() {
 				BeforeEach(func() {
-					linkURL, err = urls.Parse("https://127.0.0.1/fake_link")
+					linkURL, err = url.Parse("https://127.0.0.1/fake_link")
 					Expect(err).NotTo(HaveOccurred())
 					task = &reactor.ValidationTask{
 						LinkURL: linkURL,
@@ -128,7 +127,7 @@ var _ = Describe("Validator", func() {
 			})
 			Context("sample host", func() {
 				BeforeEach(func() {
-					linkURL, err = urls.Parse("https://foo.bar/fake_link")
+					linkURL, err = url.Parse("https://foo.bar/fake_link")
 					Expect(err).NotTo(HaveOccurred())
 					task = &reactor.ValidationTask{
 						LinkURL: linkURL,
@@ -143,11 +142,9 @@ var _ = Describe("Validator", func() {
 				BeforeEach(func() {
 					Expect(err).NotTo(HaveOccurred())
 					task = &reactor.ValidationTask{
-						LinkURL: &urls.URL{
-							URL: &url.URL{
-								Scheme: "https",
-								Host:   "invalid host",
-							},
+						LinkURL: &url.URL{
+							Scheme: "https",
+							Host:   "invalid host",
 						},
 					}
 				})
@@ -228,38 +225,25 @@ var _ = Describe("Validator", func() {
 				})
 			})
 			When("resource handlers for the link is found", func() {
-				var resourceHandler *resourcehandlersfakes.FakeResourceHandler
+				var (
+					resourceHandler   *resourcehandlersfakes.FakeResourceHandler
+					handlerHttpClient *httpclientfakes.FakeClient
+				)
 				BeforeEach(func() {
 					resourceHandler = &resourcehandlersfakes.FakeResourceHandler{}
 					resHandlers.GetReturns(resourceHandler)
+					handlerHttpClient = &httpclientfakes.FakeClient{}
+					handlerHttpClient.DoReturns(&http.Response{
+						StatusCode: http.StatusOK,
+						Body:       io.NopCloser(bytes.NewReader([]byte(""))),
+					}, nil)
+					resourceHandler.GetClientReturns(handlerHttpClient)
 				})
-				Context("link is part of cached content", func() {
-					BeforeEach(func() {
-						resourceHandler.BuildAbsLinkReturns("https://fake_host/fake_link", nil)
-					})
-					It("skips link validation", func() {
-						Expect(err).NotTo(HaveOccurred())
-						Expect(httpClient.DoCallCount()).To(Equal(0))
-					})
+				It("uses handler's client", func() {
+					Expect(err).NotTo(HaveOccurred())
+					Expect(httpClient.DoCallCount()).To(Equal(0))
+					Expect(handlerHttpClient.DoCallCount()).To(Equal(1))
 				})
-				Context("link is not part of cached content", func() {
-					var handlerHttpClient *httpclientfakes.FakeClient
-					BeforeEach(func() {
-						resourceHandler.BuildAbsLinkReturns("", errors.New("not found"))
-						handlerHttpClient = &httpclientfakes.FakeClient{}
-						handlerHttpClient.DoReturns(&http.Response{
-							StatusCode: http.StatusOK,
-							Body:       io.NopCloser(bytes.NewReader([]byte(""))),
-						}, nil)
-						resourceHandler.GetClientReturns(handlerHttpClient)
-					})
-					It("uses handler's client", func() {
-						Expect(err).NotTo(HaveOccurred())
-						Expect(httpClient.DoCallCount()).To(Equal(0))
-						Expect(handlerHttpClient.DoCallCount()).To(Equal(1))
-					})
-				})
-
 			})
 		})
 		When("creating Validator", func() {
@@ -291,8 +275,8 @@ var _ = Describe("Validator", func() {
 			When("validate links", func() {
 				JustBeforeEach(func() {
 					validatorTasks.Start(ctx)
-					Expect(validator.ValidateLink(&urls.URL{URL: &url.URL{Scheme: "https", Host: "host1", Path: "link1"}}, "dest1", "path1")).To(BeTrue())
-					Expect(validator.ValidateLink(&urls.URL{URL: &url.URL{Scheme: "https", Host: "host2", Path: "link2"}}, "dest2", "path2")).To(BeTrue())
+					Expect(validator.ValidateLink(&url.URL{Scheme: "https", Host: "host1", Path: "link1"}, "dest1", "path1")).To(BeTrue())
+					Expect(validator.ValidateLink(&url.URL{Scheme: "https", Host: "host2", Path: "link2"}, "dest2", "path2")).To(BeTrue())
 				})
 				It("validates link successfully", func() {
 					wg.Wait()
@@ -306,7 +290,7 @@ var _ = Describe("Validator", func() {
 						validatorTasks.Stop()
 					})
 					It("skips the tasks", func() {
-						Expect(validator.ValidateLink(&urls.URL{URL: &url.URL{Scheme: "https", Host: "host3", Path: "link3"}}, "dest3", "path3")).To(BeFalse())
+						Expect(validator.ValidateLink(&url.URL{Scheme: "https", Host: "host3", Path: "link3"}, "dest3", "path3")).To(BeFalse())
 						Expect(validatorTasks.GetProcessedTasksCount()).To(Equal(2))
 					})
 				})

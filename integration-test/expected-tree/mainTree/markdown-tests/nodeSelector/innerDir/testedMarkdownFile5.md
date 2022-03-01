@@ -5,7 +5,7 @@ title: TestedMarkdownFile5
 # Tested markdown file 5
 
 ### Link relatively file which is in the structure
-[test1](/mainTree/markdown-tests/file1)
+[test1](/maintree/markdown-tests/file1/)
 
 ### Link file which is not in the structure
 [test2](https://github.com/gardener/gardener/blob/v1.30.0/README.md)

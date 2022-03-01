@@ -13,14 +13,13 @@ import (
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/markdown"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
-	"github.com/gardener/docforge/pkg/util/urls"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/renderer"
 	"k8s.io/klog/v2"
 	"net/url"
+	"path"
 	"strings"
 	"sync"
-	"text/template"
 )
 
 var (
@@ -32,53 +31,83 @@ var (
 	}
 )
 
-// NodeContentProcessor operates on documents content to reconcile links and schedule linked resources downloads
-type NodeContentProcessor interface {
-	// Process node content and write the result in a buffer
-	Process(ctx context.Context, buffer *bytes.Buffer, reader Reader, node *api.Node) error
-}
-
 type nodeContentProcessor struct {
 	resourcesRoot    string
 	downloader       DownloadScheduler
 	validator        Validator
-	rewriteEmbedded  bool
 	resourceHandlers resourcehandlers.Registry
 	sourceLocations  map[string][]*api.Node
-	hugo             bool
-	PrettyUrls       bool
-	IndexFileNames   []string
-	BaseURL          string
-	//mux              sync.Mutex
-	templates map[string]*template.Template
-	rwLock    sync.RWMutex
+	hugo             *Hugo
+	rwLock           sync.RWMutex
+}
+
+// extends nodeContentProcessor with current source URI & node
+type linkResolver struct {
+	*nodeContentProcessor
+	node   *api.Node
+	source string
+}
+
+// linkInfo defines a markdown link
+type linkInfo struct {
+	URL                 *url.URL
+	originalDestination string
+	destination         string
+	destinationNode     *api.Node
+	isEmbeddable        bool
+}
+
+// docContent defines a document content
+type docContent struct {
+	docAst ast.Node
+	docCnt []byte
+	docURI string
+}
+
+// used in Hugo mode
+type frontmatterProcessor struct {
+	node           *api.Node
+	IndexFileNames []string
+}
+
+// NodeContentProcessor operates on documents content to reconcile links and schedule linked resources downloads
+//counterfeiter:generate . NodeContentProcessor
+type NodeContentProcessor interface {
+	// Prepare performs pre-processing on resolved documentation structure (e.g. collect api.Node sources)
+	Prepare(docStructure []*api.Node)
+	// Process node content and write the result in a buffer
+	Process(ctx context.Context, buffer *bytes.Buffer, reader Reader, node *api.Node) error
 }
 
 // NewNodeContentProcessor creates NodeContentProcessor objects
-func NewNodeContentProcessor(resourcesRoot string, downloadJob DownloadScheduler, validator Validator, rewriteEmbedded bool, rh resourcehandlers.Registry,
-	hugo bool, PrettyUrls bool, IndexFileNames []string, BaseURL string) NodeContentProcessor {
+func NewNodeContentProcessor(resourcesRoot string, downloadJob DownloadScheduler, validator Validator, rh resourcehandlers.Registry, hugo *Hugo) NodeContentProcessor {
 	c := &nodeContentProcessor{
 		// resourcesRoot specifies the root location for downloaded resource.
 		// It is used to rewrite resource links in documents to relative paths.
 		resourcesRoot:    resourcesRoot,
 		downloader:       downloadJob,
 		validator:        validator,
-		rewriteEmbedded:  rewriteEmbedded,
 		resourceHandlers: rh,
 		hugo:             hugo,
-		PrettyUrls:       PrettyUrls,
-		IndexFileNames:   IndexFileNames,
-		BaseURL:          BaseURL,
 		sourceLocations:  make(map[string][]*api.Node),
-		templates:        map[string]*template.Template{},
 	}
 	return c
+}
+
+///////////// node content processor ///////
+
+func (c *nodeContentProcessor) Prepare(structure []*api.Node) {
+	c.rwLock.Lock()
+	defer c.rwLock.Unlock()
+	for _, node := range structure {
+		c.addSourceLocation(node)
+	}
 }
 
 func (c *nodeContentProcessor) Process(ctx context.Context, b *bytes.Buffer, r Reader, n *api.Node) error {
 	// api.Node content by priority
 	var nc []*docContent
-	path := n.Path("/")
+	nFullName := n.FullName("/")
 	// 1. Process Source
 	if len(n.Source) > 0 {
 		if dc := getCachedContent(n); dc != nil {
@@ -87,20 +116,20 @@ func (c *nodeContentProcessor) Process(ctx context.Context, b *bytes.Buffer, r R
 			source, err := r.Read(ctx, n.Source)
 			if err != nil {
 				if resourceNotFound, ok := err.(resourcehandlers.ErrResourceNotFound); ok {
-					klog.Warningf("reading source %s from node %s/%s failed: %s\n", n.Source, path, n.Name, resourceNotFound)
+					klog.Warningf("reading source %s from node %s failed: %s\n", n.Source, nFullName, resourceNotFound)
 				} else {
-					return fmt.Errorf("reading source %s from node %s/%s failed: %w", n.Source, path, n.Name, err)
+					return fmt.Errorf("reading source %s from node %s failed: %w", n.Source, nFullName, err)
 				}
 			}
 			if len(source) > 0 {
 				dc = &docContent{docCnt: source, docURI: n.Source}
 				dc.docAst, err = markdown.Parse(source)
 				if err != nil {
-					return fmt.Errorf("fail to parse source %s from node %s/%s: %w", n.Source, path, n.Name, err)
+					return fmt.Errorf("fail to parse source %s from node %s: %w", n.Source, nFullName, err)
 				}
 				nc = append(nc, dc)
 			} else if err == nil {
-				klog.Warningf("no content read from node %s/%s source %s\n", path, n.Name, n.Source)
+				klog.Warningf("no content read from node %s source %s\n", nFullName, n.Source)
 			}
 		}
 	}
@@ -110,34 +139,35 @@ func (c *nodeContentProcessor) Process(ctx context.Context, b *bytes.Buffer, r R
 			source, err := r.Read(ctx, src)
 			if err != nil {
 				if resourceNotFound, ok := err.(resourcehandlers.ErrResourceNotFound); ok {
-					klog.Warningf("reading multiSource[%d] %s from node %s/%s failed: %s\n", i, src, path, n.Name, resourceNotFound)
+					klog.Warningf("reading multiSource[%d] %s from node %s failed: %s\n", i, src, nFullName, resourceNotFound)
 				} else {
-					return fmt.Errorf("reading multiSource[%d] %s from node %s/%s failed: %w", i, src, path, n.Name, err)
+					return fmt.Errorf("reading multiSource[%d] %s from node %s failed: %w", i, src, nFullName, err)
 				}
 			}
 			if len(source) > 0 {
 				dc := &docContent{docCnt: source, docURI: src}
 				dc.docAst, err = markdown.Parse(source)
 				if err != nil {
-					return fmt.Errorf("fail to parse multiSource[%d] %s from node %s/%s: %w", i, src, path, n.Name, err)
+					return fmt.Errorf("fail to parse multiSource[%d] %s from node %s: %w", i, src, nFullName, err)
 				}
 				nc = append(nc, dc)
 			} else if err == nil {
-				klog.Warningf("no content read from node %s/%s multiSource[%d] %s\n", path, n.Name, i, src)
+				klog.Warningf("no content read from node %s multiSource[%d] %s\n", nFullName, i, src)
 			}
 		}
 	}
 	// if no content -> return
 	if len(nc) == 0 {
-		return nil //TODO: ?
+		klog.Warningf("empty content for node %s\n", nFullName)
+		return nil
 	}
 	// render node content
 	// 1 - frontmatter preprocessing
 	var fmp *frontmatterProcessor
-	if c.hugo {
+	if c.hugo.Enabled {
 		fmp = &frontmatterProcessor{
 			node:           n,
-			IndexFileNames: c.IndexFileNames,
+			IndexFileNames: c.hugo.IndexFileNames,
 		}
 	}
 	if err := preprocessFrontmatter(nc, fmp); err != nil {
@@ -153,10 +183,37 @@ func (c *nodeContentProcessor) Process(ctx context.Context, b *bytes.Buffer, r R
 	return nil
 }
 
-type docContent struct {
-	docAst ast.Node
-	docCnt []byte
-	docURI string
+func (c *nodeContentProcessor) addSourceLocation(node *api.Node) {
+	if node.Source != "" {
+		c.sourceLocations[node.Source] = append(c.sourceLocations[node.Source], node)
+	} else if len(node.MultiSource) > 0 {
+		for _, s := range node.MultiSource {
+			c.sourceLocations[s] = append(c.sourceLocations[s], node)
+		}
+	} else if len(node.Properties) > 0 {
+		if val, found := node.Properties[api.ContainerNodeSourceLocation]; found {
+			if sl, ok := val.(string); ok {
+				c.sourceLocations[sl] = append(c.sourceLocations[sl], node)
+				delete(node.Properties, api.ContainerNodeSourceLocation)
+			}
+		}
+	}
+	for _, childNode := range node.Nodes {
+		c.addSourceLocation(childNode)
+	}
+}
+
+func (c *nodeContentProcessor) getRenderer(n *api.Node, sourceURI string) renderer.Renderer {
+	lr := c.newLinkResolver(n, sourceURI)
+	return markdown.NewLinkModifierRenderer(markdown.WithLinkResolver(lr.resolveLink))
+}
+
+func (c *nodeContentProcessor) newLinkResolver(node *api.Node, sourceURI string) *linkResolver {
+	return &linkResolver{
+		nodeContentProcessor: c,
+		node:                 node,
+		source:               sourceURI,
+	}
 }
 
 func getCachedContent(n *api.Node) *docContent {
@@ -184,7 +241,7 @@ func preprocessFrontmatter(nc []*docContent, fmp *frontmatterProcessor) error {
 		if nc[0].docAst.Kind() == ast.KindDocument {
 			nc[0].docAst.(*ast.Document).SetMeta(aggregated)
 		} else {
-			// TODO: doc kind must be 'ast.KindDocument', where to validate this?
+			return fmt.Errorf("expect ast kind %s, but get %s", ast.KindDocument, nc[0].docAst.Kind())
 		}
 	}
 	if fmp != nil && len(nc) > 0 && nc[0].docAst.Kind() == ast.KindDocument {
@@ -205,158 +262,240 @@ func mergeFrontmatter(base, add map[string]interface{}) {
 	}
 }
 
-func (c *nodeContentProcessor) getRenderer(n *api.Node, sourceURI string) renderer.Renderer {
-	lr := c.newLinkResolver(n, sourceURI)
-	return markdown.NewLinkModifierRenderer(markdown.WithLinkResolver(lr.resolveLink))
-}
-
-// extends nodeContentProcessor with current source URI & node
-type linkResolver struct {
-	*nodeContentProcessor
-	node   *api.Node
-	source string
-}
-
-func (c *nodeContentProcessor) newLinkResolver(node *api.Node, sourceURI string) *linkResolver {
-	return &linkResolver{
-		nodeContentProcessor: c,
-		node:                 node,
-		source:               sourceURI,
-	}
-}
+///////////// link resolver ////////////////
 
 // implements markdown.ResolveLink
 func (l *linkResolver) resolveLink(dest string, isEmbeddable bool) (string, error) {
-	baseLink, err := l.resolveBaseLink(dest, isEmbeddable)
+	// validate destination
+	u, err := url.Parse(strings.TrimSuffix(dest, "/"))
 	if err != nil {
 		return "", err
 	}
+	link := &linkInfo{
+		URL:                 u,
+		originalDestination: dest,
+		destination:         dest,
+		isEmbeddable:        isEmbeddable,
+	}
+	if err = l.resolveBaseLink(link); err != nil {
+		return "", err
+	}
 	if isEmbeddable {
-		if l.rewriteEmbedded {
-			if err = l.rawImage(baseLink.Destination); err != nil {
-				return *baseLink.Destination, err
-			}
+		if err = l.rawLink(link); err != nil {
+			return link.destination, err
 		}
 	}
-	if l.hugo {
-		err = l.rewriteDestination(baseLink)
+	if l.hugo.Enabled {
+		err = l.rewriteDestination(link)
 	}
-	return *baseLink.Destination, err
+	return link.destination, err
 }
 
 // resolve base link
-func (l *linkResolver) resolveBaseLink(dest string, isEmbeddable bool) (*Link, error) {
-	link := &Link{
-		OriginalDestination: dest,
-		Destination:         &dest,
-	}
-	if strings.HasPrefix(dest, "#") || strings.HasPrefix(dest, "mailto:") {
-		return link, nil
-	}
-	// validate destination
-	u, err := urls.Parse(dest)
-	if err != nil {
-		return link, err
+func (l *linkResolver) resolveBaseLink(link *linkInfo) error {
+	var err error
+	if strings.HasPrefix(link.destination, "#") || strings.HasPrefix(link.destination, "mailto:") {
+		return nil
 	}
 	// build absolute link
 	var absLink string
-	if u.IsAbs() {
+	if link.URL.IsAbs() {
 		// can we handle changes to this destination?
-		if l.resourceHandlers.Get(dest) == nil {
+		if l.resourceHandlers.Get(link.destination) == nil {
 			// we don't have a handler for it. Leave it be.
-			l.validator.ValidateLink(u, dest, l.source)
-			return link, nil
+			l.validator.ValidateLink(link.URL, link.destination, l.source)
+			return nil
 		}
-		absLink = dest
+		absLink = link.destination
 	} else {
-		handler := l.resourceHandlers.Get(l.source)
-		if handler == nil {
-			// TODO: here handler must exist because source was read
-			return link, fmt.Errorf("no suitable handler registered for URL %s", l.source)
-		}
-		// build absolute path for the destination using ContentSourcePath as base
-		if absLink, err = handler.BuildAbsLink(l.source, dest); err != nil {
+		handler := l.resourceHandlers.Get(l.source) // handler must exist because source content has been read
+		// build absolute path for the destination using content source path as base
+		if absLink, err = handler.BuildAbsLink(l.source, link.destination); err != nil {
 			if _, ok := err.(resourcehandlers.ErrResourceNotFound); ok {
-				klog.Warningf("failed to validate absolute link for %s from source %s: %v\n", dest, l.source, err)
+				klog.Warningf("failed to validate absolute link for %s from source %s: %v\n", link.destination, l.source, err)
 				err = nil
-				if dest != absLink {
-					link.Destination = &absLink
-					klog.V(6).Infof("[%s] %s -> %s\n", l.source, dest, absLink)
+				if link.destination != absLink {
+					klog.V(6).Infof("[%s] %s -> %s\n", l.source, link.destination, absLink)
+					link.destination = absLink
 				}
 			}
-			return link, err
+			return err
 		}
 	}
-	if l.node != nil {
-		// Links to other documents are enforced relative when
-		// linking documents from the node structure.
-		// Check if md extension to reduce the walkthroughs
-		if u.Extension == "md" || u.Extension == "" {
-			// try to find the link in source locations
-			if nl, ok := l.sourceLocations[strings.TrimSuffix(absLink, "/")]; ok {
-				path := ""
-				for _, n := range nl {
-					n = findVisibleNode(n)
-					if n != nil {
-						relPathBetweenNodes := l.node.RelativePath(n)
-						if swapPaths(path, relPathBetweenNodes) {
-							path = relPathBetweenNodes
-							link.DestinationNode = n
-							link.Destination = &relPathBetweenNodes
+	absURL, _ := url.Parse(absLink) // absLink should be valid URL
+	key := fmt.Sprintf("%s://%s%s", absURL.Scheme, absURL.Host, absURL.Path)
+	// Links to other documents are enforced relative when linking documents from the node structure.
+	if nl, ok := l.getNodesBySource(strings.TrimSuffix(key, "/")); ok {
+		// found nodes with this source -> find the shortest path from l.node to one of nodes
+		nPath := ""
+		for _, n := range nl {
+			n = findVisibleNode(n)
+			if n != nil {
+				relPathBetweenNodes := l.node.RelativePath(n)
+				if swapPaths(nPath, relPathBetweenNodes) {
+					nPath = relPathBetweenNodes
+					link.destinationNode = n
+				}
+			}
+		}
+		if link.destinationNode != nil { // i.e. visible destination node found
+			if link.URL.ForceQuery || link.URL.RawQuery != "" {
+				nPath = fmt.Sprintf("%s?%s", nPath, link.URL.RawQuery)
+			}
+			if link.URL.Fragment != "" {
+				nPath = fmt.Sprintf("%s#%s", nPath, link.URL.Fragment)
+			}
+			if link.destination != nPath {
+				klog.V(6).Infof("[%s] %s -> %s\n", l.source, link.destination, nPath)
+				link.destination = nPath
+			}
+			return nil
+		}
+	}
+	// Links to resources that are not structure document nodes are scheduled for download and their destination is updated to relative path to predefined location for resources.
+	if link.isEmbeddable && downloadEmbeddable(link.URL) {
+		hash := md5.Sum([]byte(key)) // hash based on absolute link, but without query & fragment to avoid duplications
+		ext := path.Ext(link.URL.Path)
+		downloadResourceName := "$name_$hash$ext"
+		downloadResourceName = strings.ReplaceAll(downloadResourceName, "$name", strings.TrimSuffix(path.Base(link.URL.Path), ext))
+		downloadResourceName = strings.ReplaceAll(downloadResourceName, "$hash", hex.EncodeToString(hash[:])[:6])
+		downloadResourceName = strings.ReplaceAll(downloadResourceName, "$ext", ext)
+		resLocation := buildDownloadDestination(l.node, downloadResourceName, l.resourcesRoot)
+		if link.destination != resLocation {
+			klog.V(6).Infof("[%s] %s -> %s\n", l.source, link.destination, resLocation)
+			link.destination = resLocation
+		}
+		if err = l.downloader.Schedule(&DownloadTask{
+			absLink,
+			downloadResourceName,
+			l.source,
+			link.destination,
+		}); err != nil {
+			return err
+		}
+		return nil
+	}
+	// Rewrite with absolute link
+	if link.destination != absLink {
+		klog.V(6).Infof("[%s] %s -> %s\n", l.source, link.destination, absLink)
+		link.destination = absLink
+	}
+	l.validator.ValidateLink(absURL, link.destination, l.source)
+	return nil
+}
+
+// rewrite abs links to embedded objects to their raw link format if necessary, to ensure they are embeddable
+func (l *linkResolver) rawLink(link *linkInfo) error {
+	u, err := url.Parse(link.destination)
+	if err != nil {
+		return err
+	}
+	if !u.IsAbs() {
+		return nil
+	}
+	handler := l.resourceHandlers.Get(link.destination)
+	if handler == nil {
+		return nil // not a GitHub resource
+	}
+	var rawLink string
+	if rawLink, err = handler.GetRawFormatLink(link.destination); err != nil {
+		return err
+	}
+	if link.destination != rawLink {
+		klog.V(6).Infof("[%s] %s -> %s\n", l.source, link.destination, rawLink)
+		link.destination = rawLink
+	}
+	return nil
+}
+
+// rewrite destination in HUGO mode
+func (l *linkResolver) rewriteDestination(link *linkInfo) error {
+	u, err := url.Parse(link.destination)
+	if err != nil {
+		return err
+	}
+	if !u.IsAbs() && !strings.HasPrefix(link.destination, "/") && !strings.HasPrefix(link.destination, "#") {
+		base := l.hugo.BaseURL
+		if base != "" {
+			base = strings.TrimSuffix(base, "/")
+			if !strings.HasPrefix(base, "/") {
+				base = fmt.Sprintf("/%s", base)
+			}
+		}
+		if link.destinationNode != nil {
+			dnPath := strings.ToLower(link.destinationNode.FullName("/"))
+			// prepare HUGO Pretty URLs - https://gohugo.io/content-management/urls/#pretty-urls
+			if strings.HasSuffix(strings.ToLower(dnPath), ".md") {
+				dnPath = dnPath[:len(dnPath)-3]
+			}
+			dnPath = strings.TrimSuffix(dnPath, "_index")
+			if !strings.HasSuffix(dnPath, "/") {
+				dnPath = fmt.Sprintf("%s/", dnPath)
+			}
+			if !l.hugo.PrettyURLs { // https://gohugo.io/content-management/urls/#ugly-urls
+				dnPath = fmt.Sprintf("%s.html", strings.TrimSuffix(dnPath, "/"))
+			}
+			// check for hugo url property & rewrite the link; see https://gohugo.io/content-management/urls/ for details
+			if val, ok := link.destinationNode.Properties["frontmatter"]; ok {
+				if fmProps, cast := val.(map[string]interface{}); cast {
+					if val, ok = fmProps["url"]; ok {
+						var urlStr string
+						if urlStr, cast = val.(string); cast {
+							if _, err = url.Parse(urlStr); err != nil {
+								klog.Warningf("Invalid frontmatter url: %s for %s\n", urlStr, link.destinationNode.Source)
+							} else {
+								dnPath = urlStr
+							}
 						}
 					}
 				}
-				if dest != path {
-					klog.V(6).Infof("[%s] %s -> %s\n", l.source, dest, path)
-				}
-				return link, nil
 			}
-			// a node with target source location does not exist -> rewrite destination with absolute link
-			if dest != absLink {
-				link.Destination = &absLink
-				klog.V(6).Infof("[%s] %s -> %s\n", l.source, dest, absLink)
+			dnPath = fmt.Sprintf("%s/%s", base, strings.TrimPrefix(dnPath, "/")) // adding base
+			if u.ForceQuery || u.RawQuery != "" {
+				dnPath = fmt.Sprintf("%s?%s", dnPath, u.RawQuery)
 			}
-			u, err = urls.Parse(absLink)
-			l.validator.ValidateLink(u, absLink, l.source)
-			return link, nil
-		}
-		// Links to resources that are not structure document nodes are
-		// assessed for download eligibility and if applicable their
-		// destination is updated to relative path to predefined location
-		// for resources.
-		if isEmbeddable && (!u.IsAbs() || strings.HasPrefix(u.Path, "/gardener")) { // TODO: cfg for own organizations
-			hash := md5.Sum([]byte(absLink)) // hash based on absolute link
-			downloadResourceName := "$name_$hash$ext"
-			downloadResourceName = strings.ReplaceAll(downloadResourceName, "$name", u.ResourceName)
-			downloadResourceName = strings.ReplaceAll(downloadResourceName, "$hash", hex.EncodeToString(hash[:])[:6])
-			downloadResourceName = strings.ReplaceAll(downloadResourceName, "$ext", fmt.Sprintf(".%s", u.Extension))
-
-			resLocation := buildDownloadDestination(l.node, downloadResourceName, l.resourcesRoot)
-			if resLocation != dest {
-				link.Destination = &resLocation
-				klog.V(6).Infof("[%s] %s -> %s\n", l.source, resLocation, dest)
+			if u.Fragment != "" {
+				dnPath = fmt.Sprintf("%s#%s", dnPath, u.Fragment)
 			}
-			link.IsResource = true
-
-			if err = l.downloader.Schedule(&DownloadTask{
-				absLink,
-				downloadResourceName,
-				l.source,
-				dest,
-			}); err != nil {
-				return link, err
+			if link.destination != dnPath {
+				klog.V(6).Infof("[%s] %s -> %s\n", l.source, link.destination, dnPath)
+				link.destination = dnPath
 			}
-
-			return link, nil
+		} else if link.isEmbeddable {
+			ePath := link.destination
+			for strings.HasPrefix(ePath, "../") {
+				ePath = strings.TrimPrefix(ePath, "../")
+			}
+			ePath = fmt.Sprintf("%s/%s", l.hugo.BaseURL, ePath)
+			if link.destination != ePath {
+				klog.V(6).Infof("[%s] %s -> %s\n", l.source, link.destination, ePath)
+				link.destination = ePath
+			}
 		}
 	}
-	if dest != absLink {
-		link.Destination = &absLink
-		klog.V(6).Infof("[%s] %s -> %s\n", l.source, dest, absLink)
+	return nil
+}
+
+func (l *linkResolver) getNodesBySource(source string) ([]*api.Node, bool) {
+	l.rwLock.RLock()
+	defer l.rwLock.RUnlock()
+	nl, ok := l.sourceLocations[source]
+	return nl, ok
+}
+
+func downloadEmbeddable(u *url.URL) bool {
+	if !u.IsAbs() { // download all relative embeddable links
+		return true
 	}
-	u, err = urls.Parse(absLink)
-	l.validator.ValidateLink(u, dest, l.source)
-	return link, nil
+	// if embeddable link is absolute, download only if belongs to internal GitHub or own organization
+	// TODO: make it configurable
+	if u.Host == "github.tools.sap" || u.Host == "raw.github.tools.sap" || u.Host == "github.wdf.sap.corp" {
+		return true
+	}
+	if strings.HasPrefix(u.Path, "/gardener/") {
+		return u.Host == "github.com" || u.Host == "raw.githubusercontent.com"
+	}
+	return false
 }
 
 // findVisibleNode returns
@@ -364,7 +503,6 @@ func (l *linkResolver) resolveBaseLink(dest string, isEmbeddable bool) (*Link, e
 // - first container node that contains index file if the api.Node is container
 // - nil if no container node with index file found
 // otherwise link will display empty page
-// TODO: check if this works if HUGO Pretty URLs are disabled!
 func findVisibleNode(n *api.Node) *api.Node {
 	if n == nil || n.IsDocument() {
 		return n
@@ -377,11 +515,37 @@ func findVisibleNode(n *api.Node) *api.Node {
 	return findVisibleNode(n.Parent())
 }
 
-// used in Hugo mode
-type frontmatterProcessor struct {
-	node           *api.Node
-	IndexFileNames []string
+func swapPaths(path string, newPath string) bool {
+	if path == "" {
+		return true
+	}
+	// prefer descending vs ascending paths
+	if !strings.HasPrefix(path, "./") && strings.HasPrefix(newPath, "./") {
+		return true
+	}
+	// prefer shorter paths
+	return strings.Count(path, "/") > strings.Count(newPath, "/")
 }
+
+// Builds destination path for links from node to resource in root path
+// If root is not specified as document root (with leading "/"), the
+// returned destinations are relative paths from the node to the resource
+// in root, e.g. "../../__resources/image.png", where root is "__resources".
+// If root is document root path, destinations are paths from the root,
+// e.g. "/__resources/image.png", where root is "/__resources".
+func buildDownloadDestination(node *api.Node, resourceName, root string) string {
+	if strings.HasPrefix(root, "/") {
+		return root + "/" + resourceName
+	}
+	resourceRelPath := fmt.Sprintf("%s/%s", root, resourceName)
+	parentsSize := len(node.Parents())
+	for ; parentsSize > 1; parentsSize-- {
+		resourceRelPath = "../" + resourceRelPath
+	}
+	return resourceRelPath
+}
+
+///////////// frontmatter processor ////////
 
 func (f *frontmatterProcessor) processFrontmatter(docFrontmatter map[string]interface{}) (map[string]interface{}, error) {
 	var nodeMeta, parentMeta map[string]interface{}
@@ -442,141 +606,4 @@ func (f *frontmatterProcessor) nodeIsIndexFile(name string) bool {
 		}
 	}
 	return name == "_index.md"
-}
-
-// rewrite abs links to embedded objects to their raw link format if necessary, to
-// ensure they are embeddable
-func (l *linkResolver) rawImage(link *string) (err error) {
-	var (
-		u *url.URL
-	)
-	if u, err = url.Parse(*link); err != nil {
-		return
-	}
-	if !u.IsAbs() {
-		return nil
-	}
-	handler := l.resourceHandlers.Get(*link)
-	if handler == nil {
-		return nil
-	}
-	if *link, err = handler.GetRawFormatLink(*link); err != nil {
-		return
-	}
-	return nil
-}
-
-func (l *linkResolver) rewriteDestination(lnk *Link) error {
-	link := *lnk.Destination
-	link = strings.TrimSpace(link)
-	if len(link) == 0 {
-		return nil
-	}
-	// trim leading and trailing quotes if any
-	link = strings.TrimSuffix(strings.TrimPrefix(link, "\""), "\"")
-	u, err := url.Parse(link)
-	if err != nil {
-		klog.Warning("Invalid link:", link)
-		return nil
-	}
-	if !u.IsAbs() && !strings.HasPrefix(link, "/") && !strings.HasPrefix(link, "#") {
-		_l := link
-		link = u.Path
-		if lnk.DestinationNode != nil {
-			absPath := lnk.DestinationNode.Path("/")
-			link = fmt.Sprintf("%s/%s/%s", l.BaseURL, absPath, strings.ToLower(lnk.DestinationNode.Name))
-		}
-		if lnk.IsResource {
-			for strings.HasPrefix(link, "../") {
-				link = strings.TrimPrefix(link, "../")
-			}
-			link = fmt.Sprintf("%s/%s", l.BaseURL, link)
-		}
-
-		link = strings.TrimPrefix(link, "./")
-		if l.PrettyUrls { // TODO: This is HUGO cfg? what if the URLs are relative, do we need this modification?
-			link = strings.TrimSuffix(link, ".md") // TODO all index files names are set to _index.md
-			// Remove the last path segment if it is readme, index or _index
-			// The Hugo writer will rename those files to _index.md and runtime
-			// references will be to the sections in which they reside.
-			for _, s := range l.IndexFileNames {
-				if strings.HasSuffix(strings.ToLower(link), s) {
-					pathSegments := strings.Split(link, "/")
-					if len(pathSegments) > 0 {
-						pathSegments = pathSegments[:len(pathSegments)-1]
-						link = strings.Join(pathSegments, "/")
-					}
-					break
-				}
-			}
-		} else {
-			if strings.HasSuffix(link, ".md") {
-				link = strings.TrimSuffix(link, ".md")
-				// TODO: propagate fragment and query if any
-				link = fmt.Sprintf("%s.html", link)
-			}
-		}
-		if lnk.DestinationNode != nil {
-			// check for hugo url property & rewrite the link
-			// see https://gohugo.io/content-management/urls/ for details
-			if val, ok := lnk.DestinationNode.Properties["frontmatter"]; ok { // TODO: Remove such HUGO properties ???
-				if fmProps, ok := val.(map[string]interface{}); ok {
-					if urlVal, ok := fmProps["url"]; ok {
-						if urlStr, ok := urlVal.(string); ok {
-							if _, err = url.Parse(urlStr); err != nil {
-								klog.Warningf("Invalid frontmatter url: %s for %s\n", urlStr, lnk.DestinationNode.Source)
-							} else {
-								link = urlStr
-							}
-						}
-					}
-				}
-			}
-		}
-		if _l != link {
-			klog.V(6).Infof("[%s] Rewriting node link for Hugo: %s -> %s \n", l.source, _l, link)
-		}
-		lnk.Destination = &link
-		return nil
-	}
-	return nil
-}
-
-func swapPaths(path string, newPath string) bool {
-	if path == "" {
-		return true
-	}
-	// prefer descending vs ascending paths
-	if !strings.HasPrefix(path, "./") && strings.HasPrefix(newPath, "./") {
-		return true
-	}
-	// prefer shorter paths
-	return strings.Count(path, "/") > strings.Count(newPath, "/")
-}
-
-// Builds destination path for links from node to resource in root path
-// If root is not specified as document root (with leading "/"), the
-// returned destinations are relative paths from the node to the resource
-// in root, e.g. "../../__resources/image.png", where root is "__resources".
-// If root is document root path, destinations are paths from the root,
-// e.g. "/__resources/image.png", where root is "/__resources".
-func buildDownloadDestination(node *api.Node, resourceName, root string) string {
-	if strings.HasPrefix(root, "/") {
-		return root + "/" + resourceName
-	}
-	resourceRelPath := fmt.Sprintf("%s/%s", root, resourceName)
-	parentsSize := len(node.Parents())
-	for ; parentsSize > 1; parentsSize-- {
-		resourceRelPath = "../" + resourceRelPath
-	}
-	return resourceRelPath
-}
-
-// Link defines a markdown link
-type Link struct {
-	DestinationNode     *api.Node
-	IsResource          bool
-	OriginalDestination string
-	AbsLink             *string
-	Destination         *string
 }

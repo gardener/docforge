@@ -33,7 +33,6 @@ type Options struct {
 	ResourcesPath                string
 	ManifestPath                 string
 	ResourceDownloadWorkersCount int
-	RewriteEmbedded              bool
 	ResourceDownloadWriter       writers.Writer
 	GitInfoWriter                writers.Writer
 	Writer                       writers.Writer
@@ -41,8 +40,6 @@ type Options struct {
 	DryRunWriter                 writers.DryRunWriter
 	Resolve                      bool
 	Hugo                         *Hugo
-	DefaultBranches              map[string]string
-	LastNVersions                map[string]int
 }
 
 // Hugo is the configuration options for creating HUGO implementations
@@ -96,7 +93,7 @@ func NewReactor(o *Options) (*Reactor, error) {
 	worker := &DocumentWorker{
 		writer:               o.Writer,
 		reader:               &GenericReader{ResourceHandlers: rhRegistry},
-		NodeContentProcessor: NewNodeContentProcessor(o.ResourcesPath, dScheduler, v, o.RewriteEmbedded, rhRegistry, o.Hugo.Enabled, o.Hugo.PrettyURLs, o.Hugo.IndexFileNames, o.Hugo.BaseURL),
+		NodeContentProcessor: NewNodeContentProcessor(o.ResourcesPath, dScheduler, v, rhRegistry, o.Hugo),
 		gitHubInfo:           ghInfo,
 	}
 	docTasks, err := jobs.NewJobQueue("Document", o.DocumentWorkersCount, worker.Work, o.FailFast, reactorWG)
@@ -150,47 +147,16 @@ func (r *Reactor) Run(ctx context.Context, manifest *api.Documentation, dryRun b
 		return fmt.Errorf("failed to resolve manifest: %s. %+v", r.Options.ManifestPath, err)
 	}
 
-	if err := checkForCollisions(manifest.Structure); err != nil {
+	if err := checkForCollisions(manifest.Structure); err != nil { // TODO: manifest validation should prevent collisions and this check will become redundant
 		return err
 	}
 
-	r.fillSources(manifest.Structure)
-
-	if ncp, ok := r.DocumentWorker.NodeContentProcessor.(*nodeContentProcessor); ok {
-		ncp.sourceLocations = r.sources
-	}
 	klog.V(4).Info("Building documentation structure\n\n")
 	if err := r.Build(ctx, manifest.Structure); err != nil {
 		return err
 	}
 
 	return nil
-}
-
-func (r *Reactor) fillSources(structure []*api.Node) {
-	for _, node := range structure {
-		addSourceLocation(r.sources, node)
-	}
-}
-
-func addSourceLocation(locations map[string][]*api.Node, node *api.Node) {
-	if node.Source != "" {
-		locations[node.Source] = append(locations[node.Source], node)
-	} else if len(node.MultiSource) > 0 {
-		for _, s := range node.MultiSource {
-			locations[s] = append(locations[s], node)
-		}
-	} else if len(node.Properties) > 0 {
-		if val, found := node.Properties[api.ContainerNodeSourceLocation]; found {
-			if sl, ok := val.(string); ok {
-				locations[sl] = append(locations[sl], node)
-				delete(node.Properties, api.ContainerNodeSourceLocation)
-			}
-		}
-	}
-	for _, childNode := range node.Nodes {
-		addSourceLocation(locations, childNode)
-	}
 }
 
 func printResolved(manifest *api.Documentation, writer io.Writer) error {

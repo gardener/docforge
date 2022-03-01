@@ -18,8 +18,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const testPath string = "test-nodesSelector-path"
-const testPath2 string = "test-nodesSelector-path-2"
+const testPath string = "https://host.com/owner/repo/blob/branch/test-nodesSelector-path"
+const testPath2 string = "https://host.com/owner/repo/tree/branch/test-nodesSelector-path-2"
 
 var defaultCtxWithTimeout, _ = context.WithTimeout(context.TODO(), 5*time.Second)
 var testNodeSelector = api.NodeSelector{Path: testPath}
@@ -455,87 +455,6 @@ func Test_resolveNodeSelector(t *testing.T) {
 			},
 			wantErr: false,
 		},
-		{
-			name:        "succeeds_to_merge_links_that_not_override_globalLinks",
-			description: "only return rewrite links that doesn't override the global Download links",
-			args: args{
-				node: &api.Node{
-					NodeSelector: &testNodeSelector,
-				},
-				visited: []string{},
-			},
-			resolveDocumentationFunc: func(ctx context.Context, uri string) (*api.Documentation, error) {
-				if uri == testPath {
-					module := &api.Documentation{
-						Structure: []*api.Node{
-							&testNode,
-						},
-					}
-					return module, nil
-				}
-				return nil, nil
-			},
-			want: &api.Node{
-				Nodes: []*api.Node{
-					&testNode,
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name:        "succeeds_to_merge_links_that_not_override_parent_links",
-			description: "only return rewrite links that doesn't override the parent or the global rewrite links ",
-			args: args{
-				node: &api.Node{
-					NodeSelector: &testNodeSelector,
-				},
-				visited: []string{},
-			},
-			resolveDocumentationFunc: func(ctx context.Context, uri string) (*api.Documentation, error) {
-				if uri == testPath {
-					module := &api.Documentation{
-						Structure: []*api.Node{
-							&testNode,
-						},
-					}
-					return module, nil
-				}
-				return nil, nil
-			},
-			want: &api.Node{
-				Nodes: []*api.Node{
-					&testNode,
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name:        "succeeds_to_merge_download_links_that_not_override_parent_links",
-			description: "only return download links that doesn't override the parent or the global Download links",
-			args: args{
-				node: &api.Node{
-					NodeSelector: &testNodeSelector,
-				},
-				visited: []string{},
-			},
-			resolveDocumentationFunc: func(ctx context.Context, uri string) (*api.Documentation, error) {
-				if uri == testPath {
-					module := &api.Documentation{
-						Structure: []*api.Node{
-							&testNode,
-						},
-					}
-					return module, nil
-				}
-				return nil, nil
-			},
-			want: &api.Node{
-				Nodes: []*api.Node{
-					&testNode,
-				},
-			},
-			wantErr: false,
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -621,7 +540,7 @@ func Test_resolveNodeName(t *testing.T) {
 				node: &api.Node{Name: "a_name.md", Source: "https://fake.host/resource_name.md"},
 			},
 			resourceName: func(link string) (string, string) {
-				return "resource_name", "md"
+				return "resource_name", ".md"
 			},
 			want:    "a_name.md",
 			wantErr: false,
@@ -633,7 +552,7 @@ func Test_resolveNodeName(t *testing.T) {
 				node: &api.Node{Name: "a_name", Source: "https://fake.host/resource_name.md"},
 			},
 			resourceName: func(link string) (string, string) {
-				return "resource_name", "md"
+				return "resource_name", ".md"
 			},
 			want:    "a_name.md",
 			wantErr: false,
@@ -645,7 +564,7 @@ func Test_resolveNodeName(t *testing.T) {
 				node: &api.Node{Name: "", Source: "https://fake.host/resource_name.md"},
 			},
 			resourceName: func(link string) (string, string) {
-				return "resource_name", "md"
+				return "resource_name", ".md"
 			},
 			want:    "resource_name.md",
 			wantErr: false,
@@ -657,7 +576,7 @@ func Test_resolveNodeName(t *testing.T) {
 				node: &api.Node{Name: "", Source: "https://fake.host/resource.name"},
 			},
 			resourceName: func(link string) (string, string) {
-				return "resource", "name"
+				return "resource", ".name"
 			},
 			want:    "resource.name.md",
 			wantErr: false,
@@ -692,7 +611,7 @@ func Test_resolveNodeName(t *testing.T) {
 				indexFileNames: []string{"readme.md", "read.me", "index"},
 			},
 			resourceName: func(link string) (string, string) {
-				return "readme", "md"
+				return "readme", ".md"
 			},
 			parent:  &api.Node{Nodes: []*api.Node{{Name: "n1"}, {Name: "n2"}}},
 			want:    "_index.md",

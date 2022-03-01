@@ -38,6 +38,7 @@ func (r *Reactor) Build(ctx context.Context, documentationStructure []*api.Node)
 		r.GitHubInfoTasks.Start(ctx)
 	}
 	// start document tasks
+	r.DocumentWorker.NodeContentProcessor.Prepare(documentationStructure)
 	klog.V(6).Infoln("Starting document tasks")
 	r.DocumentTasks.Start(ctx)
 
@@ -66,7 +67,7 @@ func (r *Reactor) Build(ctx context.Context, documentationStructure []*api.Node)
 	}
 	klog.Infof("Validation tasks processed: %d\n", r.ValidatorTasks.GetProcessedTasksCount())
 
-	for _, rhHost := range []string{"https://github.com/gardener", "https://github.tools.sap/kubernetes", "https://github.wdf.sap.corp/kubernetes"} {
+	for _, rhHost := range []string{"https://github.com", "https://github.tools.sap", "https://github.wdf.sap.corp"} {
 		rh := r.ResourceHandlers.Get(rhHost)
 		u, _ := url.Parse(rhHost)
 		if rh != nil {

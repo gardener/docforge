@@ -47,9 +47,6 @@ type ResourceHandler interface {
 	// If the provided link is not referencing an embeddable object, the function
 	// returns absLink without changes.
 	GetRawFormatLink(absLink string) (string, error)
-	// SetVersion sets version to absLink according to the API scheme. For GitHub
-	// for example this would replace e.g. the 'master' segment in the path with version
-	SetVersion(absLink, version string) (string, error)
 	// ResolveDocumentation for a given uri
 	ResolveDocumentation(ctx context.Context, uri string) (*api.Documentation, error)
 	// GetClient returns an HTTP client for accessing handler's resources
@@ -88,8 +85,7 @@ func (r *registry) Load(rhs ...ResourceHandler) {
 	r.handlers = append(r.handlers, rhs...)
 }
 
-// Get returns an appropriate handler for this type of URIs if any
-// one those registered accepts it (its Accepts method returns true).
+// Get returns an appropriate handler for this type of URIs if anyone those registered accepts it (its Accepts method returns true).
 func (r *registry) Get(uri string) ResourceHandler {
 	for _, h := range r.handlers {
 		if h.Accept(uri) {

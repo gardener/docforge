@@ -4,7 +4,7 @@
 
 package gitinterface
 
-import "github.com/google/go-github/v32/github"
+import "github.com/google/go-github/v43/github"
 
 const (
 	// DateFormat defines format for LastModifiedDate & PublishDate

@@ -1,0 +1,56 @@
+# SPDX-FileCopyrightText: 2021 SAP SE or an SAP affiliate company and Gardener contributors
+#
+# SPDX-License-Identifier: Apache-2.0
+{{$org := .org}}
+{{$version := .version}}
+structure:
+- name: mainTree
+  nodes:
+  - name: markdown-tests
+    nodes:
+    - source: https://github.com/{{$org}}/docforge/blob/{{$version}}/integration-test/tested-doc/markdown-tests/testedMarkdownFile1.md
+      name: file1.md
+    - source: https://github.com/{{$org}}/docforge/blob/{{$version}}/integration-test/tested-doc/markdown-tests/testedMarkdownFile2.md
+    - name: nodeSelector
+      properties:
+        frontmatter:
+          title: NodeSelector
+          description: Test NodeSelector
+      nodesSelector:
+        path: https://github.com/{{$org}}/docforge/tree/{{$version}}/integration-test/tested-doc/markdown-tests/testedDir
+  - name: html-tests
+    nodes:
+    - source: https://github.com/{{$org}}/docforge/blob/{{$version}}/integration-test/tested-doc/html-tests/testedHTMLFile1.md
+      name: file1.md
+    - source: https://github.com/{{$org}}/docforge/blob/{{$version}}/integration-test/tested-doc/html-tests/testedHTMLFile2.md
+    - name: nodeSelector
+      properties:
+        frontmatter:
+          title: NodeSelector
+          description: Test NodeSelector
+      nodesSelector:
+        path: https://github.com/{{$org}}/docforge/tree/{{$version}}/integration-test/tested-doc/html-tests/testedDir
+- name: merge-node
+  nodes:
+  - name: level1-container-node1
+    nodes:
+    - name: level2-container-node1
+      nodes:
+      - name: level3-container-node1
+        nodes:
+        - name: file1
+          source: https://github.com/{{$org}}/docforge/blob/{{$version}}/integration-test/tested-doc/merge-test/testFile.md
+        - name: file2
+          source: https://github.com/{{$org}}/docforge/blob/{{$version}}/integration-test/tested-doc/merge-test/testFile.md
+    - name: level2-container-node2
+      nodes:
+      - name: file1
+        source: https://github.com/{{$org}}/docforge/blob/{{$version}}/integration-test/tested-doc/merge-test/testFile.md
+  - name: level1-container-node2
+    nodes:
+    - name: file1
+      source: https://github.com/{{$org}}/docforge/blob/{{$version}}/integration-test/tested-doc/merge-test/testFile.md
+  nodesSelector:
+    path: https://github.com/{{$org}}/docforge/blob/{{$version}}/integration-test/tested-doc/merge-test/testSelector.yaml
+nodesSelector:
+  path: https://github.com/{{$org}}/docforge/tree/{{$version}}/integration-test/tested-doc/merge-test/testDir

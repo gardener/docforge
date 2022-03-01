@@ -7,32 +7,22 @@ package app
 import (
 	"context"
 	"fmt"
+	"github.com/gardener/docforge/pkg/reactor"
+	"github.com/gardener/docforge/pkg/resourcehandlers"
+	"github.com/gardener/docforge/pkg/resourcehandlers/pg"
+	"github.com/gardener/docforge/pkg/util/osshim"
+	"github.com/gardener/docforge/pkg/writers"
+	"github.com/google/go-github/v43/github"
+	"github.com/gregjones/httpcache"
+	"github.com/gregjones/httpcache/diskcache"
+	"github.com/hashicorp/go-multierror"
+	"github.com/peterbourgon/diskv"
+	"golang.org/x/oauth2"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
-	"time"
-
-	"k8s.io/klog/v2"
-
-	"github.com/gardener/docforge/pkg/reactor"
-	"github.com/gardener/docforge/pkg/resourcehandlers"
-	"github.com/gardener/docforge/pkg/resourcehandlers/git"
-	ghrs "github.com/gardener/docforge/pkg/resourcehandlers/github"
-	"github.com/gardener/docforge/pkg/writers"
-	"github.com/hashicorp/go-multierror"
-
-	"github.com/google/go-github/v32/github"
-	"golang.org/x/oauth2"
-	"golang.org/x/time/rate"
-)
-
-const (
-	headerRateLimit     = "X-RateLimit-Limit"
-	headerRateRemaining = "X-RateLimit-Remaining"
-	headerRateReset     = "X-RateLimit-Reset"
 )
 
 // NewReactor creates a Reactor from Options
@@ -52,7 +42,6 @@ func NewReactor(o *Options, rhs []resourcehandlers.ResourceHandler) (*reactor.Re
 		DestinationPath:              o.DestinationPath,
 		ResourcesPath:                o.ResourcesPath,
 		ResourceDownloadWorkersCount: o.ResourceDownloadWorkersCount,
-		RewriteEmbedded:              o.RewriteEmbedded,
 		ResourceHandlers:             rhs,
 		Resolve:                      o.Resolve,
 		ManifestPath:                 o.DocumentationManifestPath,
@@ -97,147 +86,82 @@ func initResourceHandlers(ctx context.Context, o *Options) ([]resourcehandlers.R
 			errs = multierror.Append(errs, fmt.Errorf("couldn't parse url: %s", instance))
 			continue
 		}
-
-		client, httpClient, err := buildClient(ctx, cred.OAuthToken, o.GhThrottling, instance)
+		cachePath := filepath.Join(o.CacheHomeDir, "diskv", cred.Host)
+		client, httpClient, err := buildClient(ctx, cred.OAuthToken, instance, cachePath)
 		if err != nil {
 			errs = multierror.Append(errs, err)
 		}
-		rh := newResourceHandler(u.Host, o.CacheHomeDir, &cred.Username, cred.OAuthToken, client, httpClient, o.UseGit, o.ResourceMappings, o.DefaultBranches, o.Variables)
+		rh := newResourceHandler(u.Host, o.CacheHomeDir, &cred.Username, cred.OAuthToken, client, httpClient, o.UseGit, o.ResourceMappings, o.Variables)
 		rhs = append(rhs, rh)
 	}
 
 	return rhs, errs.ErrorOrNil()
 }
 
-func newResourceHandler(host, homeDir string, user *string, token string, client *github.Client, httpClient *http.Client, useGit bool, localMappings map[string]string, branchesMap map[string]string, flagVars map[string]string) resourcehandlers.ResourceHandler {
+// TODO: remove unused params
+func newResourceHandler(host, homeDir string, user *string, token string, client *github.Client, httpClient *http.Client, useGit bool, localMappings map[string]string, flagVars map[string]string) resourcehandlers.ResourceHandler {
 	rawHost := "raw." + host
 	if host == "github.com" {
 		rawHost = "raw.githubusercontent.com"
 	}
 
-	if useGit {
-		return git.NewResourceHandler(filepath.Join(homeDir, git.CacheDir), user, token, client, httpClient, []string{host, rawHost}, localMappings, branchesMap, flagVars)
-	}
-	return ghrs.NewResourceHandler(client, httpClient, []string{host, rawHost}, branchesMap, flagVars)
+	//	if useGit { TODO: remove unused resource handlers
+	//		return git.NewResourceHandler(filepath.Join(homeDir, git.CacheDir), user, token, client, httpClient, []string{host, rawHost}, localMappings, branchesMap, flagVars)
+	//	}
+	//	return ghrs.NewResourceHandler(client, httpClient, []string{host, rawHost}, branchesMap, flagVars)
+
+	return pg.NewPG(client, httpClient, &osshim.OsShim{}, []string{host, rawHost}, localMappings, flagVars)
 }
 
-func buildClient(ctx context.Context, accessToken string, withClientThrottling bool, host string) (*github.Client, *http.Client, error) {
-	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: accessToken})
-	oauthClient := oauth2.NewClient(ctx, ts)
+//type headerFilter struct { // TODO: TEST
+//	Transport http.RoundTripper
+//}
+
+// RoundTrip filters headers for conditional requests as GitHub API modifies ETag header if authentication token is changed
+// so if both 'If-None-Match' and 'If-Modified-Since' headers are set in the request the 'If-None-Match' is removed
+//func (hf *headerFilter) RoundTrip(req *http.Request) (resp *http.Response, err error) {
+//	if len(req.Header.Get("If-Modified-Since")) > 0 {
+//		req.Header.Del("If-None-Match")
+//	}
+//	return hf.Transport.RoundTrip(req)
+//}
+
+func buildClient(ctx context.Context, accessToken string, host string, cachePath string) (*github.Client, *http.Client, error) {
+	base := http.DefaultClient.Transport
+	if len(accessToken) > 0 {
+		// if token provided replace base RoundTripper
+		ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: accessToken})
+		base = oauth2.NewClient(ctx, ts).Transport
+	}
+
+	//filter := &headerFilter{
+	//	Transport: base,
+	//}
+
+	flatTransform := func(s string) []string { return []string{} }
+	d := diskv.New(diskv.Options{
+		BasePath:     cachePath,
+		Transform:    flatTransform,
+		CacheSizeMax: 1024 * 1024 * 1024,
+	})
+
+	cacheTransport := &httpcache.Transport{
+		Transport:           base,
+		Cache:               diskcache.NewWithDiskv(d),
+		MarkCachedResponses: true,
+	}
+
+	httpClient := cacheTransport.Client()
+
 	var (
-		err     error
-		rl      *rate.Limiter
-		apiHost string
+		client *github.Client
+		err    error
 	)
 
-	if withClientThrottling {
-		if host == "https://github.com" {
-			apiHost = "https://api.github.com"
-		} else {
-			apiHost = fmt.Sprintf("%s/%s", host, "api")
-		}
-		if rl, err = rateLimitForClient(oauthClient, apiHost); err != nil {
-			return nil, nil, fmt.Errorf("cannot create rate-limited client for GitHub instance %s: %w", host, err)
-		}
-		if rl == nil {
-			return nil, nil, fmt.Errorf("cannot create rate-limited client for GitHub instance %s: rate limit exceeded", host)
-		}
-		// Wrap client transport instrumenting it for rate-limited requests
-		oauthClient.Transport = WithClientRateLimit(oauthClient.Transport, rl)
-	}
-	// Wrap client transport instrumenting it for request/response logging
-	oauthClient.Transport = WithClientHTTPLogging(oauthClient.Transport)
-
-	var client *github.Client
 	if host == "https://github.com" {
-		if accessToken != "" {
-			client = github.NewClient(oauthClient)
-		} else {
-			client = github.NewClient(nil)
-		}
-		return client, oauthClient, nil
+		client = github.NewClient(httpClient)
+		return client, httpClient, nil
 	}
-	client, err = github.NewEnterpriseClient(host, "", oauthClient)
-	return client, oauthClient, err
-}
-
-// RoundTripperFunc defines implementation of http.RoundTripper interface
-type RoundTripperFunc func(req *http.Request) (*http.Response, error)
-
-// RoundTrip implements the RoundTripper interface.
-func (rt RoundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) {
-	return rt(r)
-}
-
-// WithClientHTTPLogging returns http.RoundTripper with logging
-func WithClientHTTPLogging(next http.RoundTripper) RoundTripperFunc {
-	return func(r *http.Request) (*http.Response, error) {
-		var respStatus string
-		resp, err := next.RoundTrip(r)
-		requestLog := fmt.Sprintf("HTTP %s %s", r.Method, r.URL)
-		if err == nil {
-			respStatus = resp.Status
-		}
-		klog.V(6).Infof("%s %s", requestLog, respStatus)
-		return resp, err
-	}
-}
-
-// WithClientRateLimit returns http.RoundTripper with rate limit
-func WithClientRateLimit(next http.RoundTripper, ratelimiter *rate.Limiter) RoundTripperFunc {
-	ctx := context.Background()
-	return func(r *http.Request) (*http.Response, error) {
-		err := ratelimiter.Wait(ctx)
-		if err != nil {
-			return nil, err
-		}
-		resp, err := next.RoundTrip(r)
-		return resp, err
-	}
-}
-
-func rateLimitForClient(client *http.Client, host string) (*rate.Limiter, error) {
-	var (
-		req *http.Request
-		err error
-	)
-	rateEndpointURL := fmt.Sprintf("%s/%s", host, "rate_limit")
-	if req, err = http.NewRequest("GET", rateEndpointURL, nil); err != nil {
-		return nil, err
-	}
-	res, err := client.Do(req)
-	if res == nil {
-		return nil, err
-	}
-	r := parseRate(res)
-	rT1 := time.Now()
-	rD := r.Reset.Sub(rT1)
-	klog.V(6).Infof("client rate limiting reset in %f seconds", rD.Seconds())
-	klog.V(6).Infof("client rate limiting remaining requests %d", r.Remaining)
-	if r.Remaining > 0 {
-		reqRate := float64(r.Remaining) / rD.Seconds()
-		klog.V(6).Infof("client rate limiting requests interval for %s: %v", host, time.Duration(reqRate*float64(time.Second)).Truncate(time.Second))
-		rl := rate.NewLimiter(rate.Limit(reqRate), 1)
-		return rl, nil
-	}
-	return nil, nil
-}
-
-// parseRate parses the rate related headers.
-func parseRate(r *http.Response) github.Rate {
-	var rt github.Rate
-	if limit := r.Header.Get(headerRateLimit); limit != "" {
-		rt.Limit, _ = strconv.Atoi(limit)
-	}
-	if remaining := r.Header.Get(headerRateRemaining); remaining != "" {
-		rt.Remaining, _ = strconv.Atoi(remaining)
-	}
-	if reset := r.Header.Get(headerRateReset); reset != "" {
-		if v, _ := strconv.ParseInt(reset, 10, 64); v != 0 {
-			rt.Reset = github.Timestamp{
-				Time: time.Unix(v, 0),
-			}
-		}
-	}
-	return rt
+	client, err = github.NewEnterpriseClient(host, "", httpClient)
+	return client, httpClient, err
 }

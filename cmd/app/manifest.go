@@ -17,7 +17,7 @@ import (
 
 // Manifest reads the resource at uri, resolves it as template applying vars,
 // and finally parses it into api.Documentation model
-func manifest(ctx context.Context, uri string, resourceHandlers []resourcehandlers.ResourceHandler, branchesMap map[string]string, flagsVars map[string]string) (*api.Documentation, error) {
+func manifest(ctx context.Context, uri string, resourceHandlers []resourcehandlers.ResourceHandler, flagsVars map[string]string) (*api.Documentation, error) {
 	var (
 		handler         resourcehandlers.ResourceHandler
 		manifestContent []byte
@@ -37,17 +37,8 @@ func manifest(ctx context.Context, uri string, resourceHandlers []resourcehandle
 		if manifestContent, err = ioutil.ReadFile(uri); err != nil {
 			return nil, err
 		}
-		var (
-			targetBranch string
-			ok           bool
-		)
-		//choosing default branch
-		if targetBranch, ok = branchesMap[uri]; !ok {
-			if targetBranch, ok = branchesMap["default"]; !ok {
-				targetBranch = "master"
-			}
-		}
-		doc, err := api.ParseWithMetadata(manifestContent, targetBranch, flagsVars)
+
+		doc, err := api.ParseWithMetadata(manifestContent, "master", flagsVars)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse manifest: %s. %+v", uri, err)
 		}

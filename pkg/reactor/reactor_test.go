@@ -21,12 +21,10 @@ func init() {
 var (
 	apiRefNode = &api.Node{
 		Name: "apiRef",
-		//ContentSelectors: []api.ContentSelector{{Source: "https://github.com/org/repo/tree/master/docs/architecture/apireference.md"}},
 	}
 
 	archNode = &api.Node{
 		Name: "arch",
-		//ContentSelectors: []api.ContentSelector{{Source: "https://github.com/org/repo/tree/master/docs/architecture"}},
 		Nodes: []*api.Node{
 			apiRefNode,
 		},
@@ -34,12 +32,10 @@ var (
 
 	blogNode = &api.Node{
 		Name: "blog",
-		//ContentSelectors: []api.ContentSelector{{Source: "https://github.com/org/repo/tree/master/docs/blog/blog-part1.md"}},
 	}
 
 	tasksNode = &api.Node{
 		Name: "tasks",
-		//ContentSelectors: []api.ContentSelector{{Source: "https://github.com/org/repo/tree/master/docs/tasks"}},
 	}
 )
 
@@ -48,7 +44,6 @@ func createNewDocumentation() *api.Documentation {
 		Structure: []*api.Node{
 			{
 				Name: "rootNode",
-				//ContentSelectors: []api.ContentSelector{{Source: "https://github.com/org/repo/tree/master/docs"}},
 				Nodes: []*api.Node{
 					archNode,
 					blogNode,
@@ -62,7 +57,7 @@ func createNewDocumentation() *api.Documentation {
 func Test_getNodeParentPath(t *testing.T) {
 	type args struct {
 		node     *api.Node
-		parrents []*api.Node
+		parents []*api.Node
 	}
 	tests := []struct {
 		name string
@@ -83,7 +78,7 @@ func Test_getNodeParentPath(t *testing.T) {
 			name: "Pass node with one ancestor",
 			args: args{
 				node: &api.Node{Name: "father"},
-				parrents: []*api.Node{
+				parents: []*api.Node{
 					{Name: "grandfather"},
 				},
 			},
@@ -93,7 +88,7 @@ func Test_getNodeParentPath(t *testing.T) {
 			name: "Pass node with two ancestor",
 			args: args{
 				node: &api.Node{Name: "son"},
-				parrents: []*api.Node{
+				parents: []*api.Node{
 					{Name: "grandfather"},
 					{Name: "father"},
 				},
@@ -102,7 +97,7 @@ func Test_getNodeParentPath(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		setParents(tt.args.node, tt.args.parrents)
+		setParents(tt.args.node, tt.args.parents)
 		t.Run(tt.name, func(t *testing.T) {
 			if got := getNodeParentPath(tt.args.node); got != tt.want {
 				t.Errorf("getNodeParentPath() = %v, want %v", got, tt.want)
@@ -123,7 +118,7 @@ func Test_buildNodeCollision(t *testing.T) {
 		want collision
 	}{
 		{
-			name: "Pass nodes with one colission of two nodes",
+			name: "Pass nodes with one collision of two nodes",
 			args: args{
 				nodes: []*api.Node{
 					{Name: "foo", Source: "foo/bar"},
@@ -140,7 +135,7 @@ func Test_buildNodeCollision(t *testing.T) {
 			},
 		},
 		{
-			name: "Pass nodes with one colission of three nodes",
+			name: "Pass nodes with one collision of three nodes",
 			args: args{
 				nodes: []*api.Node{
 					{Name: "foo", Source: "foo/bar"},
@@ -158,7 +153,7 @@ func Test_buildNodeCollision(t *testing.T) {
 			},
 		},
 		{
-			name: "Pass nodes with two colission",
+			name: "Pass nodes with two collision",
 			args: args{
 				nodes: []*api.Node{
 					{Name: "foo", Source: "foo/bar"},

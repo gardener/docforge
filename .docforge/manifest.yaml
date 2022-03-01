@@ -4,10 +4,5 @@ structure:
 - name: _index.md
   source: https://github.com/gardener/docforge/blob/{{$defaultBranch}}/README.md
 - name: docs
-  nodes:
-  - nodesSelector:
-      path: https://github.com/gardener/docforge/tree/{{$defaultBranch}}/docs
-links:
-  downloads:
-    scope:
-      "gardener/docforge/(blob|raw)/(.*)/docs": ~
+  nodesSelector:
+    path: https://github.com/gardener/docforge/tree/{{$defaultBranch}}/docs

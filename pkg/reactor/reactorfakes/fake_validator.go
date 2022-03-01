@@ -5,17 +5,17 @@
 package reactorfakes
 
 import (
+	"net/url"
 	"sync"
 
 	"github.com/gardener/docforge/pkg/reactor"
-	"github.com/gardener/docforge/pkg/util/urls"
 )
 
 type FakeValidator struct {
-	ValidateLinkStub        func(*urls.URL, string, string) bool
+	ValidateLinkStub        func(*url.URL, string, string) bool
 	validateLinkMutex       sync.RWMutex
 	validateLinkArgsForCall []struct {
-		arg1 *urls.URL
+		arg1 *url.URL
 		arg2 string
 		arg3 string
 	}
@@ -29,11 +29,11 @@ type FakeValidator struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeValidator) ValidateLink(arg1 *urls.URL, arg2 string, arg3 string) bool {
+func (fake *FakeValidator) ValidateLink(arg1 *url.URL, arg2 string, arg3 string) bool {
 	fake.validateLinkMutex.Lock()
 	ret, specificReturn := fake.validateLinkReturnsOnCall[len(fake.validateLinkArgsForCall)]
 	fake.validateLinkArgsForCall = append(fake.validateLinkArgsForCall, struct {
-		arg1 *urls.URL
+		arg1 *url.URL
 		arg2 string
 		arg3 string
 	}{arg1, arg2, arg3})
@@ -56,13 +56,13 @@ func (fake *FakeValidator) ValidateLinkCallCount() int {
 	return len(fake.validateLinkArgsForCall)
 }
 
-func (fake *FakeValidator) ValidateLinkCalls(stub func(*urls.URL, string, string) bool) {
+func (fake *FakeValidator) ValidateLinkCalls(stub func(*url.URL, string, string) bool) {
 	fake.validateLinkMutex.Lock()
 	defer fake.validateLinkMutex.Unlock()
 	fake.ValidateLinkStub = stub
 }
 
-func (fake *FakeValidator) ValidateLinkArgsForCall(i int) (*urls.URL, string, string) {
+func (fake *FakeValidator) ValidateLinkArgsForCall(i int) (*url.URL, string, string) {
 	fake.validateLinkMutex.RLock()
 	defer fake.validateLinkMutex.RUnlock()
 	argsForCall := fake.validateLinkArgsForCall[i]
