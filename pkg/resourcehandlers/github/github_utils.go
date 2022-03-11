@@ -12,7 +12,7 @@ import (
 	"sync"
 
 	"github.com/gardener/docforge/pkg/util/urls"
-	ghclient "github.com/google/go-github/v32/github"
+	ghclient "github.com/google/go-github/v43/github"
 )
 
 // ReadGitInfo implements resourcehandlers/ResourceHandler#ReadGitInfo

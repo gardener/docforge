@@ -34,31 +34,27 @@ type Options struct {
 	DocumentationManifestPath    string            `mapstructure:"manifest"`
 	ResourcesPath                string            `mapstructure:"resources-download-path"`
 	ResourceDownloadWorkersCount int               `mapstructure:"download-workers"`
-	RewriteEmbedded              bool              `mapstructure:"rewrite-embedded-to-raw"`
-	Variables                    map[string]string `mapstructure:"variables"`
+	Variables                    map[string]string `mapstructure:"variables"` // TODO: get rid of this option
 	GhInfoDestination            string            `mapstructure:"github-info-destination"`
-	GhThrottling                 bool              `mapstructure:"github-throttling"`
-	DryRun                       bool              `mapstructure:"dry-run"`
-	Resolve                      bool              `mapstructure:"resolve"`
+	DryRun                       bool              `mapstructure:"dry-run"` // TODO: use-case for this option ??
+	Resolve                      bool              `mapstructure:"resolve"` // TODO: use-case for this option ??
 	Hugo                         bool              `mapstructure:"hugo"`
-	HugoPrettyUrls               bool              `mapstructure:"hugo-pretty-urls"`
+	HugoPrettyUrls               bool              `mapstructure:"hugo-pretty-urls"` // TODO: hugo defaults to pretty urls -> make sense to use 'hugo-ugly-urls' instead
 	FlagsHugoSectionFiles        []string          `mapstructure:"hugo-section-files"`
 	HugoBaseURL                  string            `mapstructure:"hugo-base-url"`
-	UseGit                       bool              `mapstructure:"use-git"`
+	UseGit                       bool              `mapstructure:"use-git"` // TODO: get rid of this option
 	CacheHomeDir                 string            `mapstructure:"cache-dir"`
-	Credentials                  []Credential      `mapstructure:"credidential"`
+	Credentials                  []Credential      `mapstructure:"credentials"` // TODO: one way to provide credentials (e.g. use only 'github-oauth-token-map')
 	ResourceMappings             map[string]string `mapstructure:"resourceMappings"`
-	DefaultBranches              map[string]string `mapstructure:"defaultBranches"`
-	GhOAuthToken                 string            `mapstructure:"github-oauth-token"`
-	GhOAuthTokens                map[string]string `mapstructure:"github-oauth-token-map"`
-	LastNVersions                map[string]string `mapstructure:"lastNVersions"`
+	GhOAuthToken                 string            `mapstructure:"github-oauth-token"`     // TODO:
+	GhOAuthTokens                map[string]string `mapstructure:"github-oauth-token-map"` // TODO:
 }
 
 //Credential holds repository credential data
 type Credential struct {
 	Host       string
 	Username   string
-	OAuthToken string `mapstructure:"o-auth-token"`
+	OAuthToken string `mapstructure:"o-auth-token"` // TODO:
 }
 
 var vip *viper.Viper
@@ -85,7 +81,7 @@ func NewCommand(ctx context.Context) *cobra.Command {
 			if rhs, err = initResourceHandlers(ctx, options); err != nil {
 				return err
 			}
-			if doc, err = manifest(ctx, options.DocumentationManifestPath, rhs, options.DefaultBranches, options.Variables); err != nil {
+			if doc, err = manifest(ctx, options.DocumentationManifestPath, rhs, options.Variables); err != nil {
 				return err
 			}
 			reactor, err := NewReactor(options, rhs)
@@ -135,105 +131,91 @@ func Configure(command *cobra.Command) {
 func configureFlags(command *cobra.Command) {
 	command.Flags().StringP("destination", "d", "",
 		"Destination path.")
-	command.MarkFlagRequired("destination")
-	vip.BindPFlag("destination", command.Flags().Lookup("destination"))
+	_ = command.MarkFlagRequired("destination")
+	_ = vip.BindPFlag("destination", command.Flags().Lookup("destination"))
 
 	command.Flags().StringP("manifest", "f", "",
 		"Manifest path.")
-	command.MarkFlagRequired("manifest")
-	vip.BindPFlag("manifest", command.Flags().Lookup("manifest"))
+	_ = command.MarkFlagRequired("manifest")
+	_ = vip.BindPFlag("manifest", command.Flags().Lookup("manifest"))
 
 	command.Flags().String("resources-download-path", "__resources",
 		"Resources download path.")
-	vip.BindPFlag("resources-download-path", command.Flags().Lookup("resources-download-path"))
+	_ = vip.BindPFlag("resources-download-path", command.Flags().Lookup("resources-download-path"))
 
 	command.Flags().String("github-oauth-token", "",
 		"GitHub personal token authorizing read access from GitHub.com repositories. For authorization credentials for multiple GitHub instances, see --github-oauth-token-map")
-	vip.BindPFlag("github-oauth-token", command.Flags().Lookup("github-oauth-token"))
+	_ = vip.BindPFlag("github-oauth-token", command.Flags().Lookup("github-oauth-token"))
 
 	command.Flags().StringToString("github-oauth-token-map", map[string]string{},
 		"GitHub personal tokens authorizing read access from repositories per GitHub instance. Note that if the GitHub token is already provided by `github-oauth-token` it will be overridden by it.")
-	vip.BindPFlag("github-oauth-token-map", command.Flags().Lookup("github-oauth-token-map"))
+	_ = vip.BindPFlag("github-oauth-token-map", command.Flags().Lookup("github-oauth-token-map"))
 
 	command.Flags().Bool("github-throttling", false,
 		"Enable throttling of requests to GitHub API. The throttling is adaptive and will slow down execution with the approaching rate limit. Use to improve continuity. Disable to maximise performance.")
-	vip.BindPFlag("github-throttling", command.Flags().Lookup("github-throttling"))
+	_ = vip.BindPFlag("github-throttling", command.Flags().Lookup("github-throttling"))
 
 	command.Flags().String("github-info-destination", "",
 		"If specified, docforge will download also additional github info for the files from the documentation structure into this destination.")
-	vip.BindPFlag("github-info-destination", command.Flags().Lookup("github-info-destination"))
-
-	command.Flags().Bool("rewrite-embedded-to-raw", true,
-		"Rewrites absolute link destinations for embedded resources (images) to reference embeddable media (e.g. for GitHub - reference to a 'raw' version of an image).")
-	vip.BindPFlag("rewrite-embedded-to-raw", command.Flags().Lookup("rewrite-embedded-to-raw"))
+	_ = vip.BindPFlag("github-info-destination", command.Flags().Lookup("github-info-destination"))
 
 	command.Flags().StringToString("variables", map[string]string{},
 		"Variables applied to parameterized (using Go template) manifest.")
-	vip.BindPFlag("variables", command.Flags().Lookup("variables"))
+	_ = vip.BindPFlag("variables", command.Flags().Lookup("variables"))
 
 	command.Flags().Bool("fail-fast", false,
 		"Fail-fast vs fault tolerant operation.")
-	vip.BindPFlag("fail-fast", command.Flags().Lookup("fail-fast"))
+	_ = vip.BindPFlag("fail-fast", command.Flags().Lookup("fail-fast"))
 
 	command.Flags().Bool("dry-run", false,
 		"Runs the command end-to-end but instead of writing files, it will output the projected file/folder hierarchy to the standard output and statistics for the processing of each file.")
-	vip.BindPFlag("dry-run", command.Flags().Lookup("dry-run"))
+	_ = vip.BindPFlag("dry-run", command.Flags().Lookup("dry-run"))
 
 	command.Flags().Bool("resolve", false,
 		"Resolves the documentation structure and prints it to the standard output. The resolution expands nodeSelector constructs into node hierarchies.")
-	vip.BindPFlag("resolve", command.Flags().Lookup("resolve"))
+	_ = vip.BindPFlag("resolve", command.Flags().Lookup("resolve"))
 
 	command.Flags().Int("document-workers", 25,
 		"Number of parallel workers for document processing.")
-	vip.BindPFlag("document-workers", command.Flags().Lookup("document-workers"))
+	_ = vip.BindPFlag("document-workers", command.Flags().Lookup("document-workers"))
 
 	command.Flags().Int("validation-workers", 50,
 		"Number of parallel workers to validate the markdown links")
-	vip.BindPFlag("validation-workers", command.Flags().Lookup("validation-workers"))
+	_ = vip.BindPFlag("validation-workers", command.Flags().Lookup("validation-workers"))
 
 	command.Flags().Int("download-workers", 10,
 		"Number of workers downloading document resources in parallel.")
-	vip.BindPFlag("download-workers", command.Flags().Lookup("download-workers"))
+	_ = vip.BindPFlag("download-workers", command.Flags().Lookup("download-workers"))
 
 	command.Flags().Bool("hugo", false,
 		"Build documentation bundle for hugo.")
-	vip.BindPFlag("hugo", command.Flags().Lookup("hugo"))
+	_ = vip.BindPFlag("hugo", command.Flags().Lookup("hugo"))
 
 	command.Flags().Bool("hugo-pretty-urls", true,
 		"Build documentation bundle for hugo with pretty URLs (./sample.md -> ../sample). Only useful with --hugo=true")
-	vip.BindPFlag("hugo-pretty-urls", command.Flags().Lookup("hugo-pretty-urls"))
+	_ = vip.BindPFlag("hugo-pretty-urls", command.Flags().Lookup("hugo-pretty-urls"))
 
 	command.Flags().String("hugo-base-url", "",
 		"Rewrites the relative links of documentation files to root-relative where possible.")
-	vip.BindPFlag("hugo-base-url", command.Flags().Lookup("hugo-base-url"))
+	_ = vip.BindPFlag("hugo-base-url", command.Flags().Lookup("hugo-base-url"))
 
 	command.Flags().Bool("use-git", false,
 		"Use Git for replication")
-	vip.BindPFlag("use-git", command.Flags().Lookup("use-git"))
+	_ = vip.BindPFlag("use-git", command.Flags().Lookup("use-git"))
 
 	command.Flags().StringSlice("hugo-section-files", []string{"readme.md", "readme", "read.me", "index.md", "index"},
 		"When building a Hugo-compliant documentation bundle, files with filename matching one form this list (in that order) will be renamed to _index.md. Only useful with --hugo=true")
-	vip.BindPFlag("hugo-section-files", command.Flags().Lookup("hugo-section-files"))
+	_ = vip.BindPFlag("hugo-section-files", command.Flags().Lookup("hugo-section-files"))
 
+	cacheDir := ""
 	userHomeDir, err := os.UserHomeDir()
 	if err == nil {
 		// default value $HOME/.docforge/cache
-		command.Flags().String("cache-dir", filepath.Join(userHomeDir, DocforgeHomeDir),
-			"Cache directory, used for repository cache.")
-	} else {
-		command.Flags().String("cache-dir", "",
-			"Cache directory, used for repository cache.")
+		cacheDir = filepath.Join(userHomeDir, DocforgeHomeDir)
 	}
-	vip.BindPFlag("cache-dir", command.Flags().Lookup("cache-dir"))
-
-	command.Flags().StringToString("lastNVersions", map[string]string{},
-		"Specify default number of versions and per uri that will be supported")
-	vip.BindPFlag("lastNVersions", command.Flags().Lookup("lastNVersions"))
-
-	command.Flags().StringToString("defaultBranches", map[string]string{},
-		"Specify default main branch and per uri")
-	vip.BindPFlag("defaultBranches", command.Flags().Lookup("defaultBranches"))
-
+	command.Flags().String("cache-dir", cacheDir,
+		"Cache directory, used for repository cache.")
+	_ = vip.BindPFlag("cache-dir", command.Flags().Lookup("cache-dir"))
 }
 
 func configureConfigFile() {
@@ -249,7 +231,7 @@ func configureConfigFile() {
 	if err != nil {
 		klog.Warningf("Non-fatal error in loading configuration: %s. No configuration file will be used", err.Error())
 	} else {
-		klog.Warningf("Config file %s with path %s will be used", DefaultConfigFileName, filepath.Join(userHomerDir, DocforgeHomeDir))
+		klog.Infof("Config file %s with path %s will be used", DefaultConfigFileName, filepath.Join(userHomerDir, DocforgeHomeDir))
 	}
 }
 
@@ -273,10 +255,10 @@ func AddFlags(rootCmd *cobra.Command) {
 }
 
 func gatherCredentials() []Credential {
-	configCredentials := []Credential{}
-	err := vip.UnmarshalKey("credidential", &configCredentials)
+	var configCredentials []Credential
+	err := vip.UnmarshalKey("credentials", &configCredentials)
 	if err != nil {
-		klog.Warningf("error in unmarshaling credidentails from config: %s", err.Error())
+		klog.Warningf("error in unmarshalling credentials from config: %s", err.Error())
 	}
 	ghOAuthTokens := vip.GetStringMapString("github-oauth-token-map")
 	ghOAuthToken := vip.GetString("github-oauth-token")

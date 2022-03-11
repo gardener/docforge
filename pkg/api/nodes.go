@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"gopkg.in/yaml.v3"
 	"k8s.io/klog/v2"
+	"sort"
 	"strings"
 )
 
@@ -16,6 +17,8 @@ const (
 	CachedNodeContent = "\x00cachedNodeContent"
 	// ContainerNodeSourceLocation - key used to store container Node source location into properties
 	ContainerNodeSourceLocation = "\x00containerNodeSourceLocation"
+	// NodeResourceSHA - key used to store Source resource SHA for later use in https://developer.github.com/v3/git/blobs/#get-a-blob
+	NodeResourceSHA = "\x00nodeResourceSHA"
 )
 
 // Parent returns the parent node (if any) of this node n
@@ -236,5 +239,19 @@ func (n *Node) Cleanup() {
 	if idx > 0 { // add the rest
 		children = append(children, n.Nodes[idx:]...)
 		n.Nodes = children
+	}
+}
+
+// Sort sorts child nodes alphabetically by name
+func (n *Node) Sort() {
+	if !n.IsDocument() {
+		for _, cn := range n.Nodes {
+			if !cn.IsDocument() {
+				cn.Sort()
+			}
+		}
+		sort.Slice(n.Nodes, func(i, j int) bool {
+			return n.Nodes[i].Name < n.Nodes[j].Name
+		})
 	}
 }

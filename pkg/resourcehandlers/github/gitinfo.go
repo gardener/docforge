@@ -12,7 +12,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/gardener/docforge/pkg/resourcehandlers/git/gitinterface"
-	"github.com/google/go-github/v32/github"
+	"github.com/google/go-github/v43/github"
 )
 
 // Transform builds git.Info from a commits list

@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/gardener/docforge/pkg/resourcehandlers/git/gitinterface"
-	"github.com/google/go-github/v32/github"
+	"github.com/google/go-github/v43/github"
 )
 
 func TestTransform(t *testing.T) {

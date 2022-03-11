@@ -30,7 +30,7 @@ import (
 	"github.com/gardener/docforge/pkg/util/httpclient"
 	"github.com/gardener/docforge/pkg/util/urls"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
-	ghclient "github.com/google/go-github/v32/github"
+	ghclient "github.com/google/go-github/v43/github"
 )
 
 // CacheDir is the name of repository cache directory
@@ -469,25 +469,6 @@ func (g *Git) GetRawFormatLink(absLink string) (string, error) {
 	if l := rl.GetRaw(); len(l) > 0 {
 		return l, nil
 	}
-	return absLink, nil
-}
-
-// SetVersion sets version to absLink according to the API scheme. For GitHub
-// for example this would replace e.g. the 'master' segment in the path with version
-func (g *Git) SetVersion(absLink, version string) (string, error) {
-	var (
-		rl  *github.ResourceLocator
-		err error
-	)
-	if rl, err = github.Parse(absLink); err != nil {
-		return "", err
-	}
-
-	if len(rl.SHAAlias) > 0 {
-		rl.SHAAlias = version
-		return rl.String(), nil
-	}
-
 	return absLink, nil
 }
 

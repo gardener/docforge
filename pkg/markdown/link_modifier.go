@@ -17,6 +17,7 @@ import (
 	"gopkg.in/yaml.v3"
 	"io"
 	"regexp"
+	"strings"
 	"sync"
 )
 
@@ -30,11 +31,13 @@ var (
 	// defines an ordered list item marker without next not space char '[^ ]+'
 	marker = regexp.MustCompile(`^\d{1,9}[.)] {1,4}`)
 	// defines a fence block line
-	fence = regexp.MustCompile("^ {0,3}```")
+	fence = regexp.MustCompile("^ {0,3}```.*")
+	// defines a mermaid link
+	mermaidLink = regexp.MustCompile(`(^\s*click +[^"]+ +")([^"]+)(".*)`)
 	// GFM autolink extensions
 	http  = regexp.MustCompile(`^https?://(?:[a-zA-Z\d\-_]+\.)*[a-zA-Z\d\-]+\.[a-zA-Z\d\-]+[^ <]*$`)
 	www   = regexp.MustCompile(`^www\.(?:[a-zA-Z\d\-_]+\.)*[a-zA-Z\d\-]+\.[a-zA-Z\d\-]+[^ <]*$`)
-	email = regexp.MustCompile(`^[a-zA-Z\d.\-+]+@(?:[a-zA-Z\d\-_]+\.)+[a-zA-Z\d\-_]+$`)
+	email = regexp.MustCompile(`^[a-zA-Z\d.\-_+]+@(?:[a-zA-Z\d\-_]+\.)+[a-zA-Z\d\-_]+$`)
 )
 
 // ResolveLink type defines function for modifying link destination
@@ -298,10 +301,27 @@ func (r *Renderer) renderFencedCodeBlock(n ast.Node, entering bool) (ast.WalkSta
 			language := fn.Language(r.source)
 			if language != nil {
 				_, _ = r.writer.Write(language)
+				if bytes.Compare(language, []byte("mermaid")) == 0 {
+					// resolve links in mermaid diagrams
+					modBuf := bufPool.Get().(*bytes.Buffer)
+					defer bufPool.Put(modBuf)
+					modBuf.Reset()
+					modified, err := r.modifyMermaid(buf.Bytes(), modBuf)
+					if err != nil {
+						return ast.WalkStop, err
+					}
+					if modified {
+						buf = modBuf
+					}
+				}
 			}
 		}
 		r.newLine(false)
 		if buf.Len() > 0 {
+			// ensure buffer ends with '\n'
+			if buf.Bytes()[buf.Len()-1] != '\n' {
+				buf.WriteByte('\n')
+			}
 			_, _ = r.writer.Write(buf.Bytes())
 		}
 		if indents {
@@ -775,6 +795,39 @@ func (r *Renderer) modifyHTMLTags(source []byte, target io.Writer) (bool, error)
 			}
 		}
 		_, _ = target.Write([]byte(t.String()))
+	}
+}
+
+func (r *Renderer) modifyMermaid(source []byte, target *bytes.Buffer) (bool, error) {
+	modified := false
+	reader := bufio.NewReader(bytes.NewReader(source))
+	for {
+		l, err := reader.ReadBytes('\n')
+		matches := mermaidLink.FindSubmatch(l)
+		if matches == nil {
+			_, _ = target.Write(l)
+		} else {
+			var dest string
+			dest = string(matches[2])
+			if "." == strings.TrimSpace(dest) {
+				dest = "."
+			} else {
+				dest, err = r.linkResolver(dest, false)
+				if err != nil {
+					return modified, err
+				}
+			}
+			modified = true
+			_, _ = target.Write(matches[1])
+			_, _ = target.Write([]byte(dest))
+			_, _ = target.Write(matches[3])
+			if '\n' == l[len(l)-1] && '\n' != matches[3][len(matches[3])-1] {
+				_ = target.WriteByte('\n')
+			}
+		}
+		if err != nil {
+			return modified, nil
+		}
 	}
 }
 

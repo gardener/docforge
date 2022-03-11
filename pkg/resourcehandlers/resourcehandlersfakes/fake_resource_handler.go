@@ -149,20 +149,6 @@ type FakeResourceHandler struct {
 		result1 string
 		result2 string
 	}
-	SetVersionStub        func(string, string) (string, error)
-	setVersionMutex       sync.RWMutex
-	setVersionArgsForCall []struct {
-		arg1 string
-		arg2 string
-	}
-	setVersionReturns struct {
-		result1 string
-		result2 error
-	}
-	setVersionReturnsOnCall map[int]struct {
-		result1 string
-		result2 error
-	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -804,71 +790,6 @@ func (fake *FakeResourceHandler) ResourceNameReturnsOnCall(i int, result1 string
 	}{result1, result2}
 }
 
-func (fake *FakeResourceHandler) SetVersion(arg1 string, arg2 string) (string, error) {
-	fake.setVersionMutex.Lock()
-	ret, specificReturn := fake.setVersionReturnsOnCall[len(fake.setVersionArgsForCall)]
-	fake.setVersionArgsForCall = append(fake.setVersionArgsForCall, struct {
-		arg1 string
-		arg2 string
-	}{arg1, arg2})
-	stub := fake.SetVersionStub
-	fakeReturns := fake.setVersionReturns
-	fake.recordInvocation("SetVersion", []interface{}{arg1, arg2})
-	fake.setVersionMutex.Unlock()
-	if stub != nil {
-		return stub(arg1, arg2)
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fakeReturns.result1, fakeReturns.result2
-}
-
-func (fake *FakeResourceHandler) SetVersionCallCount() int {
-	fake.setVersionMutex.RLock()
-	defer fake.setVersionMutex.RUnlock()
-	return len(fake.setVersionArgsForCall)
-}
-
-func (fake *FakeResourceHandler) SetVersionCalls(stub func(string, string) (string, error)) {
-	fake.setVersionMutex.Lock()
-	defer fake.setVersionMutex.Unlock()
-	fake.SetVersionStub = stub
-}
-
-func (fake *FakeResourceHandler) SetVersionArgsForCall(i int) (string, string) {
-	fake.setVersionMutex.RLock()
-	defer fake.setVersionMutex.RUnlock()
-	argsForCall := fake.setVersionArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
-}
-
-func (fake *FakeResourceHandler) SetVersionReturns(result1 string, result2 error) {
-	fake.setVersionMutex.Lock()
-	defer fake.setVersionMutex.Unlock()
-	fake.SetVersionStub = nil
-	fake.setVersionReturns = struct {
-		result1 string
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *FakeResourceHandler) SetVersionReturnsOnCall(i int, result1 string, result2 error) {
-	fake.setVersionMutex.Lock()
-	defer fake.setVersionMutex.Unlock()
-	fake.SetVersionStub = nil
-	if fake.setVersionReturnsOnCall == nil {
-		fake.setVersionReturnsOnCall = make(map[int]struct {
-			result1 string
-			result2 error
-		})
-	}
-	fake.setVersionReturnsOnCall[i] = struct {
-		result1 string
-		result2 error
-	}{result1, result2}
-}
-
 func (fake *FakeResourceHandler) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -892,8 +813,6 @@ func (fake *FakeResourceHandler) Invocations() map[string][][]interface{} {
 	defer fake.resolveNodeSelectorMutex.RUnlock()
 	fake.resourceNameMutex.RLock()
 	defer fake.resourceNameMutex.RUnlock()
-	fake.setVersionMutex.RLock()
-	defer fake.setVersionMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

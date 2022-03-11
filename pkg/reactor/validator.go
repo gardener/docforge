@@ -11,7 +11,6 @@ import (
 	"github.com/gardener/docforge/pkg/jobs"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/gardener/docforge/pkg/util/httpclient"
-	"github.com/gardener/docforge/pkg/util/urls"
 	"k8s.io/klog/v2"
 	"math/rand"
 	"net/http"
@@ -28,7 +27,7 @@ import (
 type Validator interface {
 	// ValidateLink checks if the link URL is available in a separate goroutine
 	// returns true if the task was added for processing, false if it was skipped
-	ValidateLink(linkURL *urls.URL, linkDestination, contentSourcePath string) bool
+	ValidateLink(linkURL *url.URL, linkDestination, contentSourcePath string) bool
 }
 
 type validator struct {
@@ -42,7 +41,7 @@ func NewValidator(queue *jobs.JobQueue) Validator {
 	}
 }
 
-func (v *validator) ValidateLink(linkURL *urls.URL, linkDestination, contentSourcePath string) bool {
+func (v *validator) ValidateLink(linkURL *url.URL, linkDestination, contentSourcePath string) bool {
 	vTask := &ValidationTask{
 		LinkURL:           linkURL,
 		LinkDestination:   linkDestination,
@@ -57,7 +56,7 @@ func (v *validator) ValidateLink(linkURL *urls.URL, linkDestination, contentSour
 
 // ValidationTask represents a task for validating LinkURL
 type ValidationTask struct {
-	LinkURL           *urls.URL
+	LinkURL           *url.URL
 	LinkDestination   string
 	ContentSourcePath string
 }
@@ -96,7 +95,6 @@ func (v *validatorWorker) Validate(ctx context.Context, task interface{}) error 
 		if host == "localhost" || host == "127.0.0.1" || host == "1.2.3.4" || strings.Contains(host, "foo.bar") {
 			return nil
 		}
-		// check if link URL is already validated
 		// unify links destination by excluding query, fragment & user info
 		u := &url.URL{
 			Scheme: vTask.LinkURL.Scheme,
@@ -108,15 +106,9 @@ func (v *validatorWorker) Validate(ctx context.Context, task interface{}) error 
 			return nil
 		}
 		client := v.httpClient
+		// check for handler HTTP Client
 		absLinkDestination := vTask.LinkURL.String()
-		// check if link absolute destination exists locally
-		handler := v.resourceHandlers.Get(absLinkDestination)
-		if handler != nil {
-			if _, err := handler.BuildAbsLink(vTask.ContentSourcePath, absLinkDestination); err == nil {
-				// no ErrResourceNotFound -> absolute destination exists locally
-				v.validated.add(unifiedURL)
-				return nil
-			}
+		if handler := v.resourceHandlers.Get(absLinkDestination); handler != nil {
 			// get appropriate http client, if any
 			if handlerClient := handler.GetClient(); handlerClient != nil {
 				client = handlerClient

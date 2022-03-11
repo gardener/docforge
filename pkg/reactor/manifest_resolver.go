@@ -7,6 +7,7 @@ package reactor
 import (
 	"context"
 	"fmt"
+	"github.com/gardener/docforge/pkg/util"
 	"reflect"
 	"strings"
 
@@ -93,43 +94,49 @@ func (r *Reactor) resolveNodeSelector(ctx context.Context, node *api.Node, visit
 	if rh == nil {
 		return nil, fmt.Errorf("no suitable handler registered for path %s", node.NodeSelector.Path)
 	}
-	var err error
-	// if path points to manifest then resolve documentation, otherwise nil will be returned
-	var manifest *api.Documentation
-	manifest, err = rh.ResolveDocumentation(ctx, node.NodeSelector.Path)
+
+	ri, err := util.BuildResourceInfo(node.NodeSelector.Path)
 	if err != nil {
-		err = fmt.Errorf("failed to resolve imported documentation manifest for node %s with path %s: %v", node.FullName("/"), node.NodeSelector.Path, err)
 		return nil, err
 	}
-	if manifest != nil {
-		if isVisited(visited, node.NodeSelector.Path) {
-			visited = append(visited, node.NodeSelector.Path)
-			return nil, fmt.Errorf("circular dependency discovered %s", strings.Join(visited, " -> "))
-		}
-		visited = append(visited, node.NodeSelector.Path) // push
-		defer func() {
-			visited = visited[:len(visited)-1] // pop
-		}()
-		// init virtual result node
-		result := &api.Node{Nodes: manifest.Structure, NodeSelector: manifest.NodeSelector}
-		manifest.NodeSelector = nil
-		result.SetParentsDownwards()
-		// resolve manifest structure names
-		if err = r.resolveNodeNames(result.Nodes); err != nil {
+	// if path points to manifest then resolve documentation
+	if ri.Type == "blob" {
+		var manifest *api.Documentation
+		manifest, err = rh.ResolveDocumentation(ctx, node.NodeSelector.Path)
+		if err != nil {
+			err = fmt.Errorf("failed to resolve imported documentation manifest for node %s with path %s: %v", node.FullName("/"), node.NodeSelector.Path, err)
 			return nil, err
 		}
-		if result.NodeSelector != nil {
-			var selected *api.Node
-			selected, err = r.resolveNodeSelector(ctx, result, visited)
-			if err != nil {
+		if manifest != nil {
+			if isVisited(visited, node.NodeSelector.Path) {
+				visited = append(visited, node.NodeSelector.Path)
+				return nil, fmt.Errorf("circular dependency discovered %s", strings.Join(visited, " -> "))
+			}
+			visited = append(visited, node.NodeSelector.Path) // push
+			defer func() {
+				visited = visited[:len(visited)-1] // pop
+			}()
+			// init virtual result node
+			result := &api.Node{Nodes: manifest.Structure, NodeSelector: manifest.NodeSelector}
+			manifest.NodeSelector = nil
+			result.SetParentsDownwards()
+			// resolve manifest structure names
+			if err = r.resolveNodeNames(result.Nodes); err != nil {
 				return nil, err
 			}
-			result.NodeSelector = nil
-			if err = result.Union(selected.Nodes); err != nil {
-				return nil, err
+			if result.NodeSelector != nil {
+				var selected *api.Node
+				selected, err = r.resolveNodeSelector(ctx, result, visited)
+				if err != nil {
+					return nil, err
+				}
+				result.NodeSelector = nil
+				if err = result.Union(selected.Nodes); err != nil {
+					return nil, err
+				}
 			}
+			return result, nil
 		}
-		return result, nil
 	}
 	// if path points to directory -> resolve node selector
 	var nodes []*api.Node
@@ -170,7 +177,7 @@ func (r *Reactor) resolveNodeNames(nodes []*api.Node) error {
 			if len(node.Source) > 0 {
 				name := node.Name
 				if len(name) == 0 {
-					name = "$name"
+					name = "$name$ext"
 				}
 				if strings.IndexByte(name, '$') != -1 {
 					handler := r.ResourceHandlers.Get(node.Source)
@@ -178,12 +185,9 @@ func (r *Reactor) resolveNodeNames(nodes []*api.Node) error {
 						return fmt.Errorf("no suitable handler registered for URL %s", node.Source)
 					}
 					resourceName, ext := handler.ResourceName(node.Source)
-					if len(ext) > 0 {
-						name += "$ext"
-					}
 					name = strings.ReplaceAll(name, "$name", resourceName)
 					name = strings.ReplaceAll(name, "$uuid", uuid.New().String())
-					name = strings.ReplaceAll(name, "$ext", fmt.Sprintf(".%s", ext))
+					name = strings.ReplaceAll(name, "$ext", ext)
 					// set evaluated
 					node.Name = name
 				}
@@ -245,7 +249,7 @@ func filterDocuments(ctx context.Context, rh resourcehandlers.ResourceHandler, n
 	forExclusion := make(map[string]bool)
 	for _, n := range node.Nodes {
 		if n.IsDocument() {
-			cnt, err := rh.Read(ctx, n.Source)
+			cnt, err := rh.Read(ctx, n.Source) // TODO: read with SHA
 			if err != nil {
 				if resourceNotFound, ok := err.(resourcehandlers.ErrResourceNotFound); ok {
 					klog.Warningf("reading source %s from node %s failed: %s\n", n.Source, n.FullName("/"), resourceNotFound)

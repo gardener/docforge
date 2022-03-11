@@ -13,7 +13,7 @@ import (
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/util/tests"
 
-	"github.com/google/go-github/v32/github"
+	"github.com/google/go-github/v43/github"
 	"golang.org/x/oauth2"
 	"gopkg.in/yaml.v3"
 )

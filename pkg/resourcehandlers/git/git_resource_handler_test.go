@@ -24,11 +24,11 @@ import (
 	"github.com/gardener/docforge/pkg/resourcehandlers/git/gitinterface/gitinterfacefakes"
 	ghub "github.com/gardener/docforge/pkg/resourcehandlers/github"
 
-	"github.com/google/go-github/v32/github"
+	"github.com/google/go-github/v43/github"
 )
 
 const (
-	// baseURLPath is a non-empty Client.BaseURL path to use during tests,
+	// baseURLPath is a non-empty client.BaseURL path to use during tests,
 	// to ensure relative URLs are used for all endpoints. See issue #752.
 	baseURLPath = "/api-v3"
 )
@@ -46,13 +46,13 @@ func setup() (client *github.Client, mux *http.ServeMux, serverURL string, teard
 	apiHandler := http.NewServeMux()
 	apiHandler.Handle(baseURLPath+"/", http.StripPrefix(baseURLPath, mux))
 	apiHandler.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
-		fmt.Fprintln(os.Stderr, "FAIL: Client.BaseURL path prefix is not preserved in the request URL:")
+		fmt.Fprintln(os.Stderr, "FAIL: client.BaseURL path prefix is not preserved in the request URL:")
 		fmt.Fprintln(os.Stderr)
 		fmt.Fprintln(os.Stderr, "\t"+req.URL.String())
 		fmt.Fprintln(os.Stderr)
 		fmt.Fprintln(os.Stderr, "\tDid you accidentally use an absolute endpoint URL rather than relative?")
 		fmt.Fprintln(os.Stderr, "\tSee https://github.com/google/go-github/issues/752 for information.")
-		http.Error(w, "Client.BaseURL path prefix is not preserved in the request URL.", http.StatusInternalServerError)
+		http.Error(w, "client.BaseURL path prefix is not preserved in the request URL.", http.StatusInternalServerError)
 	})
 
 	// server is a test HTTP server used to provide mock API responses.
@@ -506,54 +506,6 @@ var _ = Describe("Git", func() {
 			It("should change absLinks to raw", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(got).Should(Equal("http://not.git.com/gardener/docforge/raw/master/dir"))
-			})
-		})
-	})
-
-	Describe("SetVersion", func() {
-		var (
-			absLink string
-			version string
-			got     string
-			err     error
-		)
-
-		JustBeforeEach(func() {
-			got, err = gh.SetVersion(absLink, version)
-		})
-
-		BeforeEach(func() {
-			version = "v1"
-		})
-
-		When("not a github rl", func() {
-			BeforeEach(func() {
-				absLink = "http://not.git.com/gardener/docforge/master"
-			})
-
-			It("should return err", func() {
-				Expect(err).To(HaveOccurred())
-				Expect(got).Should(Equal(""))
-			})
-		})
-
-		When("version not set", func() {
-			BeforeEach(func() {
-				absLink = "http://github.com/gardener/docforge"
-			})
-			It("should not change absLink", func() {
-				Expect(err).ToNot(HaveOccurred())
-				Expect(got).Should(Equal(absLink))
-			})
-		})
-
-		When("version is set", func() {
-			BeforeEach(func() {
-				absLink = "http://github.com/gardener/docforge/blob/master/res"
-			})
-			It("should return the proper link", func() {
-				Expect(err).ToNot(HaveOccurred())
-				Expect(got).Should(Equal("http://github.com/gardener/docforge/blob/v1/res"))
 			})
 		})
 	})

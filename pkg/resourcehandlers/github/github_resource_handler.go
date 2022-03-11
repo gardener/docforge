@@ -23,7 +23,7 @@ import (
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/gardener/docforge/pkg/util/httpclient"
 	"github.com/gardener/docforge/pkg/util/urls"
-	"github.com/google/go-github/v32/github"
+	"github.com/google/go-github/v43/github"
 	"k8s.io/klog/v2"
 )
 
@@ -564,26 +564,6 @@ func (gh *GitHub) verifyLinkType(u *url.URL) (string, error) {
 	}
 	// not found
 	return link, resourcehandlers.ErrResourceNotFound(link)
-}
-
-// SetVersion replaces the version segment in the path of GitHub URLs if
-// applicable or returns the original URL unchanged if not.
-// Implements resourcehandlers/ResourceHandler#SetVersion
-func (gh *GitHub) SetVersion(absLink, version string) (string, error) {
-	var (
-		rl  *ResourceLocator
-		err error
-	)
-	if rl, err = Parse(absLink); err != nil {
-		return "", err
-	}
-
-	if len(rl.SHAAlias) > 0 {
-		rl.SHAAlias = version
-		return rl.String(), nil
-	}
-
-	return absLink, nil
 }
 
 // GetRawFormatLink implements ResourceHandler#GetRawFormatLink
