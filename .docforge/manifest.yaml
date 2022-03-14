@@ -1,8 +1,6 @@
-{{- $vers := Split .versions "," -}}
-{{ $defaultBranch := (index $vers 0) }}
 structure:
 - name: _index.md
-  source: https://github.com/gardener/docforge/blob/{{$defaultBranch}}/README.md
+  source: /README.md
 - name: docs
   nodesSelector:
-    path: https://github.com/gardener/docforge/tree/{{$defaultBranch}}/docs
+    path: /docs

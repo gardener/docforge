@@ -10,16 +10,15 @@ else
   READLINK_BIN="readlink"
 fi
 
-repoPath="$(${READLINK_BIN} -f $(dirname ${0})/..)"
+repoPath="$(${READLINK_BIN} -f "$(dirname "${0}")/..")"
 manifestPath="${repoPath}/.docforge/manifest.yaml"
 diffDirs=".docforge/;docs/"
 
 tmpDir=$(mktemp -d)
-curl https://raw.githubusercontent.com/gardener/documentation/master/.ci/check-manifest --output ${tmpDir}/check-manifest-entrypoint.sh && chmod +x ${tmpDir}/check-manifest-entrypoint.sh
-curl https://raw.githubusercontent.com/gardener/documentation/master/.ci/check-manifest-config --output ${tmpDir}/manifest-config
-scriptPath="$(${READLINK_BIN} -f ${tmpDir}/check-manifest-entrypoint.sh)"
-configPath="$(${READLINK_BIN} -f ${tmpDir}/manifest-config)"
+curl https://raw.githubusercontent.com/gardener/documentation/master/.ci/check-manifest --output "${tmpDir}/check-manifest-entrypoint.sh" && chmod +x "${tmpDir}/check-manifest-entrypoint.sh"
+curl https://raw.githubusercontent.com/gardener/documentation/master/.ci/check-manifest-config --output "${tmpDir}/manifest-config"
+scriptPath="$(${READLINK_BIN} -f "${tmpDir}/check-manifest-entrypoint.sh")"
+configPath="$(${READLINK_BIN} -f "${tmpDir}/manifest-config")"
 
-${scriptPath} --repo-path ${repoPath} --repo-name "docforge" --use-token false --manifest-path ${manifestPath} --diff-dirs ${diffDirs} --config-path ${configPath}
-
-rm -rf ${tmpDir}
+${scriptPath} --repo-path "${repoPath}" --repo-name "docforge" --use-token false --manifest-path "${manifestPath}" --diff-dirs ${diffDirs} --config-path "${configPath}"
+rm -rf "${tmpDir}"

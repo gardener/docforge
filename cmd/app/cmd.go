@@ -7,15 +7,14 @@ package app
 import (
 	"context"
 	"flag"
-	"os"
-	"path/filepath"
-	"strings"
-
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"k8s.io/klog/v2"
+	"os"
+	"path/filepath"
+	"strings"
 )
 
 const (
@@ -36,7 +35,7 @@ type Options struct {
 	ResourceDownloadWorkersCount int               `mapstructure:"download-workers"`
 	Variables                    map[string]string `mapstructure:"variables"` // TODO: get rid of this option
 	GhInfoDestination            string            `mapstructure:"github-info-destination"`
-	DryRun                       bool              `mapstructure:"dry-run"` // TODO: use-case for this option ??
+	DryRun                       bool              `mapstructure:"dry-run"`
 	Resolve                      bool              `mapstructure:"resolve"` // TODO: use-case for this option ??
 	Hugo                         bool              `mapstructure:"hugo"`
 	HugoPrettyUrls               bool              `mapstructure:"hugo-pretty-urls"` // TODO: hugo defaults to pretty urls -> make sense to use 'hugo-ugly-urls' instead
@@ -46,15 +45,15 @@ type Options struct {
 	CacheHomeDir                 string            `mapstructure:"cache-dir"`
 	Credentials                  []Credential      `mapstructure:"credentials"` // TODO: one way to provide credentials (e.g. use only 'github-oauth-token-map')
 	ResourceMappings             map[string]string `mapstructure:"resourceMappings"`
-	GhOAuthToken                 string            `mapstructure:"github-oauth-token"`     // TODO:
-	GhOAuthTokens                map[string]string `mapstructure:"github-oauth-token-map"` // TODO:
+	GhOAuthToken                 string            `mapstructure:"github-oauth-token"`     // TODO: one way to provide credentials
+	GhOAuthTokens                map[string]string `mapstructure:"github-oauth-token-map"` // TODO: one way to provide credentials
 }
 
 //Credential holds repository credential data
 type Credential struct {
 	Host       string
 	Username   string
-	OAuthToken string `mapstructure:"o-auth-token"` // TODO:
+	OAuthToken string `mapstructure:"o-auth-token"` // TODO: one way to provide credentials
 }
 
 var vip *viper.Viper
@@ -210,7 +209,7 @@ func configureFlags(command *cobra.Command) {
 	cacheDir := ""
 	userHomeDir, err := os.UserHomeDir()
 	if err == nil {
-		// default value $HOME/.docforge/cache
+		// default value $HOME/.docforge
 		cacheDir = filepath.Join(userHomeDir, DocforgeHomeDir)
 	}
 	command.Flags().String("cache-dir", cacheDir,
@@ -219,20 +218,24 @@ func configureFlags(command *cobra.Command) {
 }
 
 func configureConfigFile() {
-	userHomerDir, err := os.UserHomeDir()
-	if err != nil {
-		klog.Warningf("Non-fatal error in loading configuration: %s. No configuration file will be used", err.Error())
-		return
+	vip.AutomaticEnv()
+	cfgFile := os.Getenv("DOCFORGE_CONFIG")
+	if cfgFile == "" {
+		userHomerDir, _ := os.UserHomeDir()
+		cfgFile = filepath.Join(userHomerDir, DocforgeHomeDir, DefaultConfigFileName)
+		if _, err := os.Lstat(cfgFile); os.IsNotExist(err) {
+			// default configuration file doesn't exists -> nothing to configure
+			return
+		}
 	}
-	vip.AddConfigPath(filepath.Join(userHomerDir, DocforgeHomeDir))
-	vip.SetConfigName(DefaultConfigFileName)
+	vip.AddConfigPath(filepath.Dir(cfgFile))
+	vip.SetConfigName(filepath.Base(cfgFile))
 	vip.SetConfigType("yaml")
-	err = vip.ReadInConfig()
+	err := vip.ReadInConfig()
 	if err != nil {
-		klog.Warningf("Non-fatal error in loading configuration: %s. No configuration file will be used", err.Error())
-	} else {
-		klog.Infof("Config file %s with path %s will be used", DefaultConfigFileName, filepath.Join(userHomerDir, DocforgeHomeDir))
+		klog.Warningf("Non-fatal error in loading configuration file %s. No configuration file will be used: %v\n", cfgFile, err)
 	}
+	klog.Infof("Configuration file %s will be used\n", cfgFile)
 }
 
 // NewOptions creates a configuration.Options object from flags and configuration file
