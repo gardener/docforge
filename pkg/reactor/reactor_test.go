@@ -56,7 +56,7 @@ func createNewDocumentation() *api.Documentation {
 
 func Test_getNodeParentPath(t *testing.T) {
 	type args struct {
-		node     *api.Node
+		node    *api.Node
 		parents []*api.Node
 	}
 	tests := []struct {

@@ -30,9 +30,6 @@ func BuildResourceInfo(uri string) (*ResourceInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	/*if len(u.Path) == 0 { // TODO: Do we need this restriction
-		return nil, fmt.Errorf("unsupported GitHub URL: %s; at least host and organization|owner should be defined", uri)
-	}*/
 	// 'github.com' && 'github.tools.sap' uses host 'raw' prefix
 	// https://raw.githubusercontent.com/gardener/gardener/master/logo/gardener-large.png
 	// https://raw.github.tools.sap/kubernetes/documentation/master/images/overview.png
