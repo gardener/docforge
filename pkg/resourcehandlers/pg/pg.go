@@ -17,7 +17,6 @@ import (
 	"github.com/google/go-github/v43/github"
 	"github.com/hashicorp/go-multierror"
 	"io/fs"
-	"io/ioutil"
 	"k8s.io/klog/v2"
 	"net/http"
 	"net/url"
@@ -39,7 +38,7 @@ type PG struct {
 	acceptedHosts []string
 	localMappings map[string]string
 	flagVars      map[string]string
-	filesSHA      map[string]string
+	filesCache    map[string]string
 	muxSHA        sync.RWMutex
 	defBranches   map[string]string
 	muxDefBr      sync.Mutex
@@ -54,7 +53,7 @@ func NewPG(client *github.Client, httpClient *http.Client, os osshim.Os, accepte
 		acceptedHosts: acceptedHosts,
 		localMappings: localMappings,
 		flagVars:      flagVars,
-		filesSHA:      make(map[string]string),
+		filesCache:    make(map[string]string),
 		defBranches:   make(map[string]string),
 	}
 }
@@ -351,35 +350,36 @@ func (p *PG) downloadContent(ctx context.Context, opt *github.RepositoryContentG
 		}
 		return nil, err
 	}
-	var dlResp *http.Response
 	for _, contents := range dirContents {
 		if *contents.Name == filename {
-			if contents.DownloadURL == nil || *contents.DownloadURL == "" {
-				return nil, fmt.Errorf("no download link found for %s", r.Raw)
+			if contents.SHA == nil || *contents.SHA == "" {
+				return nil, fmt.Errorf("no SHA found for %s", r.Raw)
 			}
-			dlResp, err = p.httpClient.Get(*contents.DownloadURL)
+			var cnt []byte
+			cnt, resp, err = p.client.Git.GetBlobRaw(ctx, r.Owner, r.Repo, *contents.SHA)
 			if err != nil {
+				if resp != nil && resp.StatusCode == http.StatusNotFound {
+					return nil, resourcehandlers.ErrResourceNotFound(r.Raw)
+				}
 				return nil, err
 			}
-			break
+			if resp != nil && resp.StatusCode >= 400 {
+				return nil, fmt.Errorf("content download for %s fails with HTTP status: %d", r.Raw, resp.StatusCode)
+			}
+			return cnt, nil
 		}
 	}
-	if dlResp == nil {
-		return nil, resourcehandlers.ErrResourceNotFound(r.Raw)
-	}
-	defer func() {
-		_ = dlResp.Body.Close()
-	}()
-	if dlResp.StatusCode >= 400 {
-		return nil, fmt.Errorf("content download for %s fails with HTTP status: %d", r.Raw, resp.StatusCode)
-	}
-	var cnt []byte
-	cnt, err = ioutil.ReadAll(dlResp.Body)
-	return cnt, err
+	// not found
+	return nil, resourcehandlers.ErrResourceNotFound(r.Raw)
 }
 
 // getNodeSelectorTree returns nodes selected by api.NodeSelector with GitHub backend
 func (p *PG) getNodeSelectorTree(ctx context.Context, node *api.Node, r *util.ResourceInfo, pfs []*regexp.Regexp, tPrefix string, bPrefix string) (*api.Node, error) {
+	// most of the repositories have 'docs' folder at root level that containing markdowns, images, etc. which are referenced in the module manifest
+	// it make sense to cache the content under 'docs' folder - TODO: could define configurable folder set
+	if strings.HasPrefix(r.Path, "docs/") {
+		return p.getCachedSubtree(ctx, node, r, pfs, tPrefix, bPrefix, "docs")
+	}
 	recursive := node.NodeSelector.Depth != 1
 	t, err := p.getTree(ctx, r, recursive)
 	if err != nil {
@@ -645,14 +645,60 @@ func (p *PG) getDefaultBranch(ctx context.Context, owner string, repository stri
 func (p *PG) setFileSHA(key, value string) {
 	p.muxSHA.Lock()
 	defer p.muxSHA.Unlock()
-	p.filesSHA[key] = value
+	p.filesCache[key] = value
 }
 
 func (p *PG) getFileSHA(key string) (string, bool) {
 	p.muxSHA.RLock()
 	defer p.muxSHA.RUnlock()
-	val, ok := p.filesSHA[key]
+	val, ok := p.filesCache[key]
 	return val, ok
+}
+
+// cache the contents of a root folder (e.g. /docs), as many modules put the documents in one folder
+func (p *PG) getCachedSubtree(ctx context.Context, node *api.Node, r *util.ResourceInfo, pfs []*regexp.Regexp, tPrefix string, bPrefix string, rootFolder string) (*api.Node, error) {
+	if !strings.HasPrefix(r.Path, rootFolder+"/") {
+		return nil, fmt.Errorf("path prefix for %s is expected to be %s/", r.Raw, rootFolder)
+	}
+	rfKey := fmt.Sprintf("%s://%s/%s/%s/tree/%s/%s", r.URL.Scheme, r.URL.Host, r.Owner, r.Repo, r.Ref, rootFolder)
+	rf, _ := util.BuildResourceInfo(rfKey)
+	p.muxSHA.Lock()
+	defer p.muxSHA.Unlock()
+	if _, ok := p.filesCache[rfKey]; !ok {
+		// cache files
+		t, err := p.getTree(ctx, rf, true)
+		if err != nil {
+			return nil, err
+		}
+		rfBPrefix := fmt.Sprintf("%s://%s/%s/%s/blob/%s/%s", r.URL.Scheme, r.URL.Host, r.Owner, r.Repo, r.Ref, rootFolder)
+		for _, e := range t.Entries {
+			ePath := strings.TrimPrefix(*e.Path, "/")
+			if *e.Type == "blob" {
+				key := fmt.Sprintf("%s/%s", rfBPrefix, ePath)
+				p.filesCache[key] = *e.SHA
+			}
+		}
+		p.filesCache[rfKey] = "" // rootFolder is cached
+	}
+	// iterate cached content and build the result
+	vr := &api.Node{Name: "vRoot", Properties: make(map[string]interface{})}
+	vr.Properties[api.ContainerNodeSourceLocation] = tPrefix
+	for uri := range p.filesCache {
+		if !strings.HasPrefix(uri, bPrefix+"/") {
+			continue // skip irrelevant keys
+		}
+		// skip node if it is not a markdown file
+		path := strings.TrimPrefix(uri, bPrefix+"/")
+		if !strings.HasSuffix(strings.ToLower(uri), ".md") {
+			klog.V(6).Infof("node selector %s skip entry %s\n", node.NodeSelector.Path, path)
+			continue
+		}
+		if filterPath(node, pfs, path) {
+			continue
+		}
+		buildNode(vr, bPrefix, path)
+	}
+	return vr, nil
 }
 
 // filterPath returns true if path is filtered by api.NodeSelector Depth or ExcludePaths
