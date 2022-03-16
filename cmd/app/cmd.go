@@ -316,7 +316,7 @@ func gatherCredentials() []Credential {
 		}
 	} else {
 		if _, ok := credentialsByHost["github.com"]; !ok {
-			klog.Infof("using unauthenticated github access`\n")
+			klog.Infof("using unauthenticated github access\n")
 			//credentialByHost at github.com is not set and should be set to empty string
 			credentialsByHost["github.com"] = Credential{
 				Host:       "github.com",
