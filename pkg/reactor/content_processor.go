@@ -380,7 +380,9 @@ func (l *linkResolver) resolveBaseLink(link *linkInfo) error {
 		klog.V(6).Infof("[%s] %s -> %s\n", l.source, link.destination, absLink)
 		link.destination = absLink
 	}
-	l.validator.ValidateLink(absURL, link.destination, l.source)
+	if link.URL.IsAbs() { // all relative links exist (validation is performed in resourcehandlers.ResourceHandler#BuildAbsLink)
+		l.validator.ValidateLink(absURL, link.destination, l.source)
+	}
 	return nil
 }
 
