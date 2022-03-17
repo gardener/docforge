@@ -448,6 +448,52 @@ func (p *PG) getLocalNodeSelectorTree(_ context.Context, node *api.Node, r *util
 	return vr, nil
 }
 
+// cache the contents of a root folder (e.g. /docs), as many modules put the documents in one folder
+func (p *PG) getCachedSubtree(ctx context.Context, node *api.Node, r *util.ResourceInfo, pfs []*regexp.Regexp, tPrefix string, bPrefix string, rootFolder string) (*api.Node, error) {
+	if !strings.HasPrefix(r.Path, rootFolder+"/") {
+		return nil, fmt.Errorf("path prefix for %s is expected to be %s/", r.Raw, rootFolder)
+	}
+	rfKey := fmt.Sprintf("%s://%s/%s/%s/tree/%s/%s", r.URL.Scheme, r.URL.Host, r.Owner, r.Repo, r.Ref, rootFolder)
+	rf, _ := util.BuildResourceInfo(rfKey)
+	p.muxSHA.Lock()
+	defer p.muxSHA.Unlock()
+	if _, ok := p.filesCache[rfKey]; !ok {
+		// cache files
+		t, err := p.getTree(ctx, rf, true)
+		if err != nil {
+			return nil, err
+		}
+		rfBPrefix := fmt.Sprintf("%s://%s/%s/%s/blob/%s/%s", r.URL.Scheme, r.URL.Host, r.Owner, r.Repo, r.Ref, rootFolder)
+		for _, e := range t.Entries {
+			ePath := strings.TrimPrefix(*e.Path, "/")
+			if *e.Type == "blob" {
+				key := fmt.Sprintf("%s/%s", rfBPrefix, ePath)
+				p.filesCache[key] = *e.SHA
+			}
+		}
+		p.filesCache[rfKey] = "" // rootFolder is cached
+	}
+	// iterate cached content and build the result
+	vr := &api.Node{Name: "vRoot", Properties: make(map[string]interface{})}
+	vr.Properties[api.ContainerNodeSourceLocation] = tPrefix
+	for uri := range p.filesCache {
+		if !strings.HasPrefix(uri, bPrefix+"/") {
+			continue // skip irrelevant keys
+		}
+		// skip node if it is not a markdown file
+		fPath := strings.TrimPrefix(uri, bPrefix+"/")
+		if !strings.HasSuffix(strings.ToLower(uri), ".md") {
+			klog.V(6).Infof("node selector %s skip entry %s\n", node.NodeSelector.Path, fPath)
+			continue
+		}
+		if filterPath(node, pfs, fPath) {
+			continue
+		}
+		buildNode(vr, bPrefix, fPath)
+	}
+	return vr, nil
+}
+
 // getTree returns subtree with root r#Path
 func (p *PG) getTree(ctx context.Context, r *util.ResourceInfo, recursive bool) (*github.Tree, error) {
 	sha := fmt.Sprintf("%s:%s", r.Ref, r.Path)
@@ -653,52 +699,6 @@ func (p *PG) getFileSHA(key string) (string, bool) {
 	defer p.muxSHA.RUnlock()
 	val, ok := p.filesCache[key]
 	return val, ok
-}
-
-// cache the contents of a root folder (e.g. /docs), as many modules put the documents in one folder
-func (p *PG) getCachedSubtree(ctx context.Context, node *api.Node, r *util.ResourceInfo, pfs []*regexp.Regexp, tPrefix string, bPrefix string, rootFolder string) (*api.Node, error) {
-	if !strings.HasPrefix(r.Path, rootFolder+"/") {
-		return nil, fmt.Errorf("path prefix for %s is expected to be %s/", r.Raw, rootFolder)
-	}
-	rfKey := fmt.Sprintf("%s://%s/%s/%s/tree/%s/%s", r.URL.Scheme, r.URL.Host, r.Owner, r.Repo, r.Ref, rootFolder)
-	rf, _ := util.BuildResourceInfo(rfKey)
-	p.muxSHA.Lock()
-	defer p.muxSHA.Unlock()
-	if _, ok := p.filesCache[rfKey]; !ok {
-		// cache files
-		t, err := p.getTree(ctx, rf, true)
-		if err != nil {
-			return nil, err
-		}
-		rfBPrefix := fmt.Sprintf("%s://%s/%s/%s/blob/%s/%s", r.URL.Scheme, r.URL.Host, r.Owner, r.Repo, r.Ref, rootFolder)
-		for _, e := range t.Entries {
-			ePath := strings.TrimPrefix(*e.Path, "/")
-			if *e.Type == "blob" {
-				key := fmt.Sprintf("%s/%s", rfBPrefix, ePath)
-				p.filesCache[key] = *e.SHA
-			}
-		}
-		p.filesCache[rfKey] = "" // rootFolder is cached
-	}
-	// iterate cached content and build the result
-	vr := &api.Node{Name: "vRoot", Properties: make(map[string]interface{})}
-	vr.Properties[api.ContainerNodeSourceLocation] = tPrefix
-	for uri := range p.filesCache {
-		if !strings.HasPrefix(uri, bPrefix+"/") {
-			continue // skip irrelevant keys
-		}
-		// skip node if it is not a markdown file
-		path := strings.TrimPrefix(uri, bPrefix+"/")
-		if !strings.HasSuffix(strings.ToLower(uri), ".md") {
-			klog.V(6).Infof("node selector %s skip entry %s\n", node.NodeSelector.Path, path)
-			continue
-		}
-		if filterPath(node, pfs, path) {
-			continue
-		}
-		buildNode(vr, bPrefix, path)
-	}
-	return vr, nil
 }
 
 // filterPath returns true if path is filtered by api.NodeSelector Depth or ExcludePaths
