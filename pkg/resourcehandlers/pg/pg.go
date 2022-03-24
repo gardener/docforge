@@ -42,6 +42,7 @@ type PG struct {
 	muxSHA        sync.RWMutex
 	defBranches   map[string]string
 	muxDefBr      sync.Mutex
+	muxCnt        sync.Mutex
 }
 
 // NewPG creates new PG resource handler
@@ -343,7 +344,7 @@ func (p *PG) readLocalFile(_ context.Context, r *util.ResourceInfo, localPath st
 func (p *PG) downloadContent(ctx context.Context, opt *github.RepositoryContentGetOptions, r *util.ResourceInfo) ([]byte, error) {
 	dir := path.Dir(r.Path)
 	filename := path.Base(r.Path)
-	_, dirContents, resp, err := p.client.Repositories.GetContents(ctx, r.Owner, r.Repo, dir, opt)
+	dirContents, resp, err := p.getDirContents(ctx, r.Owner, r.Repo, dir, opt)
 	if err != nil {
 		if resp != nil && resp.StatusCode == http.StatusNotFound {
 			return nil, resourcehandlers.ErrResourceNotFound(r.Raw)
@@ -373,6 +374,14 @@ func (p *PG) downloadContent(ctx context.Context, opt *github.RepositoryContentG
 	return nil, resourcehandlers.ErrResourceNotFound(r.Raw)
 }
 
+// wraps github.Client Repositories.GetContents and synchronize the access to avoid 'unexpected EOF' errors when reading directory content
+func (p *PG) getDirContents(ctx context.Context, owner, repo, path string, opts *github.RepositoryContentGetOptions) (dc []*github.RepositoryContent, resp *github.Response, err error) {
+	p.muxCnt.Lock()
+	defer p.muxCnt.Unlock()
+	_, dc, resp, err = p.client.Repositories.GetContents(ctx, owner, repo, path, opts)
+	return
+}
+
 // getNodeSelectorTree returns nodes selected by api.NodeSelector with GitHub backend
 func (p *PG) getNodeSelectorTree(ctx context.Context, node *api.Node, r *util.ResourceInfo, pfs []*regexp.Regexp, tPrefix string, bPrefix string) (*api.Node, error) {
 	// most of the repositories have 'docs' folder at root level that containing markdowns, images, etc. which are referenced in the module manifest
@@ -381,6 +390,8 @@ func (p *PG) getNodeSelectorTree(ctx context.Context, node *api.Node, r *util.Re
 		return p.getCachedSubtree(ctx, node, r, pfs, tPrefix, bPrefix, "docs")
 	}
 	recursive := node.NodeSelector.Depth != 1
+	p.muxSHA.Lock()
+	defer p.muxSHA.Unlock()
 	t, err := p.getTree(ctx, r, recursive)
 	if err != nil {
 		return nil, err
@@ -392,7 +403,7 @@ func (p *PG) getNodeSelectorTree(ctx context.Context, node *api.Node, r *util.Re
 		// add files SHA
 		if *e.Type == "blob" {
 			key := fmt.Sprintf("%s/%s", bPrefix, ePath)
-			p.setFileSHA(key, *e.SHA)
+			p.filesCache[key] = *e.SHA
 		}
 		// skip node if it is not a markdown file
 		if *e.Type != "blob" || !strings.HasSuffix(strings.ToLower(ePath), ".md") {
@@ -627,7 +638,9 @@ func (p *PG) determineLinkType(source *util.ResourceInfo, rel *url.URL) (string,
 		name := path.Base(rel.Path)
 		var dc []*github.RepositoryContent
 		var resp *github.Response
-		_, dc, resp, err = p.client.Repositories.GetContents(context.Background(), source.Owner, source.Repo, dir, opt)
+		p.muxSHA.Lock()
+		defer p.muxSHA.Unlock()
+		dc, resp, err = p.getDirContents(context.Background(), source.Owner, source.Repo, dir, opt)
 		if err != nil {
 			if resp != nil && resp.StatusCode == http.StatusNotFound { // parent folder doesn't exist
 				uri := fmt.Sprintf("%s://%s/%s/%s/tree/%s%s", source.URL.Scheme, source.URL.Host, source.Owner, source.Repo, source.Ref, dir)
@@ -638,7 +651,7 @@ func (p *PG) determineLinkType(source *util.ResourceInfo, rel *url.URL) (string,
 		for _, d := range dc {
 			// add files SHA
 			if *d.Type == "blob" {
-				p.setFileSHA(*d.HTMLURL, *d.SHA)
+				p.filesCache[*d.HTMLURL] = *d.SHA
 			}
 			if *d.Name == name {
 				if *d.Type == "file" {
@@ -686,12 +699,6 @@ func (p *PG) getDefaultBranch(ctx context.Context, owner string, repository stri
 	def := repo.GetDefaultBranch()
 	p.defBranches[key] = def
 	return def, nil
-}
-
-func (p *PG) setFileSHA(key, value string) {
-	p.muxSHA.Lock()
-	defer p.muxSHA.Unlock()
-	p.filesCache[key] = value
 }
 
 func (p *PG) getFileSHA(key string) (string, bool) {

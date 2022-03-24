@@ -135,6 +135,10 @@ func (r *Reactor) resolveNodeSelector(ctx context.Context, node *api.Node, visit
 					return nil, err
 				}
 			}
+			// resolve manifest structure
+			if err = r.resolveStructure(ctx, result.Nodes, visited); err != nil {
+				return nil, err
+			}
 			return result, nil
 		}
 	}
