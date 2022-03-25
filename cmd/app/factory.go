@@ -112,29 +112,12 @@ func newResourceHandler(host, homeDir string, user *string, token string, client
 	return pg.NewPG(client, httpClient, &osshim.OsShim{}, []string{host, rawHost}, localMappings, flagVars)
 }
 
-type headerFilter struct { // TODO: Remove once dedicated docforge github users (github.com, github.tools.sap & github.wdf.sap.corp) are created
-	Transport http.RoundTripper
-}
-
-// RoundTrip filters headers for conditional requests as GitHub API modifies ETag header if authentication token is changed
-// so if both 'If-None-Match' and 'If-Modified-Since' headers are set in the request the 'If-None-Match' is removed
-func (hf *headerFilter) RoundTrip(req *http.Request) (resp *http.Response, err error) {
-	if len(req.Header.Get("If-Modified-Since")) > 0 {
-		req.Header.Del("If-None-Match")
-	}
-	return hf.Transport.RoundTrip(req)
-}
-
 func buildClient(ctx context.Context, accessToken string, host string, cachePath string) (*github.Client, *http.Client, error) {
 	base := http.DefaultTransport
 	if len(accessToken) > 0 {
 		// if token provided replace base RoundTripper
 		ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: accessToken})
 		base = oauth2.NewClient(ctx, ts).Transport
-	}
-
-	filter := &headerFilter{
-		Transport: base,
 	}
 
 	flatTransform := func(s string) []string { return []string{} }
@@ -145,7 +128,7 @@ func buildClient(ctx context.Context, accessToken string, host string, cachePath
 	})
 
 	cacheTransport := &httpcache.Transport{
-		Transport:           filter,
+		Transport:           base,
 		Cache:               diskcache.NewWithDiskv(d),
 		MarkCachedResponses: true,
 	}
