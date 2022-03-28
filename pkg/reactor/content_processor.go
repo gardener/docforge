@@ -10,16 +10,17 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"net/url"
+	"path"
+	"strings"
+	"sync"
+
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/markdown"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/renderer"
 	"k8s.io/klog/v2"
-	"net/url"
-	"path"
-	"strings"
-	"sync"
 )
 
 var (
@@ -591,7 +592,7 @@ func (f *frontmatterProcessor) getNodeTitle() string {
 	if f.node.Parent() != nil && f.nodeIsIndexFile(f.node.Name) {
 		title = f.node.Parent().Name
 	}
-	title = strings.TrimRight(title, ".md")
+	title = strings.TrimSuffix(title, ".md")
 	title = strings.ReplaceAll(title, "_", " ")
 	title = strings.ReplaceAll(title, "-", " ")
 	title = strings.Title(title)
