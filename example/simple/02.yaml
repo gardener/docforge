@@ -4,13 +4,11 @@
 
 # Structuring Material
 # 
-# Node selectors
-#
 # Node selectors provide options for pulling whole remote hierarchies
 # into node (sub)structures, and filtering them to a subset.
 nodesSelector:
   # A node selector path defines the top-level scope that will be used to
   # generate a hierarchy. For GitHub paths that is a folder in a GitHub repo
-  # and the generated nodes hierarchy corresponds ot the file/folder structure 
+  # and the generated nodes' hierarchy corresponds ot the file/folder structure
   # available in the repository at that path.
   path: https://github.com/gardener/gardener/tree/master/docs/concepts
