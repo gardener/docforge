@@ -18,33 +18,32 @@
 #  |____ apiserver.md (file)
 #
 structure:
-  # Example of a document node that will be serialized as top-level file in the
-  # destination configured in docforge, with name overview.md
-  # A node name will be used to identify the serialized node content. When 
-  # writing to filesystem, the name translates ot a file name.
-  #
-  # A document node that has 'source' property provides several additional 
-  # options for node names:
-  # 1. Node name can be inferred from its source path.
-  # 2. Node name can be constructed from an expression using the variables 
-  # $name and $ext, which stand for the name of the resource at node's source 
-  # path, and $ext stands for its extension.
-  - name: overview.md
-    # A document node should always have content form source(s) assigned to it.
-    # There are multiple options to assign content form source to a node.
-    # The simplest one is to use source as in this example, which assigns the 
-    # content of the resources at the URL provided by source to this node.
-    # Other options with more sophisticated options to control and reorganize
-    # content from potentially multiple source are contentSelector and template.
-    source: https://github.com/gardener/gardener/blob/master/docs/README.md
-    # Example of a container node with no content source with name concepts.
-    # Writing this structure to a file system will serialize it as folder `concepts`.
-  - name: concepts
-    # The property `nodes` references the direct descendant nodes of this node. It
-    # is used to organize nodes into a tree.
-    # The property nodes is specific for container nodes. Document nodes do not
-    # specify nodes, because they are leafs in the tree nodes structure.
-    nodes:
-    # Example of a minimal document node specification. The node name is 
-    # inferred to be 'apiserver.md' from the path in its source property.
-    - source: https://github.com/gardener/gardener/blob/master/docs/concepts/apiserver.md
+# Example of a document node that will be serialized as top-level file in the
+# destination configured in docforge, with name overview.md
+# A node name will be used to identify the serialized node content. When
+# writing to filesystem, the name translates ot a file name.
+#
+# A document node that has 'source' property provides several additional
+# options for node names:
+# 1. Node name can be inferred from its source path.
+# 2. Node name can be constructed from an expression using the variables
+# $name and $ext, which stand for the name of the resource at node's source
+# path, and $ext stands for its extension.
+- name: overview.md
+  # A document node should always have content form source(s) assigned to it.
+  # There are multiple options to assign content form source to a node.
+  # The simplest one is to use 'source' as in this example, which assigns the
+  # content of the resources at the URL provided by source to this node.
+  # Other option is to use 'multiSource' to concatenate multiple sources.
+  source: https://github.com/gardener/gardener/blob/master/docs/README.md
+  # Example of a container node with no content source with name concepts.
+  # Writing this structure to a file system will serialize it as folder `concepts`.
+- name: concepts
+  # The property `nodes` references the direct descendant nodes of this node. It
+  # is used to organize nodes into a tree.
+  # The property nodes is specific for container nodes. Document nodes do not
+  # specify nodes, because they are leafs in the tree nodes structure.
+  nodes:
+  # Example of a minimal document node specification. The node name is
+  # inferred to be 'apiserver.md' from the path in its source property.
+  - source: https://github.com/gardener/gardener/blob/master/docs/concepts/apiserver.md

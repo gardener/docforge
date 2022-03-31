@@ -3,64 +3,25 @@
 # SPDX-License-Identifier: Apache-2.0
 
 structure:
-  - name: doc
-    nodes:
-    - name: overview
-      source: https://github.com/gardener/documentation/wiki/Architecture.md
-    - source: https://github.com/gardener/gardener/blob/master/docs/concepts/gardenlet.md
-      # linkSubstitutes define changes to links in documents.They apply to links and images
-      # specified with markdown markup.
-      links:
-        # The key in the mapping is an absolute form of a document link that will be 
-        # subject to transformation
-        rewrites:
-          github.com/gardener/gardener:
-            version: v1.11.1
-          "https://github.com/gardener/gardener/blob/master/docs/usage/shooted_seed.md":
-            # destination is the link reference URL. If it is empty string, 
-            # the links markup is removed leaving only link text behind.
-            # For images, the entire markup is removed.
-            destination: ""
-          "https://kubernetes.io/docs/concepts/extend-kubernetes/operator/":
-            destination: "https://kubernetes.io/docs/concepts/extend-kubernetes/operator1111"
-            # text is a link text element (alt-text for images). Specifying text
-            # will change it to the new value. Empty string is valid only with 
-            # `destination=""`
-            text: smooth operator
-            # title is the title element of a link or image. Specifying text
-            # will change it to the new value.
-            title: a title
-        downloads:
-          # localityDomains can be specified on node level too.
-          # Node's localityDomain definitions override and amend global ones.
-          scope:
-            github.com/gardener/gardener:
-              version: v1.11.1
-          # downloadSubstitutes is a list of regular expressions matching
-          # links to resources on documents that will be downloaded, mapped
-          # to name expressions tha define how the downloaded resources will
-          # named.
-          # There is a set of variables that can be used to construct the
-          # expressions:
-          # - $name: the original name of the resource
-          # - $path: the original path of the resource
-          # - $uuid: a UUID generated for the resource
-          # - $ext: a original resource extension
-          # The default expression applying to all resources is: $uuid.$ext
-          # Besides regular-expression-to-expression mappings it is possible
-          # to map exact URLs (escaped) to concrete names.              
-          renames:
-            "\\.(jpg|gif|png)": "$name-hires-$uuid.$ext"
-    - source: https://github.com/gardener/gardener/blob/master/docs/deployment/deploy_gardenlet.md
-    - source: https://github.com/gardener/gardener/blob/master/docs/deployment/deploy_gardenlet_automatically.md
-    - source: https://github.com/gardener/gardener/blob/2a33b26458dddd7ad09c4c3b2311d3391db890e7/docs/deployment/deploy_gardenlet_manually.md
-    - source: https://github.com/gardener/gardener/blob/master/docs/usage/shooted_seed.md
-links:
-  # The key in the mapping is an absolute form of a document link that will be 
-  # subject to transformation
-  rewrites:
-    github.com/gardener/gardener:
-      version: v1.10.0
-  downloads:
-    scope:
-      github.com/gardener/gardener: ~
+- name: doc
+  nodes:
+  - name: overview
+    source: https://github.com/gardener/documentation/wiki/Architecture.md
+  - source: https://github.com/gardener/gardener/blob/master/docs/concepts/gardenlet.md
+    properties:
+      # define HUGO section file and if HUGO is enabled (i.e. docforge flag --hugo is set) the name will be _index.md
+      index: true
+      # different HUGO Front Matter properties can be overwritten (https://gohugo.io/content-management/front-matter/)
+      frontmatter:
+        title: Gardenlet
+        aliases: ["/gardenlet"]
+  # Concatenate 'deploy_gardenlet.md', 'deploy_gardenlet_automatically.md' and 'deploy_gardenlet_manually.md' into one Markdown
+  - name: deploy_gardenlet.md
+    multiSource:
+    - https://github.com/gardener/gardener/blob/master/docs/deployment/deploy_gardenlet.md
+    - https://github.com/gardener/gardener/blob/master/docs/deployment/deploy_gardenlet_automatically.md
+    - https://github.com/gardener/gardener/blob/master/docs/deployment/deploy_gardenlet_manually.md
+  # Refer a commit hash
+  - source: https://github.com/gardener/gardener/blob/f3e414ecd8ff2b0a2143e569b57f93a25a18dc9f/docs/usage/shooted_seed.md
+  # Relative URLs can be used to target Markdowns within the same repo, but in such case the path to manifest should be absolute URL e.g. 'docforge -f https://github.com/gardener/docforge/blob/master/example/advanced/00.yaml'
+  - source: /README.md

@@ -1,6 +1,6 @@
 ## docforge gen-cmd-docs
 
-Generates commands reference documentation
+Generate commands reference documentation
 
 ```
 docforge gen-cmd-docs [flags]

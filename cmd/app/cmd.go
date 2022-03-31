@@ -150,10 +150,6 @@ func configureFlags(command *cobra.Command) {
 		"GitHub personal tokens authorizing read access from repositories per GitHub instance. Note that if the GitHub token is already provided by `github-oauth-token` it will be overridden by it.")
 	_ = vip.BindPFlag("github-oauth-token-map", command.Flags().Lookup("github-oauth-token-map"))
 
-	command.Flags().Bool("github-throttling", false,
-		"Enable throttling of requests to GitHub API. The throttling is adaptive and will slow down execution with the approaching rate limit. Use to improve continuity. Disable to maximise performance.")
-	_ = vip.BindPFlag("github-throttling", command.Flags().Lookup("github-throttling"))
-
 	command.Flags().String("github-info-destination", "",
 		"If specified, docforge will download also additional github info for the files from the documentation structure into this destination.")
 	_ = vip.BindPFlag("github-info-destination", command.Flags().Lookup("github-info-destination"))
