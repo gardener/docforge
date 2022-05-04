@@ -11,7 +11,48 @@ import (
 
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
+	"github.com/gardener/docforge/pkg/util/tests"
 )
+
+func init() {
+	tests.SetKlogV(6)
+}
+
+var (
+	apiRefNode = &api.Node{
+		Name: "apiRef",
+	}
+
+	archNode = &api.Node{
+		Name: "arch",
+		Nodes: []*api.Node{
+			apiRefNode,
+		},
+	}
+
+	blogNode = &api.Node{
+		Name: "blog",
+	}
+
+	tasksNode = &api.Node{
+		Name: "tasks",
+	}
+)
+
+func createNewDocumentation() *api.Documentation {
+	return &api.Documentation{
+		Structure: []*api.Node{
+			{
+				Name: "rootNode",
+				Nodes: []*api.Node{
+					archNode,
+					blogNode,
+					tasksNode,
+				},
+			},
+		},
+	}
+}
 
 func Test_tasks(t *testing.T) {
 	newDoc := createNewDocumentation()

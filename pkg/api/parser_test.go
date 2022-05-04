@@ -4,6 +4,7 @@
 package api_test
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
@@ -17,7 +18,7 @@ import (
 var _ = Describe("Parser", func() {
 	Describe("Parsing manifest", func() {
 		DescribeTable("parsing tests", func(manifest []byte, expDoc *api.Documentation, expErr error) {
-			doc, err := api.Parse(manifest, map[string]string{})
+			doc, err := api.Parse(manifest, map[string]string{}, true)
 			if expErr == nil {
 				Expect(err).To(BeNil())
 			} else {
@@ -132,7 +133,7 @@ var _ = Describe("Parser", func() {
 		JustBeforeEach(func() {
 			vars := map[string]string{}
 
-			got, err = api.ParseWithMetadata(manifest, targetBranch, vars)
+			got, err = api.ParseWithMetadata(manifest, targetBranch, vars, true)
 		})
 		Context("given a general use case", func() {
 			BeforeEach(func() {
@@ -235,7 +236,7 @@ var _ = Describe("Parser", func() {
 			exp      *api.Documentation
 		)
 		JustBeforeEach(func() {
-			got, err = api.Parse(manifest, map[string]string{})
+			got, err = api.Parse(manifest, map[string]string{}, true)
 		})
 		Context("given manifest file", func() {
 			BeforeEach(func() {
@@ -270,4 +271,386 @@ var _ = Describe("Parser", func() {
 			})
 		})
 	})
+	Describe("Getting node parrent path", func() {
+		type argsStruct struct {
+			node    *api.Node
+			parents []*api.Node
+		}
+		var (
+			args argsStruct
+			res  string
+			exp  string
+		)
+		JustBeforeEach(func() {
+			setParents(args.node, args.parents)
+			res = api.GetNodeParentPath(args.node)
+		})
+		Context("Pass nil parent node", func() {
+			BeforeEach(func() {
+				args = argsStruct{node: nil}
+				exp = "root"
+			})
+			It("should process it correctly", func() {
+				Expect(res).To(Equal(exp))
+			})
+		})
+		Context("Pass node without parent", func() {
+			BeforeEach(func() {
+				args = argsStruct{node: &api.Node{Name: "top"}}
+				exp = "top"
+			})
+			It("should process it correctly", func() {
+				Expect(res).To(Equal(exp))
+			})
+		})
+		Context("Pass node with one ancestor", func() {
+			BeforeEach(func() {
+				args = argsStruct{
+					node: &api.Node{Name: "father"},
+					parents: []*api.Node{
+						{Name: "grandfather"},
+					},
+				}
+				exp = "grandfather.father"
+			})
+			It("should process it correctly", func() {
+				Expect(res).To(Equal(exp))
+			})
+		})
+		Context("Pass node with two ancestor", func() {
+			BeforeEach(func() {
+				args = argsStruct{
+					node: &api.Node{Name: "son"},
+					parents: []*api.Node{
+						{Name: "grandfather"},
+						{Name: "father"},
+					},
+				}
+				exp = "grandfather.father.son"
+			})
+			It("should process it correctly", func() {
+				Expect(res).To(Equal(exp))
+			})
+		})
+	})
+	Describe("Building node collision list", func() {
+		type argsStruct struct {
+			nodes           []*api.Node
+			parent          *api.Node
+			collisionsNames []string
+		}
+		var (
+			args argsStruct
+			res  *api.Collision
+
+			exp api.Collision
+			err error
+		)
+		JustBeforeEach(func() {
+			res, err = api.BuildNodeCollision(args.nodes, args.parent, args.collisionsNames, true)
+		})
+		Context("Pass nodes with one collision of two nodes", func() {
+			BeforeEach(func() {
+				args = argsStruct{
+					nodes: []*api.Node{
+						{Name: "foo", Source: "foo/bar"},
+						{Name: "foo", Source: "baz/bar/foo"},
+					},
+					parent:          &api.Node{Name: "parent"},
+					collisionsNames: []string{"foo.md"},
+				}
+				exp = api.Collision{
+					NodeParentPath: "parent",
+					CollidedNodes: map[string][]string{
+						"foo.md": {"foo/bar", "baz/bar/foo"},
+					},
+				}
+			})
+			It("should process it correctly", func() {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(*res).To(Equal(exp))
+			})
+		})
+		Context("Pass nodes with one collision of three nodes", func() {
+			BeforeEach(func() {
+				args = argsStruct{
+					nodes: []*api.Node{
+						{Name: "foo", Source: "foo/bar"},
+						{Name: "foo", Source: "baz/bar/foo"},
+						{Name: "foo", Source: "baz/bar/foo/fuz"},
+					},
+					parent:          &api.Node{Name: "parent"},
+					collisionsNames: []string{"foo.md"},
+				}
+				exp = api.Collision{
+					NodeParentPath: "parent",
+					CollidedNodes: map[string][]string{
+						"foo.md": {"foo/bar", "baz/bar/foo", "baz/bar/foo/fuz"},
+					},
+				}
+			})
+			It("should process it correctly", func() {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(*res).To(Equal(exp))
+			})
+		})
+		Context("Pass nodes with two collision", func() {
+			BeforeEach(func() {
+				args = argsStruct{
+					nodes: []*api.Node{
+						{Name: "foo", Source: "foo/bar"},
+						{Name: "foo", Source: "baz/bar/foo"},
+						{Name: "moo", Source: "moo/bar"},
+						{Name: "moo", Source: "baz/bar/moo"},
+						{Name: "normal", Source: "baz/bar/moo"},
+					},
+					parent:          &api.Node{Name: "parent"},
+					collisionsNames: []string{"foo.md", "moo.md"},
+				}
+				exp = api.Collision{
+					NodeParentPath: "parent",
+					CollidedNodes: map[string][]string{
+						"foo.md": {"foo/bar", "baz/bar/foo"},
+						"moo.md": {"moo/bar", "baz/bar/moo"},
+					},
+				}
+			})
+			It("should process it correctly", func() {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(*res).To(Equal(exp))
+			})
+		})
+	})
+	Describe("Checking nodes for collision", func() {
+		type argsStruct struct {
+			nodes      []*api.Node
+			parent     *api.Node
+			collisions []api.Collision
+		}
+		var (
+			args argsStruct
+			res  []api.Collision
+
+			exp []api.Collision
+			err error
+		)
+		JustBeforeEach(func() {
+			res, err = api.CheckNodesForCollision(args.nodes, args.parent, args.collisions, true)
+		})
+		Context("Nodes with one collision", func() {
+			BeforeEach(func() {
+				args = argsStruct{
+					nodes: []*api.Node{
+						{Name: "foo", Source: "bar/baz"},
+						{Name: "foo", Source: "baz/foo"},
+						{Name: "normal", Source: "baz/foo"},
+					},
+					parent: &api.Node{
+						Name: "parent",
+					},
+				}
+				exp = []api.Collision{
+					{
+						NodeParentPath: "parent",
+						CollidedNodes: map[string][]string{
+							"foo.md": {"bar/baz", "baz/foo"},
+						},
+					},
+				}
+			})
+			It("should process it correctly", func() {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(res).To(Equal(exp))
+			})
+		})
+		Context("Nodes with two collision", func() {
+			BeforeEach(func() {
+				args = argsStruct{
+					nodes: []*api.Node{
+						{Name: "foo", Source: "bar/baz"},
+						{Name: "foo", Source: "baz/foo"},
+						{Name: "normal", Source: "baz/foo"},
+						{Name: "moo", Source: "bar/baz"},
+						{Name: "moo", Source: "baz/moo"},
+					},
+					parent: &api.Node{
+						Name: "parent",
+					},
+				}
+				exp = []api.Collision{
+					{
+						NodeParentPath: "parent",
+						CollidedNodes: map[string][]string{
+							"foo.md": {"bar/baz", "baz/foo"},
+							"moo.md": {"bar/baz", "baz/moo"},
+						},
+					},
+				}
+			})
+			It("should process it correctly", func() {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(res).To(Equal(exp))
+			})
+		})
+	})
+	Describe("Checking for collisions", func() {
+		type argsStruct struct {
+			nodes []*api.Node
+		}
+		var (
+			args argsStruct
+			err  error
+		)
+		JustBeforeEach(func() {
+			recursiveSetParents(args.nodes, nil)
+			err = api.CheckForCollisions(args.nodes, true)
+		})
+		Context("Test with one collision", func() {
+			BeforeEach(func() {
+				args = argsStruct{
+					nodes: []*api.Node{
+						{
+							Name: "grandfather",
+							Nodes: []*api.Node{
+								{
+									Name: "parent",
+									Nodes: []*api.Node{
+										{Name: "son", Source: "https://foo/bar/son"},
+										{Name: "son", Source: "https://foo/bar/bor"},
+									},
+								},
+							},
+						},
+					},
+				}
+			})
+			It("should return error", func() {
+				Expect(err).To(Equal(errors.New("Node collisions detected.\nIn grandfather.parent container node. Node with name son.md appears 2 times for sources: https://foo/bar/son, https://foo/bar/bor.")))
+			})
+		})
+		Context("Test with many collisionsn", func() {
+			BeforeEach(func() {
+				args = argsStruct{
+					nodes: []*api.Node{
+						{
+							Name: "grandfather",
+							Nodes: []*api.Node{
+								{
+									Name: "father",
+									Nodes: []*api.Node{
+										{Name: "son", Source: "https://foo/bar/son"},
+										{Name: "son", Source: "https://foo/bar/bor"},
+									},
+								},
+								{
+									Name: "mother",
+									Nodes: []*api.Node{
+										{Name: "daughter", Source: "https://foo/bar/daughter"},
+										{Name: "daughter", Source: "https://foo/daughter/bor"},
+									},
+								},
+							},
+						},
+						{
+							Name: "grandmother",
+							Nodes: []*api.Node{
+								{
+									Name: "father",
+									Nodes: []*api.Node{
+										{Name: "son", Source: "https://foo/bar/son"},
+										{Name: "son", Source: "https://foo/bar/bor"},
+									},
+								},
+								{
+									Name: "mother",
+									Nodes: []*api.Node{
+										{Name: "daughter", Source: "https://foo/bar/daughter"},
+										{Name: "daughter", Source: "https://foo/daughter/bor"},
+									},
+								},
+							},
+						},
+						{
+							Name:   "grandmother",
+							Source: "https://some/url/to/source",
+						},
+					},
+				}
+			})
+			It("should return error", func() {
+				Expect(err).To(Equal(errors.New("Node collisions detected.\nIn grandfather.father container node. Node with name son.md appears 2 times for sources: https://foo/bar/son, https://foo/bar/bor.\nIn grandfather.mother container node. Node with name daughter.md appears 2 times for sources: https://foo/bar/daughter, https://foo/daughter/bor.\nIn grandmother.father container node. Node with name son.md appears 2 times for sources: https://foo/bar/son, https://foo/bar/bor.\nIn grandmother.mother container node. Node with name daughter.md appears 2 times for sources: https://foo/bar/daughter, https://foo/daughter/bor.")))
+			})
+		})
+		Context("Test with nodes after collision", func() {
+			BeforeEach(func() {
+				args = argsStruct{
+					nodes: []*api.Node{
+						{
+							Name: "l1",
+							Nodes: []*api.Node{
+								{
+									Name: "l11",
+									Nodes: []*api.Node{
+										{Name: "l111", Source: "https://foo/bar/l111"},
+										{Name: "l111", Source: "https://foo/bar/l111"},
+										{Name: "l112", Source: "https://foo/bar/l112"},
+									},
+								},
+							},
+						},
+						{
+							Name: "l2",
+							Nodes: []*api.Node{
+								{
+									Name: "l21",
+								},
+							},
+						},
+					},
+				}
+			})
+			It("should return error", func() {
+				Expect(err).To(Equal(errors.New("Node collisions detected.\nIn l1.l11 container node. Node with name l111.md appears 2 times for sources: https://foo/bar/l111, https://foo/bar/l111.")))
+			})
+		})
+		Context("Test without collision", func() {
+			BeforeEach(func() {
+				args = argsStruct{
+					nodes: []*api.Node{
+						{
+							Name: "l1",
+							Nodes: []*api.Node{
+								{
+									Name: "l11",
+									Nodes: []*api.Node{
+										{Name: "l111", Source: "https://foo/bar/l111"},
+										{Name: "l112", Source: "https://foo/bar/l112"},
+									},
+								},
+							},
+						},
+					},
+				}
+			})
+			It("shouldn't return error", func() {
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+	})
 })
+
+func setParents(node *api.Node, parents []*api.Node) {
+	currentNode := node
+	for i := len(parents) - 1; i >= 0; i-- {
+		parent := parents[i]
+		currentNode.SetParent(parent)
+		currentNode = parent
+	}
+}
+
+func recursiveSetParents(nodes []*api.Node, parent *api.Node) {
+	for _, node := range nodes {
+		node.SetParent(parent)
+		recursiveSetParents(node.Nodes, node)
+	}
+}

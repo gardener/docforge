@@ -9,15 +9,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/gardener/docforge/pkg/api"
-	"github.com/gardener/docforge/pkg/resourcehandlers"
-	"github.com/gardener/docforge/pkg/util"
-	"github.com/gardener/docforge/pkg/util/httpclient"
-	"github.com/gardener/docforge/pkg/util/osshim"
-	"github.com/google/go-github/v43/github"
-	"github.com/hashicorp/go-multierror"
 	"io/fs"
-	"k8s.io/klog/v2"
 	"net/http"
 	"net/url"
 	"os"
@@ -28,6 +20,15 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/gardener/docforge/pkg/api"
+	"github.com/gardener/docforge/pkg/resourcehandlers"
+	"github.com/gardener/docforge/pkg/util"
+	"github.com/gardener/docforge/pkg/util/httpclient"
+	"github.com/gardener/docforge/pkg/util/osshim"
+	"github.com/google/go-github/v43/github"
+	"github.com/hashicorp/go-multierror"
+	"k8s.io/klog/v2"
 )
 
 // PG implements resourcehandlers.ResourceHandler interface using GitHub API with transport level persistent cache.
@@ -43,10 +44,11 @@ type PG struct {
 	defBranches   map[string]string
 	muxDefBr      sync.Mutex
 	muxCnt        sync.Mutex
+	hugoEnabled   bool
 }
 
 // NewPG creates new PG resource handler
-func NewPG(client *github.Client, httpClient *http.Client, os osshim.Os, acceptedHosts []string, localMappings map[string]string, flagVars map[string]string) resourcehandlers.ResourceHandler {
+func NewPG(client *github.Client, httpClient *http.Client, os osshim.Os, acceptedHosts []string, localMappings map[string]string, flagVars map[string]string, hugoEnabled bool) resourcehandlers.ResourceHandler {
 	return &PG{
 		client:        client,
 		httpClient:    httpClient,
@@ -56,6 +58,7 @@ func NewPG(client *github.Client, httpClient *http.Client, os osshim.Os, accepte
 		flagVars:      flagVars,
 		filesCache:    make(map[string]string),
 		defBranches:   make(map[string]string),
+		hugoEnabled:   hugoEnabled,
 	}
 }
 
@@ -112,7 +115,7 @@ func (p *PG) ResolveDocumentation(ctx context.Context, uri string) (*api.Documen
 		}
 	}
 	var doc *api.Documentation
-	if doc, err = api.ParseWithMetadata(cnt, r.Ref, p.flagVars); err != nil {
+	if doc, err = api.ParseWithMetadata(cnt, r.Ref, p.flagVars, p.hugoEnabled); err != nil {
 		return nil, fmt.Errorf("failed to parse manifest: %s. %+v", uri, err)
 	}
 	n := &api.Node{Nodes: doc.Structure, NodeSelector: doc.NodeSelector}
