@@ -7,14 +7,15 @@ package app
 import (
 	"context"
 	"flag"
+	"os"
+	"path/filepath"
+	"strings"
+
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"k8s.io/klog/v2"
-	"os"
-	"path/filepath"
-	"strings"
 )
 
 const (
@@ -80,7 +81,7 @@ func NewCommand(ctx context.Context) *cobra.Command {
 			if rhs, err = initResourceHandlers(ctx, options); err != nil {
 				return err
 			}
-			if doc, err = manifest(ctx, options.DocumentationManifestPath, rhs, options.Variables); err != nil {
+			if doc, err = manifest(ctx, options.DocumentationManifestPath, rhs, options.Variables, options.Hugo); err != nil {
 				return err
 			}
 			reactor, err := NewReactor(options, rhs)

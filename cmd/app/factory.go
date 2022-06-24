@@ -7,6 +7,12 @@ package app
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"net/url"
+	"os"
+	"path/filepath"
+	"strings"
+
 	"github.com/gardener/docforge/pkg/reactor"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/gardener/docforge/pkg/resourcehandlers/pg"
@@ -18,11 +24,6 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/peterbourgon/diskv"
 	"golang.org/x/oauth2"
-	"net/http"
-	"net/url"
-	"os"
-	"path/filepath"
-	"strings"
 )
 
 // NewReactor creates a Reactor from Options
@@ -90,7 +91,7 @@ func initResourceHandlers(ctx context.Context, o *Options) ([]resourcehandlers.R
 		if err != nil {
 			errs = multierror.Append(errs, err)
 		}
-		rh := newResourceHandler(u.Host, o.CacheHomeDir, &cred.Username, cred.OAuthToken, client, httpClient, o.UseGit, o.ResourceMappings, o.Variables)
+		rh := newResourceHandler(u.Host, o.CacheHomeDir, &cred.Username, cred.OAuthToken, client, httpClient, o.UseGit, o.ResourceMappings, o.Variables, o.Hugo)
 		rhs = append(rhs, rh)
 	}
 
@@ -98,7 +99,7 @@ func initResourceHandlers(ctx context.Context, o *Options) ([]resourcehandlers.R
 }
 
 // TODO: remove unused params
-func newResourceHandler(host, homeDir string, user *string, token string, client *github.Client, httpClient *http.Client, useGit bool, localMappings map[string]string, flagVars map[string]string) resourcehandlers.ResourceHandler {
+func newResourceHandler(host, homeDir string, user *string, token string, client *github.Client, httpClient *http.Client, useGit bool, localMappings map[string]string, flagVars map[string]string, hugoEnabled bool) resourcehandlers.ResourceHandler {
 	rawHost := "raw." + host
 	if host == "github.com" {
 		rawHost = "raw.githubusercontent.com"
@@ -109,7 +110,7 @@ func newResourceHandler(host, homeDir string, user *string, token string, client
 	//	}
 	//	return ghrs.NewResourceHandler(client, httpClient, []string{host, rawHost}, branchesMap, flagVars)
 
-	return pg.NewPG(client, httpClient, &osshim.OsShim{}, []string{host, rawHost}, localMappings, flagVars)
+	return pg.NewPG(client, httpClient, &osshim.OsShim{}, []string{host, rawHost}, localMappings, flagVars, hugoEnabled)
 }
 
 func buildClient(ctx context.Context, accessToken string, host string, cachePath string) (*github.Client, *http.Client, error) {

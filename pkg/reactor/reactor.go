@@ -8,12 +8,10 @@ package reactor
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
-	"strings"
 	"sync"
 
 	"github.com/gardener/docforge/pkg/api"
@@ -147,10 +145,6 @@ func (r *Reactor) Run(ctx context.Context, manifest *api.Documentation, dryRun b
 		return fmt.Errorf("failed to resolve manifest: %s. %+v", r.Options.ManifestPath, err)
 	}
 
-	if err := checkForCollisions(manifest.Structure); err != nil { // TODO: manifest validation should prevent collisions and this check will become redundant
-		return err
-	}
-
 	klog.V(4).Info("Building documentation structure\n\n")
 	if err := r.Build(ctx, manifest.Structure); err != nil {
 		return err
@@ -167,101 +161,4 @@ func printResolved(manifest *api.Documentation, writer io.Writer) error {
 	_, _ = writer.Write([]byte(s))
 	_, _ = writer.Write([]byte("\n\n"))
 	return nil
-}
-
-type collision struct {
-	nodeParentPath string
-	collidedNodes  map[string][]string
-}
-
-func checkForCollisions(nodes []*api.Node) error {
-	var collisions []collision
-
-	collisions = deepCheckNodesForCollisions(nodes, nil, collisions)
-
-	if len(collisions) <= 0 {
-		return nil
-	}
-
-	var sb strings.Builder
-	sb.WriteString("Node collisions detected.")
-	for _, collision := range collisions {
-		sb.WriteString("\nIn ")
-		sb.WriteString(collision.nodeParentPath)
-		sb.WriteString(" container node.")
-		for node, sources := range collision.collidedNodes {
-			sb.WriteString(" Node with name ")
-			sb.WriteString(node)
-			sb.WriteString(" appears ")
-			sb.WriteString(fmt.Sprint(len(sources)))
-			sb.WriteString(" times for sources: ")
-			sb.WriteString(strings.Join(sources, ", "))
-			sb.WriteString(".")
-		}
-	}
-	return errors.New(sb.String())
-}
-
-func deepCheckNodesForCollisions(nodes []*api.Node, parent *api.Node, collisions []collision) []collision {
-	collisions = checkNodesForCollision(nodes, parent, collisions)
-	for _, node := range nodes {
-		if len(node.Nodes) > 0 {
-			collisions = deepCheckNodesForCollisions(node.Nodes, node, collisions)
-		}
-	}
-	return collisions
-}
-
-func checkNodesForCollision(nodes []*api.Node, parent *api.Node, collisions []collision) []collision {
-	if len(nodes) < 2 {
-		return collisions
-	}
-	// It is unlikely to have a collision so keep the detection logic as simple and fast as possible.
-	checked := make(map[string]struct{}, len(nodes))
-	var collisionsNames []string
-	for _, node := range nodes {
-		if _, ok := checked[node.Name]; !ok {
-			checked[node.Name] = struct{}{}
-		} else {
-			collisionsNames = append(collisionsNames, node.Name)
-		}
-	}
-
-	if len(collisionsNames) == 0 {
-		return collisions
-	}
-
-	return append(collisions, buildNodeCollision(nodes, parent, collisionsNames))
-}
-
-func buildNodeCollision(nodes []*api.Node, parent *api.Node, collisionsNames []string) collision {
-	c := collision{
-		nodeParentPath: getNodeParentPath(parent),
-		collidedNodes:  make(map[string][]string, len(collisionsNames)),
-	}
-
-	for _, collisionName := range collisionsNames {
-		for _, node := range nodes {
-			if node.Name == collisionName {
-				collidedNodes := c.collidedNodes[node.Name]
-				c.collidedNodes[node.Name] = append(collidedNodes, node.Source)
-			}
-		}
-	}
-
-	return c
-}
-
-func getNodeParentPath(node *api.Node) string {
-	if node == nil {
-		return "root"
-	}
-	parents := node.Parents()
-	var sb strings.Builder
-	for _, child := range parents {
-		sb.WriteString(child.Name)
-		sb.WriteRune('.')
-	}
-	sb.WriteString(node.Name)
-	return sb.String()
 }
