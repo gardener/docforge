@@ -2,8 +2,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-FROM eu.gcr.io/gardener-project/3rd/alpine:3.12.1
+FROM gcr.io/distroless/static-debian11:nonroot
 
-COPY bin/rel/docforge-linux-amd64 /usr/local/bin/docforge
+COPY bin/rel/docforge-linux-amd64 /docforge
 
 WORKDIR /
+
+ENTRYPOINT [ "/docforge" ]
