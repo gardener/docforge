@@ -1,5 +1,3 @@
-{{ $org := .org}}
-{{ $version := .versions}}
 structure:
 - name: level1-container-node1
   nodes:
@@ -8,14 +6,14 @@ structure:
     - name: level3-container-node1
       nodes:
       - name: fileY1
-        source: https://github.com/{{$org}}/docforge/blob/{{$version}}/integration-test/tested-doc/merge-test/testFile.md
+        source: https://github.com/gardener/docforge/blob/master/integration-test/tested-doc/merge-test/testFile.md
       - name: fileY2
-        source: https://github.com/{{$org}}/docforge/blob/{{$version}}/integration-test/tested-doc/merge-test/testFile.md
+        source: https://github.com/gardener/docforge/blob/master/integration-test/tested-doc/merge-test/testFile.md
   - name: level2-container-node2
     nodes:
     - name: fileY
-      source: https://github.com/{{$org}}/docforge/blob/{{$version}}/integration-test/tested-doc/merge-test/testFile.md
+      source: https://github.com/gardener/docforge/blob/master/integration-test/tested-doc/merge-test/testFile.md
 - name: level1-container-node2
   nodes:
   - name: fileY
-    source: https://github.com/{{$org}}/docforge/blob/{{$version}}/integration-test/tested-doc/merge-test/testFile.md
+    source: https://github.com/gardener/docforge/blob/master/integration-test/tested-doc/merge-test/testFile.md
