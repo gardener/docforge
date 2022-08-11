@@ -17,24 +17,11 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// ParseWithMetadata parses a document's byte content given some other metainformation
-func ParseWithMetadata(b []byte, targetBranch string, flagsVars map[string]string, hugoEnabled bool) (*Documentation, error) {
-	versionList := make([]string, 0)
-	versionList = append(versionList, targetBranch)
-
-	versions := strings.Join(versionList, ",")
-	flagsVars["versions"] = versions
-	return Parse(b, flagsVars, hugoEnabled)
-}
-
 // Parse is a function which construct documentation struct from given byte array
-func Parse(b []byte, flagsVars map[string]string, hugoEnabled bool) (*Documentation, error) {
-	blob, err := resolveVariables(b, flagsVars)
-	if err != nil {
-		return nil, err
-	}
-	var docs = &Documentation{}
-	if err = yaml.Unmarshal(blob, docs); err != nil {
+func Parse(b []byte, hugoEnabled bool) (*Documentation, error) {
+	var err error
+	docs := &Documentation{}
+	if err = yaml.Unmarshal(b, docs); err != nil {
 		return nil, err
 	}
 	// init parents

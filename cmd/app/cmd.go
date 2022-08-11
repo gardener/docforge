@@ -34,7 +34,6 @@ type Options struct {
 	DocumentationManifestPath    string            `mapstructure:"manifest"`
 	ResourcesPath                string            `mapstructure:"resources-download-path"`
 	ResourceDownloadWorkersCount int               `mapstructure:"download-workers"`
-	Variables                    map[string]string `mapstructure:"variables"` // TODO: get rid of this option
 	GhInfoDestination            string            `mapstructure:"github-info-destination"`
 	DryRun                       bool              `mapstructure:"dry-run"`
 	Resolve                      bool              `mapstructure:"resolve"` // TODO: use-case for this option ??
@@ -42,12 +41,10 @@ type Options struct {
 	HugoPrettyUrls               bool              `mapstructure:"hugo-pretty-urls"` // TODO: hugo defaults to pretty urls -> make sense to use 'hugo-ugly-urls' instead
 	FlagsHugoSectionFiles        []string          `mapstructure:"hugo-section-files"`
 	HugoBaseURL                  string            `mapstructure:"hugo-base-url"`
-	UseGit                       bool              `mapstructure:"use-git"` // TODO: get rid of this option
 	CacheHomeDir                 string            `mapstructure:"cache-dir"`
-	Credentials                  []Credential      `mapstructure:"credentials"` // TODO: one way to provide credentials (e.g. use only 'github-oauth-token-map')
+	Credentials                  []Credential      `mapstructure:"credentials"`
 	ResourceMappings             map[string]string `mapstructure:"resourceMappings"`
-	GhOAuthToken                 string            `mapstructure:"github-oauth-token"`     // TODO: one way to provide credentials
-	GhOAuthTokens                map[string]string `mapstructure:"github-oauth-token-map"` // TODO: one way to provide credentials
+	GhOAuthTokens                map[string]string `mapstructure:"github-oauth-token-map"`
 }
 
 //Credential holds repository credential data
@@ -81,7 +78,7 @@ func NewCommand(ctx context.Context) *cobra.Command {
 			if rhs, err = initResourceHandlers(ctx, options); err != nil {
 				return err
 			}
-			if doc, err = manifest(ctx, options.DocumentationManifestPath, rhs, options.Variables, options.Hugo); err != nil {
+			if doc, err = manifest(ctx, options.DocumentationManifestPath, rhs, options.Hugo); err != nil {
 				return err
 			}
 			reactor, err := NewReactor(options, rhs)
@@ -143,10 +140,6 @@ func configureFlags(command *cobra.Command) {
 		"Resources download path.")
 	_ = vip.BindPFlag("resources-download-path", command.Flags().Lookup("resources-download-path"))
 
-	command.Flags().String("github-oauth-token", "",
-		"GitHub personal token authorizing read access from GitHub.com repositories. For authorization credentials for multiple GitHub instances, see --github-oauth-token-map")
-	_ = vip.BindPFlag("github-oauth-token", command.Flags().Lookup("github-oauth-token"))
-
 	command.Flags().StringToString("github-oauth-token-map", map[string]string{},
 		"GitHub personal tokens authorizing read access from repositories per GitHub instance. Note that if the GitHub token is already provided by `github-oauth-token` it will be overridden by it.")
 	_ = vip.BindPFlag("github-oauth-token-map", command.Flags().Lookup("github-oauth-token-map"))
@@ -154,10 +147,6 @@ func configureFlags(command *cobra.Command) {
 	command.Flags().String("github-info-destination", "",
 		"If specified, docforge will download also additional github info for the files from the documentation structure into this destination.")
 	_ = vip.BindPFlag("github-info-destination", command.Flags().Lookup("github-info-destination"))
-
-	command.Flags().StringToString("variables", map[string]string{},
-		"Variables applied to parameterized (using Go template) manifest.")
-	_ = vip.BindPFlag("variables", command.Flags().Lookup("variables"))
 
 	command.Flags().Bool("fail-fast", false,
 		"Fail-fast vs fault tolerant operation.")
@@ -194,10 +183,6 @@ func configureFlags(command *cobra.Command) {
 	command.Flags().String("hugo-base-url", "",
 		"Rewrites the relative links of documentation files to root-relative where possible.")
 	_ = vip.BindPFlag("hugo-base-url", command.Flags().Lookup("hugo-base-url"))
-
-	command.Flags().Bool("use-git", false,
-		"Use Git for replication")
-	_ = vip.BindPFlag("use-git", command.Flags().Lookup("use-git"))
 
 	command.Flags().StringSlice("hugo-section-files", []string{"readme.md", "readme", "read.me", "index.md", "index"},
 		"When building a Hugo-compliant documentation bundle, files with filename matching one form this list (in that order) will be renamed to _index.md. Only useful with --hugo=true")
@@ -261,7 +246,6 @@ func gatherCredentials() []Credential {
 		klog.Warningf("error in unmarshalling credentials from config: %s", err.Error())
 	}
 	ghOAuthTokens := vip.GetStringMapString("github-oauth-token-map")
-	ghOAuthToken := vip.GetString("github-oauth-token")
 
 	credentialsByHost := make(map[string]Credential)
 
@@ -293,35 +277,16 @@ func gatherCredentials() []Credential {
 		}
 	}
 
-	if len(ghOAuthToken) > 0 {
-		//provided ghOAuthToken may override credentialsByHost. This is the default logic
-		var username string
-		token := ghOAuthToken
-		if _, ok := credentialsByHost["github.com"]; ok {
-			klog.Warning("github.com token is overridden by the provided token with `--github-oauth-token flag`\n")
-		}
-		usernameAndToken := strings.Split(ghOAuthToken, ":")
-		if len(usernameAndToken) == 2 {
-			username = usernameAndToken[0]
-			token = usernameAndToken[1]
-		}
-
+	if _, ok := credentialsByHost["github.com"]; !ok {
+		klog.Infof("using unauthenticated github access\n")
+		//credentialByHost at github.com is not set and should be set to empty string
 		credentialsByHost["github.com"] = Credential{
 			Host:       "github.com",
-			Username:   username,
-			OAuthToken: token,
-		}
-	} else {
-		if _, ok := credentialsByHost["github.com"]; !ok {
-			klog.Infof("using unauthenticated github access\n")
-			//credentialByHost at github.com is not set and should be set to empty string
-			credentialsByHost["github.com"] = Credential{
-				Host:       "github.com",
-				Username:   "",
-				OAuthToken: "",
-			}
+			Username:   "",
+			OAuthToken: "",
 		}
 	}
+
 	var credentials = make([]Credential, 0, len(credentialsByHost))
 	for _, cred := range credentialsByHost {
 		credentials = append(credentials, cred)

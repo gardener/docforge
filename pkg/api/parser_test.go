@@ -18,7 +18,7 @@ import (
 var _ = Describe("Parser", func() {
 	Describe("Parsing manifest", func() {
 		DescribeTable("parsing tests", func(manifest []byte, expDoc *api.Documentation, expErr error) {
-			doc, err := api.Parse(manifest, map[string]string{}, true)
+			doc, err := api.Parse(manifest, true)
 			if expErr == nil {
 				Expect(err).To(BeNil())
 			} else {
@@ -123,47 +123,6 @@ var _ = Describe("Parser", func() {
 				}, nil),
 		)
 	})
-	Describe("Parsing with metadata", func() {
-		var (
-			manifest     []byte
-			targetBranch string
-			got          *api.Documentation
-			err          error
-		)
-		JustBeforeEach(func() {
-			vars := map[string]string{}
-
-			got, err = api.ParseWithMetadata(manifest, targetBranch, vars, true)
-		})
-		Context("given a general use case", func() {
-			BeforeEach(func() {
-				manifest = []byte(`structure:
-- name: community
-  source: https://github.com/gardener/docforge/edit/master/integration-test/tested-doc/merge-test/testFile.md
-- name: docs
-  source: https://github.com/gardener/docforge/blob/master/integration-test/tested-doc/merge-test/testFile.md
-`)
-				targetBranch = "master"
-			})
-			It("should work as expected", func() {
-
-				Expect(err).NotTo(HaveOccurred())
-				Expect(got).To(Equal(&api.Documentation{
-					Structure: []*api.Node{
-						{
-							Name:   "community",
-							Source: "https://github.com/gardener/docforge/edit/master/integration-test/tested-doc/merge-test/testFile.md",
-						},
-						{
-							Name:   "docs",
-							Source: "https://github.com/gardener/docforge/blob/master/integration-test/tested-doc/merge-test/testFile.md",
-						},
-					},
-				}))
-			})
-		})
-
-	})
 	Describe("Serialize", func() {
 		var (
 			doc *api.Documentation
@@ -236,7 +195,7 @@ var _ = Describe("Parser", func() {
 			exp      *api.Documentation
 		)
 		JustBeforeEach(func() {
-			got, err = api.Parse(manifest, map[string]string{}, true)
+			got, err = api.Parse(manifest, true)
 		})
 		Context("given manifest file", func() {
 			BeforeEach(func() {

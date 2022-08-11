@@ -851,15 +851,9 @@ structure:
 structure:
 - name: community
   source: https://github.com/gardener/docforge/edit/master/integration-test/tested-doc/merge-test/testFile.md
-{{- $vers := Split .versions "," -}}
-{{- range $i, $version := $vers -}}
-{{- if eq $i 0  }}
 - name: docs
-{{- else }}
-- name: {{$version}}
-{{- end }}
-  source: https://github.com/gardener/docforge/blob/{{$version}}/integration-test/tested-doc/merge-test/testFile.md
-{{- end }}`))
+  source: https://github.com/gardener/docforge/blob/testMainBranch/integration-test/tested-doc/merge-test/testFile.md
+`))
 			fakeFileSystem.ReadFileReturns(manifestData, nil)
 
 		})
