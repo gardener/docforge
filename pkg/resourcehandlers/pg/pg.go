@@ -38,7 +38,6 @@ type PG struct {
 	os            osshim.Os
 	acceptedHosts []string
 	localMappings map[string]string
-	flagVars      map[string]string
 	filesCache    map[string]string
 	muxSHA        sync.RWMutex
 	defBranches   map[string]string
@@ -48,14 +47,13 @@ type PG struct {
 }
 
 // NewPG creates new PG resource handler
-func NewPG(client *github.Client, httpClient *http.Client, os osshim.Os, acceptedHosts []string, localMappings map[string]string, flagVars map[string]string, hugoEnabled bool) resourcehandlers.ResourceHandler {
+func NewPG(client *github.Client, httpClient *http.Client, os osshim.Os, acceptedHosts []string, localMappings map[string]string, hugoEnabled bool) resourcehandlers.ResourceHandler {
 	return &PG{
 		client:        client,
 		httpClient:    httpClient,
 		os:            os,
 		acceptedHosts: acceptedHosts,
 		localMappings: localMappings,
-		flagVars:      flagVars,
 		filesCache:    make(map[string]string),
 		defBranches:   make(map[string]string),
 		hugoEnabled:   hugoEnabled,
@@ -115,7 +113,7 @@ func (p *PG) ResolveDocumentation(ctx context.Context, uri string) (*api.Documen
 		}
 	}
 	var doc *api.Documentation
-	if doc, err = api.ParseWithMetadata(cnt, r.Ref, p.flagVars, p.hugoEnabled); err != nil {
+	if doc, err = api.Parse(cnt, p.hugoEnabled); err != nil {
 		return nil, fmt.Errorf("failed to parse manifest: %s. %+v", uri, err)
 	}
 	n := &api.Node{Nodes: doc.Structure, NodeSelector: doc.NodeSelector}

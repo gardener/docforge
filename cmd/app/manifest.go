@@ -17,7 +17,7 @@ import (
 
 // Manifest reads the resource at uri, resolves it as template applying vars,
 // and finally parses it into api.Documentation model
-func manifest(ctx context.Context, uri string, resourceHandlers []resourcehandlers.ResourceHandler, flagsVars map[string]string, hugoEnabled bool) (*api.Documentation, error) {
+func manifest(ctx context.Context, uri string, resourceHandlers []resourcehandlers.ResourceHandler, hugoEnabled bool) (*api.Documentation, error) {
 	var (
 		handler         resourcehandlers.ResourceHandler
 		manifestContent []byte
@@ -38,7 +38,7 @@ func manifest(ctx context.Context, uri string, resourceHandlers []resourcehandle
 			return nil, err
 		}
 
-		doc, err := api.ParseWithMetadata(manifestContent, "master", flagsVars, hugoEnabled)
+		doc, err := api.Parse(manifestContent, hugoEnabled)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse manifest: %s. %+v", uri, err)
 		}

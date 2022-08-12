@@ -383,7 +383,7 @@ func (gh *GitHub) ResolveDocumentation(ctx context.Context, path string) (*api.D
 		return nil, err
 	}
 	//DEPRECATED!!! if to be returned should get hugo par
-	doc, err := api.ParseWithMetadata(blob, rl.SHAAlias, gh.flagVars, true)
+	doc, err := api.Parse(blob, true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse manifest: %s. %+v", path, err)
 	}

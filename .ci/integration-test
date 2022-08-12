@@ -121,12 +121,12 @@ if [[ -z "${org}" ]] || [[ -z "${mainBranch}" ]]; then
   exit 1
 fi
 
-GIT_OAUTH_TOKEN=${GIT_OAUTH_TOKEN:-$(getGitHubToken github_com)}
+GIT_OAUTH_TOKEN="github.com=${GITHUB_OAUTH_TOKEN:-$(getGitHubToken github_com)}"
 test "$GIT_OAUTH_TOKEN" #fail fast
 
 # Run docforge command with Git handler
 echo "Run ${docforge_bin}"
-${docforge_bin} -f "${int_test_manifest}" -d "${int_test_output_tree_dir}" --hugo --github-oauth-token "${GIT_OAUTH_TOKEN}" --github-info-destination ../generated-metadata --variables "org=${org},version=${mainBranch}"
+${docforge_bin} -f "${int_test_manifest}" -d "${int_test_output_tree_dir}" --hugo --github-oauth-token-map "${GIT_OAUTH_TOKEN}" --github-info-destination ../generated-metadata
 
 #Remove untested metadata keys
 removeUntestedKeysFromMetadata "${int_test_expected_metadata_dir}"
