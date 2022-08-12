@@ -14,5 +14,5 @@ docforge version [flags]
 
 ### SEE ALSO
 
-* [docforge](docforge.md)	 - Build documentation bundle
+* [docforge](docforge.md)	 - Forge a documentation bundle
 
