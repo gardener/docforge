@@ -89,20 +89,7 @@ the command to forge the bundle is:
 docforge -d /tmp/docforge-docs -f example/simple/00.yaml --github-oauth-token-map  github.com=<user>:<token>,...
 ```
 
-More flags for docforge command:
-- resources-download-path : Path where resources will be downloaded. Default is __resources
-- github-info-destination : If specified, docforge will download also additional github info for the files from the documentation structure into this destination.
-- fail-fast : Fail-fast vs fault tolerant operation. Default is false
-- dry-run : Runs the command end-to-end but instead of writing files, it will output the projected file/folder hierarchy to the standard output and statistics for the processing of each file.
-- resolve : Resolves the documentation structure and prints it to the standard output. The resolution expands nodeSelector constructs into node hierarchies. Default is false
-- document-workers : Number of parallel workers for document processing. Default is 25
-- validation-workers : Number of parallel workers to validate the markdown links. Default is 50
-- download-workers : Number of workers downloading document resources in parallel. Default is 10
-- hugo : If  documentation bundle for hugo should be build. Default is false
-- hugo-pretty-urls : Build documentation bundle for hugo with pretty URLs (./sample.md -> ../sample). Only useful with --hugo=true. Default is true
-- hugo-base-url : Rewrites the relative links of documentation files to root-relative where possible.
-- hugo-section-files : When building a Hugo-compliant documentation bundle, files with filename matching one form this list (in that order) will be renamed to _index.md. Only useful with --hugo=true. Default are readme.md, readme, read.me, index.md, index
-- cache-dir : Cache directory, used for repository cache. Default is $HOME/.docforge
+All avaliable flags for the build command can be seen [here](docs/cmd-ref/docforge.md)
 
  ## What's next
 - [User Documentation](docs/user-index.md)

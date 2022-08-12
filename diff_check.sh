@@ -1,4 +1,5 @@
 #!/bin/bash
+set -eu
 
 if [[ $1 == "--help" ]]; then
     grep -e '^##' $0 | cut -d ' ' -f 2-
