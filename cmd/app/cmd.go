@@ -38,7 +38,7 @@ type Options struct {
 	DryRun                       bool              `mapstructure:"dry-run"`
 	Resolve                      bool              `mapstructure:"resolve"` // TODO: use-case for this option ??
 	Hugo                         bool              `mapstructure:"hugo"`
-	HugoPrettyUrls               bool              `mapstructure:"hugo-pretty-urls"` // TODO: hugo defaults to pretty urls -> make sense to use 'hugo-ugly-urls' instead
+	HugoPrettyUrls               bool              `mapstructure:"hugo-pretty-urls"`
 	FlagsHugoSectionFiles        []string          `mapstructure:"hugo-section-files"`
 	HugoBaseURL                  string            `mapstructure:"hugo-base-url"`
 	CacheHomeDir                 string            `mapstructure:"cache-dir"`
@@ -51,7 +51,7 @@ type Options struct {
 type Credential struct {
 	Host       string
 	Username   string
-	OAuthToken string `mapstructure:"o-auth-token"` // TODO: one way to provide credentials
+	OAuthToken string `mapstructure:"o-auth-token"`
 }
 
 var vip *viper.Viper

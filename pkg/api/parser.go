@@ -66,7 +66,7 @@ func validateNodeSelector(selector *NodeSelector, root string) error {
 
 func validateNode(n *Node) error {
 	var errs error
-	if n.IsDocument() && n.Source == "" && n.Name == "" { // TODO: Apply this check on container nodes as well, once all manifests are fixed
+	if n.Source == "" && n.Name == "" {
 		errs = multierror.Append(errs, fmt.Errorf("node %s must contains at least one of these properties: source, name", n.FullName("/")))
 	}
 	if n.Source == "" && n.NodeSelector == nil && n.MultiSource == nil && n.Nodes == nil {
@@ -96,18 +96,7 @@ func validateNode(n *Node) error {
 			errs = multierror.Append(errs, fmt.Errorf("node %s contains empty multiSource value at position %d", n.FullName("/"), i))
 		}
 	}
-	// TODO: this is workaround to move child nodes in parent if this node name is empty, delete it once manifests are fixed !!!
-	if n.Name == "" && !n.IsDocument() && n.Parent() != nil && n.Parent().NodeSelector == nil && n.NodeSelector != nil && len(n.Nodes) == 0 {
-		n.Parent().NodeSelector = n.NodeSelector
-		var pNodes []*Node
-		for _, pn := range n.Parent().Nodes {
-			if pn != n {
-				pNodes = append(pNodes, pn)
-			}
-		}
-		n.Parent().Nodes = pNodes
-	}
-	// TODO: end !!!
+
 	return errs
 }
 

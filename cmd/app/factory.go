@@ -91,15 +91,14 @@ func initResourceHandlers(ctx context.Context, o *Options) ([]resourcehandlers.R
 		if err != nil {
 			errs = multierror.Append(errs, err)
 		}
-		rh := newResourceHandler(u.Host, o.CacheHomeDir, &cred.Username, cred.OAuthToken, client, httpClient, o.ResourceMappings, o.Hugo)
+		rh := newResourceHandler(u.Host, client, httpClient, o.ResourceMappings, o.Hugo)
 		rhs = append(rhs, rh)
 	}
 
 	return rhs, errs.ErrorOrNil()
 }
 
-// TODO: remove unused params
-func newResourceHandler(host, homeDir string, user *string, token string, client *github.Client, httpClient *http.Client, localMappings map[string]string, hugoEnabled bool) resourcehandlers.ResourceHandler {
+func newResourceHandler(host string, client *github.Client, httpClient *http.Client, localMappings map[string]string, hugoEnabled bool) resourcehandlers.ResourceHandler {
 	rawHost := "raw." + host
 	if host == "github.com" {
 		rawHost = "raw.githubusercontent.com"
