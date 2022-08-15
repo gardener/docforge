@@ -7,9 +7,10 @@ package reactor
 import (
 	"context"
 	"fmt"
-	"github.com/gardener/docforge/pkg/util"
 	"reflect"
 	"strings"
+
+	"github.com/gardener/docforge/pkg/util"
 
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/markdown"
@@ -245,7 +246,6 @@ func (r *Reactor) resolveSectionFiles(container *api.Node) {
 	}
 }
 
-// TODO: on err just continue ... ?? only warning messages or exclude nodes with errors ???
 // filterDocuments is applicable only to nodes returned from nodeSelector that points to directory
 // all document nodes should have a source property
 func filterDocuments(ctx context.Context, rh resourcehandlers.ResourceHandler, node *api.Node, exclude map[string]interface{}, include map[string]interface{}) error {
@@ -253,7 +253,7 @@ func filterDocuments(ctx context.Context, rh resourcehandlers.ResourceHandler, n
 	forExclusion := make(map[string]bool)
 	for _, n := range node.Nodes {
 		if n.IsDocument() {
-			cnt, err := rh.Read(ctx, n.Source) // TODO: read with SHA
+			cnt, err := rh.Read(ctx, n.Source)
 			if err != nil {
 				if resourceNotFound, ok := err.(resourcehandlers.ErrResourceNotFound); ok {
 					klog.Warningf("reading source %s from node %s failed: %s\n", n.Source, n.FullName("/"), resourceNotFound)
@@ -271,6 +271,7 @@ func filterDocuments(ctx context.Context, rh resourcehandlers.ResourceHandler, n
 					continue
 				}
 				// cache the content in node properties map
+				// TODO: new resource handler stores content on file system and caching is not nessesary
 				if n.Properties == nil {
 					n.Properties = make(map[string]interface{})
 					n.Properties[api.CachedNodeContent] = dc
