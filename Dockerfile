@@ -4,7 +4,10 @@
 
 FROM gcr.io/distroless/static-debian11:nonroot
 
-COPY bin/rel/docforge-linux-amd64 /docforge
+ARG TARGETOS
+ARG TARGETARCH
+
+COPY bin/rel/docforge-${TARGETOS}-${TARGETARCH} /docforge
 
 WORKDIR /
 
