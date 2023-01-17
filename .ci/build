@@ -45,7 +45,7 @@ fi
 VERSION="$(cat "${VERSION_FILE}")"
 
 # If no LOCAL_BUILD environment variable is set, we configure the `go build` command
-# to build for linux/amd64, windows/386 and darwin/amd64 architectures and without CGO enablement.
+# to build for linux/amd64, linux/arm64, darwin/amd64, darwin/arm64 and windows/386 architectures and without CGO enablement.
 if [[ -z "$LOCAL_BUILD" ]]; then
   echo "Building docforge ${BINARY_PATH}/rel/docforge-linux-amd64"
   CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
@@ -55,11 +55,27 @@ if [[ -z "$LOCAL_BUILD" ]]; then
     -ldflags "-w -X github.com/gardener/docforge/pkg/version.Version=${VERSION}" \
     cmd/*.go
 
+  echo "Building docforge ${BINARY_PATH}/rel/docforge-linux-arm64"
+  CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build \
+    -a \
+    -v \
+    -o "${BINARY_PATH}/rel/docforge-linux-arm64" \
+    -ldflags "-w -X github.com/gardener/docforge/pkg/version.Version=${VERSION}" \
+    cmd/*.go
+
   echo "Building docforge ${BINARY_PATH}/rel/docforge-darwin-amd64"
   CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build \
     -a \
     -v \
     -o "${BINARY_PATH}/rel/docforge-darwin-amd64" \
+    -ldflags "-w -X github.com/gardener/docforge/pkg/version.Version=${VERSION}" \
+    cmd/*.go
+
+  echo "Building docforge ${BINARY_PATH}/rel/docforge-darwin-arm64"
+  CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build \
+    -a \
+    -v \
+    -o "${BINARY_PATH}/rel/docforge-darwin-arm64" \
     -ldflags "-w -X github.com/gardener/docforge/pkg/version.Version=${VERSION}" \
     cmd/*.go
 

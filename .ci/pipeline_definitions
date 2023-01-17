@@ -11,6 +11,10 @@ docforge:
         inject_effective_version: true
       component_descriptor: ~
       publish:
+        oci-builder: docker-buildx
+        platforms:
+        - linux/amd64
+        - linux/arm64
         dockerimages:
           docforge:
             registry: "gcr-readwrite"
