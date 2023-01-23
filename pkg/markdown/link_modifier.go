@@ -8,6 +8,11 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"io"
+	"regexp"
+	"strings"
+	"sync"
+
 	"github.com/yuin/goldmark/ast"
 	extast "github.com/yuin/goldmark/extension/ast"
 	"github.com/yuin/goldmark/renderer"
@@ -15,10 +20,6 @@ import (
 	"github.com/yuin/goldmark/util"
 	"golang.org/x/net/html"
 	"gopkg.in/yaml.v3"
-	"io"
-	"regexp"
-	"strings"
-	"sync"
 )
 
 var (
@@ -406,7 +407,11 @@ func (r *Renderer) renderAutoLink(node ast.Node, entering bool) (ast.WalkStatus,
 		if bytes.HasPrefix(bytes.ToLower(label), []byte("mailto:")) {
 			n.AutoLinkType = ast.AutoLinkEmail // fix the node type
 		}
-		classic := isClassicAutolink(label, r.writer.Bytes())
+		trailingText := []byte{}
+		if n.NextSibling() != nil {
+			trailingText = n.NextSibling().Text(r.source)
+		}
+		classic := isClassicAutolink(label, r.writer.Bytes(), trailingText)
 		if classic {
 			_ = r.writer.WriteByte('<')
 		}
@@ -911,7 +916,7 @@ func buildListMarker(n *ast.ListItem) []byte {
 	return []byte{p.Marker, ' '}
 }
 
-func isClassicAutolink(link []byte, cnt []byte) bool {
+func isClassicAutolink(link []byte, cnt []byte, trail []byte) bool {
 	if containsTrailingPunctuation(link[len(link)-1]) {
 		return true
 	}
@@ -922,7 +927,7 @@ func isClassicAutolink(link []byte, cnt []byte) bool {
 		return true
 	}
 	if http.Match(link) {
-		if len(cnt) > 0 && cnt[len(cnt)-1] == '(' {
+		if len(cnt) > 0 && (cnt[len(cnt)-1] == '(' || (trail != nil && len(trail) > 0 && trail[0] == ')')) {
 			// workaround for using default Linkify URL regex in Hugo
 			// `(https://foo.bar).` will be rendered as classic autolink `(<https://foo.bar>).`
 			return true
