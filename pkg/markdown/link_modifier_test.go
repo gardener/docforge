@@ -7,6 +7,7 @@ package markdown_test
 import (
 	"bytes"
 	"errors"
+
 	"github.com/gardener/docforge/pkg/markdown"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -65,6 +66,17 @@ var _ = Describe("Links modifier", func() {
 				Expect(buf.Bytes()).To(Equal([]byte(exp)))
 			})
 		})
+		Context("URL autolink in brackets", func() {
+			BeforeEach(func() {
+				lr.dst = "https://fake.com"
+				md = "links:\n(www.google.com/search?q=Markup+(business))\n(https://foo.bar/baz is a link)\n(This is tested because of hugo https://foo.bar)\n"
+				exp = "links:\n(https://fake.com)\n(<https://fake.com> is a link)\n(This is tested because of hugo <https://fake.com>)\n"
+			})
+			It("modifies links", func() {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(buf.Bytes()).To(Equal([]byte(exp)))
+			})
+		})
 		Context("Not an autolink", func() {
 			BeforeEach(func() {
 				lr.dst = "https://fake.com"
@@ -103,6 +115,17 @@ var _ = Describe("Links modifier", func() {
 				exp = "link:\n[foo](https://fake.com \"title\")\n\n"
 			})
 			It("modifies reference link", func() {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(buf.Bytes()).To(Equal([]byte(exp)))
+			})
+		})
+		Context("URL in brackets", func() {
+			BeforeEach(func() {
+				lr.dst = "https://fake.com"
+				md = "links:\n([Named link](https://fake.com/foo) is named link)\n(Named link: [Named link](https://fake.com/bar))\n"
+				exp = "links:\n([Named link](https://fake.com) is named link)\n(Named link: [Named link](https://fake.com))\n"
+			})
+			It("modifies links", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(buf.Bytes()).To(Equal([]byte(exp)))
 			})
