@@ -37,6 +37,7 @@ import (
 const CacheDir string = "cache"
 
 // FileReader defines interface for reading file attributes and content
+//
 //counterfeiter:generate . FileReader
 type FileReader interface {
 	ReadFile(string) ([]byte, error)

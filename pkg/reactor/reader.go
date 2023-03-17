@@ -7,10 +7,12 @@ package reactor
 import (
 	"context"
 	"fmt"
+
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 )
 
 // Reader reads the bytes' data from a given source URI
+//
 //counterfeiter:generate . Reader
 type Reader interface {
 	Read(ctx context.Context, source string) ([]byte, error)

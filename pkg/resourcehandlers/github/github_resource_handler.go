@@ -32,22 +32,25 @@ import (
 // in the git database. It binds the formats of a GitHub website URLs to the GitHub API URLs.
 //
 // Example tree entries:
-//{
-//	"path": "docs",
-//	"mode": "040000",
-//	"type": "tree",
-//	"sha": "5e11bda664b234920d85db5ca10055916c11e35d",
-//	"url": "https://api.github.com/repos/gardener/gardener/git/trees/5e11bda664b234920d85db5ca10055916c11e35d"
-//}
+//
+//	{
+//		"path": "docs",
+//		"mode": "040000",
+//		"type": "tree",
+//		"sha": "5e11bda664b234920d85db5ca10055916c11e35d",
+//		"url": "https://api.github.com/repos/gardener/gardener/git/trees/5e11bda664b234920d85db5ca10055916c11e35d"
+//	}
+//
 // Example blob:
-//{
-//	"path": "docs/README.md",
-//	"mode": "100644",
-//	"type": "blob",
-//  "size": "6260"
-//	"sha": "91776959202ec10db883c5cfc05c51e78403f02c",
-//	"url": "https://api.github.com/repos/gardener/gardener/git/blobs/91776959202ec10db883c5cfc05c51e78403f02c"
-//}
+//
+//	{
+//		"path": "docs/README.md",
+//		"mode": "100644",
+//		"type": "blob",
+//	 "size": "6260"
+//		"sha": "91776959202ec10db883c5cfc05c51e78403f02c",
+//		"url": "https://api.github.com/repos/gardener/gardener/git/blobs/91776959202ec10db883c5cfc05c51e78403f02c"
+//	}
 func TreeEntryToGitHubLocator(treeEntry *github.TreeEntry, shaAlias string) *ResourceLocator {
 	// Tree entries such as (submodule) `commit` objects do not have URL
 	// and cannot be converted to ResourceLocator
@@ -131,12 +134,12 @@ func NewResourceHandlerTest(client *github.Client, httpClient *http.Client, acce
 	}
 }
 
-//TreeExtractorGithub extracts the tree structure from a github client
+// TreeExtractorGithub extracts the tree structure from a github client
 type TreeExtractorGithub struct {
 	Client *github.Client
 }
 
-//ExtractTree extracts the tree structure from a github repo
+// ExtractTree extracts the tree structure from a github repo
 func (tE *TreeExtractorGithub) ExtractTree(ctx context.Context, rl *ResourceLocator) ([]*ResourceLocator, error) {
 	gitTree, resp, err := tE.Client.Git.GetTree(ctx, rl.Owner, rl.Repo, rl.SHAAlias, true)
 	if err != nil {

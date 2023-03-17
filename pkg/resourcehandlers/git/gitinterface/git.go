@@ -14,6 +14,7 @@ import (
 )
 
 // Git interface defines gogit git API
+//
 //counterfeiter:generate . Git
 type Git interface {
 	PlainOpen(path string) (Repository, error)
@@ -21,6 +22,7 @@ type Git interface {
 }
 
 // Repository interface defines gogit repository API
+//
 //counterfeiter:generate . Repository
 type Repository interface {
 	FetchContext(ctx context.Context, o *gogit.FetchOptions) error
@@ -30,6 +32,7 @@ type Repository interface {
 }
 
 // RepositoryWorktree interface defines gogit worktree API
+//
 //counterfeiter:generate . RepositoryWorktree
 type RepositoryWorktree interface {
 	Checkout(opts *gogit.CheckoutOptions) error

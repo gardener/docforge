@@ -6,10 +6,11 @@ package api
 
 import (
 	"fmt"
-	"gopkg.in/yaml.v3"
-	"k8s.io/klog/v2"
 	"sort"
 	"strings"
+
+	"gopkg.in/yaml.v3"
+	"k8s.io/klog/v2"
 )
 
 const (

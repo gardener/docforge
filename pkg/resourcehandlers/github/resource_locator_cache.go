@@ -43,13 +43,14 @@ func NewTestCache(rlStrings []string) *Cache {
 	return cache
 }
 
-//SetTreeExtractor sets the tree extractor
+// SetTreeExtractor sets the tree extractor
 func (c *Cache) SetTreeExtractor(te TreeExtractor) {
 	c.treeExtractor = te
 }
 
-//counterfeiter:generate . TreeExtractor
 // TreeExtractor a interface that represents extracting the structure of a given resource locator
+//
+//counterfeiter:generate . TreeExtractor
 type TreeExtractor interface {
 	ExtractTree(ctx context.Context, rl *ResourceLocator) ([]*ResourceLocator, error)
 }

@@ -11,6 +11,7 @@ import (
 )
 
 // Os is shim for methods from os package
+//
 //counterfeiter:generate . Os
 type Os interface {
 	ReadFile(name string) ([]byte, error)

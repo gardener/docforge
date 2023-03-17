@@ -7,11 +7,12 @@ package main
 import (
 	"context"
 	"flag"
-	"github.com/gardener/docforge/cmd/app"
 	"os"
 	"os/signal"
 	"runtime"
 	"syscall"
+
+	"github.com/gardener/docforge/cmd/app"
 )
 
 func main() {
