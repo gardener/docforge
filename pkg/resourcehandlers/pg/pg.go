@@ -43,11 +43,11 @@ type PG struct {
 	defBranches   map[string]string
 	muxDefBr      sync.Mutex
 	muxCnt        sync.Mutex
-	hugoEnabled   bool
+	options       api.ParsingOptions
 }
 
 // NewPG creates new PG resource handler
-func NewPG(client *github.Client, httpClient *http.Client, os osshim.Os, acceptedHosts []string, localMappings map[string]string, hugoEnabled bool) resourcehandlers.ResourceHandler {
+func NewPG(client *github.Client, httpClient *http.Client, os osshim.Os, acceptedHosts []string, localMappings map[string]string, options api.ParsingOptions) resourcehandlers.ResourceHandler {
 	return &PG{
 		client:        client,
 		httpClient:    httpClient,
@@ -56,7 +56,7 @@ func NewPG(client *github.Client, httpClient *http.Client, os osshim.Os, accepte
 		localMappings: localMappings,
 		filesCache:    make(map[string]string),
 		defBranches:   make(map[string]string),
-		hugoEnabled:   hugoEnabled,
+		options:       options,
 	}
 }
 
@@ -113,7 +113,7 @@ func (p *PG) ResolveDocumentation(ctx context.Context, uri string) (*api.Documen
 		}
 	}
 	var doc *api.Documentation
-	if doc, err = api.Parse(cnt, p.hugoEnabled); err != nil {
+	if doc, err = api.Parse(cnt, p.options); err != nil {
 		return nil, fmt.Errorf("failed to parse manifest: %s. %+v", uri, err)
 	}
 	n := &api.Node{Nodes: doc.Structure, NodeSelector: doc.NodeSelector}
@@ -406,8 +406,16 @@ func (p *PG) getNodeSelectorTree(ctx context.Context, node *api.Node, r *util.Re
 			key := fmt.Sprintf("%s/%s", bPrefix, ePath)
 			p.filesCache[key] = *e.SHA
 		}
-		// skip node if it is not a markdown file
-		if *e.Type != "blob" || !strings.HasSuffix(strings.ToLower(ePath), ".md") {
+
+		extracted := false
+		for _, extractedFormat := range p.options.ExtractedFilesFormats {
+			if strings.HasSuffix(strings.ToLower(ePath), extractedFormat) {
+				extracted = true
+				break
+			}
+		}
+		// skip node if it is not a supported format
+		if *e.Type != "blob" || !extracted {
 			klog.V(6).Infof("node selector %s skip entry %s\n", node.NodeSelector.Path, ePath)
 			continue
 		}

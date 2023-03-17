@@ -5,10 +5,8 @@
 package api
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
-	"html/template"
 	"strings"
 
 	"github.com/gardener/docforge/pkg/util"
@@ -17,8 +15,14 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// ParsingOptions Options that are given to the parser in the api package
+type ParsingOptions struct {
+	ExtractedFilesFormats []string `mapstructure:"extracted-files-formats"`
+	Hugo                  bool     `mapstructure:"hugo"`
+}
+
 // Parse is a function which construct documentation struct from given byte array
-func Parse(b []byte, hugoEnabled bool) (*Documentation, error) {
+func Parse(b []byte, options ParsingOptions) (*Documentation, error) {
 	var err error
 	docs := &Documentation{}
 	if err = yaml.Unmarshal(b, docs); err != nil {
@@ -28,14 +32,14 @@ func Parse(b []byte, hugoEnabled bool) (*Documentation, error) {
 	for _, n := range docs.Structure {
 		n.SetParentsDownwards()
 	}
-	if err = validateDocumentation(docs, hugoEnabled); err != nil {
+	if err = validateDocumentation(docs, options); err != nil {
 		return nil, err
 	}
 
 	return docs, nil
 }
 
-func validateDocumentation(d *Documentation, hugoEnabled bool) error {
+func validateDocumentation(d *Documentation, options ParsingOptions) error {
 	var errs error
 	if d.Structure == nil && d.NodeSelector == nil {
 		errs = multierror.Append(errs, fmt.Errorf("the document structure must contains at least one of these properties: structure, nodesSelector"))
@@ -48,7 +52,7 @@ func validateDocumentation(d *Documentation, hugoEnabled bool) error {
 			errs = multierror.Append(errs, err)
 		}
 	}
-	if err := CheckForCollisions(d.Structure, hugoEnabled); err != nil {
+	if err := CheckForCollisions(d.Structure, options); err != nil {
 		return err
 	}
 	if err := validateNodeSelector(d.NodeSelector, "/"); err != nil {
@@ -148,38 +152,20 @@ func Serialize(docs *Documentation) (string, error) {
 	return string(b), nil
 }
 
-func resolveVariables(manifestContent []byte, vars map[string]string) ([]byte, error) {
-	var (
-		tmpl *template.Template
-		err  error
-		b    bytes.Buffer
-	)
-	tplFuncMap := make(template.FuncMap)
-	tplFuncMap["Split"] = strings.Split
-	tplFuncMap["Add"] = func(a, b int) int { return a + b }
-	if tmpl, err = template.New("").Funcs(tplFuncMap).Parse(string(manifestContent)); err != nil {
-		return nil, err
-	}
-	if err = tmpl.Execute(&b, vars); err != nil {
-		return nil, err
-	}
-	return b.Bytes(), nil
-}
-
-//Collision a data type that represents a collision in parsing
+// Collision a data type that represents a collision in parsing
 type Collision struct {
 	NodeParentPath string
 	CollidedNodes  map[string][]string
 }
 
-//CheckForCollisions checks if a collision occured
-func CheckForCollisions(nodes []*Node, hugoEnabled bool) error {
+// CheckForCollisions checks if a collision occured
+func CheckForCollisions(nodes []*Node, options ParsingOptions) error {
 	var (
 		collisions []Collision
 		err        error
 	)
 
-	collisions, err = deepCheckNodesForCollisions(nodes, nil, collisions, hugoEnabled)
+	collisions, err = deepCheckNodesForCollisions(nodes, nil, collisions, options)
 	if err != nil {
 		return err
 	}
@@ -206,15 +192,15 @@ func CheckForCollisions(nodes []*Node, hugoEnabled bool) error {
 	return errors.New(sb.String())
 }
 
-func deepCheckNodesForCollisions(nodes []*Node, parent *Node, collisions []Collision, hugoEnabled bool) ([]Collision, error) {
+func deepCheckNodesForCollisions(nodes []*Node, parent *Node, collisions []Collision, options ParsingOptions) ([]Collision, error) {
 	var err error
-	collisions, err = CheckNodesForCollision(nodes, parent, collisions, hugoEnabled)
+	collisions, err = CheckNodesForCollision(nodes, parent, collisions, options)
 	if err != nil {
 		return nil, err
 	}
 	for _, node := range nodes {
 		if len(node.Nodes) > 0 {
-			collisions, err = deepCheckNodesForCollisions(node.Nodes, node, collisions, hugoEnabled)
+			collisions, err = deepCheckNodesForCollisions(node.Nodes, node, collisions, options)
 			if err != nil {
 				return nil, err
 			}
@@ -223,8 +209,8 @@ func deepCheckNodesForCollisions(nodes []*Node, parent *Node, collisions []Colli
 	return collisions, nil
 }
 
-//CheckNodesForCollision given a set of nodes checks if there is a collision
-func CheckNodesForCollision(nodes []*Node, parent *Node, collisions []Collision, hugoEnabled bool) ([]Collision, error) {
+// CheckNodesForCollision given a set of nodes checks if there is a collision
+func CheckNodesForCollision(nodes []*Node, parent *Node, collisions []Collision, options ParsingOptions) ([]Collision, error) {
 	if len(nodes) < 2 {
 		return collisions, nil
 	}
@@ -232,7 +218,7 @@ func CheckNodesForCollision(nodes []*Node, parent *Node, collisions []Collision,
 	checked := make(map[string]struct{}, len(nodes))
 	var collisionsNames []string
 	for _, node := range nodes {
-		nodeName, err := getNodeName(node, hugoEnabled)
+		nodeName, err := getNodeName(node, options.Hugo, options.ExtractedFilesFormats)
 		if err != nil {
 			return nil, err
 		}
@@ -246,14 +232,14 @@ func CheckNodesForCollision(nodes []*Node, parent *Node, collisions []Collision,
 	if len(collisionsNames) == 0 {
 		return collisions, nil
 	}
-	nodeCollisions, err := BuildNodeCollision(nodes, parent, collisionsNames, hugoEnabled)
+	nodeCollisions, err := BuildNodeCollision(nodes, parent, collisionsNames, options)
 	if err != nil {
 		return nil, err
 	}
 	return append(collisions, *nodeCollisions), nil
 }
 
-func getNodeName(node *Node, hugoEnabled bool) (string, error) {
+func getNodeName(node *Node, hugoEnabled bool, supportedContentFormats []string) (string, error) {
 	if node.IsDocument() {
 		name := node.Name
 		if node.Source != "" && len(node.MultiSource) > 0 {
@@ -285,10 +271,12 @@ func getNodeName(node *Node, hugoEnabled bool) (string, error) {
 			}
 		}
 		// ensure markdown suffix
-		if !strings.HasSuffix(name, ".md") {
-			name = fmt.Sprintf("%s.md", node.Name)
+		for _, suffix := range supportedContentFormats {
+			if strings.HasSuffix(name, suffix) {
+				return name, nil
+			}
 		}
-		return name, nil
+		return fmt.Sprintf("%s.md", node.Name), nil
 	}
 	//node is container
 	if node.Name == "" {
@@ -297,8 +285,8 @@ func getNodeName(node *Node, hugoEnabled bool) (string, error) {
 	return node.Name, nil
 }
 
-//BuildNodeCollision builds the collision data type
-func BuildNodeCollision(nodes []*Node, parent *Node, collisionsNames []string, hugoEnabled bool) (*Collision, error) {
+// BuildNodeCollision builds the collision data type
+func BuildNodeCollision(nodes []*Node, parent *Node, collisionsNames []string, options ParsingOptions) (*Collision, error) {
 	c := Collision{
 		NodeParentPath: GetNodeParentPath(parent),
 		CollidedNodes:  make(map[string][]string, len(collisionsNames)),
@@ -306,7 +294,7 @@ func BuildNodeCollision(nodes []*Node, parent *Node, collisionsNames []string, h
 
 	for _, collisionName := range collisionsNames {
 		for _, node := range nodes {
-			nodeName, err := getNodeName(node, hugoEnabled)
+			nodeName, err := getNodeName(node, options.Hugo, options.ExtractedFilesFormats)
 			if err != nil {
 				return nil, err
 			}
@@ -320,7 +308,7 @@ func BuildNodeCollision(nodes []*Node, parent *Node, collisionsNames []string, h
 	return &c, nil
 }
 
-//GetNodeParentPath returns the node's parent path
+// GetNodeParentPath returns the node's parent path
 func GetNodeParentPath(node *Node) string {
 	if node == nil {
 		return "root"

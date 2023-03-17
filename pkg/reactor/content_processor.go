@@ -38,7 +38,7 @@ type nodeContentProcessor struct {
 	validator        Validator
 	resourceHandlers resourcehandlers.Registry
 	sourceLocations  map[string][]*api.Node
-	hugo             *Hugo
+	hugo             Hugo
 	rwLock           sync.RWMutex
 }
 
@@ -72,6 +72,7 @@ type frontmatterProcessor struct {
 }
 
 // NodeContentProcessor operates on documents content to reconcile links and schedule linked resources downloads
+//
 //counterfeiter:generate . NodeContentProcessor
 type NodeContentProcessor interface {
 	// Prepare performs pre-processing on resolved documentation structure (e.g. collect api.Node sources)
@@ -81,7 +82,7 @@ type NodeContentProcessor interface {
 }
 
 // NewNodeContentProcessor creates NodeContentProcessor objects
-func NewNodeContentProcessor(resourcesRoot string, downloadJob DownloadScheduler, validator Validator, rh resourcehandlers.Registry, hugo *Hugo) NodeContentProcessor {
+func NewNodeContentProcessor(resourcesRoot string, downloadJob DownloadScheduler, validator Validator, rh resourcehandlers.Registry, hugo Hugo) NodeContentProcessor {
 	c := &nodeContentProcessor{
 		// resourcesRoot specifies the root location for downloaded resource.
 		// It is used to rewrite resource links in documents to relative paths.

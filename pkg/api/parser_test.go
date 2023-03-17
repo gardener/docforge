@@ -18,7 +18,7 @@ import (
 var _ = Describe("Parser", func() {
 	Describe("Parsing manifest", func() {
 		DescribeTable("parsing tests", func(manifest []byte, expDoc *api.Documentation, expErr error) {
-			doc, err := api.Parse(manifest, true)
+			doc, err := api.Parse(manifest, api.ParsingOptions{Hugo: true, ExtractedFilesFormats: []string{".md"}})
 			if expErr == nil {
 				Expect(err).To(BeNil())
 			} else {
@@ -195,7 +195,7 @@ var _ = Describe("Parser", func() {
 			exp      *api.Documentation
 		)
 		JustBeforeEach(func() {
-			got, err = api.Parse(manifest, true)
+			got, err = api.Parse(manifest, api.ParsingOptions{Hugo: true, ExtractedFilesFormats: []string{".md"}})
 		})
 		Context("given manifest file", func() {
 			BeforeEach(func() {
@@ -306,7 +306,7 @@ var _ = Describe("Parser", func() {
 			err error
 		)
 		JustBeforeEach(func() {
-			res, err = api.BuildNodeCollision(args.nodes, args.parent, args.collisionsNames, true)
+			res, err = api.BuildNodeCollision(args.nodes, args.parent, args.collisionsNames, api.ParsingOptions{Hugo: true, ExtractedFilesFormats: []string{".md"}})
 		})
 		Context("Pass nodes with one collision of two nodes", func() {
 			BeforeEach(func() {
@@ -394,7 +394,7 @@ var _ = Describe("Parser", func() {
 			err error
 		)
 		JustBeforeEach(func() {
-			res, err = api.CheckNodesForCollision(args.nodes, args.parent, args.collisions, true)
+			res, err = api.CheckNodesForCollision(args.nodes, args.parent, args.collisions, api.ParsingOptions{Hugo: true, ExtractedFilesFormats: []string{".md"}})
 		})
 		Context("Nodes with one collision", func() {
 			BeforeEach(func() {
@@ -462,7 +462,7 @@ var _ = Describe("Parser", func() {
 		)
 		JustBeforeEach(func() {
 			recursiveSetParents(args.nodes, nil)
-			err = api.CheckForCollisions(args.nodes, true)
+			err = api.CheckForCollisions(args.nodes, api.ParsingOptions{Hugo: true, ExtractedFilesFormats: []string{".md"}})
 		})
 		Context("Test with one collision", func() {
 			BeforeEach(func() {

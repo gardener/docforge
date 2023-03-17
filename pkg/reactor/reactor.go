@@ -24,32 +24,59 @@ import (
 // Options encapsulates the parameters for creating
 // new Reactor objects with NewReactor
 type Options struct {
-	DocumentWorkersCount         int
-	ValidationWorkersCount       int
-	FailFast                     bool
-	DestinationPath              string
-	ResourcesPath                string
-	ManifestPath                 string
-	ResourceDownloadWorkersCount int
-	ResourceDownloadWriter       writers.Writer
-	GitInfoWriter                writers.Writer
-	Writer                       writers.Writer
-	ResourceHandlers             []resourcehandlers.ResourceHandler
-	DryRunWriter                 writers.DryRunWriter
-	Resolve                      bool
-	Hugo                         *Hugo
+	DocumentWorkersCount         int      `mapstructure:"document-workers"`
+	ValidationWorkersCount       int      `mapstructure:"validation-workers"`
+	FailFast                     bool     `mapstructure:"fail-fast"`
+	DestinationPath              string   `mapstructure:"destination"`
+	ResourcesPath                string   `mapstructure:"resources-download-path"`
+	ManifestPath                 string   `mapstructure:"manifest"`
+	ResourceDownloadWorkersCount int      `mapstructure:"download-workers"`
+	GhInfoDestination            string   `mapstructure:"github-info-destination"`
+	DryRun                       bool     `mapstructure:"dry-run"`
+	Resolve                      bool     `mapstructure:"resolve"`
+	ExtractedFilesFormats        []string `mapstructure:"extracted-files-formats"`
 }
 
 // Hugo is the configuration options for creating HUGO implementations
 type Hugo struct {
-	Enabled        bool
-	PrettyURLs     bool
-	BaseURL        string
-	IndexFileNames []string
+	Enabled        bool     `mapstructure:"hugo"`
+	PrettyURLs     bool     `mapstructure:"hugo-pretty-urls"`
+	BaseURL        string   `mapstructure:"hugo-base-url"`
+	IndexFileNames []string `mapstructure:"hugo-section-files"`
 }
 
-// NewReactor creates a Reactor from Options
-func NewReactor(o *Options) (*Reactor, error) {
+// Writers struct that collects all the writesr
+type Writers struct {
+	ResourceDownloadWriter writers.Writer
+	GitInfoWriter          writers.Writer
+	Writer                 writers.Writer
+	DryRunWriter           writers.DryRunWriter
+}
+
+// Config configuration of the reactor
+type Config struct {
+	Options
+	Writers
+	Hugo
+	ResourceHandlers []resourcehandlers.ResourceHandler
+}
+
+// Reactor orchestrates the documentation build workflow
+type Reactor struct {
+	Config           Config
+	ResourceHandlers resourcehandlers.Registry
+	DocumentWorker   *DocumentWorker
+	DocumentTasks    *jobs.JobQueue
+	DownloadTasks    *jobs.JobQueue
+	GitHubInfoTasks  *jobs.JobQueue
+	ValidatorTasks   *jobs.JobQueue
+	// reactorWaitGroup used to determine when all parallel tasks are done
+	reactorWaitGroup *sync.WaitGroup
+	sources          map[string][]*api.Node
+}
+
+// NewReactor creates a Reactor from Config
+func NewReactor(o Config) (*Reactor, error) {
 	reactorWG := &sync.WaitGroup{}
 	var ghInfo GitHubInfo
 	var ghInfoTasks *jobs.JobQueue
@@ -99,7 +126,7 @@ func NewReactor(o *Options) (*Reactor, error) {
 		return nil, err
 	}
 	r := &Reactor{
-		Options:          o,
+		Config:           o,
 		ResourceHandlers: rhRegistry,
 		DocumentWorker:   worker,
 		DocumentTasks:    docTasks,
@@ -112,37 +139,23 @@ func NewReactor(o *Options) (*Reactor, error) {
 	return r, nil
 }
 
-// Reactor orchestrates the documentation build workflow
-type Reactor struct {
-	Options          *Options
-	ResourceHandlers resourcehandlers.Registry
-	DocumentWorker   *DocumentWorker
-	DocumentTasks    *jobs.JobQueue
-	DownloadTasks    *jobs.JobQueue
-	GitHubInfoTasks  *jobs.JobQueue
-	ValidatorTasks   *jobs.JobQueue
-	// reactorWaitGroup used to determine when all parallel tasks are done
-	reactorWaitGroup *sync.WaitGroup
-	sources          map[string][]*api.Node
-}
-
 // Run starts build operation on documentation
-func (r *Reactor) Run(ctx context.Context, manifest *api.Documentation, dryRun bool) error {
+func (r *Reactor) Run(ctx context.Context, manifest *api.Documentation) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer func() {
-		if r.Options.Resolve {
+		if r.Config.Resolve {
 			if err := printResolved(manifest, os.Stdout); err != nil {
 				klog.Errorf("failed to print resolved manifest: %s", err.Error())
 			}
 		}
 		cancel()
-		if dryRun {
-			r.Options.DryRunWriter.Flush()
+		if r.Config.DryRun {
+			r.Config.DryRunWriter.Flush()
 		}
 	}()
 
 	if err := r.ResolveManifest(ctx, manifest); err != nil {
-		return fmt.Errorf("failed to resolve manifest: %s. %+v", r.Options.ManifestPath, err)
+		return fmt.Errorf("failed to resolve manifest: %s. %+v", r.Config.ManifestPath, err)
 	}
 
 	klog.V(4).Info("Building documentation structure\n\n")

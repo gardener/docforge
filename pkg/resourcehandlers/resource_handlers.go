@@ -82,6 +82,20 @@ func NewRegistry(resourceHandlers ...ResourceHandler) Registry {
 	return r
 }
 
+// ResourceHandlerOptions options for the resource handler
+type ResourceHandlerOptions struct {
+	CacheHomeDir     string            `mapstructure:"cache-dir"`
+	Credentials      map[string]string `mapstructure:"github-oauth-token-map"`
+	ResourceMappings map[string]string `mapstructure:"resourceMappings"`
+	Hugo             bool              `mapstructure:"hugo"`
+}
+
+// Credential holds repository credential data
+type Credential struct {
+	Host       string
+	OAuthToken string
+}
+
 // Load loads a ResourceHandler into the Registry
 func (r *registry) Load(rhs ...ResourceHandler) {
 	r.handlers = append(r.handlers, rhs...)
