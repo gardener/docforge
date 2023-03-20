@@ -17,7 +17,7 @@ import (
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/reactor"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
-	"github.com/gardener/docforge/pkg/resourcehandlers/pg"
+	"github.com/gardener/docforge/pkg/resourcehandlers/githubhttpcache"
 	"github.com/gardener/docforge/pkg/util/osshim"
 	"github.com/gardener/docforge/pkg/writers"
 	"github.com/google/go-github/v43/github"
@@ -94,7 +94,7 @@ func newResourceHandler(host string, client *github.Client, httpClient *http.Cli
 	if host == "github.com" {
 		rawHost = "raw.githubusercontent.com"
 	}
-	return pg.NewPG(client, httpClient, &osshim.OsShim{}, []string{host, rawHost}, localMappings, options)
+	return githubhttpcache.NewGHC(client, httpClient, &osshim.OsShim{}, []string{host, rawHost}, localMappings, options)
 }
 
 // manifest reads the resource at uri, resolves it as template applying vars,
