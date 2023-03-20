@@ -17,7 +17,9 @@ import (
 
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/markdown"
+	"github.com/gardener/docforge/pkg/renderers/adocs"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
+	"github.com/gardener/docforge/pkg/util/urls"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/renderer"
 	"k8s.io/klog/v2"
@@ -207,6 +209,10 @@ func (c *nodeContentProcessor) addSourceLocation(node *api.Node) {
 
 func (c *nodeContentProcessor) getRenderer(n *api.Node, sourceURI string) renderer.Renderer {
 	lr := c.newLinkResolver(n, sourceURI)
+	ext := urls.Ext(sourceURI)
+	if ext == "adoc" {
+		return adocs.New(lr.resolveLink, n.Properties)
+	}
 	return markdown.NewLinkModifierRenderer(markdown.WithLinkResolver(lr.resolveLink))
 }
 

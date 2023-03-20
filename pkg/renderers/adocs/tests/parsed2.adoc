@@ -1,0 +1,35 @@
+---
+title: foo
+weight: 50
+---
+:doctitle: This is the title of the document
+include::variables-file.adoc[]
+
+*Here we have a long variable* +
+{long-variable}
+include::indlude-file.adoc[]
+===== H5 Level - though we probable won't need that
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+== Tables
+
+.table test
+[cols="1,1"]
+|===
+|Cell in column 1, header row |Cell in column 2, header row 
+
+|Cell in column 1, row 1 
+|Cell in column 2, row 1 
+|=== 
+
+== Code Blocks
+[source, shell]
+----
+echo -n "Enter Something:"
+----
+
+image::/__resources/bar.png[]
+*Description List*
+*Links*
+
+include::tagged.adoc[tag=snippet-b]
+image::/__resources/../images/foo.jpeg[foo]

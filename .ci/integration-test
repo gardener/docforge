@@ -20,9 +20,7 @@ getGitHubToken() {
     if [[ -n "${technicalUser}" ]]; then
       # get auth token and strip lead/trail quotes
       authToken="$(jq -r '.authToken' <<< "$technicalUser")"
-      # get username and strip lead/trail quotes
-      username="$(jq -r '.username' <<< "$technicalUser")"
-      echo "${username}:${authToken}"
+      echo "${authToken}"
     fi
   fi
 }
