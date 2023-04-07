@@ -325,15 +325,20 @@ func TestResolveManifest(t *testing.T) {
 				rh.ResolveDocumentationStub = tt.args.resolveDocumentationFunc
 			}
 			rh.ResolveNodeSelectorStub = tt.args.resolveNodeSelectorFunc
-			opt := &Options{
-				ResourceHandlers:             []resourcehandlers.ResourceHandler{rh},
-				ManifestPath:                 tt.args.manifestPath,
-				Hugo:                         &Hugo{},
-				Writer:                       &writersfakes.FakeWriter{},
-				ResourceDownloadWriter:       &writersfakes.FakeWriter{},
-				ResourceDownloadWorkersCount: 1,
-				DocumentWorkersCount:         1,
-				ValidationWorkersCount:       1,
+			opt := Config{
+				Writers: Writers{
+					Writer:                 &writersfakes.FakeWriter{},
+					ResourceDownloadWriter: &writersfakes.FakeWriter{},
+				},
+				Hugo:             Hugo{},
+				ResourceHandlers: []resourcehandlers.ResourceHandler{rh},
+				Options: Options{
+					ExtractedFilesFormats:        []string{".md"},
+					ManifestPath:                 tt.args.manifestPath,
+					ResourceDownloadWorkersCount: 1,
+					DocumentWorkersCount:         1,
+					ValidationWorkersCount:       1,
+				},
 			}
 			r, err := NewReactor(opt)
 			assert.Equal(t, err, nil)
@@ -471,14 +476,20 @@ func Test_resolveNodeSelector(t *testing.T) {
 			}
 			rh.ResolveDocumentationStub = tt.resolveDocumentationFunc
 			rh.ResolveNodeSelectorStub = tt.resolveNodeSelectorFunc
-			opt := &Options{
-				ResourceHandlers:             []resourcehandlers.ResourceHandler{rh},
-				Hugo:                         &Hugo{},
-				Writer:                       &writersfakes.FakeWriter{},
-				ResourceDownloadWriter:       &writersfakes.FakeWriter{},
-				ResourceDownloadWorkersCount: 1,
-				DocumentWorkersCount:         1,
-				ValidationWorkersCount:       1,
+			opt := Config{
+				Writers: Writers{
+
+					Writer:                 &writersfakes.FakeWriter{},
+					ResourceDownloadWriter: &writersfakes.FakeWriter{},
+				},
+				Hugo:             Hugo{},
+				ResourceHandlers: []resourcehandlers.ResourceHandler{rh},
+				Options: Options{
+					ExtractedFilesFormats:        []string{".md"},
+					ResourceDownloadWorkersCount: 1,
+					DocumentWorkersCount:         1,
+					ValidationWorkersCount:       1,
+				},
 			}
 			r, err := NewReactor(opt)
 			assert.Equal(t, err, nil)
@@ -627,17 +638,22 @@ func Test_resolveNodeName(t *testing.T) {
 				rh.AcceptStub = tt.acceptFunc
 			}
 			rh.ResourceNameStub = tt.resourceName
-			opt := &Options{
+			opt := Config{
+				Writers: Writers{
+					Writer:                 &writersfakes.FakeWriter{},
+					ResourceDownloadWriter: &writersfakes.FakeWriter{},
+				},
 				ResourceHandlers: []resourcehandlers.ResourceHandler{rh},
-				Hugo: &Hugo{
+				Hugo: Hugo{
 					Enabled:        true,
 					IndexFileNames: tt.args.indexFileNames,
 				},
-				Writer:                       &writersfakes.FakeWriter{},
-				ResourceDownloadWriter:       &writersfakes.FakeWriter{},
-				ResourceDownloadWorkersCount: 1,
-				DocumentWorkersCount:         1,
-				ValidationWorkersCount:       1,
+				Options: Options{
+					ExtractedFilesFormats:        []string{".md"},
+					ResourceDownloadWorkersCount: 1,
+					DocumentWorkersCount:         1,
+					ValidationWorkersCount:       1,
+				},
 			}
 			r, err := NewReactor(opt)
 			assert.Equal(t, err, nil)

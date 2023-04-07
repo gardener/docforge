@@ -23,6 +23,7 @@ import (
 )
 
 // Validator validates the links URLs
+//
 //counterfeiter:generate . Validator
 type Validator interface {
 	// ValidateLink checks if the link URL is available in a separate goroutine

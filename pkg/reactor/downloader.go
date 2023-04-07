@@ -17,6 +17,7 @@ import (
 )
 
 // DownloadScheduler encapsulates activities for asynchronous and parallel scheduling and download of resources
+//
 //counterfeiter:generate . DownloadScheduler
 type DownloadScheduler interface {
 	// Schedule is a typesafe wrapper for enqueuing download tasks. An error is returned if scheduling fails.

@@ -28,7 +28,7 @@ func (r *Reactor) ResolveManifest(ctx context.Context, manifest *api.Documentati
 	manifest.NodeSelector = nil
 	root.SetParentsDownwards()
 	// init visited stack with root manifest
-	visited := []string{r.Options.ManifestPath}
+	visited := []string{r.Config.ManifestPath}
 	// resolve manifest structure names
 	if err := r.resolveNodeNames(root.Nodes); err != nil {
 		return err
@@ -53,7 +53,7 @@ func (r *Reactor) ResolveManifest(ctx context.Context, manifest *api.Documentati
 		return err
 	}
 	// determine section files
-	if r.Options.Hugo.Enabled {
+	if r.Config.Hugo.Enabled {
 		r.resolveSectionFiles(root)
 	}
 	// set nil parent for root structure nodes
@@ -198,7 +198,7 @@ func (r *Reactor) resolveNodeNames(nodes []*api.Node) error {
 				}
 			}
 			// check 'index=true'
-			if r.Options.Hugo.Enabled && len(node.Properties) > 0 {
+			if r.Config.Hugo.Enabled && len(node.Properties) > 0 {
 				if idxVal, found := node.Properties["index"]; found {
 					idx, ok := idxVal.(bool)
 					if ok && idx {
@@ -206,8 +206,14 @@ func (r *Reactor) resolveNodeNames(nodes []*api.Node) error {
 					}
 				}
 			}
-			// ensure markdown suffix
-			if !strings.HasSuffix(node.Name, ".md") {
+			broken := true
+			for _, suffix := range r.Config.ExtractedFilesFormats {
+				if strings.HasSuffix(node.Name, suffix) {
+					broken = false
+					break
+				}
+			}
+			if broken {
 				node.Name = fmt.Sprintf("%s.md", node.Name)
 			}
 		} else {
@@ -227,9 +233,9 @@ func (r *Reactor) resolveSectionFiles(container *api.Node) {
 			break
 		}
 	}
-	if !hasSectionFile && len(r.Options.Hugo.IndexFileNames) > 0 {
+	if !hasSectionFile && len(r.Config.Hugo.IndexFileNames) > 0 {
 		// try to find one, priority is the IndexFileNames order
-		for _, ifn := range r.Options.Hugo.IndexFileNames {
+		for _, ifn := range r.Config.Hugo.IndexFileNames {
 			for _, node := range container.Nodes {
 				if node.IsDocument() && strings.EqualFold(node.Name, ifn) {
 					klog.V(6).Infof("renaming %s -> _index.md\n", node.FullName("/"))

@@ -18,6 +18,7 @@ import (
 )
 
 // GitHubInfo is the functional interface for writing GitHub infos
+//
 //counterfeiter:generate . GitHubInfo
 type GitHubInfo interface {
 	// WriteGitHubInfo writes GitHub info for an api.Node in a separate goroutine

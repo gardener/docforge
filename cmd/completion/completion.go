@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-package app
+package completion
 
 import (
 	"os"
@@ -62,6 +62,7 @@ $ docforge completion fish > ~/.config/fish/completions/docforge.fish
 	},
 }
 
-func newCompletionCmd() *cobra.Command {
+// NewCompletionCmd generates a completion command
+func NewCompletionCmd() *cobra.Command {
 	return completionCmd
 }

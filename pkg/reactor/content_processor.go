@@ -17,7 +17,9 @@ import (
 
 	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/markdown"
+	"github.com/gardener/docforge/pkg/renderers/adocs"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
+	"github.com/gardener/docforge/pkg/util/urls"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/renderer"
 	"k8s.io/klog/v2"
@@ -38,7 +40,7 @@ type nodeContentProcessor struct {
 	validator        Validator
 	resourceHandlers resourcehandlers.Registry
 	sourceLocations  map[string][]*api.Node
-	hugo             *Hugo
+	hugo             Hugo
 	rwLock           sync.RWMutex
 }
 
@@ -72,6 +74,7 @@ type frontmatterProcessor struct {
 }
 
 // NodeContentProcessor operates on documents content to reconcile links and schedule linked resources downloads
+//
 //counterfeiter:generate . NodeContentProcessor
 type NodeContentProcessor interface {
 	// Prepare performs pre-processing on resolved documentation structure (e.g. collect api.Node sources)
@@ -81,7 +84,7 @@ type NodeContentProcessor interface {
 }
 
 // NewNodeContentProcessor creates NodeContentProcessor objects
-func NewNodeContentProcessor(resourcesRoot string, downloadJob DownloadScheduler, validator Validator, rh resourcehandlers.Registry, hugo *Hugo) NodeContentProcessor {
+func NewNodeContentProcessor(resourcesRoot string, downloadJob DownloadScheduler, validator Validator, rh resourcehandlers.Registry, hugo Hugo) NodeContentProcessor {
 	c := &nodeContentProcessor{
 		// resourcesRoot specifies the root location for downloaded resource.
 		// It is used to rewrite resource links in documents to relative paths.
@@ -206,6 +209,10 @@ func (c *nodeContentProcessor) addSourceLocation(node *api.Node) {
 
 func (c *nodeContentProcessor) getRenderer(n *api.Node, sourceURI string) renderer.Renderer {
 	lr := c.newLinkResolver(n, sourceURI)
+	ext := urls.Ext(sourceURI)
+	if ext == "adoc" {
+		return adocs.New(lr.resolveLink, n.Properties)
+	}
 	return markdown.NewLinkModifierRenderer(markdown.WithLinkResolver(lr.resolveLink))
 }
 

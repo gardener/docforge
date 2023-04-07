@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-package pg
+package githubhttpcache
 
 import (
 	"context"
@@ -31,8 +31,8 @@ import (
 	"k8s.io/klog/v2"
 )
 
-// PG implements resourcehandlers.ResourceHandler interface using GitHub API with transport level persistent cache.
-type PG struct {
+// GHC implements resourcehandlers.ResourceHandler interface using GitHub API with transport level persistent cache.
+type GHC struct {
 	client        *github.Client
 	httpClient    *http.Client
 	os            osshim.Os
@@ -43,12 +43,12 @@ type PG struct {
 	defBranches   map[string]string
 	muxDefBr      sync.Mutex
 	muxCnt        sync.Mutex
-	hugoEnabled   bool
+	options       api.ParsingOptions
 }
 
-// NewPG creates new PG resource handler
-func NewPG(client *github.Client, httpClient *http.Client, os osshim.Os, acceptedHosts []string, localMappings map[string]string, hugoEnabled bool) resourcehandlers.ResourceHandler {
-	return &PG{
+// NewGHC creates new GHC resource handler
+func NewGHC(client *github.Client, httpClient *http.Client, os osshim.Os, acceptedHosts []string, localMappings map[string]string, options api.ParsingOptions) resourcehandlers.ResourceHandler {
+	return &GHC{
 		client:        client,
 		httpClient:    httpClient,
 		os:            os,
@@ -56,7 +56,7 @@ func NewPG(client *github.Client, httpClient *http.Client, os osshim.Os, accepte
 		localMappings: localMappings,
 		filesCache:    make(map[string]string),
 		defBranches:   make(map[string]string),
-		hugoEnabled:   hugoEnabled,
+		options:       options,
 	}
 }
 
@@ -80,7 +80,7 @@ type GitInfo struct {
 //========================= resourcehandlers.ResourceHandler ===================================================
 
 // Accept implements the resourcehandlers.ResourceHandler#Accept
-func (p *PG) Accept(uri string) bool {
+func (p *GHC) Accept(uri string) bool {
 	r, err := util.BuildResourceInfo(uri)
 	if err != nil || r.URL.Scheme != "https" {
 		return false
@@ -94,7 +94,7 @@ func (p *PG) Accept(uri string) bool {
 }
 
 // ResolveDocumentation implements the resourcehandlers.ResourceHandler#ResolveDocumentation
-func (p *PG) ResolveDocumentation(ctx context.Context, uri string) (*api.Documentation, error) {
+func (p *GHC) ResolveDocumentation(ctx context.Context, uri string) (*api.Documentation, error) {
 	r, err := p.getResolvedResourceInfo(ctx, uri)
 	if err != nil {
 		return nil, err
@@ -113,7 +113,7 @@ func (p *PG) ResolveDocumentation(ctx context.Context, uri string) (*api.Documen
 		}
 	}
 	var doc *api.Documentation
-	if doc, err = api.Parse(cnt, p.hugoEnabled); err != nil {
+	if doc, err = api.Parse(cnt, p.options); err != nil {
 		return nil, fmt.Errorf("failed to parse manifest: %s. %+v", uri, err)
 	}
 	n := &api.Node{Nodes: doc.Structure, NodeSelector: doc.NodeSelector}
@@ -128,7 +128,7 @@ func (p *PG) ResolveDocumentation(ctx context.Context, uri string) (*api.Documen
 }
 
 // ResolveNodeSelector implements the resourcehandlers.ResourceHandler#ResolveNodeSelector
-func (p *PG) ResolveNodeSelector(ctx context.Context, node *api.Node) ([]*api.Node, error) {
+func (p *GHC) ResolveNodeSelector(ctx context.Context, node *api.Node) ([]*api.Node, error) {
 	r, err := p.getResolvedResourceInfo(ctx, node.NodeSelector.Path)
 	if err != nil {
 		return nil, err
@@ -170,7 +170,7 @@ func (p *PG) ResolveNodeSelector(ctx context.Context, node *api.Node) ([]*api.No
 }
 
 // Read implements the resourcehandlers.ResourceHandler#Read
-func (p *PG) Read(ctx context.Context, uri string) ([]byte, error) {
+func (p *GHC) Read(ctx context.Context, uri string) ([]byte, error) {
 	r, err := p.getResolvedResourceInfo(ctx, uri)
 	if err != nil {
 		return nil, err
@@ -185,7 +185,7 @@ func (p *PG) Read(ctx context.Context, uri string) ([]byte, error) {
 }
 
 // ReadGitInfo implements the resourcehandlers.ResourceHandler#ReadGitInfo
-func (p *PG) ReadGitInfo(ctx context.Context, uri string) ([]byte, error) {
+func (p *GHC) ReadGitInfo(ctx context.Context, uri string) ([]byte, error) {
 	r, err := p.getResolvedResourceInfo(ctx, uri)
 	if err != nil {
 		return nil, err
@@ -225,7 +225,7 @@ func (p *PG) ReadGitInfo(ctx context.Context, uri string) ([]byte, error) {
 }
 
 // ResourceName implements the resourcehandlers.ResourceHandler#ResourceName
-func (p *PG) ResourceName(link string) (string, string) {
+func (p *GHC) ResourceName(link string) (string, string) {
 	r, err := util.BuildResourceInfo(link)
 	if err != nil {
 		return "", ""
@@ -236,7 +236,7 @@ func (p *PG) ResourceName(link string) (string, string) {
 }
 
 // BuildAbsLink implements the resourcehandlers.ResourceHandler#BuildAbsLink
-func (p *PG) BuildAbsLink(source, link string) (string, error) {
+func (p *GHC) BuildAbsLink(source, link string) (string, error) {
 	r, err := util.BuildResourceInfo(source)
 	if err != nil {
 		return "", err
@@ -245,7 +245,7 @@ func (p *PG) BuildAbsLink(source, link string) (string, error) {
 }
 
 // GetRawFormatLink implements the resourcehandlers.ResourceHandler#GetRawFormatLink
-func (p *PG) GetRawFormatLink(absLink string) (string, error) {
+func (p *GHC) GetRawFormatLink(absLink string) (string, error) {
 	r, err := util.BuildResourceInfo(absLink)
 	if err != nil {
 		return "", err
@@ -257,12 +257,12 @@ func (p *PG) GetRawFormatLink(absLink string) (string, error) {
 }
 
 // GetClient implements the resourcehandlers.ResourceHandler#GetClient
-func (p *PG) GetClient() httpclient.Client {
+func (p *GHC) GetClient() httpclient.Client {
 	return p.httpClient
 }
 
 // GetRateLimit implements the resourcehandlers.ResourceHandler#GetRateLimit
-func (p *PG) GetRateLimit(ctx context.Context) (int, int, time.Time, error) {
+func (p *GHC) GetRateLimit(ctx context.Context) (int, int, time.Time, error) {
 	r, _, err := p.client.RateLimits(ctx)
 	if err != nil {
 		return -1, -1, time.Now(), err
@@ -274,7 +274,7 @@ func (p *PG) GetRateLimit(ctx context.Context) (int, int, time.Time, error) {
 
 // checkForLocalMapping returns repository root on file system if local mapping configuration
 // for the repository is set in config file or empty string otherwise.
-func (p *PG) checkForLocalMapping(r *util.ResourceInfo) string {
+func (p *GHC) checkForLocalMapping(r *util.ResourceInfo) string {
 	key := strings.ToLower(r.GetRepoURL())
 	if localPath, ok := p.localMappings[key]; ok {
 		return localPath
@@ -284,7 +284,7 @@ func (p *PG) checkForLocalMapping(r *util.ResourceInfo) string {
 }
 
 // readFile reads a file from GitHub
-func (p *PG) readFile(ctx context.Context, r *util.ResourceInfo) ([]byte, error) {
+func (p *GHC) readFile(ctx context.Context, r *util.ResourceInfo) ([]byte, error) {
 	var cnt []byte
 	// read using GitService and file URL -> file SHA mapping
 	if SHA, ok := p.getFileSHA(r.Raw); ok {
@@ -329,7 +329,7 @@ func (p *PG) readFile(ctx context.Context, r *util.ResourceInfo) ([]byte, error)
 }
 
 // readLocalFile reads a file from FS
-func (p *PG) readLocalFile(_ context.Context, r *util.ResourceInfo, localPath string) ([]byte, error) {
+func (p *GHC) readLocalFile(_ context.Context, r *util.ResourceInfo, localPath string) ([]byte, error) {
 	fn := filepath.Join(localPath, r.Path)
 	cnt, err := p.os.ReadFile(fn)
 	if err != nil {
@@ -342,7 +342,7 @@ func (p *PG) readLocalFile(_ context.Context, r *util.ResourceInfo, localPath st
 }
 
 // downloadContent download file content like: github.Client.Repositories#DownloadContents, but with different error handling
-func (p *PG) downloadContent(ctx context.Context, opt *github.RepositoryContentGetOptions, r *util.ResourceInfo) ([]byte, error) {
+func (p *GHC) downloadContent(ctx context.Context, opt *github.RepositoryContentGetOptions, r *util.ResourceInfo) ([]byte, error) {
 	dir := path.Dir(r.Path)
 	filename := path.Base(r.Path)
 	dirContents, resp, err := p.getDirContents(ctx, r.Owner, r.Repo, dir, opt)
@@ -376,7 +376,7 @@ func (p *PG) downloadContent(ctx context.Context, opt *github.RepositoryContentG
 }
 
 // wraps github.Client Repositories.GetContents and synchronize the access to avoid 'unexpected EOF' errors when reading directory content
-func (p *PG) getDirContents(ctx context.Context, owner, repo, path string, opts *github.RepositoryContentGetOptions) (dc []*github.RepositoryContent, resp *github.Response, err error) {
+func (p *GHC) getDirContents(ctx context.Context, owner, repo, path string, opts *github.RepositoryContentGetOptions) (dc []*github.RepositoryContent, resp *github.Response, err error) {
 	p.muxCnt.Lock()
 	defer p.muxCnt.Unlock()
 	_, dc, resp, err = p.client.Repositories.GetContents(ctx, owner, repo, path, opts)
@@ -384,7 +384,7 @@ func (p *PG) getDirContents(ctx context.Context, owner, repo, path string, opts 
 }
 
 // getNodeSelectorTree returns nodes selected by api.NodeSelector with GitHub backend
-func (p *PG) getNodeSelectorTree(ctx context.Context, node *api.Node, r *util.ResourceInfo, pfs []*regexp.Regexp, tPrefix string, bPrefix string) (*api.Node, error) {
+func (p *GHC) getNodeSelectorTree(ctx context.Context, node *api.Node, r *util.ResourceInfo, pfs []*regexp.Regexp, tPrefix string, bPrefix string) (*api.Node, error) {
 	// most of the repositories have 'docs' folder at root level that containing markdowns, images, etc. which are referenced in the module manifest
 	// it make sense to cache the content under 'docs' folder - TODO: could define configurable folder set
 	if strings.HasPrefix(r.Path, "docs/") {
@@ -406,8 +406,16 @@ func (p *PG) getNodeSelectorTree(ctx context.Context, node *api.Node, r *util.Re
 			key := fmt.Sprintf("%s/%s", bPrefix, ePath)
 			p.filesCache[key] = *e.SHA
 		}
-		// skip node if it is not a markdown file
-		if *e.Type != "blob" || !strings.HasSuffix(strings.ToLower(ePath), ".md") {
+
+		extracted := false
+		for _, extractedFormat := range p.options.ExtractedFilesFormats {
+			if strings.HasSuffix(strings.ToLower(ePath), extractedFormat) {
+				extracted = true
+				break
+			}
+		}
+		// skip node if it is not a supported format
+		if *e.Type != "blob" || !extracted {
 			klog.V(6).Infof("node selector %s skip entry %s\n", node.NodeSelector.Path, ePath)
 			continue
 		}
@@ -420,7 +428,7 @@ func (p *PG) getNodeSelectorTree(ctx context.Context, node *api.Node, r *util.Re
 }
 
 // getNodeSelectorTree returns nodes selected by api.NodeSelector with mapped on FS local repository
-func (p *PG) getLocalNodeSelectorTree(_ context.Context, node *api.Node, r *util.ResourceInfo, pfs []*regexp.Regexp, localPath string, tPrefix string, bPrefix string) (*api.Node, error) {
+func (p *GHC) getLocalNodeSelectorTree(_ context.Context, node *api.Node, r *util.ResourceInfo, pfs []*regexp.Regexp, localPath string, tPrefix string, bPrefix string) (*api.Node, error) {
 	dn := filepath.Join(localPath, r.Path)
 	info, err := p.os.Lstat(dn)
 	if err != nil {
@@ -461,7 +469,7 @@ func (p *PG) getLocalNodeSelectorTree(_ context.Context, node *api.Node, r *util
 }
 
 // cache the contents of a root folder (e.g. /docs), as many modules put the documents in one folder
-func (p *PG) getCachedSubtree(ctx context.Context, node *api.Node, r *util.ResourceInfo, pfs []*regexp.Regexp, tPrefix string, bPrefix string, rootFolder string) (*api.Node, error) {
+func (p *GHC) getCachedSubtree(ctx context.Context, node *api.Node, r *util.ResourceInfo, pfs []*regexp.Regexp, tPrefix string, bPrefix string, rootFolder string) (*api.Node, error) {
 	if !strings.HasPrefix(r.Path, rootFolder+"/") {
 		return nil, fmt.Errorf("path prefix for %s is expected to be %s/", r.Raw, rootFolder)
 	}
@@ -507,7 +515,7 @@ func (p *PG) getCachedSubtree(ctx context.Context, node *api.Node, r *util.Resou
 }
 
 // getTree returns subtree with root r#Path
-func (p *PG) getTree(ctx context.Context, r *util.ResourceInfo, recursive bool) (*github.Tree, error) {
+func (p *GHC) getTree(ctx context.Context, r *util.ResourceInfo, recursive bool) (*github.Tree, error) {
 	sha := fmt.Sprintf("%s:%s", r.Ref, r.Path)
 	sha = url.PathEscape(sha)
 	gitTree, resp, err := p.client.Git.GetTree(ctx, r.Owner, r.Repo, sha, recursive)
@@ -524,7 +532,7 @@ func (p *PG) getTree(ctx context.Context, r *util.ResourceInfo, recursive bool) 
 }
 
 // resolveManifestRelativePaths resolves relative paths in module manifest
-func (p *PG) resolveManifestRelativePaths(node *api.Node, r *util.ResourceInfo) error {
+func (p *GHC) resolveManifestRelativePaths(node *api.Node, r *util.ResourceInfo) error {
 	var errs error
 	if node.Source != "" {
 		u, err := url.Parse(node.Source)
@@ -571,7 +579,7 @@ func (p *PG) resolveManifestRelativePaths(node *api.Node, r *util.ResourceInfo) 
 
 // buildAbsLink builds absolute link if <link> is relative using <source> as a base
 // resourcehandlers.ErrResourceNotFound if target resource doesn't exist
-func (p *PG) buildAbsLink(source *util.ResourceInfo, link string) (string, error) {
+func (p *GHC) buildAbsLink(source *util.ResourceInfo, link string) (string, error) {
 	l, err := url.Parse(strings.TrimSuffix(link, "/"))
 	if err != nil {
 		return "", err
@@ -604,7 +612,7 @@ func (p *PG) buildAbsLink(source *util.ResourceInfo, link string) (string, error
 
 // determineLinkType returns the type of relative link (blob|tree)
 // resourcehandlers.ErrResourceNotFound if target resource doesn't exist
-func (p *PG) determineLinkType(source *util.ResourceInfo, rel *url.URL) (string, error) {
+func (p *GHC) determineLinkType(source *util.ResourceInfo, rel *url.URL) (string, error) {
 	var tp string
 	var err error
 	gtp := "tree" // guess the type of resource
@@ -670,7 +678,7 @@ func (p *PG) determineLinkType(source *util.ResourceInfo, rel *url.URL) (string,
 }
 
 // getResourceInfo build ResourceInfo and resolves 'DEFAULT_BRANCH' to repo default branch
-func (p *PG) getResolvedResourceInfo(ctx context.Context, uri string) (*util.ResourceInfo, error) {
+func (p *GHC) getResolvedResourceInfo(ctx context.Context, uri string) (*util.ResourceInfo, error) {
 	r, err := util.BuildResourceInfo(uri)
 	if err != nil {
 		return nil, err
@@ -686,7 +694,7 @@ func (p *PG) getResolvedResourceInfo(ctx context.Context, uri string) (*util.Res
 }
 
 // getDefaultBranch gets the default branch for given repo
-func (p *PG) getDefaultBranch(ctx context.Context, owner string, repository string) (string, error) {
+func (p *GHC) getDefaultBranch(ctx context.Context, owner string, repository string) (string, error) {
 	p.muxDefBr.Lock()
 	defer p.muxDefBr.Unlock()
 	key := fmt.Sprintf("%s/%s", owner, repository)
@@ -702,7 +710,7 @@ func (p *PG) getDefaultBranch(ctx context.Context, owner string, repository stri
 	return def, nil
 }
 
-func (p *PG) getFileSHA(key string) (string, bool) {
+func (p *GHC) getFileSHA(key string) (string, bool) {
 	p.muxSHA.RLock()
 	defer p.muxSHA.RUnlock()
 	val, ok := p.filesCache[key]

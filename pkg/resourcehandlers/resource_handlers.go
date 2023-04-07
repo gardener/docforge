@@ -25,6 +25,7 @@ func (e ErrResourceNotFound) Error() string {
 
 // ResourceHandler does resource specific operations on a type of objects
 // identified by an uri schema that it accepts to handle
+//
 //counterfeiter:generate . ResourceHandler
 type ResourceHandler interface {
 	// Accept accepts manifests if this ResourceHandler can manage the type of resources
@@ -57,6 +58,7 @@ type ResourceHandler interface {
 }
 
 // Registry can register and return resource handlers for an url
+//
 //counterfeiter:generate . Registry
 type Registry interface {
 	Load(rhs ...ResourceHandler)
@@ -78,6 +80,20 @@ func NewRegistry(resourceHandlers ...ResourceHandler) Registry {
 		r.Load(resourceHandlers...)
 	}
 	return r
+}
+
+// ResourceHandlerOptions options for the resource handler
+type ResourceHandlerOptions struct {
+	CacheHomeDir     string            `mapstructure:"cache-dir"`
+	Credentials      map[string]string `mapstructure:"github-oauth-token-map"`
+	ResourceMappings map[string]string `mapstructure:"resourceMappings"`
+	Hugo             bool              `mapstructure:"hugo"`
+}
+
+// Credential holds repository credential data
+type Credential struct {
+	Host       string
+	OAuthToken string
 }
 
 // Load loads a ResourceHandler into the Registry
