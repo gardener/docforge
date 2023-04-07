@@ -274,6 +274,10 @@ func mergeFrontmatter(base, add map[string]interface{}) {
 
 // implements markdown.ResolveLink
 func (l *linkResolver) resolveLink(dest string, isEmbeddable bool) (string, error) {
+	if strings.HasPrefix(dest, "https://sap-my.sharepoint.com/:v:") {
+		dest = strings.TrimPrefix(dest, "https://sap-my.sharepoint.com/:v:")
+		dest = "https://sap-my.sharepoint.com/%3Av%3A" + dest
+	}
 	// validate destination
 	u, err := url.Parse(strings.TrimSuffix(dest, "/"))
 	if err != nil {
