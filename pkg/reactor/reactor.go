@@ -14,8 +14,9 @@ import (
 	"os"
 	"sync"
 
-	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/jobs"
+	"github.com/gardener/docforge/pkg/manifest"
+	"github.com/gardener/docforge/pkg/manifestadapter"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/gardener/docforge/pkg/writers"
 	"k8s.io/klog/v2"
@@ -72,7 +73,7 @@ type Reactor struct {
 	ValidatorTasks   *jobs.JobQueue
 	// reactorWaitGroup used to determine when all parallel tasks are done
 	reactorWaitGroup *sync.WaitGroup
-	sources          map[string][]*api.Node
+	sources          map[string][]*manifestadapter.Node
 }
 
 // NewReactor creates a Reactor from Config
@@ -134,14 +135,16 @@ func NewReactor(o Config) (*Reactor, error) {
 		GitHubInfoTasks:  ghInfoTasks,
 		ValidatorTasks:   validatorTasks,
 		reactorWaitGroup: reactorWG,
-		sources:          make(map[string][]*api.Node),
+		sources:          make(map[string][]*manifestadapter.Node),
 	}
 	return r, nil
 }
 
 // Run starts build operation on documentation
-func (r *Reactor) Run(ctx context.Context, manifest *api.Documentation) error {
+func (r *Reactor) Run(ctx context.Context, url string) error {
 	ctx, cancel := context.WithCancel(ctx)
+	manifest := &manifestadapter.Documentation{}
+	var err error
 	defer func() {
 		if r.Config.Resolve {
 			if err := printResolved(manifest, os.Stdout); err != nil {
@@ -154,20 +157,45 @@ func (r *Reactor) Run(ctx context.Context, manifest *api.Documentation) error {
 		}
 	}()
 
-	if err := r.ResolveManifest(ctx, manifest); err != nil {
-		return fmt.Errorf("failed to resolve manifest: %s. %+v", r.Config.ManifestPath, err)
+	if manifest, err = r.ResolveManifest(ctx, url); err != nil {
+		return fmt.Errorf("failed to resolve manifest %s. %+v", r.Config.ManifestPath, err)
 	}
 
 	klog.V(4).Info("Building documentation structure\n\n")
-	if err := r.Build(ctx, manifest.Structure); err != nil {
+	if err = r.Build(ctx, manifest.Structure); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func printResolved(manifest *api.Documentation, writer io.Writer) error {
-	s, err := api.Serialize(manifest)
+func (r *Reactor) ResolveManifest(ctx context.Context, url string) (*manifestadapter.Documentation, error) {
+	// TODO: handle fileTree that has blob or forgot master in it instead of tree because it panics
+	fc := manifest.FileCollector{}
+	var (
+		files []*manifest.Node
+		err   error
+		root  *manifestadapter.Node
+	)
+	if err = manifest.ResolveManifest(url, r.ResourceHandlers.Get(url), &fc); err != nil {
+		return nil, err
+	}
+	if files, err = fc.Extract(); err != nil {
+		return nil, err
+	}
+	if root, err = manifestadapter.ConstructDocTree(files); err != nil {
+		return nil, err
+	}
+	for _, node := range root.Nodes {
+		node.SetParent(nil)
+	}
+	out := &manifestadapter.Documentation{}
+	out.Structure = root.Nodes
+	return out, err
+}
+
+func printResolved(manifest *manifestadapter.Documentation, writer io.Writer) error {
+	s, err := manifestadapter.Serialize(manifest)
 	if err != nil {
 		return fmt.Errorf("failed to serialize the manifest. %+v", err)
 	}
