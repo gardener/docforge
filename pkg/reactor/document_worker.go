@@ -9,12 +9,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/gardener/docforge/pkg/api"
+	"github.com/gardener/docforge/pkg/manifestadapter"
 	"github.com/gardener/docforge/pkg/writers"
 	"k8s.io/klog/v2"
 )
 
-// DocumentWorker defines a structure for processing api.Node document content
+// DocumentWorker defines a structure for processing manifestadapter.Node document content
 type DocumentWorker struct {
 	reader               Reader
 	writer               writers.Writer
@@ -24,7 +24,7 @@ type DocumentWorker struct {
 
 // DocumentWorkTask implements jobs#Task
 type DocumentWorkTask struct {
-	Node *api.Node
+	Node *manifestadapter.Node
 }
 
 // Work implements jobs.WorkerFunc

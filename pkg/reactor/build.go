@@ -6,14 +6,15 @@ package reactor
 
 import (
 	"context"
-	"github.com/gardener/docforge/pkg/api"
-	"github.com/hashicorp/go-multierror"
-	"k8s.io/klog/v2"
 	"net/url"
 	"time"
+
+	"github.com/gardener/docforge/pkg/manifestadapter"
+	"github.com/hashicorp/go-multierror"
+	"k8s.io/klog/v2"
 )
 
-func tasks(nodes []*api.Node, t *[]interface{}) {
+func tasks(nodes []*manifestadapter.Node, t *[]interface{}) {
 	for _, node := range nodes {
 		*t = append(*t, &DocumentWorkTask{
 			Node: node,
@@ -26,7 +27,7 @@ func tasks(nodes []*api.Node, t *[]interface{}) {
 
 // Build starts the build operation for a document structure root
 // in a locality domain
-func (r *Reactor) Build(ctx context.Context, documentationStructure []*api.Node) error {
+func (r *Reactor) Build(ctx context.Context, documentationStructure []*manifestadapter.Node) error {
 	var errors *multierror.Error
 
 	klog.V(6).Infoln("Starting download tasks")
@@ -69,7 +70,10 @@ func (r *Reactor) Build(ctx context.Context, documentationStructure []*api.Node)
 
 	for _, rhHost := range []string{"https://github.com", "https://github.tools.sap", "https://github.wdf.sap.corp"} {
 		rh := r.ResourceHandlers.Get(rhHost)
-		u, _ := url.Parse(rhHost)
+		u, err := url.Parse(rhHost)
+		if err != nil {
+			return err
+		}
 		if rh != nil {
 			l, rr, rt, err := rh.GetRateLimit(ctx)
 			if err != nil {

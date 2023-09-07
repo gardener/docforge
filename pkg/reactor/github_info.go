@@ -9,21 +9,22 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/gardener/docforge/pkg/api"
+	"reflect"
+
 	"github.com/gardener/docforge/pkg/jobs"
+	"github.com/gardener/docforge/pkg/manifestadapter"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/gardener/docforge/pkg/writers"
 	"k8s.io/klog/v2"
-	"reflect"
 )
 
 // GitHubInfo is the functional interface for writing GitHub infos
 //
 //counterfeiter:generate . GitHubInfo
 type GitHubInfo interface {
-	// WriteGitHubInfo writes GitHub info for an api.Node in a separate goroutine
+	// WriteGitHubInfo writes GitHub info for an manifestadapter.Node in a separate goroutine
 	// returns true if the task was added for processing, false if it was skipped
-	WriteGitHubInfo(node *api.Node) bool
+	WriteGitHubInfo(node *manifestadapter.Node) bool
 }
 
 type gitHubInfo struct {
@@ -37,7 +38,7 @@ func NewGitHubInfo(queue *jobs.JobQueue) GitHubInfo {
 	}
 }
 
-func (g *gitHubInfo) WriteGitHubInfo(node *api.Node) bool {
+func (g *gitHubInfo) WriteGitHubInfo(node *manifestadapter.Node) bool {
 	added := g.queue.AddTask(&GitHubInfoTask{Node: node})
 	if !added {
 		klog.Warningf("scheduling github info write failed for node %v\n", node)
@@ -47,7 +48,7 @@ func (g *gitHubInfo) WriteGitHubInfo(node *api.Node) bool {
 
 // GitHubInfoTask wraps the parameters for WriteGitHubInfo
 type GitHubInfoTask struct {
-	Node *api.Node
+	Node *manifestadapter.Node
 }
 
 type gitHubInfoWorker struct {
