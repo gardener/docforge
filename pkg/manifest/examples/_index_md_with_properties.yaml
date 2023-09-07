@@ -1,0 +1,21 @@
+structure:
+- dir: foo
+  structure:
+  - dir: bar
+    structure:
+    # create empty _index.md file with only front matters
+    - file: _index.md
+      properties:
+        title: Blogs
+        aggregate: true
+    # _index.md with relative path and properties
+    - file: /one/two/_index.md
+      properties:
+        aggregate: false
+    # _index.md with full path
+    - file: https://foo.com/one/two/_index.md
+    # renamed _index.md file
+    - file: renamed
+      source: https://foo.com/one/two/_index.md
+    # importing _index.md from filetree
+    - fileTree: /website
