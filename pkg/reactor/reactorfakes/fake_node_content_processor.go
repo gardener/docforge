@@ -9,23 +9,23 @@ import (
 	"context"
 	"sync"
 
-	"github.com/gardener/docforge/pkg/api"
+	"github.com/gardener/docforge/pkg/manifestadapter"
 	"github.com/gardener/docforge/pkg/reactor"
 )
 
 type FakeNodeContentProcessor struct {
-	PrepareStub        func([]*api.Node)
+	PrepareStub        func([]*manifestadapter.Node)
 	prepareMutex       sync.RWMutex
 	prepareArgsForCall []struct {
-		arg1 []*api.Node
+		arg1 []*manifestadapter.Node
 	}
-	ProcessStub        func(context.Context, *bytes.Buffer, reactor.Reader, *api.Node) error
+	ProcessStub        func(context.Context, *bytes.Buffer, reactor.Reader, *manifestadapter.Node) error
 	processMutex       sync.RWMutex
 	processArgsForCall []struct {
 		arg1 context.Context
 		arg2 *bytes.Buffer
 		arg3 reactor.Reader
-		arg4 *api.Node
+		arg4 *manifestadapter.Node
 	}
 	processReturns struct {
 		result1 error
@@ -37,15 +37,15 @@ type FakeNodeContentProcessor struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeNodeContentProcessor) Prepare(arg1 []*api.Node) {
-	var arg1Copy []*api.Node
+func (fake *FakeNodeContentProcessor) Prepare(arg1 []*manifestadapter.Node) {
+	var arg1Copy []*manifestadapter.Node
 	if arg1 != nil {
-		arg1Copy = make([]*api.Node, len(arg1))
+		arg1Copy = make([]*manifestadapter.Node, len(arg1))
 		copy(arg1Copy, arg1)
 	}
 	fake.prepareMutex.Lock()
 	fake.prepareArgsForCall = append(fake.prepareArgsForCall, struct {
-		arg1 []*api.Node
+		arg1 []*manifestadapter.Node
 	}{arg1Copy})
 	stub := fake.PrepareStub
 	fake.recordInvocation("Prepare", []interface{}{arg1Copy})
@@ -61,27 +61,27 @@ func (fake *FakeNodeContentProcessor) PrepareCallCount() int {
 	return len(fake.prepareArgsForCall)
 }
 
-func (fake *FakeNodeContentProcessor) PrepareCalls(stub func([]*api.Node)) {
+func (fake *FakeNodeContentProcessor) PrepareCalls(stub func([]*manifestadapter.Node)) {
 	fake.prepareMutex.Lock()
 	defer fake.prepareMutex.Unlock()
 	fake.PrepareStub = stub
 }
 
-func (fake *FakeNodeContentProcessor) PrepareArgsForCall(i int) []*api.Node {
+func (fake *FakeNodeContentProcessor) PrepareArgsForCall(i int) []*manifestadapter.Node {
 	fake.prepareMutex.RLock()
 	defer fake.prepareMutex.RUnlock()
 	argsForCall := fake.prepareArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *FakeNodeContentProcessor) Process(arg1 context.Context, arg2 *bytes.Buffer, arg3 reactor.Reader, arg4 *api.Node) error {
+func (fake *FakeNodeContentProcessor) Process(arg1 context.Context, arg2 *bytes.Buffer, arg3 reactor.Reader, arg4 *manifestadapter.Node) error {
 	fake.processMutex.Lock()
 	ret, specificReturn := fake.processReturnsOnCall[len(fake.processArgsForCall)]
 	fake.processArgsForCall = append(fake.processArgsForCall, struct {
 		arg1 context.Context
 		arg2 *bytes.Buffer
 		arg3 reactor.Reader
-		arg4 *api.Node
+		arg4 *manifestadapter.Node
 	}{arg1, arg2, arg3, arg4})
 	stub := fake.ProcessStub
 	fakeReturns := fake.processReturns
@@ -102,13 +102,13 @@ func (fake *FakeNodeContentProcessor) ProcessCallCount() int {
 	return len(fake.processArgsForCall)
 }
 
-func (fake *FakeNodeContentProcessor) ProcessCalls(stub func(context.Context, *bytes.Buffer, reactor.Reader, *api.Node) error) {
+func (fake *FakeNodeContentProcessor) ProcessCalls(stub func(context.Context, *bytes.Buffer, reactor.Reader, *manifestadapter.Node) error) {
 	fake.processMutex.Lock()
 	defer fake.processMutex.Unlock()
 	fake.ProcessStub = stub
 }
 
-func (fake *FakeNodeContentProcessor) ProcessArgsForCall(i int) (context.Context, *bytes.Buffer, reactor.Reader, *api.Node) {
+func (fake *FakeNodeContentProcessor) ProcessArgsForCall(i int) (context.Context, *bytes.Buffer, reactor.Reader, *manifestadapter.Node) {
 	fake.processMutex.RLock()
 	defer fake.processMutex.RUnlock()
 	argsForCall := fake.processArgsForCall[i]

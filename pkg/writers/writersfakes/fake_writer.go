@@ -7,18 +7,18 @@ package writersfakes
 import (
 	"sync"
 
-	"github.com/gardener/docforge/pkg/api"
+	"github.com/gardener/docforge/pkg/manifestadapter"
 	"github.com/gardener/docforge/pkg/writers"
 )
 
 type FakeWriter struct {
-	WriteStub        func(string, string, []byte, *api.Node) error
+	WriteStub        func(string, string, []byte, *manifestadapter.Node) error
 	writeMutex       sync.RWMutex
 	writeArgsForCall []struct {
 		arg1 string
 		arg2 string
 		arg3 []byte
-		arg4 *api.Node
+		arg4 *manifestadapter.Node
 	}
 	writeReturns struct {
 		result1 error
@@ -30,7 +30,7 @@ type FakeWriter struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeWriter) Write(arg1 string, arg2 string, arg3 []byte, arg4 *api.Node) error {
+func (fake *FakeWriter) Write(arg1 string, arg2 string, arg3 []byte, arg4 *manifestadapter.Node) error {
 	var arg3Copy []byte
 	if arg3 != nil {
 		arg3Copy = make([]byte, len(arg3))
@@ -42,7 +42,7 @@ func (fake *FakeWriter) Write(arg1 string, arg2 string, arg3 []byte, arg4 *api.N
 		arg1 string
 		arg2 string
 		arg3 []byte
-		arg4 *api.Node
+		arg4 *manifestadapter.Node
 	}{arg1, arg2, arg3Copy, arg4})
 	stub := fake.WriteStub
 	fakeReturns := fake.writeReturns
@@ -63,13 +63,13 @@ func (fake *FakeWriter) WriteCallCount() int {
 	return len(fake.writeArgsForCall)
 }
 
-func (fake *FakeWriter) WriteCalls(stub func(string, string, []byte, *api.Node) error) {
+func (fake *FakeWriter) WriteCalls(stub func(string, string, []byte, *manifestadapter.Node) error) {
 	fake.writeMutex.Lock()
 	defer fake.writeMutex.Unlock()
 	fake.WriteStub = stub
 }
 
-func (fake *FakeWriter) WriteArgsForCall(i int) (string, string, []byte, *api.Node) {
+func (fake *FakeWriter) WriteArgsForCall(i int) (string, string, []byte, *manifestadapter.Node) {
 	fake.writeMutex.RLock()
 	defer fake.writeMutex.RUnlock()
 	argsForCall := fake.writeArgsForCall[i]

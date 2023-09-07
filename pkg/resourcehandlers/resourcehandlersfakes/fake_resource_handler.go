@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/gardener/docforge/pkg/util/httpclient"
 )
@@ -38,6 +37,19 @@ type FakeResourceHandler struct {
 	}
 	buildAbsLinkReturnsOnCall map[int]struct {
 		result1 string
+		result2 error
+	}
+	FileTreeFromUrlStub        func(string) ([]string, error)
+	fileTreeFromUrlMutex       sync.RWMutex
+	fileTreeFromUrlArgsForCall []struct {
+		arg1 string
+	}
+	fileTreeFromUrlReturns struct {
+		result1 []string
+		result2 error
+	}
+	fileTreeFromUrlReturnsOnCall map[int]struct {
+		result1 []string
 		result2 error
 	}
 	GetClientStub        func() httpclient.Client
@@ -80,6 +92,19 @@ type FakeResourceHandler struct {
 		result1 string
 		result2 error
 	}
+	ManifestFromUrlStub        func(string) (string, error)
+	manifestFromUrlMutex       sync.RWMutex
+	manifestFromUrlArgsForCall []struct {
+		arg1 string
+	}
+	manifestFromUrlReturns struct {
+		result1 string
+		result2 error
+	}
+	manifestFromUrlReturnsOnCall map[int]struct {
+		result1 string
+		result2 error
+	}
 	ReadStub        func(context.Context, string) ([]byte, error)
 	readMutex       sync.RWMutex
 	readArgsForCall []struct {
@@ -107,47 +132,6 @@ type FakeResourceHandler struct {
 	readGitInfoReturnsOnCall map[int]struct {
 		result1 []byte
 		result2 error
-	}
-	ResolveDocumentationStub        func(context.Context, string) (*api.Documentation, error)
-	resolveDocumentationMutex       sync.RWMutex
-	resolveDocumentationArgsForCall []struct {
-		arg1 context.Context
-		arg2 string
-	}
-	resolveDocumentationReturns struct {
-		result1 *api.Documentation
-		result2 error
-	}
-	resolveDocumentationReturnsOnCall map[int]struct {
-		result1 *api.Documentation
-		result2 error
-	}
-	ResolveNodeSelectorStub        func(context.Context, *api.Node) ([]*api.Node, error)
-	resolveNodeSelectorMutex       sync.RWMutex
-	resolveNodeSelectorArgsForCall []struct {
-		arg1 context.Context
-		arg2 *api.Node
-	}
-	resolveNodeSelectorReturns struct {
-		result1 []*api.Node
-		result2 error
-	}
-	resolveNodeSelectorReturnsOnCall map[int]struct {
-		result1 []*api.Node
-		result2 error
-	}
-	ResourceNameStub        func(string) (string, string)
-	resourceNameMutex       sync.RWMutex
-	resourceNameArgsForCall []struct {
-		arg1 string
-	}
-	resourceNameReturns struct {
-		result1 string
-		result2 string
-	}
-	resourceNameReturnsOnCall map[int]struct {
-		result1 string
-		result2 string
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
@@ -275,6 +259,70 @@ func (fake *FakeResourceHandler) BuildAbsLinkReturnsOnCall(i int, result1 string
 	}
 	fake.buildAbsLinkReturnsOnCall[i] = struct {
 		result1 string
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeResourceHandler) FileTreeFromUrl(arg1 string) ([]string, error) {
+	fake.fileTreeFromUrlMutex.Lock()
+	ret, specificReturn := fake.fileTreeFromUrlReturnsOnCall[len(fake.fileTreeFromUrlArgsForCall)]
+	fake.fileTreeFromUrlArgsForCall = append(fake.fileTreeFromUrlArgsForCall, struct {
+		arg1 string
+	}{arg1})
+	stub := fake.FileTreeFromUrlStub
+	fakeReturns := fake.fileTreeFromUrlReturns
+	fake.recordInvocation("FileTreeFromUrl", []interface{}{arg1})
+	fake.fileTreeFromUrlMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *FakeResourceHandler) FileTreeFromUrlCallCount() int {
+	fake.fileTreeFromUrlMutex.RLock()
+	defer fake.fileTreeFromUrlMutex.RUnlock()
+	return len(fake.fileTreeFromUrlArgsForCall)
+}
+
+func (fake *FakeResourceHandler) FileTreeFromUrlCalls(stub func(string) ([]string, error)) {
+	fake.fileTreeFromUrlMutex.Lock()
+	defer fake.fileTreeFromUrlMutex.Unlock()
+	fake.FileTreeFromUrlStub = stub
+}
+
+func (fake *FakeResourceHandler) FileTreeFromUrlArgsForCall(i int) string {
+	fake.fileTreeFromUrlMutex.RLock()
+	defer fake.fileTreeFromUrlMutex.RUnlock()
+	argsForCall := fake.fileTreeFromUrlArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *FakeResourceHandler) FileTreeFromUrlReturns(result1 []string, result2 error) {
+	fake.fileTreeFromUrlMutex.Lock()
+	defer fake.fileTreeFromUrlMutex.Unlock()
+	fake.FileTreeFromUrlStub = nil
+	fake.fileTreeFromUrlReturns = struct {
+		result1 []string
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeResourceHandler) FileTreeFromUrlReturnsOnCall(i int, result1 []string, result2 error) {
+	fake.fileTreeFromUrlMutex.Lock()
+	defer fake.fileTreeFromUrlMutex.Unlock()
+	fake.FileTreeFromUrlStub = nil
+	if fake.fileTreeFromUrlReturnsOnCall == nil {
+		fake.fileTreeFromUrlReturnsOnCall = make(map[int]struct {
+			result1 []string
+			result2 error
+		})
+	}
+	fake.fileTreeFromUrlReturnsOnCall[i] = struct {
+		result1 []string
 		result2 error
 	}{result1, result2}
 }
@@ -466,6 +514,70 @@ func (fake *FakeResourceHandler) GetRawFormatLinkReturnsOnCall(i int, result1 st
 	}{result1, result2}
 }
 
+func (fake *FakeResourceHandler) ManifestFromUrl(arg1 string) (string, error) {
+	fake.manifestFromUrlMutex.Lock()
+	ret, specificReturn := fake.manifestFromUrlReturnsOnCall[len(fake.manifestFromUrlArgsForCall)]
+	fake.manifestFromUrlArgsForCall = append(fake.manifestFromUrlArgsForCall, struct {
+		arg1 string
+	}{arg1})
+	stub := fake.ManifestFromUrlStub
+	fakeReturns := fake.manifestFromUrlReturns
+	fake.recordInvocation("ManifestFromUrl", []interface{}{arg1})
+	fake.manifestFromUrlMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *FakeResourceHandler) ManifestFromUrlCallCount() int {
+	fake.manifestFromUrlMutex.RLock()
+	defer fake.manifestFromUrlMutex.RUnlock()
+	return len(fake.manifestFromUrlArgsForCall)
+}
+
+func (fake *FakeResourceHandler) ManifestFromUrlCalls(stub func(string) (string, error)) {
+	fake.manifestFromUrlMutex.Lock()
+	defer fake.manifestFromUrlMutex.Unlock()
+	fake.ManifestFromUrlStub = stub
+}
+
+func (fake *FakeResourceHandler) ManifestFromUrlArgsForCall(i int) string {
+	fake.manifestFromUrlMutex.RLock()
+	defer fake.manifestFromUrlMutex.RUnlock()
+	argsForCall := fake.manifestFromUrlArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *FakeResourceHandler) ManifestFromUrlReturns(result1 string, result2 error) {
+	fake.manifestFromUrlMutex.Lock()
+	defer fake.manifestFromUrlMutex.Unlock()
+	fake.ManifestFromUrlStub = nil
+	fake.manifestFromUrlReturns = struct {
+		result1 string
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeResourceHandler) ManifestFromUrlReturnsOnCall(i int, result1 string, result2 error) {
+	fake.manifestFromUrlMutex.Lock()
+	defer fake.manifestFromUrlMutex.Unlock()
+	fake.ManifestFromUrlStub = nil
+	if fake.manifestFromUrlReturnsOnCall == nil {
+		fake.manifestFromUrlReturnsOnCall = make(map[int]struct {
+			result1 string
+			result2 error
+		})
+	}
+	fake.manifestFromUrlReturnsOnCall[i] = struct {
+		result1 string
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *FakeResourceHandler) Read(arg1 context.Context, arg2 string) ([]byte, error) {
 	fake.readMutex.Lock()
 	ret, specificReturn := fake.readReturnsOnCall[len(fake.readArgsForCall)]
@@ -596,200 +708,6 @@ func (fake *FakeResourceHandler) ReadGitInfoReturnsOnCall(i int, result1 []byte,
 	}{result1, result2}
 }
 
-func (fake *FakeResourceHandler) ResolveDocumentation(arg1 context.Context, arg2 string) (*api.Documentation, error) {
-	fake.resolveDocumentationMutex.Lock()
-	ret, specificReturn := fake.resolveDocumentationReturnsOnCall[len(fake.resolveDocumentationArgsForCall)]
-	fake.resolveDocumentationArgsForCall = append(fake.resolveDocumentationArgsForCall, struct {
-		arg1 context.Context
-		arg2 string
-	}{arg1, arg2})
-	stub := fake.ResolveDocumentationStub
-	fakeReturns := fake.resolveDocumentationReturns
-	fake.recordInvocation("ResolveDocumentation", []interface{}{arg1, arg2})
-	fake.resolveDocumentationMutex.Unlock()
-	if stub != nil {
-		return stub(arg1, arg2)
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fakeReturns.result1, fakeReturns.result2
-}
-
-func (fake *FakeResourceHandler) ResolveDocumentationCallCount() int {
-	fake.resolveDocumentationMutex.RLock()
-	defer fake.resolveDocumentationMutex.RUnlock()
-	return len(fake.resolveDocumentationArgsForCall)
-}
-
-func (fake *FakeResourceHandler) ResolveDocumentationCalls(stub func(context.Context, string) (*api.Documentation, error)) {
-	fake.resolveDocumentationMutex.Lock()
-	defer fake.resolveDocumentationMutex.Unlock()
-	fake.ResolveDocumentationStub = stub
-}
-
-func (fake *FakeResourceHandler) ResolveDocumentationArgsForCall(i int) (context.Context, string) {
-	fake.resolveDocumentationMutex.RLock()
-	defer fake.resolveDocumentationMutex.RUnlock()
-	argsForCall := fake.resolveDocumentationArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
-}
-
-func (fake *FakeResourceHandler) ResolveDocumentationReturns(result1 *api.Documentation, result2 error) {
-	fake.resolveDocumentationMutex.Lock()
-	defer fake.resolveDocumentationMutex.Unlock()
-	fake.ResolveDocumentationStub = nil
-	fake.resolveDocumentationReturns = struct {
-		result1 *api.Documentation
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *FakeResourceHandler) ResolveDocumentationReturnsOnCall(i int, result1 *api.Documentation, result2 error) {
-	fake.resolveDocumentationMutex.Lock()
-	defer fake.resolveDocumentationMutex.Unlock()
-	fake.ResolveDocumentationStub = nil
-	if fake.resolveDocumentationReturnsOnCall == nil {
-		fake.resolveDocumentationReturnsOnCall = make(map[int]struct {
-			result1 *api.Documentation
-			result2 error
-		})
-	}
-	fake.resolveDocumentationReturnsOnCall[i] = struct {
-		result1 *api.Documentation
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *FakeResourceHandler) ResolveNodeSelector(arg1 context.Context, arg2 *api.Node) ([]*api.Node, error) {
-	fake.resolveNodeSelectorMutex.Lock()
-	ret, specificReturn := fake.resolveNodeSelectorReturnsOnCall[len(fake.resolveNodeSelectorArgsForCall)]
-	fake.resolveNodeSelectorArgsForCall = append(fake.resolveNodeSelectorArgsForCall, struct {
-		arg1 context.Context
-		arg2 *api.Node
-	}{arg1, arg2})
-	stub := fake.ResolveNodeSelectorStub
-	fakeReturns := fake.resolveNodeSelectorReturns
-	fake.recordInvocation("ResolveNodeSelector", []interface{}{arg1, arg2})
-	fake.resolveNodeSelectorMutex.Unlock()
-	if stub != nil {
-		return stub(arg1, arg2)
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fakeReturns.result1, fakeReturns.result2
-}
-
-func (fake *FakeResourceHandler) ResolveNodeSelectorCallCount() int {
-	fake.resolveNodeSelectorMutex.RLock()
-	defer fake.resolveNodeSelectorMutex.RUnlock()
-	return len(fake.resolveNodeSelectorArgsForCall)
-}
-
-func (fake *FakeResourceHandler) ResolveNodeSelectorCalls(stub func(context.Context, *api.Node) ([]*api.Node, error)) {
-	fake.resolveNodeSelectorMutex.Lock()
-	defer fake.resolveNodeSelectorMutex.Unlock()
-	fake.ResolveNodeSelectorStub = stub
-}
-
-func (fake *FakeResourceHandler) ResolveNodeSelectorArgsForCall(i int) (context.Context, *api.Node) {
-	fake.resolveNodeSelectorMutex.RLock()
-	defer fake.resolveNodeSelectorMutex.RUnlock()
-	argsForCall := fake.resolveNodeSelectorArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
-}
-
-func (fake *FakeResourceHandler) ResolveNodeSelectorReturns(result1 []*api.Node, result2 error) {
-	fake.resolveNodeSelectorMutex.Lock()
-	defer fake.resolveNodeSelectorMutex.Unlock()
-	fake.ResolveNodeSelectorStub = nil
-	fake.resolveNodeSelectorReturns = struct {
-		result1 []*api.Node
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *FakeResourceHandler) ResolveNodeSelectorReturnsOnCall(i int, result1 []*api.Node, result2 error) {
-	fake.resolveNodeSelectorMutex.Lock()
-	defer fake.resolveNodeSelectorMutex.Unlock()
-	fake.ResolveNodeSelectorStub = nil
-	if fake.resolveNodeSelectorReturnsOnCall == nil {
-		fake.resolveNodeSelectorReturnsOnCall = make(map[int]struct {
-			result1 []*api.Node
-			result2 error
-		})
-	}
-	fake.resolveNodeSelectorReturnsOnCall[i] = struct {
-		result1 []*api.Node
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *FakeResourceHandler) ResourceName(arg1 string) (string, string) {
-	fake.resourceNameMutex.Lock()
-	ret, specificReturn := fake.resourceNameReturnsOnCall[len(fake.resourceNameArgsForCall)]
-	fake.resourceNameArgsForCall = append(fake.resourceNameArgsForCall, struct {
-		arg1 string
-	}{arg1})
-	stub := fake.ResourceNameStub
-	fakeReturns := fake.resourceNameReturns
-	fake.recordInvocation("ResourceName", []interface{}{arg1})
-	fake.resourceNameMutex.Unlock()
-	if stub != nil {
-		return stub(arg1)
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fakeReturns.result1, fakeReturns.result2
-}
-
-func (fake *FakeResourceHandler) ResourceNameCallCount() int {
-	fake.resourceNameMutex.RLock()
-	defer fake.resourceNameMutex.RUnlock()
-	return len(fake.resourceNameArgsForCall)
-}
-
-func (fake *FakeResourceHandler) ResourceNameCalls(stub func(string) (string, string)) {
-	fake.resourceNameMutex.Lock()
-	defer fake.resourceNameMutex.Unlock()
-	fake.ResourceNameStub = stub
-}
-
-func (fake *FakeResourceHandler) ResourceNameArgsForCall(i int) string {
-	fake.resourceNameMutex.RLock()
-	defer fake.resourceNameMutex.RUnlock()
-	argsForCall := fake.resourceNameArgsForCall[i]
-	return argsForCall.arg1
-}
-
-func (fake *FakeResourceHandler) ResourceNameReturns(result1 string, result2 string) {
-	fake.resourceNameMutex.Lock()
-	defer fake.resourceNameMutex.Unlock()
-	fake.ResourceNameStub = nil
-	fake.resourceNameReturns = struct {
-		result1 string
-		result2 string
-	}{result1, result2}
-}
-
-func (fake *FakeResourceHandler) ResourceNameReturnsOnCall(i int, result1 string, result2 string) {
-	fake.resourceNameMutex.Lock()
-	defer fake.resourceNameMutex.Unlock()
-	fake.ResourceNameStub = nil
-	if fake.resourceNameReturnsOnCall == nil {
-		fake.resourceNameReturnsOnCall = make(map[int]struct {
-			result1 string
-			result2 string
-		})
-	}
-	fake.resourceNameReturnsOnCall[i] = struct {
-		result1 string
-		result2 string
-	}{result1, result2}
-}
-
 func (fake *FakeResourceHandler) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -797,22 +715,20 @@ func (fake *FakeResourceHandler) Invocations() map[string][][]interface{} {
 	defer fake.acceptMutex.RUnlock()
 	fake.buildAbsLinkMutex.RLock()
 	defer fake.buildAbsLinkMutex.RUnlock()
+	fake.fileTreeFromUrlMutex.RLock()
+	defer fake.fileTreeFromUrlMutex.RUnlock()
 	fake.getClientMutex.RLock()
 	defer fake.getClientMutex.RUnlock()
 	fake.getRateLimitMutex.RLock()
 	defer fake.getRateLimitMutex.RUnlock()
 	fake.getRawFormatLinkMutex.RLock()
 	defer fake.getRawFormatLinkMutex.RUnlock()
+	fake.manifestFromUrlMutex.RLock()
+	defer fake.manifestFromUrlMutex.RUnlock()
 	fake.readMutex.RLock()
 	defer fake.readMutex.RUnlock()
 	fake.readGitInfoMutex.RLock()
 	defer fake.readGitInfoMutex.RUnlock()
-	fake.resolveDocumentationMutex.RLock()
-	defer fake.resolveDocumentationMutex.RUnlock()
-	fake.resolveNodeSelectorMutex.RLock()
-	defer fake.resolveNodeSelectorMutex.RUnlock()
-	fake.resourceNameMutex.RLock()
-	defer fake.resourceNameMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

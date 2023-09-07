@@ -7,9 +7,9 @@ package reactor
 import (
 	"testing"
 
+	"github.com/gardener/docforge/pkg/manifestadapter"
 	"github.com/gardener/docforge/pkg/resourcehandlers/resourcehandlersfakes"
 
-	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/gardener/docforge/pkg/util/tests"
 )
@@ -19,32 +19,32 @@ func init() {
 }
 
 var (
-	apiRefNode = &api.Node{
+	apiRefNode = &manifestadapter.Node{
 		Name: "apiRef",
 	}
 
-	archNode = &api.Node{
+	archNode = &manifestadapter.Node{
 		Name: "arch",
-		Nodes: []*api.Node{
+		Nodes: []*manifestadapter.Node{
 			apiRefNode,
 		},
 	}
 
-	blogNode = &api.Node{
+	blogNode = &manifestadapter.Node{
 		Name: "blog",
 	}
 
-	tasksNode = &api.Node{
+	tasksNode = &manifestadapter.Node{
 		Name: "tasks",
 	}
 )
 
-func createNewDocumentation() *api.Documentation {
-	return &api.Documentation{
-		Structure: []*api.Node{
+func createNewDocumentation() *manifestadapter.Documentation {
+	return &manifestadapter.Documentation{
+		Structure: []*manifestadapter.Node{
 			{
 				Name: "rootNode",
-				Nodes: []*api.Node{
+				Nodes: []*manifestadapter.Node{
 					archNode,
 					blogNode,
 					tasksNode,
@@ -57,7 +57,7 @@ func createNewDocumentation() *api.Documentation {
 func Test_tasks(t *testing.T) {
 	newDoc := createNewDocumentation()
 	type args struct {
-		node  *api.Node
+		node  *manifestadapter.Node
 		tasks []interface{}
 		// lds   localityDomain
 	}
@@ -95,7 +95,7 @@ func Test_tasks(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			fakeRH := resourcehandlersfakes.FakeResourceHandler{}
 			rhs := resourcehandlers.NewRegistry(&fakeRH)
-			tasks([]*api.Node{tc.args.node}, &tc.args.tasks)
+			tasks([]*manifestadapter.Node{tc.args.node}, &tc.args.tasks)
 
 			if len(tc.args.tasks) != len(tc.expectedTasks) {
 				t.Errorf("expected number of tasks %d != %d", len(tc.expectedTasks), len(tc.args.tasks))

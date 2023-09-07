@@ -3,15 +3,16 @@ package reactor_test
 import (
 	"context"
 	"errors"
-	"github.com/gardener/docforge/pkg/api"
+	"sync"
+
 	"github.com/gardener/docforge/pkg/jobs"
+	"github.com/gardener/docforge/pkg/manifestadapter"
 	"github.com/gardener/docforge/pkg/reactor"
 	"github.com/gardener/docforge/pkg/reactor/reactorfakes"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/gardener/docforge/pkg/writers/writersfakes"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"sync"
 )
 
 var _ = Describe("GithubInfo", func() {
@@ -64,7 +65,7 @@ var _ = Describe("GithubInfo", func() {
 				writer.WriteReturns(nil)
 				ctx = context.Background()
 				task = &reactor.GitHubInfoTask{
-					Node: &api.Node{
+					Node: &manifestadapter.Node{
 						Name:        "fake_name",
 						Source:      "fake_source",
 						MultiSource: []string{"fake_multi_source"},
@@ -113,7 +114,7 @@ var _ = Describe("GithubInfo", func() {
 			})
 			Context("node without sources", func() {
 				BeforeEach(func() {
-					task = &reactor.GitHubInfoTask{Node: &api.Node{Name: "folder"}}
+					task = &reactor.GitHubInfoTask{Node: &manifestadapter.Node{Name: "folder"}}
 				})
 				It("succeeded", func() {
 					Expect(err).NotTo(HaveOccurred())
@@ -189,8 +190,8 @@ var _ = Describe("GithubInfo", func() {
 			When("writing GitHub infos", func() {
 				JustBeforeEach(func() {
 					gitHubInfoTasks.Start(ctx)
-					Expect(gitHubInfo.WriteGitHubInfo(&api.Node{Name: "name1", Source: "source1"})).To(BeTrue())
-					Expect(gitHubInfo.WriteGitHubInfo(&api.Node{Name: "name2", Source: "source2"})).To(BeTrue())
+					Expect(gitHubInfo.WriteGitHubInfo(&manifestadapter.Node{Name: "name1", Source: "source1"})).To(BeTrue())
+					Expect(gitHubInfo.WriteGitHubInfo(&manifestadapter.Node{Name: "name2", Source: "source2"})).To(BeTrue())
 				})
 				It("writes GitHub info successfully", func() {
 					wg.Wait()
@@ -205,7 +206,7 @@ var _ = Describe("GithubInfo", func() {
 						gitHubInfoTasks.Stop()
 					})
 					It("skips the tasks", func() {
-						Expect(gitHubInfo.WriteGitHubInfo(&api.Node{Name: "name3", Source: "source3"})).To(BeFalse())
+						Expect(gitHubInfo.WriteGitHubInfo(&manifestadapter.Node{Name: "name3", Source: "source3"})).To(BeFalse())
 						Expect(gitHubInfoTasks.GetProcessedTasksCount()).To(Equal(2))
 					})
 				})

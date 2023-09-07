@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gardener/docforge/pkg/api"
+	"github.com/gardener/docforge/pkg/manifestadapter"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/gardener/docforge/pkg/resourcehandlers/resourcehandlersfakes"
 	"github.com/stretchr/testify/assert"
@@ -17,27 +17,27 @@ import (
 
 // TODO: This is a flaky test. In the future the ResourceHandler should be mocked.
 func Test_processLink(t *testing.T) {
-	nodeA := &api.Node{
+	nodeA := &manifestadapter.Node{
 		Name:   "node_A.md",
 		Source: "https://github.com/gardener/gardener/blob/v1.10.0/docs/README.md",
 	}
-	nodeB := &api.Node{
+	nodeB := &manifestadapter.Node{
 		Name:   "node_B.md",
 		Source: "https://github.com/gardener/gardener/blob/v1.10.0/docs/extensions/overview.md",
 	}
-	nodeA.Nodes = []*api.Node{nodeB}
+	nodeA.Nodes = []*manifestadapter.Node{nodeB}
 	nodeA.SetParentsDownwards()
 
 	testCases := []struct {
 		name              string
-		node              *api.Node
+		node              *manifestadapter.Node
 		destination       string
 		contentSourcePath string
 		wantDestination   string
 		wantErr           error
 		mutate            func(c *nodeContentProcessor)
 		embeddable        bool
-		sourceLocations   map[string][]*api.Node
+		sourceLocations   map[string][]*manifestadapter.Node
 	}{
 		// skipped links
 		{
@@ -90,7 +90,7 @@ func Test_processLink(t *testing.T) {
 		},
 		{
 			name: "Relative link to resource is embeddable",
-			node: &api.Node{
+			node: &manifestadapter.Node{
 				Source: "https://github.com/gardener/gardener/blob/v1.10.0/docs/README.md",
 			},
 			destination:       "./image.png",
@@ -107,7 +107,7 @@ func Test_processLink(t *testing.T) {
 		},
 		{
 			name: "Relative link to resource NOT in download scope",
-			node: &api.Node{
+			node: &manifestadapter.Node{
 				Source: "https://github.com/gardener/gardener/blob/v1.10.0/docs/README.md",
 			},
 			destination:       "../image.png",
@@ -131,7 +131,7 @@ func Test_processLink(t *testing.T) {
 		},
 		{
 			name: "Absolute link to resource in download scope",
-			node: &api.Node{
+			node: &manifestadapter.Node{
 				Source: "https://github.com/gardener/gardener/blob/v1.10.0/docs/README.md",
 			},
 			destination:       "https://github.com/gardener/gardener/blob/v1.10.0/docs/image.png",
@@ -156,7 +156,7 @@ func Test_processLink(t *testing.T) {
 			contentSourcePath: nodeA.Source,
 			wantDestination:   "./node_B.md",
 			wantErr:           nil,
-			sourceLocations:   map[string][]*api.Node{nodeA.Source: {nodeA}, nodeB.Source: {nodeB}},
+			sourceLocations:   map[string][]*manifestadapter.Node{nodeA.Source: {nodeA}, nodeB.Source: {nodeB}},
 		},
 		{
 			name:              "Relative link to document NOT in download scope and NOT from structure",
@@ -182,7 +182,7 @@ func Test_processLink(t *testing.T) {
 		},
 		{
 			name: "Relative link to resource in download scope with rewrites",
-			node: &api.Node{
+			node: &manifestadapter.Node{
 				Source: "https://github.com/gardener/gardener/blob/v1.10.0/docs/README.md",
 			},
 			destination:       "./image.png",
