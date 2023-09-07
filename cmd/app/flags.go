@@ -48,7 +48,7 @@ func configureFlags(command *cobra.Command) {
 		"Number of parallel workers for document processing.")
 	_ = vip.BindPFlag("document-workers", command.Flags().Lookup("document-workers"))
 
-	command.Flags().Int("validation-workers", 50,
+	command.Flags().Int("validation-workers", 10,
 		"Number of parallel workers to validate the markdown links")
 	_ = vip.BindPFlag("validation-workers", command.Flags().Lookup("validation-workers"))
 

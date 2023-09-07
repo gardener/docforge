@@ -8,16 +8,17 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
+	"net/http"
+	"net/url"
+	"sync"
+
 	"github.com/gardener/docforge/pkg/jobs"
 	"github.com/gardener/docforge/pkg/reactor"
 	"github.com/gardener/docforge/pkg/resourcehandlers/resourcehandlersfakes"
 	"github.com/gardener/docforge/pkg/util/httpclient/httpclientfakes"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"io"
-	"net/http"
-	"net/url"
-	"sync"
 )
 
 var _ = Describe("Validator", func() {
@@ -196,7 +197,7 @@ var _ = Describe("Validator", func() {
 				})
 				It("retries on error status code", func() {
 					Expect(err).NotTo(HaveOccurred())
-					Expect(httpClient.DoCallCount()).To(Equal(2))
+					Expect(httpClient.DoCallCount()).To(Equal(1))
 				})
 			})
 			Context("http client returns error on retry", func() {
@@ -209,7 +210,7 @@ var _ = Describe("Validator", func() {
 				})
 				It("succeeded", func() {
 					Expect(err).NotTo(HaveOccurred())
-					Expect(httpClient.DoCallCount()).To(Equal(2))
+					Expect(httpClient.DoCallCount()).To(Equal(1))
 				})
 			})
 			Context("http client returns error code on retry", func() {
@@ -221,7 +222,7 @@ var _ = Describe("Validator", func() {
 				})
 				It("succeeded", func() {
 					Expect(err).NotTo(HaveOccurred())
-					Expect(httpClient.DoCallCount()).To(Equal(2))
+					Expect(httpClient.DoCallCount()).To(Equal(1))
 				})
 			})
 			When("resource handlers for the link is found", func() {

@@ -8,10 +8,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/gardener/docforge/pkg/jobs"
-	"github.com/gardener/docforge/pkg/resourcehandlers"
-	"github.com/gardener/docforge/pkg/util/httpclient"
-	"k8s.io/klog/v2"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -20,6 +16,11 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/gardener/docforge/pkg/jobs"
+	"github.com/gardener/docforge/pkg/resourcehandlers"
+	"github.com/gardener/docforge/pkg/util/httpclient"
+	"k8s.io/klog/v2"
 )
 
 // Validator validates the links URLs
@@ -120,27 +121,19 @@ func (v *validatorWorker) Validate(ctx context.Context, task interface{}) error 
 			resp *http.Response
 			err  error
 		)
-		// try HEAD
-		if req, err = http.NewRequestWithContext(ctx, http.MethodHead, absLinkDestination, nil); err != nil {
-			return fmt.Errorf("failed to prepare HEAD validation request: %v", err)
+		// on error status code different from authorization errors
+		// retry GET
+		if req, err = http.NewRequestWithContext(ctx, http.MethodGet, absLinkDestination, nil); err != nil {
+			return fmt.Errorf("failed to prepare GET validation request: %v", err)
 		}
 		if resp, err = doValidation(req, client); err != nil {
 			klog.Warningf("failed to validate absolute link for %s from source %s: %v\n",
 				vTask.LinkDestination, vTask.ContentSourcePath, err)
 		} else if resp.StatusCode >= 400 && resp.StatusCode != http.StatusForbidden && resp.StatusCode != http.StatusUnauthorized {
-			// on error status code different from authorization errors
-			// retry GET
-			if req, err = http.NewRequestWithContext(ctx, http.MethodGet, absLinkDestination, nil); err != nil {
-				return fmt.Errorf("failed to prepare GET validation request: %v", err)
-			}
-			if resp, err = doValidation(req, client); err != nil {
-				klog.Warningf("failed to validate absolute link for %s from source %s: %v\n",
-					vTask.LinkDestination, vTask.ContentSourcePath, err)
-			} else if resp.StatusCode >= 400 && resp.StatusCode != http.StatusForbidden && resp.StatusCode != http.StatusUnauthorized {
-				klog.Warningf("failed to validate absolute link for %s from source %s: %v\n",
-					vTask.LinkDestination, vTask.ContentSourcePath, fmt.Errorf("HTTP Status %s", resp.Status))
-			}
+			klog.Warningf("failed to validate absolute link for %s from source %s: %v\n",
+				vTask.LinkDestination, vTask.ContentSourcePath, fmt.Errorf("HTTP Status %s", resp.Status))
 		}
+
 		v.validated.add(unifiedURL)
 		return nil
 	}
@@ -154,9 +147,10 @@ func doValidation(req *http.Request, client httpclient.Client) (*http.Response, 
 	if err != nil {
 		return resp, err
 	}
-	_ = resp.Body.Close()
+	defer resp.Body.Close()
 	attempts := 0
 	for resp.StatusCode == http.StatusTooManyRequests && attempts < len(intervals)-1 {
+		klog.Warningf("Retrying request!")
 		sleep := intervals[attempts] + rand.Intn(attempts+1)
 		// check for Retry-After Header and overwrite sleep time
 		if retryAfter := resp.Header.Get("Retry-After"); retryAfter != "" {
@@ -171,7 +165,6 @@ func doValidation(req *http.Request, client httpclient.Client) (*http.Response, 
 		if err != nil {
 			return resp, err
 		}
-		_ = resp.Body.Close()
 		attempts++
 	}
 	return resp, err
