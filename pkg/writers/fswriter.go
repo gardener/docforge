@@ -7,11 +7,12 @@ package writers
 import (
 	"bytes"
 	"fmt"
-	"github.com/gardener/docforge/pkg/api"
-	"gopkg.in/yaml.v3"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+
+	"github.com/gardener/docforge/pkg/manifestadapter"
+	"gopkg.in/yaml.v3"
 )
 
 // FSWriter is implementation of Writer interface for writing blobs to the file system
@@ -21,9 +22,10 @@ type FSWriter struct {
 	Hugo bool
 }
 
-func (f *FSWriter) Write(name, path string, docBlob []byte, node *api.Node) error {
+func (f *FSWriter) Write(name, path string, docBlob []byte, node *manifestadapter.Node) error {
 	if f.Hugo && node != nil {
-		if docBlob == nil && node.Properties != nil && node.Properties["frontmatter"] != nil {
+
+		if node.Properties != nil && node.Properties["frontmatter"] != nil && (docBlob == nil || node.Properties["adocPath"] != nil) {
 			if len(node.Nodes) > 0 {
 				for _, n := range node.Nodes {
 					if n.Name == "_index.md" { // TODO: Unify section file check & ensure one section file per folder
@@ -41,9 +43,13 @@ func (f *FSWriter) Write(name, path string, docBlob []byte, node *api.Node) erro
 			}
 			_, _ = buf.Write(fm)
 			_, _ = buf.Write([]byte("---\n"))
-			docBlob = buf.Bytes()
-			path = filepath.Join(path, name)
-			name = "_index.md"
+			if docBlob == nil {
+				docBlob = buf.Bytes()
+				path = filepath.Join(path, name)
+				name = "_index.md"
+			} else if node.Properties["adocPath"] != nil {
+				docBlob = append(buf.Bytes(), docBlob...)
+			}
 		}
 	}
 

@@ -564,21 +564,37 @@ func buildDownloadDestination(node *manifestadapter.Node, resourceName, root str
 
 ///////////// frontmatter processor ////////
 
+// GetFrontmatter converts frontmatter to a map[string] format
+func GetFrontmatter(frontmatter interface{}, nodepath string) (map[string]interface{}, error) {
+	output := map[string]interface{}{}
+	switch frontmatter.(type) {
+	case map[string]interface{}:
+		output, _ = frontmatter.(map[string]interface{})
+	case map[interface{}]interface{}:
+		iimap, _ := frontmatter.(map[interface{}]interface{})
+		for key, value := range iimap {
+			output[fmt.Sprintf("%v", key)] = value
+		}
+	default:
+		return nil, fmt.Errorf("invalid frontmatter properties for node: %s", nodepath)
+	}
+	return output, nil
+}
+
 func (f *frontmatterProcessor) processFrontmatter(docFrontmatter map[string]interface{}) (map[string]interface{}, error) {
 	var nodeMeta, parentMeta map[string]interface{}
+	var err error
 	// 1 front matter from doc node
 	if val, ok := f.node.Properties["frontmatter"]; ok {
-		nodeMeta, ok = val.(map[string]interface{})
-		if !ok {
-			return nil, fmt.Errorf("invalid frontmatter properties for node: %s", f.node.FullName("/"))
+		if nodeMeta, err = GetFrontmatter(val, f.node.FullName("/")); err != nil {
+			return nil, err
 		}
 	}
 	// 2 front matter from doc node parent (only if the current one is section file)
 	if f.node.Name == "_index.md" && f.node.Parent() != nil {
 		if val, ok := f.node.Parent().Properties["frontmatter"]; ok {
-			parentMeta, ok = val.(map[string]interface{})
-			if !ok {
-				return nil, fmt.Errorf("invalid frontmatter properties for node: %s", f.node.Path("/"))
+			if parentMeta, err = GetFrontmatter(val, f.node.Path("/")); err != nil {
+				return nil, err
 			}
 		}
 	}
