@@ -27,11 +27,11 @@ docforge:
                 build: ~
     steps:
       check:
-        image: "golang:1.18.0"
+        image: "golang:1.20.0"
       test:
-        image: "golang:1.18.0"
+        image: "golang:1.20.0"
       build:
-        image: "golang:1.18.0"
+        image: "golang:1.20.0"
         output_dir: "binary"
       integration-test:
         image: "eu.gcr.io/gardener-project/gardener/testmachinery/testmachinery-run:stable"
@@ -46,7 +46,7 @@ docforge:
         pull-request: ~
       steps:
         docs-gen:
-          image: "golang:1.18.0"
+          image: "golang:1.20.0"
           inputs:
             BINARY_PATH: 'binary_path'
           depends:
