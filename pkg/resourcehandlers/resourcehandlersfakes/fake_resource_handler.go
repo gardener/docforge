@@ -39,16 +39,16 @@ type FakeResourceHandler struct {
 		result1 string
 		result2 error
 	}
-	FileTreeFromUrlStub        func(string) ([]string, error)
-	fileTreeFromUrlMutex       sync.RWMutex
-	fileTreeFromUrlArgsForCall []struct {
+	FileTreeFromURLStub        func(string) ([]string, error)
+	fileTreeFromURLMutex       sync.RWMutex
+	fileTreeFromURLArgsForCall []struct {
 		arg1 string
 	}
-	fileTreeFromUrlReturns struct {
+	fileTreeFromURLReturns struct {
 		result1 []string
 		result2 error
 	}
-	fileTreeFromUrlReturnsOnCall map[int]struct {
+	fileTreeFromURLReturnsOnCall map[int]struct {
 		result1 []string
 		result2 error
 	}
@@ -92,16 +92,16 @@ type FakeResourceHandler struct {
 		result1 string
 		result2 error
 	}
-	ManifestFromUrlStub        func(string) (string, error)
-	manifestFromUrlMutex       sync.RWMutex
-	manifestFromUrlArgsForCall []struct {
+	ManifestFromURLStub        func(string) (string, error)
+	manifestFromURLMutex       sync.RWMutex
+	manifestFromURLArgsForCall []struct {
 		arg1 string
 	}
-	manifestFromUrlReturns struct {
+	manifestFromURLReturns struct {
 		result1 string
 		result2 error
 	}
-	manifestFromUrlReturnsOnCall map[int]struct {
+	manifestFromURLReturnsOnCall map[int]struct {
 		result1 string
 		result2 error
 	}
@@ -263,16 +263,16 @@ func (fake *FakeResourceHandler) BuildAbsLinkReturnsOnCall(i int, result1 string
 	}{result1, result2}
 }
 
-func (fake *FakeResourceHandler) FileTreeFromUrl(arg1 string) ([]string, error) {
-	fake.fileTreeFromUrlMutex.Lock()
-	ret, specificReturn := fake.fileTreeFromUrlReturnsOnCall[len(fake.fileTreeFromUrlArgsForCall)]
-	fake.fileTreeFromUrlArgsForCall = append(fake.fileTreeFromUrlArgsForCall, struct {
+func (fake *FakeResourceHandler) FileTreeFromURL(arg1 string) ([]string, error) {
+	fake.fileTreeFromURLMutex.Lock()
+	ret, specificReturn := fake.fileTreeFromURLReturnsOnCall[len(fake.fileTreeFromURLArgsForCall)]
+	fake.fileTreeFromURLArgsForCall = append(fake.fileTreeFromURLArgsForCall, struct {
 		arg1 string
 	}{arg1})
-	stub := fake.FileTreeFromUrlStub
-	fakeReturns := fake.fileTreeFromUrlReturns
-	fake.recordInvocation("FileTreeFromUrl", []interface{}{arg1})
-	fake.fileTreeFromUrlMutex.Unlock()
+	stub := fake.FileTreeFromURLStub
+	fakeReturns := fake.fileTreeFromURLReturns
+	fake.recordInvocation("FileTreeFromURL", []interface{}{arg1})
+	fake.fileTreeFromURLMutex.Unlock()
 	if stub != nil {
 		return stub(arg1)
 	}
@@ -282,46 +282,46 @@ func (fake *FakeResourceHandler) FileTreeFromUrl(arg1 string) ([]string, error) 
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *FakeResourceHandler) FileTreeFromUrlCallCount() int {
-	fake.fileTreeFromUrlMutex.RLock()
-	defer fake.fileTreeFromUrlMutex.RUnlock()
-	return len(fake.fileTreeFromUrlArgsForCall)
+func (fake *FakeResourceHandler) FileTreeFromURLCallCount() int {
+	fake.fileTreeFromURLMutex.RLock()
+	defer fake.fileTreeFromURLMutex.RUnlock()
+	return len(fake.fileTreeFromURLArgsForCall)
 }
 
-func (fake *FakeResourceHandler) FileTreeFromUrlCalls(stub func(string) ([]string, error)) {
-	fake.fileTreeFromUrlMutex.Lock()
-	defer fake.fileTreeFromUrlMutex.Unlock()
-	fake.FileTreeFromUrlStub = stub
+func (fake *FakeResourceHandler) FileTreeFromURLCalls(stub func(string) ([]string, error)) {
+	fake.fileTreeFromURLMutex.Lock()
+	defer fake.fileTreeFromURLMutex.Unlock()
+	fake.FileTreeFromURLStub = stub
 }
 
-func (fake *FakeResourceHandler) FileTreeFromUrlArgsForCall(i int) string {
-	fake.fileTreeFromUrlMutex.RLock()
-	defer fake.fileTreeFromUrlMutex.RUnlock()
-	argsForCall := fake.fileTreeFromUrlArgsForCall[i]
+func (fake *FakeResourceHandler) FileTreeFromURLArgsForCall(i int) string {
+	fake.fileTreeFromURLMutex.RLock()
+	defer fake.fileTreeFromURLMutex.RUnlock()
+	argsForCall := fake.fileTreeFromURLArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *FakeResourceHandler) FileTreeFromUrlReturns(result1 []string, result2 error) {
-	fake.fileTreeFromUrlMutex.Lock()
-	defer fake.fileTreeFromUrlMutex.Unlock()
-	fake.FileTreeFromUrlStub = nil
-	fake.fileTreeFromUrlReturns = struct {
+func (fake *FakeResourceHandler) FileTreeFromURLReturns(result1 []string, result2 error) {
+	fake.fileTreeFromURLMutex.Lock()
+	defer fake.fileTreeFromURLMutex.Unlock()
+	fake.FileTreeFromURLStub = nil
+	fake.fileTreeFromURLReturns = struct {
 		result1 []string
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *FakeResourceHandler) FileTreeFromUrlReturnsOnCall(i int, result1 []string, result2 error) {
-	fake.fileTreeFromUrlMutex.Lock()
-	defer fake.fileTreeFromUrlMutex.Unlock()
-	fake.FileTreeFromUrlStub = nil
-	if fake.fileTreeFromUrlReturnsOnCall == nil {
-		fake.fileTreeFromUrlReturnsOnCall = make(map[int]struct {
+func (fake *FakeResourceHandler) FileTreeFromURLReturnsOnCall(i int, result1 []string, result2 error) {
+	fake.fileTreeFromURLMutex.Lock()
+	defer fake.fileTreeFromURLMutex.Unlock()
+	fake.FileTreeFromURLStub = nil
+	if fake.fileTreeFromURLReturnsOnCall == nil {
+		fake.fileTreeFromURLReturnsOnCall = make(map[int]struct {
 			result1 []string
 			result2 error
 		})
 	}
-	fake.fileTreeFromUrlReturnsOnCall[i] = struct {
+	fake.fileTreeFromURLReturnsOnCall[i] = struct {
 		result1 []string
 		result2 error
 	}{result1, result2}
@@ -514,16 +514,16 @@ func (fake *FakeResourceHandler) GetRawFormatLinkReturnsOnCall(i int, result1 st
 	}{result1, result2}
 }
 
-func (fake *FakeResourceHandler) ManifestFromUrl(arg1 string) (string, error) {
-	fake.manifestFromUrlMutex.Lock()
-	ret, specificReturn := fake.manifestFromUrlReturnsOnCall[len(fake.manifestFromUrlArgsForCall)]
-	fake.manifestFromUrlArgsForCall = append(fake.manifestFromUrlArgsForCall, struct {
+func (fake *FakeResourceHandler) ManifestFromURL(arg1 string) (string, error) {
+	fake.manifestFromURLMutex.Lock()
+	ret, specificReturn := fake.manifestFromURLReturnsOnCall[len(fake.manifestFromURLArgsForCall)]
+	fake.manifestFromURLArgsForCall = append(fake.manifestFromURLArgsForCall, struct {
 		arg1 string
 	}{arg1})
-	stub := fake.ManifestFromUrlStub
-	fakeReturns := fake.manifestFromUrlReturns
-	fake.recordInvocation("ManifestFromUrl", []interface{}{arg1})
-	fake.manifestFromUrlMutex.Unlock()
+	stub := fake.ManifestFromURLStub
+	fakeReturns := fake.manifestFromURLReturns
+	fake.recordInvocation("ManifestFromURL", []interface{}{arg1})
+	fake.manifestFromURLMutex.Unlock()
 	if stub != nil {
 		return stub(arg1)
 	}
@@ -533,46 +533,46 @@ func (fake *FakeResourceHandler) ManifestFromUrl(arg1 string) (string, error) {
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *FakeResourceHandler) ManifestFromUrlCallCount() int {
-	fake.manifestFromUrlMutex.RLock()
-	defer fake.manifestFromUrlMutex.RUnlock()
-	return len(fake.manifestFromUrlArgsForCall)
+func (fake *FakeResourceHandler) ManifestFromURLCallCount() int {
+	fake.manifestFromURLMutex.RLock()
+	defer fake.manifestFromURLMutex.RUnlock()
+	return len(fake.manifestFromURLArgsForCall)
 }
 
-func (fake *FakeResourceHandler) ManifestFromUrlCalls(stub func(string) (string, error)) {
-	fake.manifestFromUrlMutex.Lock()
-	defer fake.manifestFromUrlMutex.Unlock()
-	fake.ManifestFromUrlStub = stub
+func (fake *FakeResourceHandler) ManifestFromURLCalls(stub func(string) (string, error)) {
+	fake.manifestFromURLMutex.Lock()
+	defer fake.manifestFromURLMutex.Unlock()
+	fake.ManifestFromURLStub = stub
 }
 
-func (fake *FakeResourceHandler) ManifestFromUrlArgsForCall(i int) string {
-	fake.manifestFromUrlMutex.RLock()
-	defer fake.manifestFromUrlMutex.RUnlock()
-	argsForCall := fake.manifestFromUrlArgsForCall[i]
+func (fake *FakeResourceHandler) ManifestFromURLArgsForCall(i int) string {
+	fake.manifestFromURLMutex.RLock()
+	defer fake.manifestFromURLMutex.RUnlock()
+	argsForCall := fake.manifestFromURLArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *FakeResourceHandler) ManifestFromUrlReturns(result1 string, result2 error) {
-	fake.manifestFromUrlMutex.Lock()
-	defer fake.manifestFromUrlMutex.Unlock()
-	fake.ManifestFromUrlStub = nil
-	fake.manifestFromUrlReturns = struct {
+func (fake *FakeResourceHandler) ManifestFromURLReturns(result1 string, result2 error) {
+	fake.manifestFromURLMutex.Lock()
+	defer fake.manifestFromURLMutex.Unlock()
+	fake.ManifestFromURLStub = nil
+	fake.manifestFromURLReturns = struct {
 		result1 string
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *FakeResourceHandler) ManifestFromUrlReturnsOnCall(i int, result1 string, result2 error) {
-	fake.manifestFromUrlMutex.Lock()
-	defer fake.manifestFromUrlMutex.Unlock()
-	fake.ManifestFromUrlStub = nil
-	if fake.manifestFromUrlReturnsOnCall == nil {
-		fake.manifestFromUrlReturnsOnCall = make(map[int]struct {
+func (fake *FakeResourceHandler) ManifestFromURLReturnsOnCall(i int, result1 string, result2 error) {
+	fake.manifestFromURLMutex.Lock()
+	defer fake.manifestFromURLMutex.Unlock()
+	fake.ManifestFromURLStub = nil
+	if fake.manifestFromURLReturnsOnCall == nil {
+		fake.manifestFromURLReturnsOnCall = make(map[int]struct {
 			result1 string
 			result2 error
 		})
 	}
-	fake.manifestFromUrlReturnsOnCall[i] = struct {
+	fake.manifestFromURLReturnsOnCall[i] = struct {
 		result1 string
 		result2 error
 	}{result1, result2}
@@ -715,16 +715,16 @@ func (fake *FakeResourceHandler) Invocations() map[string][][]interface{} {
 	defer fake.acceptMutex.RUnlock()
 	fake.buildAbsLinkMutex.RLock()
 	defer fake.buildAbsLinkMutex.RUnlock()
-	fake.fileTreeFromUrlMutex.RLock()
-	defer fake.fileTreeFromUrlMutex.RUnlock()
+	fake.fileTreeFromURLMutex.RLock()
+	defer fake.fileTreeFromURLMutex.RUnlock()
 	fake.getClientMutex.RLock()
 	defer fake.getClientMutex.RUnlock()
 	fake.getRateLimitMutex.RLock()
 	defer fake.getRateLimitMutex.RUnlock()
 	fake.getRawFormatLinkMutex.RLock()
 	defer fake.getRawFormatLinkMutex.RUnlock()
-	fake.manifestFromUrlMutex.RLock()
-	defer fake.manifestFromUrlMutex.RUnlock()
+	fake.manifestFromURLMutex.RLock()
+	defer fake.manifestFromURLMutex.RUnlock()
 	fake.readMutex.RLock()
 	defer fake.readMutex.RUnlock()
 	fake.readGitInfoMutex.RLock()

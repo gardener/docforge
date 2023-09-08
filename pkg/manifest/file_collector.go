@@ -1,13 +1,16 @@
 package manifest
 
+// FileCollector collects files from manifest
 type FileCollector struct {
 	files []*Node
 }
 
+// Collect adds file to collection
 func (fc *FileCollector) Collect(file *Node) {
 	fc.files = append(fc.files, file)
 }
 
+// Extract gets files without duplication
 func (fc *FileCollector) Extract() ([]*Node, error) {
 	/*	exists := map[string]struct{}{}
 		for _, file := range fc.files {

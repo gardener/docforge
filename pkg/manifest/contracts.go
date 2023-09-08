@@ -1,12 +1,11 @@
 package manifest
 
+// FileSource interface used by manifest package to get its nessesary information fron links
 type FileSource interface {
-	// gets the manifest content from a given url
-	//ManifestFromUrl(url string) (string, error)
-	//TODO use this instead of ManifestFromUrl ?
-	ManifestFromUrl(url string) (string, error)
-
-	FileTreeFromUrl(url string) ([]string, error)
-
+	//ManifestFromURL Gets the manifest content from a given url
+	ManifestFromURL(url string) (string, error)
+	//FileTreeFromURL Get files that are present in the given url tree
+	FileTreeFromURL(url string) ([]string, error)
+	//BuildAbsLink Builds the abs link given where it is referenced
 	BuildAbsLink(source, link string) (string, error)
 }

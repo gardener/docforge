@@ -8,6 +8,7 @@ import (
 	"github.com/gardener/docforge/pkg/manifest"
 )
 
+// ConstructDocTree construct a node document from file list
 func ConstructDocTree(files []*manifest.Node) (*Node, error) {
 	pathToNode := map[string]*Node{}
 	for _, file := range files {

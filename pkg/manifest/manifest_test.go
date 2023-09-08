@@ -27,7 +27,7 @@ var results embed.FS
 
 type fakeFiles struct{}
 
-func (f *fakeFiles) ManifestFromUrl(url string) (string, error) {
+func (f *fakeFiles) ManifestFromURL(url string) (string, error) {
 	url = strings.TrimPrefix(url, "https://test")
 	content, err := examples.ReadFile(url)
 	return string(content), err
@@ -39,7 +39,7 @@ func (f *fakeFiles) BuildAbsLink(url, link string) (string, error) {
 	return link, nil
 }
 
-func (f *fakeFiles) FileTreeFromUrl(url string) ([]string, error) {
+func (f *fakeFiles) FileTreeFromURL(url string) ([]string, error) {
 	files := map[string][]string{}
 	files["https://test/website"] = []string{"blog/2023/_index.md"}
 	files["https://test/blogs"] = []string{"2023/one", "2023/two.md"}

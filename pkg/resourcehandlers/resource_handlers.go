@@ -12,6 +12,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/util/httpclient"
 )
 
@@ -27,6 +28,8 @@ func (e ErrResourceNotFound) Error() string {
 //
 //counterfeiter:generate . ResourceHandler
 type ResourceHandler interface {
+	manifest.FileSource
+
 	// Accept accepts manifests if this ResourceHandler can manage the type of resources
 	// identified by the URI scheme of uri.
 	Accept(uri string) bool
@@ -34,9 +37,7 @@ type ResourceHandler interface {
 	Read(ctx context.Context, uri string) ([]byte, error)
 	// ReadGitInfo reads git info for the resource
 	ReadGitInfo(ctx context.Context, uri string) ([]byte, error)
-	// BuildAbsLink should return an absolute path of a relative link in regard to the provided
-	// source
-	BuildAbsLink(source, link string) (string, error)
+
 	// GetRawFormatLink returns a link to an embeddable object (image) in raw format.
 	// If the provided link is not referencing an embeddable object, the function
 	// returns absLink without changes.
@@ -46,10 +47,6 @@ type ResourceHandler interface {
 	// GetRateLimit returns rate limit and remaining API calls for the resource handler backend (e.g. GitHub RateLimit)
 	// returns negative values if RateLimit is not applicable
 	GetRateLimit(ctx context.Context) (int, int, time.Time, error)
-
-	ManifestFromUrl(url string) (string, error)
-
-	FileTreeFromUrl(url string) ([]string, error)
 }
 
 // Registry can register and return resource handlers for an url

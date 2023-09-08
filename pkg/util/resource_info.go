@@ -83,6 +83,7 @@ func BuildResourceInfo(uri string) (*ResourceInfo, error) {
 	return r, nil
 }
 
+// GetURL returns the url
 func (ri *ResourceInfo) GetURL() string {
 	return fmt.Sprintf("%s://%s/%s/%s/%s/%s/%s", ri.URL.Scheme, ri.URL.Host, ri.Owner, ri.Repo, ri.Type, ri.Ref, ri.Path)
 }

@@ -10,9 +10,9 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-type NodeTransformation func(node *Node, parent *Node, manifest *Node, fs FileSource, fc *FileCollector) error
+type nodeTransformation func(node *Node, parent *Node, manifest *Node, fs FileSource, fc *FileCollector) error
 
-func processManifest(f NodeTransformation, node *Node, parent *Node, manifest *Node, fs FileSource, fc *FileCollector) error {
+func processManifest(f nodeTransformation, node *Node, parent *Node, manifest *Node, fs FileSource, fc *FileCollector) error {
 	if err := f(node, parent, manifest, fs, fc); err != nil {
 		return err
 	}
@@ -44,7 +44,7 @@ func loadManifestStructure(node *Node, _ *Node, manifest *Node, fs FileSource, _
 		return fmt.Errorf("can't build manifest node %s absolute URL : %w ", node.Manifest, err)
 	}
 	node.Manifest = newManifest
-	if content, err = fs.ManifestFromUrl(node.Manifest); err != nil {
+	if content, err = fs.ManifestFromURL(node.Manifest); err != nil {
 		return fmt.Errorf("can't get manifest file content : %w", err)
 	}
 	if err = yaml.Unmarshal([]byte(content), node); err != nil {
@@ -65,7 +65,7 @@ func decideNodeType(node *Node, _ *Node, _ *Node, _ FileSource, _ *FileCollector
 	if node.Dir != "" {
 		candidateType = append(candidateType, "dir")
 	}
-	if node.Files != "" {
+	if node.FileTree != "" {
 		candidateType = append(candidateType, "fileTree")
 	}
 	if len(candidateType) != 1 {
@@ -114,10 +114,10 @@ func resolveFileRelativeLinks(node *Node, _ *Node, manifest *Node, fs FileSource
 		}
 		node.Source = newLink
 	case "fileTree":
-		if newLink, err = fs.BuildAbsLink(manifest.Manifest, node.Files); err != nil {
-			return fmt.Errorf("cant build node's absolute link %s", node.Files)
+		if newLink, err = fs.BuildAbsLink(manifest.Manifest, node.FileTree); err != nil {
+			return fmt.Errorf("cant build node's absolute link %s", node.FileTree)
 		}
-		node.Files = newLink
+		node.FileTree = newLink
 	}
 	return nil
 }
@@ -130,11 +130,11 @@ func extractFilesFromNode(node *Node, _ *Node, manifest *Node, fs FileSource, fc
 		}
 		fc.Collect(node)
 	case "fileTree":
-		files, _ := fs.FileTreeFromUrl(node.Files)
+		files, _ := fs.FileTreeFromURL(node.FileTree)
 		for _, file := range files {
 			extension := urls.Ext(file)
 			if extension == "md" || extension == "" {
-				source, err := url.JoinPath(strings.Replace(node.Files, "/tree/", "/blob/", 1), file)
+				source, err := url.JoinPath(strings.Replace(node.FileTree, "/tree/", "/blob/", 1), file)
 				if err != nil {
 					return err
 				}
@@ -161,9 +161,10 @@ func extractFilesFromNode(node *Node, _ *Node, manifest *Node, fs FileSource, fc
 	return nil
 }
 
+// ResolveManifest collects files in FileCollector from a given url and FileSource
 func ResolveManifest(url string, fs FileSource, fc *FileCollector) error {
 	manifest := Node{
-		ManifestType: ManifestType{
+		ManifType: ManifType{
 			Manifest: url,
 		},
 	}

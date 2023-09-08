@@ -169,6 +169,7 @@ func (r *Reactor) Run(ctx context.Context, url string) error {
 	return nil
 }
 
+// ResolveManifest builds a documentation node structure from a given url
 func (r *Reactor) ResolveManifest(ctx context.Context, url string) (*manifestadapter.Documentation, error) {
 	// TODO: handle fileTree that has blob or forgot master in it instead of tree because it panics
 	fc := manifest.FileCollector{}

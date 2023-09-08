@@ -74,6 +74,72 @@ type GitInfo struct {
 	Path             *string        `json:"path,omitempty"`
 }
 
+//========================= manifest.FileSource ===================================================
+
+// FileTreeFromURL implements manifest.FileSource#FileTreeFromURL
+func (p *GHC) FileTreeFromURL(url string) ([]string, error) {
+	r, err := p.getResolvedResourceInfo(context.TODO(), url)
+	if err != nil {
+		return nil, err
+	}
+	if r.Type != "tree" {
+		return nil, fmt.Errorf("not a tree url: %s", r.Raw)
+	}
+	//bPrefix := fmt.Sprintf("%s://%s/%s/%s/blob/%s/%s", r.URL.Scheme, r.URL.Host, r.Owner, r.Repo, r.Ref, r.Path)
+	p.muxSHA.Lock()
+	defer p.muxSHA.Unlock()
+	t, err := p.getTree(context.TODO(), r, true)
+	if err != nil {
+		return nil, err
+	}
+	res := []string{}
+	for _, e := range t.Entries {
+		extracted := false
+		ePath := strings.TrimPrefix(*e.Path, "/")
+		for _, extractedFormat := range p.options.ExtractedFilesFormats {
+			if strings.HasSuffix(strings.ToLower(ePath), extractedFormat) {
+				extracted = true
+				break
+			}
+		}
+		// skip node if it is not a supported format
+		if *e.Type != "blob" || !extracted {
+			//klog.V(6).Infof("node selector %s skip entry %s\n", node.NodeSelector.Path, ePath)
+			continue
+		}
+		res = append(res, ePath)
+
+	}
+	return res, nil
+}
+
+// ManifestFromURL implements manifest.FileSource#ManifestFromURL
+func (p *GHC) ManifestFromURL(url string) (string, error) {
+	r, err := p.getResolvedResourceInfo(context.TODO(), url)
+	if err != nil {
+		return "", err
+	}
+	content, err := p.Read(context.TODO(), r.GetURL())
+	return string(content), err
+}
+
+// BuildAbsLink implements manifest.FileSource#BuildAbsLink
+func (p *GHC) BuildAbsLink(source, link string) (string, error) {
+	r, err := p.getResolvedResourceInfo(context.TODO(), source)
+	if err != nil {
+		return "", err
+	}
+
+	if strings.HasPrefix(link, "http") {
+		l, err := p.getResolvedResourceInfo(context.TODO(), link)
+		if err != nil {
+			return "", err
+		}
+		link = l.GetURL()
+	}
+	return p.buildAbsLink(r, link)
+}
+
 //========================= resourcehandlers.ResourceHandler ===================================================
 
 // Accept implements the resourcehandlers.ResourceHandler#Accept
@@ -88,15 +154,6 @@ func (p *GHC) Accept(uri string) bool {
 		}
 	}
 	return false
-}
-
-func (p *GHC) ManifestFromUrl(url string) (string, error) {
-	r, err := p.getResolvedResourceInfo(context.TODO(), url)
-	if err != nil {
-		return "", err
-	}
-	content, err := p.Read(context.TODO(), r.GetURL())
-	return string(content), err
 }
 
 // Read implements the resourcehandlers.ResourceHandler#Read
@@ -152,23 +209,6 @@ func (p *GHC) ReadGitInfo(ctx context.Context, uri string) ([]byte, error) {
 		}
 	}
 	return blob, nil
-}
-
-// BuildAbsLink implements the resourcehandlers.ResourceHandler#BuildAbsLink
-func (p *GHC) BuildAbsLink(source, link string) (string, error) {
-	r, err := p.getResolvedResourceInfo(context.TODO(), source)
-	if err != nil {
-		return "", err
-	}
-
-	if strings.HasPrefix(link, "http") {
-		l, err := p.getResolvedResourceInfo(context.TODO(), link)
-		if err != nil {
-			return "", err
-		}
-		link = l.GetURL()
-	}
-	return p.buildAbsLink(r, link)
 }
 
 // GetRawFormatLink implements the resourcehandlers.ResourceHandler#GetRawFormatLink
@@ -308,42 +348,6 @@ func (p *GHC) getDirContents(ctx context.Context, owner, repo, path string, opts
 	defer p.muxCnt.Unlock()
 	_, dc, resp, err = p.client.Repositories.GetContents(ctx, owner, repo, path, opts)
 	return
-}
-
-func (p *GHC) FileTreeFromUrl(url string) ([]string, error) {
-	r, err := p.getResolvedResourceInfo(context.TODO(), url)
-	if err != nil {
-		return nil, err
-	}
-	if r.Type != "tree" {
-		return nil, fmt.Errorf("not a tree url: %s", r.Raw)
-	}
-	//bPrefix := fmt.Sprintf("%s://%s/%s/%s/blob/%s/%s", r.URL.Scheme, r.URL.Host, r.Owner, r.Repo, r.Ref, r.Path)
-	p.muxSHA.Lock()
-	defer p.muxSHA.Unlock()
-	t, err := p.getTree(context.TODO(), r, true)
-	if err != nil {
-		return nil, err
-	}
-	res := []string{}
-	for _, e := range t.Entries {
-		extracted := false
-		ePath := strings.TrimPrefix(*e.Path, "/")
-		for _, extractedFormat := range p.options.ExtractedFilesFormats {
-			if strings.HasSuffix(strings.ToLower(ePath), extractedFormat) {
-				extracted = true
-				break
-			}
-		}
-		// skip node if it is not a supported format
-		if *e.Type != "blob" || !extracted {
-			//klog.V(6).Infof("node selector %s skip entry %s\n", node.NodeSelector.Path, ePath)
-			continue
-		}
-		res = append(res, ePath)
-
-	}
-	return res, nil
 }
 
 // getTree returns subtree with root r#Path
