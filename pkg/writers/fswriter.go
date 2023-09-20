@@ -11,7 +11,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/gardener/docforge/pkg/manifestadapter"
+	"github.com/gardener/docforge/pkg/manifest"
 	"gopkg.in/yaml.v3"
 )
 
@@ -22,13 +22,13 @@ type FSWriter struct {
 	Hugo bool
 }
 
-func (f *FSWriter) Write(name, path string, docBlob []byte, node *manifestadapter.Node) error {
+func (f *FSWriter) Write(name, path string, docBlob []byte, node *manifest.Node) error {
 	if f.Hugo && node != nil {
 
 		if node.Properties != nil && node.Properties["frontmatter"] != nil && (docBlob == nil || node.Properties["adocPath"] != nil) {
-			if len(node.Nodes) > 0 {
-				for _, n := range node.Nodes {
-					if n.Name == "_index.md" { // TODO: Unify section file check & ensure one section file per folder
+			if len(node.Structure) > 0 {
+				for _, n := range node.Structure {
+					if n.Name() == "_index.md" { // TODO: Unify section file check & ensure one section file per folder
 						// has index child
 						return nil
 					}

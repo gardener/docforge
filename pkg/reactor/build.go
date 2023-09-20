@@ -9,25 +9,25 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/gardener/docforge/pkg/manifestadapter"
+	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/hashicorp/go-multierror"
 	"k8s.io/klog/v2"
 )
 
-func tasks(nodes []*manifestadapter.Node, t *[]interface{}) {
+func tasks(nodes []*manifest.Node, t *[]interface{}) {
 	for _, node := range nodes {
 		*t = append(*t, &DocumentWorkTask{
 			Node: node,
 		})
-		if node.Nodes != nil {
-			tasks(node.Nodes, t)
+		if node.Structure != nil {
+			tasks(node.Structure, t)
 		}
 	}
 }
 
 // Build starts the build operation for a document structure root
 // in a locality domain
-func (r *Reactor) Build(ctx context.Context, documentationStructure []*manifestadapter.Node) error {
+func (r *Reactor) Build(ctx context.Context, documentationStructure []*manifest.Node) error {
 	var errors *multierror.Error
 
 	klog.V(6).Infoln("Starting download tasks")

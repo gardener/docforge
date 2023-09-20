@@ -9,12 +9,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/gardener/docforge/pkg/manifestadapter"
+	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/writers"
 	"k8s.io/klog/v2"
 )
 
-// DocumentWorker defines a structure for processing manifestadapter.Node document content
+// DocumentWorker defines a structure for processing manifest.Node document content
 type DocumentWorker struct {
 	reader               Reader
 	writer               writers.Writer
@@ -24,14 +24,14 @@ type DocumentWorker struct {
 
 // DocumentWorkTask implements jobs#Task
 type DocumentWorkTask struct {
-	Node *manifestadapter.Node
+	Node *manifest.Node
 }
 
 // Work implements jobs.WorkerFunc
 func (w *DocumentWorker) Work(ctx context.Context, task interface{}) error {
 	if dwTask, ok := task.(*DocumentWorkTask); ok {
 		var cnt []byte
-		path := dwTask.Node.Path("/")
+		path := dwTask.Node.Path
 		if dwTask.Node.IsDocument() { // Node is considered a `Document Node`
 			// Process the node
 			bytesBuff := bufPool.Get().(*bytes.Buffer)
@@ -41,13 +41,13 @@ func (w *DocumentWorker) Work(ctx context.Context, task interface{}) error {
 				return err
 			}
 			if bytesBuff.Len() == 0 {
-				klog.Warningf("document node processing halted: no content assigned to document node %s/%s", path, dwTask.Node.Name)
+				klog.Warningf("document node processing halted: no content assigned to document node %s/%s", path, dwTask.Node.Name())
 				return nil
 			}
 			cnt = bytesBuff.Bytes()
 		}
 
-		if err := w.writer.Write(dwTask.Node.Name, path, cnt, dwTask.Node); err != nil {
+		if err := w.writer.Write(dwTask.Node.Name(), path, cnt, dwTask.Node); err != nil {
 			return err
 		}
 		if w.gitHubInfo != nil && len(cnt) > 0 {

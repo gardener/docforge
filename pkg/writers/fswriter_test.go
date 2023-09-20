@@ -12,7 +12,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/gardener/docforge/pkg/manifestadapter"
+	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/google/uuid"
 )
 
@@ -21,7 +21,7 @@ func TestWrite(t *testing.T) {
 		name         string
 		path         string
 		docBlob      []byte
-		node         *manifestadapter.Node
+		node         *manifest.Node
 		wantErr      error
 		wantFileName string
 		wantContent  string
@@ -30,7 +30,7 @@ func TestWrite(t *testing.T) {
 			name:         "test.md",
 			path:         "a/b",
 			docBlob:      []byte("# Test"),
-			node:         &manifestadapter.Node{},
+			node:         &manifest.Node{},
 			wantErr:      nil,
 			wantFileName: `test.md`,
 			wantContent:  `# Test`,
@@ -39,7 +39,7 @@ func TestWrite(t *testing.T) {
 			name:         "test",
 			path:         "a/b",
 			docBlob:      []byte("# Test"),
-			node:         &manifestadapter.Node{},
+			node:         &manifest.Node{},
 			wantErr:      nil,
 			wantFileName: `test`,
 			wantContent:  `# Test`,

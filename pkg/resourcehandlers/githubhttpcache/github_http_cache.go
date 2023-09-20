@@ -19,7 +19,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gardener/docforge/pkg/manifestadapter"
+	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/gardener/docforge/pkg/util"
 	"github.com/gardener/docforge/pkg/util/httpclient"
@@ -40,11 +40,11 @@ type GHC struct {
 	defBranches   map[string]string
 	muxDefBr      sync.Mutex
 	muxCnt        sync.Mutex
-	options       manifestadapter.ParsingOptions
+	options       manifest.ParsingOptions
 }
 
 // NewGHC creates new GHC resource handler
-func NewGHC(client *github.Client, httpClient *http.Client, os osshim.Os, acceptedHosts []string, localMappings map[string]string, options manifestadapter.ParsingOptions) resourcehandlers.ResourceHandler {
+func NewGHC(client *github.Client, httpClient *http.Client, os osshim.Os, acceptedHosts []string, localMappings map[string]string, options manifest.ParsingOptions) resourcehandlers.ResourceHandler {
 	return &GHC{
 		client:        client,
 		httpClient:    httpClient,

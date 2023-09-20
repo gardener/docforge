@@ -13,7 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/gardener/docforge/pkg/manifestadapter"
+	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/reactor"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/gardener/docforge/pkg/resourcehandlers/githubhttpcache"
@@ -27,7 +27,7 @@ import (
 	"golang.org/x/oauth2"
 )
 
-func initResourceHandlers(ctx context.Context, o resourcehandlers.ResourceHandlerOptions, options manifestadapter.ParsingOptions) ([]resourcehandlers.ResourceHandler, error) {
+func initResourceHandlers(ctx context.Context, o resourcehandlers.ResourceHandlerOptions, options manifest.ParsingOptions) ([]resourcehandlers.ResourceHandler, error) {
 	var rhs []resourcehandlers.ResourceHandler
 	var errs *multierror.Error
 	for host, oAuthToken := range o.Credentials {
@@ -88,7 +88,7 @@ func buildClient(ctx context.Context, accessToken string, host string, cachePath
 	return client, httpClient, err
 }
 
-func newResourceHandler(host string, client *github.Client, httpClient *http.Client, localMappings map[string]string, options manifestadapter.ParsingOptions) resourcehandlers.ResourceHandler {
+func newResourceHandler(host string, client *github.Client, httpClient *http.Client, localMappings map[string]string, options manifest.ParsingOptions) resourcehandlers.ResourceHandler {
 	rawHost := "raw." + host
 	if host == "github.com" {
 		rawHost = "raw.githubusercontent.com"

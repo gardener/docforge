@@ -15,7 +15,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/gardener/docforge/pkg/manifestadapter"
+	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/markdown"
 	"github.com/gardener/docforge/pkg/renderers/adocs"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
@@ -39,7 +39,7 @@ type nodeContentProcessor struct {
 	downloader       DownloadScheduler
 	validator        Validator
 	resourceHandlers resourcehandlers.Registry
-	sourceLocations  map[string][]*manifestadapter.Node
+	sourceLocations  map[string][]*manifest.Node
 	hugo             Hugo
 	rwLock           sync.RWMutex
 }
@@ -47,7 +47,7 @@ type nodeContentProcessor struct {
 // extends nodeContentProcessor with current source URI & node
 type linkResolver struct {
 	*nodeContentProcessor
-	node   *manifestadapter.Node
+	node   *manifest.Node
 	source string
 }
 
@@ -56,7 +56,7 @@ type linkInfo struct {
 	URL                 *url.URL
 	originalDestination string
 	destination         string
-	destinationNode     *manifestadapter.Node
+	destinationNode     *manifest.Node
 	isEmbeddable        bool
 }
 
@@ -69,7 +69,7 @@ type docContent struct {
 
 // used in Hugo mode
 type frontmatterProcessor struct {
-	node           *manifestadapter.Node
+	node           *manifest.Node
 	IndexFileNames []string
 }
 
@@ -77,10 +77,10 @@ type frontmatterProcessor struct {
 //
 //counterfeiter:generate . NodeContentProcessor
 type NodeContentProcessor interface {
-	// Prepare performs pre-processing on resolved documentation structure (e.g. collect manifestadapter.Node sources)
-	Prepare(docStructure []*manifestadapter.Node)
+	// Prepare performs pre-processing on resolved documentation structure (e.g. collect manifest.Node sources)
+	Prepare(docStructure []*manifest.Node)
 	// Process node content and write the result in a buffer
-	Process(ctx context.Context, buffer *bytes.Buffer, reader Reader, node *manifestadapter.Node) error
+	Process(ctx context.Context, buffer *bytes.Buffer, reader Reader, node *manifest.Node) error
 }
 
 // NewNodeContentProcessor creates NodeContentProcessor objects
@@ -93,14 +93,14 @@ func NewNodeContentProcessor(resourcesRoot string, downloadJob DownloadScheduler
 		validator:        validator,
 		resourceHandlers: rh,
 		hugo:             hugo,
-		sourceLocations:  make(map[string][]*manifestadapter.Node),
+		sourceLocations:  make(map[string][]*manifest.Node),
 	}
 	return c
 }
 
 ///////////// node content processor ///////
 
-func (c *nodeContentProcessor) Prepare(structure []*manifestadapter.Node) {
+func (c *nodeContentProcessor) Prepare(structure []*manifest.Node) {
 	c.rwLock.Lock()
 	defer c.rwLock.Unlock()
 	for _, node := range structure {
@@ -108,10 +108,10 @@ func (c *nodeContentProcessor) Prepare(structure []*manifestadapter.Node) {
 	}
 }
 
-func (c *nodeContentProcessor) Process(ctx context.Context, b *bytes.Buffer, r Reader, n *manifestadapter.Node) error {
-	// manifestadapter.Node content by priority
+func (c *nodeContentProcessor) Process(ctx context.Context, b *bytes.Buffer, r Reader, n *manifest.Node) error {
+	// manifest.Node content by priority
 	var nc []*docContent
-	nFullName := n.FullName("/")
+	nFullName := n.FullName()
 	// 1. Process Source
 	if len(n.Source) > 0 {
 		if dc := getCachedContent(n); dc != nil {
@@ -187,7 +187,7 @@ func (c *nodeContentProcessor) Process(ctx context.Context, b *bytes.Buffer, r R
 	return nil
 }
 
-func (c *nodeContentProcessor) addSourceLocation(node *manifestadapter.Node) {
+func (c *nodeContentProcessor) addSourceLocation(node *manifest.Node) {
 	if node.Source != "" {
 		c.sourceLocations[node.Source] = append(c.sourceLocations[node.Source], node)
 	} else if len(node.MultiSource) > 0 {
@@ -195,19 +195,19 @@ func (c *nodeContentProcessor) addSourceLocation(node *manifestadapter.Node) {
 			c.sourceLocations[s] = append(c.sourceLocations[s], node)
 		}
 	} else if len(node.Properties) > 0 {
-		if val, found := node.Properties[manifestadapter.ContainerNodeSourceLocation]; found {
+		if val, found := node.Properties[manifest.ContainerNodeSourceLocation]; found {
 			if sl, ok := val.(string); ok {
 				c.sourceLocations[sl] = append(c.sourceLocations[sl], node)
-				delete(node.Properties, manifestadapter.ContainerNodeSourceLocation)
+				delete(node.Properties, manifest.ContainerNodeSourceLocation)
 			}
 		}
 	}
-	for _, childNode := range node.Nodes {
+	for _, childNode := range node.Structure {
 		c.addSourceLocation(childNode)
 	}
 }
 
-func (c *nodeContentProcessor) getRenderer(n *manifestadapter.Node, sourceURI string) renderer.Renderer {
+func (c *nodeContentProcessor) getRenderer(n *manifest.Node, sourceURI string) renderer.Renderer {
 	lr := c.newLinkResolver(n, sourceURI)
 	ext := urls.Ext(sourceURI)
 	if ext == "adoc" {
@@ -216,7 +216,7 @@ func (c *nodeContentProcessor) getRenderer(n *manifestadapter.Node, sourceURI st
 	return markdown.NewLinkModifierRenderer(markdown.WithLinkResolver(lr.resolveLink))
 }
 
-func (c *nodeContentProcessor) newLinkResolver(node *manifestadapter.Node, sourceURI string) *linkResolver {
+func (c *nodeContentProcessor) newLinkResolver(node *manifest.Node, sourceURI string) *linkResolver {
 	return &linkResolver{
 		nodeContentProcessor: c,
 		node:                 node,
@@ -224,11 +224,11 @@ func (c *nodeContentProcessor) newLinkResolver(node *manifestadapter.Node, sourc
 	}
 }
 
-func getCachedContent(n *manifestadapter.Node) *docContent {
+func getCachedContent(n *manifest.Node) *docContent {
 	if len(n.Properties) > 0 {
-		if val, found := n.Properties[manifestadapter.CachedNodeContent]; found {
+		if val, found := n.Properties[manifest.CachedNodeContent]; found {
 			if dc, ok := val.(*docContent); ok {
-				delete(n.Properties, manifestadapter.CachedNodeContent)
+				delete(n.Properties, manifest.CachedNodeContent)
 				return dc
 			}
 		}
@@ -440,7 +440,7 @@ func (l *linkResolver) rewriteDestination(link *linkInfo) error {
 			}
 		}
 		if link.destinationNode != nil {
-			dnPath := strings.ToLower(link.destinationNode.FullName("/"))
+			dnPath := strings.ToLower(link.destinationNode.FullName())
 			// prepare HUGO Pretty URLs - https://gohugo.io/content-management/urls/#pretty-urls
 			if strings.HasSuffix(strings.ToLower(dnPath), ".md") {
 				dnPath = dnPath[:len(dnPath)-3]
@@ -493,7 +493,7 @@ func (l *linkResolver) rewriteDestination(link *linkInfo) error {
 	return nil
 }
 
-func (l *linkResolver) getNodesBySource(source string) ([]*manifestadapter.Node, bool) {
+func (l *linkResolver) getNodesBySource(source string) ([]*manifest.Node, bool) {
 	l.rwLock.RLock()
 	defer l.rwLock.RUnlock()
 	nl, ok := l.sourceLocations[source]
@@ -516,16 +516,16 @@ func downloadEmbeddable(u *url.URL) bool {
 }
 
 // findVisibleNode returns
-// - the node if it is a document manifestadapter.Node
-// - first container node that contains index file if the manifestadapter.Node is container
+// - the node if it is a document manifest.Node
+// - first container node that contains index file if the manifest.Node is container
 // - nil if no container node with index file found
 // otherwise link will display empty page
-func findVisibleNode(n *manifestadapter.Node) *manifestadapter.Node {
-	if n == nil || n.IsDocument() {
+func findVisibleNode(n *manifest.Node) *manifest.Node {
+	if (n == nil || n.Path == "") || n.IsDocument() {
 		return n
 	}
-	for _, ch := range n.Nodes {
-		if ch.Name == "_index.md" {
+	for _, ch := range n.Structure {
+		if ch.Name() == "_index.md" {
 			return n
 		}
 	}
@@ -550,12 +550,12 @@ func swapPaths(path string, newPath string) bool {
 // in root, e.g. "../../__resources/image.png", where root is "__resources".
 // If root is document root path, destinations are paths from the root,
 // e.g. "/__resources/image.png", where root is "/__resources".
-func buildDownloadDestination(node *manifestadapter.Node, resourceName, root string) string {
+func buildDownloadDestination(node *manifest.Node, resourceName, root string) string {
 	if strings.HasPrefix(root, "/") {
 		return root + "/" + resourceName
 	}
 	resourceRelPath := fmt.Sprintf("%s/%s", root, resourceName)
-	parentsSize := len(node.Parents())
+	parentsSize := len(strings.Split(node.Path, "/"))
 	for ; parentsSize > 1; parentsSize-- {
 		resourceRelPath = "../" + resourceRelPath
 	}
@@ -586,14 +586,14 @@ func (f *frontmatterProcessor) processFrontmatter(docFrontmatter map[string]inte
 	var err error
 	// 1 front matter from doc node
 	if val, ok := f.node.Properties["frontmatter"]; ok {
-		if nodeMeta, err = GetFrontmatter(val, f.node.FullName("/")); err != nil {
+		if nodeMeta, err = GetFrontmatter(val, f.node.FullName()); err != nil {
 			return nil, err
 		}
 	}
 	// 2 front matter from doc node parent (only if the current one is section file)
-	if f.node.Name == "_index.md" && f.node.Parent() != nil {
+	if f.node.Name() == "_index.md" && (f.node.Parent() != nil && f.node.Parent().Path != "") {
 		if val, ok := f.node.Parent().Properties["frontmatter"]; ok {
-			if parentMeta, err = GetFrontmatter(val, f.node.Path("/")); err != nil {
+			if parentMeta, err = GetFrontmatter(val, f.node.Path); err != nil {
 				return nil, err
 			}
 		}
@@ -618,9 +618,9 @@ func (f *frontmatterProcessor) processFrontmatter(docFrontmatter map[string]inte
 // as a title - removing `-`, `_`, `.md` and converting to title
 // case.
 func (f *frontmatterProcessor) getNodeTitle() string {
-	title := f.node.Name
-	if f.node.Parent() != nil && f.nodeIsIndexFile(f.node.Name) {
-		title = f.node.Parent().Name
+	title := f.node.Name()
+	if (f.node.Parent() != nil && f.node.Parent().Path != "") && f.nodeIsIndexFile(f.node.Name()) {
+		title = f.node.Parent().Name()
 	}
 	title = strings.TrimSuffix(title, ".md")
 	title = strings.ReplaceAll(title, "_", " ")

@@ -1,4 +1,4 @@
-package manifestadapter
+package manifest
 
 // ParsingOptions Options that are given to the parser in the api package
 type ParsingOptions struct {

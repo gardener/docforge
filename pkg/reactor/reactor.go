@@ -9,14 +9,11 @@ package reactor
 import (
 	"context"
 	"fmt"
-	"io"
 	"net/http"
-	"os"
 	"sync"
 
 	"github.com/gardener/docforge/pkg/jobs"
 	"github.com/gardener/docforge/pkg/manifest"
-	"github.com/gardener/docforge/pkg/manifestadapter"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/gardener/docforge/pkg/writers"
 	"k8s.io/klog/v2"
@@ -73,7 +70,7 @@ type Reactor struct {
 	ValidatorTasks   *jobs.JobQueue
 	// reactorWaitGroup used to determine when all parallel tasks are done
 	reactorWaitGroup *sync.WaitGroup
-	sources          map[string][]*manifestadapter.Node
+	sources          map[string][]*manifest.Node
 }
 
 // NewReactor creates a Reactor from Config
@@ -135,7 +132,7 @@ func NewReactor(o Config) (*Reactor, error) {
 		GitHubInfoTasks:  ghInfoTasks,
 		ValidatorTasks:   validatorTasks,
 		reactorWaitGroup: reactorWG,
-		sources:          make(map[string][]*manifestadapter.Node),
+		sources:          make(map[string][]*manifest.Node),
 	}
 	return r, nil
 }
@@ -143,64 +140,23 @@ func NewReactor(o Config) (*Reactor, error) {
 // Run starts build operation on documentation
 func (r *Reactor) Run(ctx context.Context, url string) error {
 	ctx, cancel := context.WithCancel(ctx)
-	manifest := &manifestadapter.Documentation{}
+	m := &manifest.Node{}
 	var err error
 	defer func() {
-		if r.Config.Resolve {
-			if err := printResolved(manifest, os.Stdout); err != nil {
-				klog.Errorf("failed to print resolved manifest: %s", err.Error())
-			}
-		}
 		cancel()
 		if r.Config.DryRun {
 			r.Config.DryRunWriter.Flush()
 		}
 	}()
-
-	if manifest, err = r.ResolveManifest(ctx, url); err != nil {
+	if m, err = manifest.ResolveManifest(url, r.ResourceHandlers.Get(url)); err != nil {
 		return fmt.Errorf("failed to resolve manifest %s. %+v", r.Config.ManifestPath, err)
 	}
-
+	if r.Config.Resolve {
+		fmt.Println(m)
+	}
 	klog.V(4).Info("Building documentation structure\n\n")
-	if err = r.Build(ctx, manifest.Structure); err != nil {
+	if err = r.Build(ctx, m.Structure); err != nil {
 		return err
 	}
-
-	return nil
-}
-
-// ResolveManifest builds a documentation node structure from a given url
-func (r *Reactor) ResolveManifest(ctx context.Context, url string) (*manifestadapter.Documentation, error) {
-	// TODO: handle fileTree that has blob or forgot master in it instead of tree because it panics
-	fc := manifest.FileCollector{}
-	var (
-		files []*manifest.Node
-		err   error
-		root  *manifestadapter.Node
-	)
-	if err = manifest.ResolveManifest(url, r.ResourceHandlers.Get(url), &fc); err != nil {
-		return nil, err
-	}
-	if files, err = fc.Extract(); err != nil {
-		return nil, err
-	}
-	if root, err = manifestadapter.ConstructDocTree(files); err != nil {
-		return nil, err
-	}
-	for _, node := range root.Nodes {
-		node.SetParent(nil)
-	}
-	out := &manifestadapter.Documentation{}
-	out.Structure = root.Nodes
-	return out, err
-}
-
-func printResolved(manifest *manifestadapter.Documentation, writer io.Writer) error {
-	s, err := manifestadapter.Serialize(manifest)
-	if err != nil {
-		return fmt.Errorf("failed to serialize the manifest. %+v", err)
-	}
-	_, _ = writer.Write([]byte(s))
-	_, _ = writer.Write([]byte("\n\n"))
 	return nil
 }
