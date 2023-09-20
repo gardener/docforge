@@ -1,5 +1,6 @@
 # docforge
 
+
 ![Docforge Logo](docs/images/gardener-docforge-logo.svg)
 
 [![reuse compliant](https://reuse.software/badge/reuse-compliant.svg)](https://reuse.software/)
