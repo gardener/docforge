@@ -121,19 +121,27 @@ func (v *validatorWorker) Validate(ctx context.Context, task interface{}) error 
 			resp *http.Response
 			err  error
 		)
-		// on error status code different from authorization errors
-		// retry GET
-		if req, err = http.NewRequestWithContext(ctx, http.MethodGet, absLinkDestination, nil); err != nil {
-			return fmt.Errorf("failed to prepare GET validation request: %v", err)
+		// try HEAD
+		if req, err = http.NewRequestWithContext(ctx, http.MethodHead, absLinkDestination, nil); err != nil {
+			return fmt.Errorf("failed to prepare HEAD validation request: %v", err)
 		}
 		if resp, err = doValidation(req, client); err != nil {
 			klog.Warningf("failed to validate absolute link for %s from source %s: %v\n",
 				vTask.LinkDestination, vTask.ContentSourcePath, err)
 		} else if resp.StatusCode >= 400 && resp.StatusCode != http.StatusForbidden && resp.StatusCode != http.StatusUnauthorized {
-			klog.Warningf("failed to validate absolute link for %s from source %s: %v\n",
-				vTask.LinkDestination, vTask.ContentSourcePath, fmt.Errorf("HTTP Status %s", resp.Status))
+			// on error status code different from authorization errors
+			// retry GET
+			if req, err = http.NewRequestWithContext(ctx, http.MethodGet, absLinkDestination, nil); err != nil {
+				return fmt.Errorf("failed to prepare GET validation request: %v", err)
+			}
+			if resp, err = doValidation(req, client); err != nil {
+				klog.Warningf("failed to validate absolute link for %s from source %s: %v\n",
+					vTask.LinkDestination, vTask.ContentSourcePath, err)
+			} else if resp.StatusCode >= 400 && resp.StatusCode != http.StatusForbidden && resp.StatusCode != http.StatusUnauthorized {
+				klog.Warningf("failed to validate absolute link for %s from source %s: %v\n",
+					vTask.LinkDestination, vTask.ContentSourcePath, fmt.Errorf("HTTP Status %s", resp.Status))
+			}
 		}
-
 		v.validated.add(unifiedURL)
 		return nil
 	}
