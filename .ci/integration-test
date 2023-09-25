@@ -89,11 +89,11 @@ resourceMappings:
   'https://github.com/gardener/docforge': ${docforge_repo_path}
 " > "$int_test_config_file"
 
-
 trap cleanup EXIT ERR INT TERM
 function cleanup {
   rm "$int_test_config_file"
 }
+
 rm -rf "${int_test_output_tree_dir}"
 rm -rf "${int_test_output_metadata_dir}"
 

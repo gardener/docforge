@@ -19,17 +19,17 @@
   properties:
     title: Blogs
     aggregate: true
-  path: foo/bar
+  path: foo/bar/one
 - file: _index.md
   type: file
   source: https://test/one/two/_index.md
   properties:
     aggregate: false
-  path: foo/bar
+  path: foo/bar/two
 - file: _index.md
   type: file
   source: https://foo.com/one/two/_index.md
-  path: foo/bar
+  path: foo/bar/three
 - file: renamed.md
   type: file
   source: https://foo.com/one/two/_index.md

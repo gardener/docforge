@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"testing"
 
 	_ "embed"
 
@@ -18,6 +19,11 @@ import (
 	. "github.com/onsi/gomega"
 	"gopkg.in/yaml.v2"
 )
+
+func TestManifest(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Manifest Suite")
+}
 
 //go:embed examples/*
 var examples embed.FS
@@ -48,39 +54,29 @@ func (f *fakeFiles) FileTreeFromURL(url string) ([]string, error) {
 	} else {
 		return res, nil
 	}
-	// files["/docs/development"] = []string{"local-setup.md"}
-	// files["/docs/operations"] = []string{"local-setup.md"}
-	// files["/docs/usage"] = []string{"local-setup.md"}
-	// files["/docs/tutorials"] = []string{"local-setup.md"}
+}
 
-	// switch url {
-	// case "https://test/website":
-	// 	return []string{"blog/2023/_index.md"}, nil
-	// case "pathValid":
-	// 	return []string{"pV/1/a", "pV/1/2/A"}, nil
-	// case "pathYataa":
-	// 	return []string{"pY/b", "pY/1/B"}, nil
-	// case "yataa2":
-	// 	return []string{"pY/1/C"}, nil
-	// default:
-	// 	return []string{}, nil
-	// }
-
+func collectFiles(n *manifest.Node) []*manifest.Node {
+	if n.Type == "file" {
+		n.RemoveParent()
+		return []*manifest.Node{n}
+	}
+	out := []*manifest.Node{}
+	for _, child := range n.Structure {
+		out = append(out, collectFiles(child)...)
+	}
+	return out
 }
 
 func buildManifestFiles(exampleName string) ([]*manifest.Node, error) {
 	var (
-		err   error
-		files []*manifest.Node
+		err  error
+		root *manifest.Node
 	)
-	fc := manifest.FileCollector{}
-	if err := manifest.ResolveManifest(exampleName, &fakeFiles{}, &fc); err != nil {
+	if root, err = manifest.ResolveManifest(exampleName, &fakeFiles{}); err != nil {
 		return nil, err
 	}
-	if files, err = fc.Extract(); err != nil {
-		return nil, err
-	}
-	return files, nil
+	return collectFiles(root), nil
 }
 
 var _ = Describe("Manifest test", func() {
@@ -107,5 +103,4 @@ var _ = Describe("Manifest test", func() {
 			Entry("covering manifest use cases", "manifest"),
 		)
 	})
-
 })

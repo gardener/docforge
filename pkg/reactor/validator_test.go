@@ -197,7 +197,7 @@ var _ = Describe("Validator", func() {
 				})
 				It("retries on error status code", func() {
 					Expect(err).NotTo(HaveOccurred())
-					Expect(httpClient.DoCallCount()).To(Equal(1))
+					Expect(httpClient.DoCallCount()).To(Equal(2))
 				})
 			})
 			Context("http client returns error on retry", func() {
@@ -210,7 +210,7 @@ var _ = Describe("Validator", func() {
 				})
 				It("succeeded", func() {
 					Expect(err).NotTo(HaveOccurred())
-					Expect(httpClient.DoCallCount()).To(Equal(1))
+					Expect(httpClient.DoCallCount()).To(Equal(2))
 				})
 			})
 			Context("http client returns error code on retry", func() {
@@ -222,7 +222,7 @@ var _ = Describe("Validator", func() {
 				})
 				It("succeeded", func() {
 					Expect(err).NotTo(HaveOccurred())
-					Expect(httpClient.DoCallCount()).To(Equal(1))
+					Expect(httpClient.DoCallCount()).To(Equal(2))
 				})
 			})
 			When("resource handlers for the link is found", func() {

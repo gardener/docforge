@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/gardener/docforge/pkg/jobs"
-	"github.com/gardener/docforge/pkg/manifestadapter"
+	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/reactor"
 	"github.com/gardener/docforge/pkg/reactor/reactorfakes"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
@@ -65,10 +65,13 @@ var _ = Describe("GithubInfo", func() {
 				writer.WriteReturns(nil)
 				ctx = context.Background()
 				task = &reactor.GitHubInfoTask{
-					Node: &manifestadapter.Node{
-						Name:        "fake_name",
-						Source:      "fake_source",
-						MultiSource: []string{"fake_multi_source"},
+					Node: &manifest.Node{
+						Type: "file",
+						FileType: manifest.FileType{
+							File:        "fake_name",
+							Source:      "fake_source",
+							MultiSource: []string{"fake_multi_source"},
+						},
 					},
 				}
 			})
@@ -88,7 +91,7 @@ var _ = Describe("GithubInfo", func() {
 				Expect(writer.WriteCallCount()).To(Equal(1))
 				name, path, content, node := writer.WriteArgsForCall(0)
 				Expect(node).NotTo(BeNil())
-				Expect(node.Name).To(Equal("fake_name"))
+				Expect(node.Name()).To(Equal("fake_name"))
 				Expect(node.Source).To(Equal("fake_source"))
 				Expect(path).To(Equal(""))
 				Expect(name).To(Equal("fake_name"))
@@ -114,7 +117,7 @@ var _ = Describe("GithubInfo", func() {
 			})
 			Context("node without sources", func() {
 				BeforeEach(func() {
-					task = &reactor.GitHubInfoTask{Node: &manifestadapter.Node{Name: "folder"}}
+					task = &reactor.GitHubInfoTask{Node: &manifest.Node{Type: "dir", DirType: manifest.DirType{Dir: "folder"}}}
 				})
 				It("succeeded", func() {
 					Expect(err).NotTo(HaveOccurred())
@@ -190,8 +193,8 @@ var _ = Describe("GithubInfo", func() {
 			When("writing GitHub infos", func() {
 				JustBeforeEach(func() {
 					gitHubInfoTasks.Start(ctx)
-					Expect(gitHubInfo.WriteGitHubInfo(&manifestadapter.Node{Name: "name1", Source: "source1"})).To(BeTrue())
-					Expect(gitHubInfo.WriteGitHubInfo(&manifestadapter.Node{Name: "name2", Source: "source2"})).To(BeTrue())
+					Expect(gitHubInfo.WriteGitHubInfo(&manifest.Node{Type: "file", FileType: manifest.FileType{File: "name1", Source: "source1"}})).To(BeTrue())
+					Expect(gitHubInfo.WriteGitHubInfo(&manifest.Node{Type: "file", FileType: manifest.FileType{File: "name2", Source: "source2"}})).To(BeTrue())
 				})
 				It("writes GitHub info successfully", func() {
 					wg.Wait()
@@ -206,7 +209,7 @@ var _ = Describe("GithubInfo", func() {
 						gitHubInfoTasks.Stop()
 					})
 					It("skips the tasks", func() {
-						Expect(gitHubInfo.WriteGitHubInfo(&manifestadapter.Node{Name: "name3", Source: "source3"})).To(BeFalse())
+						Expect(gitHubInfo.WriteGitHubInfo(&manifest.Node{Type: "file", FileType: manifest.FileType{File: "name3", Source: "source3"}})).To(BeFalse())
 						Expect(gitHubInfoTasks.GetProcessedTasksCount()).To(Equal(2))
 					})
 				})

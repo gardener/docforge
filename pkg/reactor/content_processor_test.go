@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gardener/docforge/pkg/manifestadapter"
+	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/gardener/docforge/pkg/resourcehandlers/resourcehandlersfakes"
 	"github.com/stretchr/testify/assert"
@@ -17,27 +17,34 @@ import (
 
 // TODO: This is a flaky test. In the future the ResourceHandler should be mocked.
 func Test_processLink(t *testing.T) {
-	nodeA := &manifestadapter.Node{
-		Name:   "node_A.md",
-		Source: "https://github.com/gardener/gardener/blob/v1.10.0/docs/README.md",
+
+	nodeB := &manifest.Node{
+		FileType: manifest.FileType{
+			File:   "node_B.md",
+			Source: "https://github.com/gardener/gardener/blob/v1.10.0/docs/extensions/overview.md",
+		},
+		Type: "file",
+		Path: ".",
 	}
-	nodeB := &manifestadapter.Node{
-		Name:   "node_B.md",
-		Source: "https://github.com/gardener/gardener/blob/v1.10.0/docs/extensions/overview.md",
+	nodeA := &manifest.Node{
+		FileType: manifest.FileType{
+			File:   "node_A.md",
+			Source: "https://github.com/gardener/gardener/blob/v1.10.0/docs/README.md",
+		},
+		Type: "file",
+		Path: ".",
 	}
-	nodeA.Nodes = []*manifestadapter.Node{nodeB}
-	nodeA.SetParentsDownwards()
 
 	testCases := []struct {
 		name              string
-		node              *manifestadapter.Node
+		node              *manifest.Node
 		destination       string
 		contentSourcePath string
 		wantDestination   string
 		wantErr           error
 		mutate            func(c *nodeContentProcessor)
 		embeddable        bool
-		sourceLocations   map[string][]*manifestadapter.Node
+		sourceLocations   map[string][]*manifest.Node
 	}{
 		// skipped links
 		{
@@ -90,8 +97,10 @@ func Test_processLink(t *testing.T) {
 		},
 		{
 			name: "Relative link to resource is embeddable",
-			node: &manifestadapter.Node{
-				Source: "https://github.com/gardener/gardener/blob/v1.10.0/docs/README.md",
+			node: &manifest.Node{
+				FileType: manifest.FileType{
+					Source: "https://github.com/gardener/gardener/blob/v1.10.0/docs/README.md",
+				},
 			},
 			destination:       "./image.png",
 			contentSourcePath: "https://github.com/gardener/gardener/blob/v1.10.0/docs/README.md",
@@ -107,8 +116,10 @@ func Test_processLink(t *testing.T) {
 		},
 		{
 			name: "Relative link to resource NOT in download scope",
-			node: &manifestadapter.Node{
-				Source: "https://github.com/gardener/gardener/blob/v1.10.0/docs/README.md",
+			node: &manifest.Node{
+				FileType: manifest.FileType{
+					Source: "https://github.com/gardener/gardener/blob/v1.10.0/docs/README.md",
+				},
 			},
 			destination:       "../image.png",
 			contentSourcePath: "https://github.com/gardener/gardener/blob/v1.10.0/docs/README.md",
@@ -131,8 +142,10 @@ func Test_processLink(t *testing.T) {
 		},
 		{
 			name: "Absolute link to resource in download scope",
-			node: &manifestadapter.Node{
-				Source: "https://github.com/gardener/gardener/blob/v1.10.0/docs/README.md",
+			node: &manifest.Node{
+				FileType: manifest.FileType{
+					Source: "https://github.com/gardener/gardener/blob/v1.10.0/docs/README.md",
+				},
 			},
 			destination:       "https://github.com/gardener/gardener/blob/v1.10.0/docs/image.png",
 			contentSourcePath: "https://github.com/gardener/gardener/blob/v1.10.0/docs/README.md",
@@ -154,9 +167,9 @@ func Test_processLink(t *testing.T) {
 			node:              nodeA,
 			destination:       nodeB.Source,
 			contentSourcePath: nodeA.Source,
-			wantDestination:   "./node_B.md",
+			wantDestination:   "node_B.md",
 			wantErr:           nil,
-			sourceLocations:   map[string][]*manifestadapter.Node{nodeA.Source: {nodeA}, nodeB.Source: {nodeB}},
+			sourceLocations:   map[string][]*manifest.Node{nodeA.Source: {nodeA}, nodeB.Source: {nodeB}},
 		},
 		{
 			name:              "Relative link to document NOT in download scope and NOT from structure",
@@ -182,8 +195,10 @@ func Test_processLink(t *testing.T) {
 		},
 		{
 			name: "Relative link to resource in download scope with rewrites",
-			node: &manifestadapter.Node{
-				Source: "https://github.com/gardener/gardener/blob/v1.10.0/docs/README.md",
+			node: &manifest.Node{
+				FileType: manifest.FileType{
+					Source: "https://github.com/gardener/gardener/blob/v1.10.0/docs/README.md",
+				},
 			},
 			destination:       "./image.png",
 			contentSourcePath: "https://github.com/gardener/gardener/blob/v1.10.0/docs/README.md",
