@@ -6,14 +6,14 @@ structure:
     - dir: level3-container-node1
       structure:
       - file: fileY1
-        source: ./tested-doc/merge-test/testFile.md
+        source: ./testFile.md
       - file: fileY2
-        source: ./tested-doc/merge-test/testFile.md
+        source: ./testFile.md
   - dir: level2-container-node2
     structure:
     - file: fileY
-      source: ./tested-doc/merge-test/testFile.md
+      source: ./testFile.md
 - dir: level1-container-node2
   structure:
   - file: fileY
-    source: ./tested-doc/merge-test/testFile.md
+    source: ./testFile.md

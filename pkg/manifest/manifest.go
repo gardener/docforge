@@ -20,13 +20,15 @@ func processManifest(f nodeTransformation, node *Node, parent *Node, manifest *N
 	if node.Manifest != "" {
 		manifestNode = node
 	}
-	for _, child := range node.Structure {
-		if err := processManifest(f, child, node, manifestNode, fs); err != nil {
+	i := 0
+	for i < len(node.Structure) {
+		if err := processManifest(f, node.Structure[i], node, manifestNode, fs); err != nil {
 			if node.Manifest != "" {
 				return fmt.Errorf("manifest %s -> %w", node.Manifest, err)
 			}
 			return err
 		}
+		i++
 	}
 	return nil
 }
@@ -49,6 +51,13 @@ func loadManifestStructure(node *Node, parent *Node, manifest *Node, fs FileSour
 	}
 	if err = yaml.Unmarshal([]byte(content), node); err != nil {
 		return fmt.Errorf("can't parse manifest %s yaml content : %w", node.Manifest, err)
+	}
+	return nil
+}
+
+func moveManifestContentIntoTree(node *Node, parent *Node, manifest *Node, fs FileSource) error {
+	if node.Type != "manifest" {
+		return nil
 	}
 	if parent != nil {
 		parent.Structure = append(parent.Structure, node.Structure...)
@@ -300,6 +309,9 @@ func ResolveManifest(url string, fs FileSource) (*Node, error) {
 		return nil, err
 	}
 	if err := processManifest(extractFilesFromNode, &manifest, nil, &manifest, fs); err != nil {
+		return nil, err
+	}
+	if err := processManifest(moveManifestContentIntoTree, &manifest, nil, &manifest, fs); err != nil {
 		return nil, err
 	}
 	if err := processManifest(mergeFolders, &manifest, nil, &manifest, fs); err != nil {
