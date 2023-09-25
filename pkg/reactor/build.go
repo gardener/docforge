@@ -6,27 +6,28 @@ package reactor
 
 import (
 	"context"
-	"github.com/gardener/docforge/pkg/api"
-	"github.com/hashicorp/go-multierror"
-	"k8s.io/klog/v2"
 	"net/url"
 	"time"
+
+	"github.com/gardener/docforge/pkg/manifest"
+	"github.com/hashicorp/go-multierror"
+	"k8s.io/klog/v2"
 )
 
-func tasks(nodes []*api.Node, t *[]interface{}) {
+func tasks(nodes []*manifest.Node, t *[]interface{}) {
 	for _, node := range nodes {
 		*t = append(*t, &DocumentWorkTask{
 			Node: node,
 		})
-		if node.Nodes != nil {
-			tasks(node.Nodes, t)
+		if node.Structure != nil {
+			tasks(node.Structure, t)
 		}
 	}
 }
 
 // Build starts the build operation for a document structure root
 // in a locality domain
-func (r *Reactor) Build(ctx context.Context, documentationStructure []*api.Node) error {
+func (r *Reactor) Build(ctx context.Context, documentationStructure []*manifest.Node) error {
 	var errors *multierror.Error
 
 	klog.V(6).Infoln("Starting download tasks")
@@ -69,7 +70,10 @@ func (r *Reactor) Build(ctx context.Context, documentationStructure []*api.Node)
 
 	for _, rhHost := range []string{"https://github.com", "https://github.tools.sap", "https://github.wdf.sap.corp"} {
 		rh := r.ResourceHandlers.Get(rhHost)
-		u, _ := url.Parse(rhHost)
+		u, err := url.Parse(rhHost)
+		if err != nil {
+			return err
+		}
 		if rh != nil {
 			l, rr, rt, err := rh.GetRateLimit(ctx)
 			if err != nil {

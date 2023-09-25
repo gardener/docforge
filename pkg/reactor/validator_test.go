@@ -8,16 +8,17 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
+	"net/http"
+	"net/url"
+	"sync"
+
 	"github.com/gardener/docforge/pkg/jobs"
 	"github.com/gardener/docforge/pkg/reactor"
 	"github.com/gardener/docforge/pkg/resourcehandlers/resourcehandlersfakes"
 	"github.com/gardener/docforge/pkg/util/httpclient/httpclientfakes"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"io"
-	"net/http"
-	"net/url"
-	"sync"
 )
 
 var _ = Describe("Validator", func() {

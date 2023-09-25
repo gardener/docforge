@@ -12,7 +12,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/gardener/docforge/pkg/api"
+	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/util/httpclient"
 )
 
@@ -28,28 +28,20 @@ func (e ErrResourceNotFound) Error() string {
 //
 //counterfeiter:generate . ResourceHandler
 type ResourceHandler interface {
+	manifest.FileSource
+
 	// Accept accepts manifests if this ResourceHandler can manage the type of resources
 	// identified by the URI scheme of uri.
 	Accept(uri string) bool
-	// ResolveNodeSelector resolves the NodeSelector rules of a Node into sub-nodes
-	// hierarchy (Node.Nodes)
-	ResolveNodeSelector(ctx context.Context, node *api.Node) ([]*api.Node, error)
 	// Read a resource content at uri into a byte array
 	Read(ctx context.Context, uri string) ([]byte, error)
 	// ReadGitInfo reads git info for the resource
 	ReadGitInfo(ctx context.Context, uri string) ([]byte, error)
-	// ResourceName returns a breakdown of a resource name in the link, consisting
-	// of name and potentially and extension without the dot.
-	ResourceName(link string) (string, string)
-	// BuildAbsLink should return an absolute path of a relative link in regard to the provided
-	// source
-	BuildAbsLink(source, link string) (string, error)
+
 	// GetRawFormatLink returns a link to an embeddable object (image) in raw format.
 	// If the provided link is not referencing an embeddable object, the function
 	// returns absLink without changes.
 	GetRawFormatLink(absLink string) (string, error)
-	// ResolveDocumentation for a given uri
-	ResolveDocumentation(ctx context.Context, uri string) (*api.Documentation, error)
 	// GetClient returns an HTTP client for accessing handler's resources
 	GetClient() httpclient.Client
 	// GetRateLimit returns rate limit and remaining API calls for the resource handler backend (e.g. GitHub RateLimit)

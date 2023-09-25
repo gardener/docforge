@@ -7,9 +7,9 @@ package reactor
 import (
 	"testing"
 
+	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/resourcehandlers/resourcehandlersfakes"
 
-	"github.com/gardener/docforge/pkg/api"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/gardener/docforge/pkg/util/tests"
 )
@@ -19,35 +19,40 @@ func init() {
 }
 
 var (
-	apiRefNode = &api.Node{
-		Name: "apiRef",
+	apiRefNode = &manifest.Node{
+		FileType: manifest.FileType{File: "apiRef"},
 	}
 
-	archNode = &api.Node{
-		Name: "arch",
-		Nodes: []*api.Node{
-			apiRefNode,
-		},
+	archNode = &manifest.Node{
+		DirType: manifest.DirType{
+			Dir: "arch",
+			Structure: []*manifest.Node{
+				apiRefNode,
+			}},
 	}
 
-	blogNode = &api.Node{
-		Name: "blog",
+	blogNode = &manifest.Node{
+		FileType: manifest.FileType{File: "blog"},
 	}
 
-	tasksNode = &api.Node{
-		Name: "tasks",
+	tasksNode = &manifest.Node{
+		FileType: manifest.FileType{File: "tasks"},
 	}
 )
 
-func createNewDocumentation() *api.Documentation {
-	return &api.Documentation{
-		Structure: []*api.Node{
-			{
-				Name: "rootNode",
-				Nodes: []*api.Node{
-					archNode,
-					blogNode,
-					tasksNode,
+func createNewDocumentation() *manifest.Node {
+	return &manifest.Node{
+		DirType: manifest.DirType{
+			Structure: []*manifest.Node{
+				{
+					DirType: manifest.DirType{
+						Dir: "rootNode",
+						Structure: []*manifest.Node{
+							archNode,
+							blogNode,
+							tasksNode,
+						},
+					},
 				},
 			},
 		},
@@ -57,7 +62,7 @@ func createNewDocumentation() *api.Documentation {
 func Test_tasks(t *testing.T) {
 	newDoc := createNewDocumentation()
 	type args struct {
-		node  *api.Node
+		node  *manifest.Node
 		tasks []interface{}
 		// lds   localityDomain
 	}
@@ -95,15 +100,15 @@ func Test_tasks(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			fakeRH := resourcehandlersfakes.FakeResourceHandler{}
 			rhs := resourcehandlers.NewRegistry(&fakeRH)
-			tasks([]*api.Node{tc.args.node}, &tc.args.tasks)
+			tasks([]*manifest.Node{tc.args.node}, &tc.args.tasks)
 
 			if len(tc.args.tasks) != len(tc.expectedTasks) {
 				t.Errorf("expected number of tasks %d != %d", len(tc.expectedTasks), len(tc.args.tasks))
 			}
 
 			for i, task := range tc.args.tasks {
-				if task.(*DocumentWorkTask).Node.Name != tc.expectedTasks[i].Node.Name {
-					t.Errorf("expected task with Node name %s != %s", task.(*DocumentWorkTask).Node.Name, tc.expectedTasks[i].Node.Name)
+				if task.(*DocumentWorkTask).Node.Name() != tc.expectedTasks[i].Node.Name() {
+					t.Errorf("expected task with Node name %s != %s", task.(*DocumentWorkTask).Node.Name(), tc.expectedTasks[i].Node.Name())
 				}
 			}
 			rhs.Remove()

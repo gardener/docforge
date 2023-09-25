@@ -13,7 +13,7 @@ import (
 	"github.com/gardener/docforge/cmd/completion"
 	"github.com/gardener/docforge/cmd/gendocs"
 	"github.com/gardener/docforge/cmd/version"
-	"github.com/gardener/docforge/pkg/api"
+	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/reactor"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/spf13/cobra"
@@ -33,7 +33,7 @@ type options struct {
 	reactor.Options                         `mapstructure:",squash"`
 	reactor.Hugo                            `mapstructure:",squash"`
 	resourcehandlers.ResourceHandlerOptions `mapstructure:",squash"`
-	api.ParsingOptions                      `mapstructure:",squash"`
+	manifest.ParsingOptions                 `mapstructure:",squash"`
 }
 
 var vip *viper.Viper

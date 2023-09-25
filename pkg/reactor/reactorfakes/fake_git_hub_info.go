@@ -7,15 +7,15 @@ package reactorfakes
 import (
 	"sync"
 
-	"github.com/gardener/docforge/pkg/api"
+	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/reactor"
 )
 
 type FakeGitHubInfo struct {
-	WriteGitHubInfoStub        func(*api.Node) bool
+	WriteGitHubInfoStub        func(*manifest.Node) bool
 	writeGitHubInfoMutex       sync.RWMutex
 	writeGitHubInfoArgsForCall []struct {
-		arg1 *api.Node
+		arg1 *manifest.Node
 	}
 	writeGitHubInfoReturns struct {
 		result1 bool
@@ -27,11 +27,11 @@ type FakeGitHubInfo struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeGitHubInfo) WriteGitHubInfo(arg1 *api.Node) bool {
+func (fake *FakeGitHubInfo) WriteGitHubInfo(arg1 *manifest.Node) bool {
 	fake.writeGitHubInfoMutex.Lock()
 	ret, specificReturn := fake.writeGitHubInfoReturnsOnCall[len(fake.writeGitHubInfoArgsForCall)]
 	fake.writeGitHubInfoArgsForCall = append(fake.writeGitHubInfoArgsForCall, struct {
-		arg1 *api.Node
+		arg1 *manifest.Node
 	}{arg1})
 	stub := fake.WriteGitHubInfoStub
 	fakeReturns := fake.writeGitHubInfoReturns
@@ -52,13 +52,13 @@ func (fake *FakeGitHubInfo) WriteGitHubInfoCallCount() int {
 	return len(fake.writeGitHubInfoArgsForCall)
 }
 
-func (fake *FakeGitHubInfo) WriteGitHubInfoCalls(stub func(*api.Node) bool) {
+func (fake *FakeGitHubInfo) WriteGitHubInfoCalls(stub func(*manifest.Node) bool) {
 	fake.writeGitHubInfoMutex.Lock()
 	defer fake.writeGitHubInfoMutex.Unlock()
 	fake.WriteGitHubInfoStub = stub
 }
 
-func (fake *FakeGitHubInfo) WriteGitHubInfoArgsForCall(i int) *api.Node {
+func (fake *FakeGitHubInfo) WriteGitHubInfoArgsForCall(i int) *manifest.Node {
 	fake.writeGitHubInfoMutex.RLock()
 	defer fake.writeGitHubInfoMutex.RUnlock()
 	argsForCall := fake.writeGitHubInfoArgsForCall[i]

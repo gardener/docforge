@@ -9,29 +9,26 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io/fs"
 	"net/http"
 	"net/url"
 	"os"
 	"path"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/gardener/docforge/pkg/api"
+	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/gardener/docforge/pkg/util"
 	"github.com/gardener/docforge/pkg/util/httpclient"
 	"github.com/gardener/docforge/pkg/util/osshim"
 	"github.com/google/go-github/v43/github"
-	"github.com/hashicorp/go-multierror"
 	"k8s.io/klog/v2"
 )
 
-// GHC implements resourcehandlers.ResourceHandler interface using GitHub API with transport level persistent cache.
+// GHC implements resourcehandlers.ResourceHandler interface using GitHub manifestadapter with transport level persistent cache.
 type GHC struct {
 	client        *github.Client
 	httpClient    *http.Client
@@ -43,11 +40,11 @@ type GHC struct {
 	defBranches   map[string]string
 	muxDefBr      sync.Mutex
 	muxCnt        sync.Mutex
-	options       api.ParsingOptions
+	options       manifest.ParsingOptions
 }
 
 // NewGHC creates new GHC resource handler
-func NewGHC(client *github.Client, httpClient *http.Client, os osshim.Os, acceptedHosts []string, localMappings map[string]string, options api.ParsingOptions) resourcehandlers.ResourceHandler {
+func NewGHC(client *github.Client, httpClient *http.Client, os osshim.Os, acceptedHosts []string, localMappings map[string]string, options manifest.ParsingOptions) resourcehandlers.ResourceHandler {
 	return &GHC{
 		client:        client,
 		httpClient:    httpClient,
@@ -77,6 +74,72 @@ type GitInfo struct {
 	Path             *string        `json:"path,omitempty"`
 }
 
+//========================= manifest.FileSource ===================================================
+
+// FileTreeFromURL implements manifest.FileSource#FileTreeFromURL
+func (p *GHC) FileTreeFromURL(url string) ([]string, error) {
+	r, err := p.getResolvedResourceInfo(context.TODO(), url)
+	if err != nil {
+		return nil, err
+	}
+	if r.Type != "tree" {
+		return nil, fmt.Errorf("not a tree url: %s", r.Raw)
+	}
+	//bPrefix := fmt.Sprintf("%s://%s/%s/%s/blob/%s/%s", r.URL.Scheme, r.URL.Host, r.Owner, r.Repo, r.Ref, r.Path)
+	p.muxSHA.Lock()
+	defer p.muxSHA.Unlock()
+	t, err := p.getTree(context.TODO(), r, true)
+	if err != nil {
+		return nil, err
+	}
+	res := []string{}
+	for _, e := range t.Entries {
+		extracted := false
+		ePath := strings.TrimPrefix(*e.Path, "/")
+		for _, extractedFormat := range p.options.ExtractedFilesFormats {
+			if strings.HasSuffix(strings.ToLower(ePath), extractedFormat) {
+				extracted = true
+				break
+			}
+		}
+		// skip node if it is not a supported format
+		if *e.Type != "blob" || !extracted {
+			//klog.V(6).Infof("node selector %s skip entry %s\n", node.NodeSelector.Path, ePath)
+			continue
+		}
+		res = append(res, ePath)
+
+	}
+	return res, nil
+}
+
+// ManifestFromURL implements manifest.FileSource#ManifestFromURL
+func (p *GHC) ManifestFromURL(url string) (string, error) {
+	r, err := p.getResolvedResourceInfo(context.TODO(), url)
+	if err != nil {
+		return "", err
+	}
+	content, err := p.Read(context.TODO(), r.GetURL())
+	return string(content), err
+}
+
+// BuildAbsLink implements manifest.FileSource#BuildAbsLink
+func (p *GHC) BuildAbsLink(source, link string) (string, error) {
+	r, err := p.getResolvedResourceInfo(context.TODO(), source)
+	if err != nil {
+		return "", err
+	}
+
+	if strings.HasPrefix(link, "http") {
+		l, err := p.getResolvedResourceInfo(context.TODO(), link)
+		if err != nil {
+			return "", err
+		}
+		link = l.GetURL()
+	}
+	return p.buildAbsLink(r, link)
+}
+
 //========================= resourcehandlers.ResourceHandler ===================================================
 
 // Accept implements the resourcehandlers.ResourceHandler#Accept
@@ -91,82 +154,6 @@ func (p *GHC) Accept(uri string) bool {
 		}
 	}
 	return false
-}
-
-// ResolveDocumentation implements the resourcehandlers.ResourceHandler#ResolveDocumentation
-func (p *GHC) ResolveDocumentation(ctx context.Context, uri string) (*api.Documentation, error) {
-	r, err := p.getResolvedResourceInfo(ctx, uri)
-	if err != nil {
-		return nil, err
-	}
-	if r.Type != "blob" {
-		return nil, fmt.Errorf("not a blob url: %s", r.Raw)
-	}
-	var cnt []byte
-	if local := p.checkForLocalMapping(r); len(local) > 0 {
-		if cnt, err = p.readLocalFile(ctx, r, local); err != nil {
-			return nil, err
-		}
-	} else {
-		if cnt, err = p.readFile(ctx, r); err != nil {
-			return nil, err
-		}
-	}
-	var doc *api.Documentation
-	if doc, err = api.Parse(cnt, p.options); err != nil {
-		return nil, fmt.Errorf("failed to parse manifest: %s. %+v", uri, err)
-	}
-	n := &api.Node{Nodes: doc.Structure, NodeSelector: doc.NodeSelector}
-	n.SetParentsDownwards()
-	if err = p.resolveManifestRelativePaths(n, r); err != nil {
-		return nil, err
-	}
-	for _, el := range doc.Structure {
-		el.SetParent(nil)
-	}
-	return doc, nil
-}
-
-// ResolveNodeSelector implements the resourcehandlers.ResourceHandler#ResolveNodeSelector
-func (p *GHC) ResolveNodeSelector(ctx context.Context, node *api.Node) ([]*api.Node, error) {
-	r, err := p.getResolvedResourceInfo(ctx, node.NodeSelector.Path)
-	if err != nil {
-		return nil, err
-	}
-	if r.Type != "tree" {
-		return nil, fmt.Errorf("not a tree url: %s", r.Raw)
-	}
-	// prepare path filters
-	var pfs []*regexp.Regexp
-	if len(node.NodeSelector.ExcludePaths) > 0 {
-		for _, ep := range node.NodeSelector.ExcludePaths {
-			var rgx *regexp.Regexp
-			if rgx, err = regexp.Compile(ep); err != nil {
-				return nil, fmt.Errorf("manifest %s with invalid path exclude expression %s: %w", r.Raw, ep, err)
-			}
-			pfs = append(pfs, rgx)
-		}
-	}
-	// prepare source prefixes
-	srcBlobPrefix := fmt.Sprintf("%s://%s/%s/%s/blob/%s/%s", r.URL.Scheme, r.URL.Host, r.Owner, r.Repo, r.Ref, r.Path)
-	srcTreePrefix := fmt.Sprintf("%s://%s/%s/%s/tree/%s/%s", r.URL.Scheme, r.URL.Host, r.Owner, r.Repo, r.Ref, r.Path)
-	var vr *api.Node
-	if local := p.checkForLocalMapping(r); len(local) > 0 {
-		if vr, err = p.getLocalNodeSelectorTree(ctx, node, r, pfs, local, srcTreePrefix, srcBlobPrefix); err != nil {
-			return nil, err
-		}
-	} else {
-		if vr, err = p.getNodeSelectorTree(ctx, node, r, pfs, srcTreePrefix, srcBlobPrefix); err != nil {
-			return nil, err
-		}
-	}
-	vr.SetParentsDownwards()
-	vr.Cleanup()
-	vr.Sort()
-	for _, cn := range vr.Nodes {
-		cn.SetParent(nil)
-	}
-	return vr.Nodes, nil
 }
 
 // Read implements the resourcehandlers.ResourceHandler#Read
@@ -222,26 +209,6 @@ func (p *GHC) ReadGitInfo(ctx context.Context, uri string) ([]byte, error) {
 		}
 	}
 	return blob, nil
-}
-
-// ResourceName implements the resourcehandlers.ResourceHandler#ResourceName
-func (p *GHC) ResourceName(link string) (string, string) {
-	r, err := util.BuildResourceInfo(link)
-	if err != nil {
-		return "", ""
-	}
-	ext := r.GetResourceExt()
-	name := strings.TrimSuffix(r.GetResourceName(), ext)
-	return name, ext
-}
-
-// BuildAbsLink implements the resourcehandlers.ResourceHandler#BuildAbsLink
-func (p *GHC) BuildAbsLink(source, link string) (string, error) {
-	r, err := util.BuildResourceInfo(source)
-	if err != nil {
-		return "", err
-	}
-	return p.buildAbsLink(r, link)
 }
 
 // GetRawFormatLink implements the resourcehandlers.ResourceHandler#GetRawFormatLink
@@ -300,12 +267,12 @@ func (p *GHC) readFile(ctx context.Context, r *util.ResourceInfo) ([]byte, error
 		}
 		return raw, nil
 	}
-	// read using RepositoriesService.DownloadContents for non-markdown and non-manifest files - 2 API calls
+	// read using RepositoriesService.DownloadContents for non-markdown and non-manifest files - 2 manifestadapter calls
 	opt := &github.RepositoryContentGetOptions{Ref: r.Ref}
 	if !strings.HasSuffix(strings.ToLower(r.Path), ".md") && !strings.HasSuffix(strings.ToLower(r.Path), ".yaml") {
 		return p.downloadContent(ctx, opt, r)
 	}
-	// read using RepositoriesService.GetContents for markdowns and module manifests - 1 API call
+	// read using RepositoriesService.GetContents for markdowns and module manifests - 1 manifestadapter call
 	fc, _, resp, err := p.client.Repositories.GetContents(ctx, r.Owner, r.Repo, r.Path, opt)
 	if err != nil {
 		if resp != nil && resp.StatusCode == http.StatusNotFound {
@@ -313,7 +280,7 @@ func (p *GHC) readFile(ctx context.Context, r *util.ResourceInfo) ([]byte, error
 		}
 		if resp != nil && resp.StatusCode == http.StatusForbidden {
 			// if file is bigger than 1 MB -> content should be downloaded
-			// it makes two additional API cals, but it's unlikely to have large manifest.yaml
+			// it makes two additional manifestadapter cals, but it's unlikely to have large manifest.yaml
 			return p.downloadContent(ctx, opt, r)
 		}
 		return nil, err
@@ -383,137 +350,6 @@ func (p *GHC) getDirContents(ctx context.Context, owner, repo, path string, opts
 	return
 }
 
-// getNodeSelectorTree returns nodes selected by api.NodeSelector with GitHub backend
-func (p *GHC) getNodeSelectorTree(ctx context.Context, node *api.Node, r *util.ResourceInfo, pfs []*regexp.Regexp, tPrefix string, bPrefix string) (*api.Node, error) {
-	// most of the repositories have 'docs' folder at root level that containing markdowns, images, etc. which are referenced in the module manifest
-	// it make sense to cache the content under 'docs' folder - TODO: could define configurable folder set
-	if strings.HasPrefix(r.Path, "docs/") {
-		return p.getCachedSubtree(ctx, node, r, pfs, tPrefix, bPrefix, "docs")
-	}
-	recursive := node.NodeSelector.Depth != 1
-	p.muxSHA.Lock()
-	defer p.muxSHA.Unlock()
-	t, err := p.getTree(ctx, r, recursive)
-	if err != nil {
-		return nil, err
-	}
-	vr := &api.Node{Name: "vRoot", Properties: make(map[string]interface{})}
-	vr.Properties[api.ContainerNodeSourceLocation] = tPrefix
-	for _, e := range t.Entries {
-		ePath := strings.TrimPrefix(*e.Path, "/")
-		// add files SHA
-		if *e.Type == "blob" {
-			key := fmt.Sprintf("%s/%s", bPrefix, ePath)
-			p.filesCache[key] = *e.SHA
-		}
-
-		extracted := false
-		for _, extractedFormat := range p.options.ExtractedFilesFormats {
-			if strings.HasSuffix(strings.ToLower(ePath), extractedFormat) {
-				extracted = true
-				break
-			}
-		}
-		// skip node if it is not a supported format
-		if *e.Type != "blob" || !extracted {
-			klog.V(6).Infof("node selector %s skip entry %s\n", node.NodeSelector.Path, ePath)
-			continue
-		}
-		if filterPath(node, pfs, ePath) {
-			continue
-		}
-		buildNode(vr, bPrefix, ePath)
-	}
-	return vr, nil
-}
-
-// getNodeSelectorTree returns nodes selected by api.NodeSelector with mapped on FS local repository
-func (p *GHC) getLocalNodeSelectorTree(_ context.Context, node *api.Node, r *util.ResourceInfo, pfs []*regexp.Regexp, localPath string, tPrefix string, bPrefix string) (*api.Node, error) {
-	dn := filepath.Join(localPath, r.Path)
-	info, err := p.os.Lstat(dn)
-	if err != nil {
-		if p.os.IsNotExist(err) {
-			return nil, resourcehandlers.ErrResourceNotFound(r.Raw)
-		}
-		return nil, fmt.Errorf("nodeSelector path stats %s for uri %s and node %s fails: %v", dn, r.Raw, node.Path("/"), err)
-	}
-	if !info.IsDir() {
-		return nil, fmt.Errorf("nodeSelector path %s for uri %s and node %s is not a directory", dn, r.Raw, node.Path("/"))
-	}
-	vr := &api.Node{Name: "vRoot", Properties: make(map[string]interface{})}
-	vr.Properties[api.ContainerNodeSourceLocation] = tPrefix
-	err = filepath.WalkDir(dn, func(path string, entry fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		lPath := filepath.ToSlash(strings.TrimPrefix(path, dn))
-		lPath = strings.TrimPrefix(lPath, "/")
-		// skip entry if it is not a markdown
-		if entry.IsDir() || !strings.HasSuffix(strings.ToLower(lPath), ".md") {
-			klog.V(6).Infof("node selector %s skip entry %s\n", node.NodeSelector.Path, lPath)
-			return nil
-		}
-		if filterPath(node, pfs, lPath) {
-			if entry.IsDir() {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		buildNode(vr, bPrefix, lPath)
-		return nil
-	})
-	if err != nil {
-		return nil, fmt.Errorf("error walking nodeSelector path %s for uri %s and node %s: %v", dn, r.Raw, node.Path("/"), err)
-	}
-	return vr, nil
-}
-
-// cache the contents of a root folder (e.g. /docs), as many modules put the documents in one folder
-func (p *GHC) getCachedSubtree(ctx context.Context, node *api.Node, r *util.ResourceInfo, pfs []*regexp.Regexp, tPrefix string, bPrefix string, rootFolder string) (*api.Node, error) {
-	if !strings.HasPrefix(r.Path, rootFolder+"/") {
-		return nil, fmt.Errorf("path prefix for %s is expected to be %s/", r.Raw, rootFolder)
-	}
-	rfKey := fmt.Sprintf("%s://%s/%s/%s/tree/%s/%s", r.URL.Scheme, r.URL.Host, r.Owner, r.Repo, r.Ref, rootFolder)
-	rf, _ := util.BuildResourceInfo(rfKey)
-	p.muxSHA.Lock()
-	defer p.muxSHA.Unlock()
-	if _, ok := p.filesCache[rfKey]; !ok {
-		// cache files
-		t, err := p.getTree(ctx, rf, true)
-		if err != nil {
-			return nil, err
-		}
-		rfBPrefix := fmt.Sprintf("%s://%s/%s/%s/blob/%s/%s", r.URL.Scheme, r.URL.Host, r.Owner, r.Repo, r.Ref, rootFolder)
-		for _, e := range t.Entries {
-			ePath := strings.TrimPrefix(*e.Path, "/")
-			if *e.Type == "blob" {
-				key := fmt.Sprintf("%s/%s", rfBPrefix, ePath)
-				p.filesCache[key] = *e.SHA
-			}
-		}
-		p.filesCache[rfKey] = "" // rootFolder is cached
-	}
-	// iterate cached content and build the result
-	vr := &api.Node{Name: "vRoot", Properties: make(map[string]interface{})}
-	vr.Properties[api.ContainerNodeSourceLocation] = tPrefix
-	for uri := range p.filesCache {
-		if !strings.HasPrefix(uri, bPrefix+"/") {
-			continue // skip irrelevant keys
-		}
-		// skip node if it is not a markdown file
-		fPath := strings.TrimPrefix(uri, bPrefix+"/")
-		if !strings.HasSuffix(strings.ToLower(uri), ".md") {
-			klog.V(6).Infof("node selector %s skip entry %s\n", node.NodeSelector.Path, fPath)
-			continue
-		}
-		if filterPath(node, pfs, fPath) {
-			continue
-		}
-		buildNode(vr, bPrefix, fPath)
-	}
-	return vr, nil
-}
-
 // getTree returns subtree with root r#Path
 func (p *GHC) getTree(ctx context.Context, r *util.ResourceInfo, recursive bool) (*github.Tree, error) {
 	sha := fmt.Sprintf("%s:%s", r.Ref, r.Path)
@@ -529,52 +365,6 @@ func (p *GHC) getTree(ctx context.Context, r *util.ResourceInfo, recursive bool)
 		return nil, fmt.Errorf("reading tree %s fails with HTTP status: %d", r.Raw, resp.StatusCode)
 	}
 	return gitTree, nil
-}
-
-// resolveManifestRelativePaths resolves relative paths in module manifest
-func (p *GHC) resolveManifestRelativePaths(node *api.Node, r *util.ResourceInfo) error {
-	var errs error
-	if node.Source != "" {
-		u, err := url.Parse(node.Source)
-		if err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("manifest %s with invalid node %s source: %s", r.Raw, node.FullName("/"), node.Source))
-		} else if !u.IsAbs() {
-			// resolve relative path
-			if node.Source, err = p.buildAbsLink(r, node.Source); err != nil {
-				errs = multierror.Append(errs, fmt.Errorf("cannot resolve source relative path %s in node %s and manifest %s", node.Source, node.FullName("/"), r.Raw))
-			}
-		}
-	}
-	if len(node.MultiSource) > 0 {
-		for idx, src := range node.MultiSource {
-			u, err := url.Parse(src)
-			if err != nil {
-				errs = multierror.Append(errs, fmt.Errorf("manifest %s with invalid node %s multiSource[%d]: %s", r.Raw, node.FullName("/"), idx, node.MultiSource[idx]))
-			} else if !u.IsAbs() {
-				// resolve relative path
-				if node.Source, err = p.buildAbsLink(r, src); err != nil {
-					errs = multierror.Append(errs, fmt.Errorf("cannot resolve multiSource[%d] relative path %s in node %s and manifest %s", idx, node.MultiSource[idx], node.FullName("/"), r.Raw))
-				}
-			}
-		}
-	}
-	if node.NodeSelector != nil {
-		u, err := url.Parse(node.NodeSelector.Path)
-		if err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("manifest %s with invalid nodeSelector path %s in node %s", r.Raw, node.NodeSelector.Path, node.FullName("/")))
-		} else if !u.IsAbs() {
-			// resolve relative path
-			if node.NodeSelector.Path, err = p.buildAbsLink(r, node.NodeSelector.Path); err != nil {
-				errs = multierror.Append(errs, fmt.Errorf("cannot resolve nodeSelector relative path %s in node %s and manifest %s", node.NodeSelector.Path, node.FullName("/"), r.Raw))
-			}
-		}
-	}
-	for _, n := range node.Nodes {
-		if err := p.resolveManifestRelativePaths(n, r); err != nil {
-			errs = multierror.Append(errs, err)
-		}
-	}
-	return errs
 }
 
 // buildAbsLink builds absolute link if <link> is relative using <source> as a base
@@ -600,7 +390,10 @@ func (p *GHC) buildAbsLink(source *util.ResourceInfo, link string) (string, erro
 	if tp, err = p.determineLinkType(source, u); err != nil {
 		return tp, err
 	}
-	res, _ := url.Parse(source.URL.String())
+	res, err := url.Parse(source.URL.String())
+	if err != nil {
+		return "", err
+	}
 	// set path
 	res.Path = fmt.Sprintf("/%s/%s/%s/%s%s", source.Owner, source.Repo, tp, source.Ref, u.Path)
 	// set query & fragment
@@ -715,65 +508,6 @@ func (p *GHC) getFileSHA(key string) (string, bool) {
 	defer p.muxSHA.RUnlock()
 	val, ok := p.filesCache[key]
 	return val, ok
-}
-
-// filterPath returns true if path is filtered by api.NodeSelector Depth or ExcludePaths
-func filterPath(node *api.Node, pfs []*regexp.Regexp, path string) bool {
-	// depth filter
-	depth := strings.Count(path, "/") // depth is 1 for zero '/' 2 for one '/' etc.
-	if node.NodeSelector.Depth > 0 && depth+1 > int(node.NodeSelector.Depth) {
-		klog.V(6).Infof("node selector %s entry %s depth (%d) filter applied\n", node.NodeSelector.Path, path, node.NodeSelector.Depth)
-		return true
-	}
-	// path filter
-	var rgx *regexp.Regexp
-	for _, pf := range pfs {
-		if rgx.Match([]byte(path)) {
-			rgx = pf
-			break
-		}
-	}
-	if rgx != nil {
-		klog.V(6).Infof("node selector %s entry %s path filter %s applied\n", node.NodeSelector.Path, path, rgx.String())
-		return true
-	}
-	return false
-}
-
-// buildNode creates new api.Node for the rPath markdown and adds it to the vRoot tree
-func buildNode(vRoot *api.Node, bPrefix string, rPath string) {
-	// build node
-	n := &api.Node{Source: fmt.Sprintf("%s/%s", bPrefix, rPath)}
-	n.Name = path.Base(rPath)
-	loc := path.Dir(rPath)
-	if loc == "." { // append in the root
-		n.SetParent(vRoot)
-		vRoot.Nodes = append(vRoot.Nodes, n)
-		return
-	}
-	// find the location in the tree
-	parent := vRoot
-	ls := strings.Split(loc, "/")
-	for _, l := range ls {
-		var found bool
-		for _, pn := range parent.Nodes {
-			if pn.Name == l {
-				found = true
-				parent = pn
-			}
-		}
-		if !found {
-			// create missing container api.Node
-			dn := &api.Node{Name: l}
-			dn.Properties = make(map[string]interface{})
-			dn.Properties[api.ContainerNodeSourceLocation] = fmt.Sprintf("%s/%s", parent.Properties[api.ContainerNodeSourceLocation], l)
-			dn.SetParent(parent)
-			parent.Nodes = append(parent.Nodes, dn)
-			parent = dn
-		}
-	}
-	n.SetParent(parent)
-	parent.Nodes = append(parent.Nodes, n)
 }
 
 // transform builds git.Info from a commits list

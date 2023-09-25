@@ -4,13 +4,13 @@
 
 package writers
 
-//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate -header ../../license_prefix.txt
+import "github.com/gardener/docforge/pkg/manifest"
 
-import "github.com/gardener/docforge/pkg/api"
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate -header ../../license_prefix.txt
 
 // Writer writes blobs with name to a given path
 //
 //counterfeiter:generate . Writer
 type Writer interface {
-	Write(name, path string, resourceContent []byte, node *api.Node) error
+	Write(name, path string, resourceContent []byte, node *manifest.Node) error
 }

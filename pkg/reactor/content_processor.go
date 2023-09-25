@@ -15,7 +15,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/gardener/docforge/pkg/api"
+	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/markdown"
 	"github.com/gardener/docforge/pkg/renderers/adocs"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
@@ -39,7 +39,7 @@ type nodeContentProcessor struct {
 	downloader       DownloadScheduler
 	validator        Validator
 	resourceHandlers resourcehandlers.Registry
-	sourceLocations  map[string][]*api.Node
+	sourceLocations  map[string][]*manifest.Node
 	hugo             Hugo
 	rwLock           sync.RWMutex
 }
@@ -47,7 +47,7 @@ type nodeContentProcessor struct {
 // extends nodeContentProcessor with current source URI & node
 type linkResolver struct {
 	*nodeContentProcessor
-	node   *api.Node
+	node   *manifest.Node
 	source string
 }
 
@@ -56,7 +56,7 @@ type linkInfo struct {
 	URL                 *url.URL
 	originalDestination string
 	destination         string
-	destinationNode     *api.Node
+	destinationNode     *manifest.Node
 	isEmbeddable        bool
 }
 
@@ -69,7 +69,7 @@ type docContent struct {
 
 // used in Hugo mode
 type frontmatterProcessor struct {
-	node           *api.Node
+	node           *manifest.Node
 	IndexFileNames []string
 }
 
@@ -77,10 +77,10 @@ type frontmatterProcessor struct {
 //
 //counterfeiter:generate . NodeContentProcessor
 type NodeContentProcessor interface {
-	// Prepare performs pre-processing on resolved documentation structure (e.g. collect api.Node sources)
-	Prepare(docStructure []*api.Node)
+	// Prepare performs pre-processing on resolved documentation structure (e.g. collect manifest.Node sources)
+	Prepare(docStructure []*manifest.Node)
 	// Process node content and write the result in a buffer
-	Process(ctx context.Context, buffer *bytes.Buffer, reader Reader, node *api.Node) error
+	Process(ctx context.Context, buffer *bytes.Buffer, reader Reader, node *manifest.Node) error
 }
 
 // NewNodeContentProcessor creates NodeContentProcessor objects
@@ -93,14 +93,14 @@ func NewNodeContentProcessor(resourcesRoot string, downloadJob DownloadScheduler
 		validator:        validator,
 		resourceHandlers: rh,
 		hugo:             hugo,
-		sourceLocations:  make(map[string][]*api.Node),
+		sourceLocations:  make(map[string][]*manifest.Node),
 	}
 	return c
 }
 
 ///////////// node content processor ///////
 
-func (c *nodeContentProcessor) Prepare(structure []*api.Node) {
+func (c *nodeContentProcessor) Prepare(structure []*manifest.Node) {
 	c.rwLock.Lock()
 	defer c.rwLock.Unlock()
 	for _, node := range structure {
@@ -108,10 +108,10 @@ func (c *nodeContentProcessor) Prepare(structure []*api.Node) {
 	}
 }
 
-func (c *nodeContentProcessor) Process(ctx context.Context, b *bytes.Buffer, r Reader, n *api.Node) error {
-	// api.Node content by priority
+func (c *nodeContentProcessor) Process(ctx context.Context, b *bytes.Buffer, r Reader, n *manifest.Node) error {
+	// manifest.Node content by priority
 	var nc []*docContent
-	nFullName := n.FullName("/")
+	nFullName := n.FullName()
 	// 1. Process Source
 	if len(n.Source) > 0 {
 		if dc := getCachedContent(n); dc != nil {
@@ -187,7 +187,7 @@ func (c *nodeContentProcessor) Process(ctx context.Context, b *bytes.Buffer, r R
 	return nil
 }
 
-func (c *nodeContentProcessor) addSourceLocation(node *api.Node) {
+func (c *nodeContentProcessor) addSourceLocation(node *manifest.Node) {
 	if node.Source != "" {
 		c.sourceLocations[node.Source] = append(c.sourceLocations[node.Source], node)
 	} else if len(node.MultiSource) > 0 {
@@ -195,19 +195,19 @@ func (c *nodeContentProcessor) addSourceLocation(node *api.Node) {
 			c.sourceLocations[s] = append(c.sourceLocations[s], node)
 		}
 	} else if len(node.Properties) > 0 {
-		if val, found := node.Properties[api.ContainerNodeSourceLocation]; found {
+		if val, found := node.Properties[manifest.ContainerNodeSourceLocation]; found {
 			if sl, ok := val.(string); ok {
 				c.sourceLocations[sl] = append(c.sourceLocations[sl], node)
-				delete(node.Properties, api.ContainerNodeSourceLocation)
+				delete(node.Properties, manifest.ContainerNodeSourceLocation)
 			}
 		}
 	}
-	for _, childNode := range node.Nodes {
+	for _, childNode := range node.Structure {
 		c.addSourceLocation(childNode)
 	}
 }
 
-func (c *nodeContentProcessor) getRenderer(n *api.Node, sourceURI string) renderer.Renderer {
+func (c *nodeContentProcessor) getRenderer(n *manifest.Node, sourceURI string) renderer.Renderer {
 	lr := c.newLinkResolver(n, sourceURI)
 	ext := urls.Ext(sourceURI)
 	if ext == "adoc" {
@@ -216,7 +216,7 @@ func (c *nodeContentProcessor) getRenderer(n *api.Node, sourceURI string) render
 	return markdown.NewLinkModifierRenderer(markdown.WithLinkResolver(lr.resolveLink))
 }
 
-func (c *nodeContentProcessor) newLinkResolver(node *api.Node, sourceURI string) *linkResolver {
+func (c *nodeContentProcessor) newLinkResolver(node *manifest.Node, sourceURI string) *linkResolver {
 	return &linkResolver{
 		nodeContentProcessor: c,
 		node:                 node,
@@ -224,11 +224,11 @@ func (c *nodeContentProcessor) newLinkResolver(node *api.Node, sourceURI string)
 	}
 }
 
-func getCachedContent(n *api.Node) *docContent {
+func getCachedContent(n *manifest.Node) *docContent {
 	if len(n.Properties) > 0 {
-		if val, found := n.Properties[api.CachedNodeContent]; found {
+		if val, found := n.Properties[manifest.CachedNodeContent]; found {
 			if dc, ok := val.(*docContent); ok {
-				delete(n.Properties, api.CachedNodeContent)
+				delete(n.Properties, manifest.CachedNodeContent)
 				return dc
 			}
 		}
@@ -281,7 +281,7 @@ func (l *linkResolver) resolveLink(dest string, isEmbeddable bool) (string, erro
 	// validate destination
 	u, err := url.Parse(strings.TrimSuffix(dest, "/"))
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("error when parsing link in %s : %w", l.source, err)
 	}
 	link := &linkInfo{
 		URL:                 u,
@@ -334,7 +334,10 @@ func (l *linkResolver) resolveBaseLink(link *linkInfo) error {
 			return err
 		}
 	}
-	absURL, _ := url.Parse(absLink) // absLink should be valid URL
+	absURL, err := url.Parse(absLink) // absLink should be valid URL
+	if err != nil {
+		return err
+	}
 	key := fmt.Sprintf("%s://%s%s", absURL.Scheme, absURL.Host, absURL.Path)
 	// Links to other documents are enforced relative when linking documents from the node structure.
 	if nl, ok := l.getNodesBySource(strings.TrimSuffix(key, "/")); ok {
@@ -437,7 +440,7 @@ func (l *linkResolver) rewriteDestination(link *linkInfo) error {
 			}
 		}
 		if link.destinationNode != nil {
-			dnPath := strings.ToLower(link.destinationNode.FullName("/"))
+			dnPath := strings.ToLower(link.destinationNode.FullName())
 			// prepare HUGO Pretty URLs - https://gohugo.io/content-management/urls/#pretty-urls
 			if strings.HasSuffix(strings.ToLower(dnPath), ".md") {
 				dnPath = dnPath[:len(dnPath)-3]
@@ -490,7 +493,7 @@ func (l *linkResolver) rewriteDestination(link *linkInfo) error {
 	return nil
 }
 
-func (l *linkResolver) getNodesBySource(source string) ([]*api.Node, bool) {
+func (l *linkResolver) getNodesBySource(source string) ([]*manifest.Node, bool) {
 	l.rwLock.RLock()
 	defer l.rwLock.RUnlock()
 	nl, ok := l.sourceLocations[source]
@@ -513,16 +516,16 @@ func downloadEmbeddable(u *url.URL) bool {
 }
 
 // findVisibleNode returns
-// - the node if it is a document api.Node
-// - first container node that contains index file if the api.Node is container
+// - the node if it is a document manifest.Node
+// - first container node that contains index file if the manifest.Node is container
 // - nil if no container node with index file found
 // otherwise link will display empty page
-func findVisibleNode(n *api.Node) *api.Node {
-	if n == nil || n.IsDocument() {
+func findVisibleNode(n *manifest.Node) *manifest.Node {
+	if (n == nil || n.Path == "") || n.IsDocument() {
 		return n
 	}
-	for _, ch := range n.Nodes {
-		if ch.Name == "_index.md" {
+	for _, ch := range n.Structure {
+		if ch.Name() == "_index.md" {
 			return n
 		}
 	}
@@ -547,12 +550,12 @@ func swapPaths(path string, newPath string) bool {
 // in root, e.g. "../../__resources/image.png", where root is "__resources".
 // If root is document root path, destinations are paths from the root,
 // e.g. "/__resources/image.png", where root is "/__resources".
-func buildDownloadDestination(node *api.Node, resourceName, root string) string {
+func buildDownloadDestination(node *manifest.Node, resourceName, root string) string {
 	if strings.HasPrefix(root, "/") {
 		return root + "/" + resourceName
 	}
 	resourceRelPath := fmt.Sprintf("%s/%s", root, resourceName)
-	parentsSize := len(node.Parents())
+	parentsSize := len(strings.Split(node.Path, "/"))
 	for ; parentsSize > 1; parentsSize-- {
 		resourceRelPath = "../" + resourceRelPath
 	}
@@ -561,21 +564,37 @@ func buildDownloadDestination(node *api.Node, resourceName, root string) string 
 
 ///////////// frontmatter processor ////////
 
+// GetFrontmatter converts frontmatter to a map[string] format
+func GetFrontmatter(frontmatter interface{}, nodepath string) (map[string]interface{}, error) {
+	output := map[string]interface{}{}
+	switch frontmatter.(type) {
+	case map[string]interface{}:
+		output, _ = frontmatter.(map[string]interface{})
+	case map[interface{}]interface{}:
+		iimap, _ := frontmatter.(map[interface{}]interface{})
+		for key, value := range iimap {
+			output[fmt.Sprintf("%v", key)] = value
+		}
+	default:
+		return nil, fmt.Errorf("invalid frontmatter properties for node: %s", nodepath)
+	}
+	return output, nil
+}
+
 func (f *frontmatterProcessor) processFrontmatter(docFrontmatter map[string]interface{}) (map[string]interface{}, error) {
 	var nodeMeta, parentMeta map[string]interface{}
+	var err error
 	// 1 front matter from doc node
 	if val, ok := f.node.Properties["frontmatter"]; ok {
-		nodeMeta, ok = val.(map[string]interface{})
-		if !ok {
-			return nil, fmt.Errorf("invalid frontmatter properties for node: %s", f.node.FullName("/"))
+		if nodeMeta, err = GetFrontmatter(val, f.node.FullName()); err != nil {
+			return nil, err
 		}
 	}
 	// 2 front matter from doc node parent (only if the current one is section file)
-	if f.node.Name == "_index.md" && f.node.Parent() != nil {
+	if f.node.Name() == "_index.md" && (f.node.Parent() != nil && f.node.Parent().Path != "") {
 		if val, ok := f.node.Parent().Properties["frontmatter"]; ok {
-			parentMeta, ok = val.(map[string]interface{})
-			if !ok {
-				return nil, fmt.Errorf("invalid frontmatter properties for node: %s", f.node.Path("/"))
+			if parentMeta, err = GetFrontmatter(val, f.node.Path); err != nil {
+				return nil, err
 			}
 		}
 	}
@@ -599,9 +618,9 @@ func (f *frontmatterProcessor) processFrontmatter(docFrontmatter map[string]inte
 // as a title - removing `-`, `_`, `.md` and converting to title
 // case.
 func (f *frontmatterProcessor) getNodeTitle() string {
-	title := f.node.Name
-	if f.node.Parent() != nil && f.nodeIsIndexFile(f.node.Name) {
-		title = f.node.Parent().Name
+	title := f.node.Name()
+	if (f.node.Parent() != nil && f.node.Parent().Path != "") && f.nodeIsIndexFile(f.node.Name()) {
+		title = f.node.Parent().Name()
 	}
 	title = strings.TrimSuffix(title, ".md")
 	title = strings.ReplaceAll(title, "_", " ")

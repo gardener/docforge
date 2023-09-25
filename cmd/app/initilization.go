@@ -7,14 +7,13 @@ package app
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/gardener/docforge/pkg/api"
+	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/reactor"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/gardener/docforge/pkg/resourcehandlers/githubhttpcache"
@@ -28,7 +27,7 @@ import (
 	"golang.org/x/oauth2"
 )
 
-func initResourceHandlers(ctx context.Context, o resourcehandlers.ResourceHandlerOptions, options api.ParsingOptions) ([]resourcehandlers.ResourceHandler, error) {
+func initResourceHandlers(ctx context.Context, o resourcehandlers.ResourceHandlerOptions, options manifest.ParsingOptions) ([]resourcehandlers.ResourceHandler, error) {
 	var rhs []resourcehandlers.ResourceHandler
 	var errs *multierror.Error
 	for host, oAuthToken := range o.Credentials {
@@ -89,7 +88,7 @@ func buildClient(ctx context.Context, accessToken string, host string, cachePath
 	return client, httpClient, err
 }
 
-func newResourceHandler(host string, client *github.Client, httpClient *http.Client, localMappings map[string]string, options api.ParsingOptions) resourcehandlers.ResourceHandler {
+func newResourceHandler(host string, client *github.Client, httpClient *http.Client, localMappings map[string]string, options manifest.ParsingOptions) resourcehandlers.ResourceHandler {
 	rawHost := "raw." + host
 	if host == "github.com" {
 		rawHost = "raw.githubusercontent.com"
@@ -97,46 +96,8 @@ func newResourceHandler(host string, client *github.Client, httpClient *http.Cli
 	return githubhttpcache.NewGHC(client, httpClient, &osshim.OsShim{}, []string{host, rawHost}, localMappings, options)
 }
 
-// manifest reads the resource at uri, resolves it as template applying vars,
-// and finally parses it into api.Documentation model
-func constructInitialManifest(ctx context.Context, uri string, resourceHandlers []resourcehandlers.ResourceHandler, options api.ParsingOptions) (*api.Documentation, error) {
-	var (
-		handler         resourcehandlers.ResourceHandler
-		manifestContent []byte
-	)
-	uri = strings.TrimSpace(uri)
-	registry := resourcehandlers.NewRegistry(resourceHandlers...)
-
-	//check if uri is in file system
-	fileInfo, err := os.Stat(uri)
-	if err == nil {
-		//uri is from file system
-
-		if fileInfo.IsDir() {
-			return nil, fmt.Errorf("top level manifest %s is a directory", uri)
-		}
-
-		if manifestContent, err = ioutil.ReadFile(uri); err != nil {
-			return nil, err
-		}
-
-		doc, err := api.Parse(manifestContent, options)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse manifest: %s. %+v", uri, err)
-		}
-
-		return doc, nil
-	}
-
-	if handler = registry.Get(uri); handler == nil {
-		return nil, fmt.Errorf("no suitable reader found for %s. Is this path correct?", uri)
-	}
-	return handler.ResolveDocumentation(ctx, uri)
-}
-
 // NewReactor creates a Reactor from Options
 func newReactor(options reactor.Options, hugo reactor.Hugo, rhs []resourcehandlers.ResourceHandler) (*reactor.Reactor, error) {
-
 	config := reactor.Config{
 		Options:          options,
 		ResourceHandlers: rhs,
@@ -156,7 +117,6 @@ func newReactor(options reactor.Options, hugo reactor.Hugo, rhs []resourcehandle
 			Root: filepath.Join(config.DestinationPath, config.ResourcesPath),
 		}
 	}
-
 	if len(config.GhInfoDestination) > 0 {
 		config.GitInfoWriter = &writers.FSWriter{
 			Root: filepath.Join(config.DestinationPath, config.GhInfoDestination),

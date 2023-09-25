@@ -7,11 +7,12 @@ package jobs
 import (
 	"context"
 	"fmt"
-	"github.com/hashicorp/go-multierror"
-	"k8s.io/klog/v2"
 	"runtime/debug"
 	"sync"
 	"sync/atomic"
+
+	"github.com/hashicorp/go-multierror"
+	"k8s.io/klog/v2"
 )
 
 const (

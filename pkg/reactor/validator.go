@@ -8,10 +8,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/gardener/docforge/pkg/jobs"
-	"github.com/gardener/docforge/pkg/resourcehandlers"
-	"github.com/gardener/docforge/pkg/util/httpclient"
-	"k8s.io/klog/v2"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -20,6 +16,11 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/gardener/docforge/pkg/jobs"
+	"github.com/gardener/docforge/pkg/resourcehandlers"
+	"github.com/gardener/docforge/pkg/util/httpclient"
+	"k8s.io/klog/v2"
 )
 
 // Validator validates the links URLs
@@ -154,9 +155,10 @@ func doValidation(req *http.Request, client httpclient.Client) (*http.Response, 
 	if err != nil {
 		return resp, err
 	}
-	_ = resp.Body.Close()
+	defer resp.Body.Close()
 	attempts := 0
 	for resp.StatusCode == http.StatusTooManyRequests && attempts < len(intervals)-1 {
+		klog.Warningf("Retrying request!")
 		sleep := intervals[attempts] + rand.Intn(attempts+1)
 		// check for Retry-After Header and overwrite sleep time
 		if retryAfter := resp.Header.Get("Retry-After"); retryAfter != "" {
@@ -171,7 +173,6 @@ func doValidation(req *http.Request, client httpclient.Client) (*http.Response, 
 		if err != nil {
 			return resp, err
 		}
-		_ = resp.Body.Close()
 		attempts++
 	}
 	return resp, err
