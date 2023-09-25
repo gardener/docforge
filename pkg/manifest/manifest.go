@@ -31,7 +31,7 @@ func processManifest(f nodeTransformation, node *Node, parent *Node, manifest *N
 	return nil
 }
 
-func loadManifestStructure(node *Node, _ *Node, manifest *Node, fs FileSource) error {
+func loadManifestStructure(node *Node, parent *Node, manifest *Node, fs FileSource) error {
 	var (
 		err         error
 		content     string
@@ -49,6 +49,10 @@ func loadManifestStructure(node *Node, _ *Node, manifest *Node, fs FileSource) e
 	}
 	if err = yaml.Unmarshal([]byte(content), node); err != nil {
 		return fmt.Errorf("can't parse manifest %s yaml content : %w", node.Manifest, err)
+	}
+	if parent != nil {
+		parent.Structure = append(parent.Structure, node.Structure...)
+		node.Structure = nil
 	}
 	return nil
 }
@@ -68,11 +72,15 @@ func decideNodeType(node *Node, _ *Node, _ *Node, _ FileSource) error {
 	if node.FileTree != "" {
 		candidateType = append(candidateType, "fileTree")
 	}
-	if len(candidateType) != 1 {
-		return fmt.Errorf("there is a node with directiry path \"%s\" with multiple types [%s]. If [] then that node doesn't have a name or doesn't have any of the properties manifest, file, files, dir", node.Path, strings.Join(candidateType, ", "))
+	switch len(candidateType) {
+	case 0:
+		return fmt.Errorf("there is a node \n\n%s\nof no type", node)
+	case 1:
+		node.Type = candidateType[0]
+		return nil
+	default:
+		return fmt.Errorf("there is a node \n\n%s\ntrying to be %s", node, strings.Join(candidateType, ","))
 	}
-	node.Type = candidateType[0]
-	return nil
 }
 
 func calculatePath(node *Node, parent *Node, _ *Node, _ FileSource) error {
@@ -89,7 +97,7 @@ func calculatePath(node *Node, parent *Node, _ *Node, _ FileSource) error {
 	case "manifest":
 		node.Path = parent.Path
 	default:
-		return fmt.Errorf("parent node %s is not a dir or manifest", node.Path)
+		return fmt.Errorf("parent node \n\n%s\n is not a dir or manifest", node)
 	}
 	return nil
 }
@@ -213,7 +221,7 @@ func mergeFolders(node *Node, parent *Node, manifest *Node, _ FileSource) error 
 			}
 		case "file":
 			if _, ok := nodeNameToNode[child.File]; ok {
-				return fmt.Errorf("file %s in manifest %s that will be written in %s causes collision", child.File, manifest.ManifType.Manifest, child.Path)
+				return fmt.Errorf("file \n\n%s\nin manifest %s that will be written in %s causes collision", child, manifest.ManifType.Manifest, child.Path)
 			}
 			nodeNameToNode[child.File] = child
 		}

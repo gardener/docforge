@@ -40,7 +40,7 @@ func (n *Node) IsDocument() bool {
 
 // RelativePath returns the relative path betwee two nodes
 func (n *Node) RelativePath(to *Node) string {
-	p, _ := filepath.Rel(n.Path, to.Path)
+	p, _ := filepath.Rel(n.Path, to.FullName())
 	return p
 }
 

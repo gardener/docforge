@@ -2,53 +2,51 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 structure:
-- name: mainTree
-  nodes:
-  - name: markdown-tests
-    nodes:
-    - source: https://github.com/gardener/docforge/blob/master/integration-test/tested-doc/markdown-tests/testedMarkdownFile1.md
-      name: file1.md
-    - source: https://github.com/gardener/docforge/blob/master/integration-test/tested-doc/markdown-tests/testedMarkdownFile2.md
-    - name: nodeSelector
+- dir: mainTree
+  structure:
+  - dir: markdown-tests
+    structure:
+    - file: file1.md
+      source: ./tested-doc/markdown-tests/testedMarkdownFile1.md
+    - file: ./tested-doc/markdown-tests/testedMarkdownFile2.md
+    - dir: fileTree
       properties:
         frontmatter:
-          title: NodeSelector
-          description: Test NodeSelector
-      nodesSelector:
-        path: https://github.com/gardener/docforge/tree/master/integration-test/tested-doc/markdown-tests/testedDir
-  - name: html-tests
-    nodes:
-    - source: https://github.com/gardener/docforge/blob/master/integration-test/tested-doc/html-tests/testedHTMLFile1.md
-      name: file1.md
-    - source: https://github.com/gardener/docforge/blob/master/integration-test/tested-doc/html-tests/testedHTMLFile2.md
-    - name: nodeSelector
+          title: fileTree
+          description: Test fileTree
+      structure:
+      - fileTree: ./tested-doc/markdown-tests/testedDir
+  - dir: html-tests
+    structure:
+    - file: file1.md
+      source: ./tested-doc/html-tests/testedHTMLFile1.md
+    - file: ./tested-doc/html-tests/testedHTMLFile2.md
+    - dir: fileTree
       properties:
         frontmatter:
-          title: NodeSelector
-          description: Test NodeSelector
-      nodesSelector:
-        path: https://github.com/gardener/docforge/tree/master/integration-test/tested-doc/html-tests/testedDir
-- name: merge-node
-  nodes:
-  - name: level1-container-node1
-    nodes:
-    - name: level2-container-node1
-      nodes:
-      - name: level3-container-node1
-        nodes:
-        - name: file1
-          source: https://github.com/gardener/docforge/blob/master/integration-test/tested-doc/merge-test/testFile.md
-        - name: file2
-          source: https://github.com/gardener/docforge/blob/master/integration-test/tested-doc/merge-test/testFile.md
-    - name: level2-container-node2
-      nodes:
-      - name: file1
-        source: https://github.com/gardener/docforge/blob/master/integration-test/tested-doc/merge-test/testFile.md
-  - name: level1-container-node2
-    nodes:
-    - name: file1
-      source: https://github.com/gardener/docforge/blob/master/integration-test/tested-doc/merge-test/testFile.md
-  nodesSelector:
-    path: https://github.com/gardener/docforge/blob/master/integration-test/tested-doc/merge-test/testSelector.yaml
-nodesSelector:
-  path: https://github.com/gardener/docforge/tree/master/integration-test/tested-doc/merge-test/testDir
+          title: fileTree
+          description: Test fileTree
+      structure:
+      - fileTree: ./tested-doc/html-tests/testedDir
+- dir: merge-node
+  structure:
+  - dir: level1-container-node1
+    structure:
+    - dir: level2-container-node1
+      structure:
+      - dir: level3-container-node1
+        structure:
+        - file: file1
+          source: ./tested-doc/merge-test/testFile.md
+        - file: file2
+          source: ./tested-doc/merge-test/testFile.md
+    - dir: level2-container-node2
+      structure:
+      - file: file1
+        source: ./tested-doc/merge-test/testFile.md
+  - dir: level1-container-node2
+    structure:
+    - file: file1
+      source: ./tested-doc/merge-test/testFile.md
+  - manifest: ./tested-doc/merge-test/secondManifest.yaml
+- fileTree: ./tested-doc/merge-test/testDir

@@ -8,10 +8,10 @@ title: testedFile1
 [test1](https://github.com/gardener/gardener/blob/v1.30.0/README.md)
 
 ### Link relatively file which is in the structure
-[test2](/maintree/markdown-tests/nodeselector/testedmarkdownfile3/)
+[test2](/maintree/markdown-tests/filetree/testedmarkdownfile3/)
 
 ### Link relatively another file which is in the structure
-[test3](/maintree/markdown-tests/nodeselector/innerdir/testedmarkdownfile5/)
+[test3](/maintree/markdown-tests/filetree/innerdir/testedmarkdownfile5/)
 
 ### Link existing image with relative path
 ![test4](/__resources/gardener-docforge-logo.png)

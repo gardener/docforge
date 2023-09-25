@@ -8,7 +8,7 @@ title: TestedMarkdownFile3
 [test1](/maintree/markdown-tests/file1/)
 
 ### Link relatively another file which is in the structure
-[test2](/maintree/markdown-tests/nodeselector/innerdir/testedmarkdownfile5/)
+[test2](/maintree/markdown-tests/filetree/innerdir/testedmarkdownfile5/)
 
 ### Link file which is not in the structure
 [test3](https://github.com/gardener/gardener/blob/v1.30.0/README.md)
