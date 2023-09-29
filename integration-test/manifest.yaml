@@ -10,11 +10,11 @@ structure:
       source: ./tested-doc/markdown-tests/testedMarkdownFile1.md
     - file: ./tested-doc/markdown-tests/testedMarkdownFile2.md
     - dir: fileTree
-      properties:
+      structure:
+      - file: _index.md
         frontmatter:
           title: fileTree
           description: Test fileTree
-      structure:
       - fileTree: ./tested-doc/markdown-tests/testedDir
   - dir: html-tests
     structure:
@@ -22,11 +22,11 @@ structure:
       source: ./tested-doc/html-tests/testedHTMLFile1.md
     - file: ./tested-doc/html-tests/testedHTMLFile2.md
     - dir: fileTree
-      properties:
+      structure:
+      - file: _index.md
         frontmatter:
           title: fileTree
           description: Test fileTree
-      structure:
       - fileTree: ./tested-doc/html-tests/testedDir
 - dir: merge-node
   structure:

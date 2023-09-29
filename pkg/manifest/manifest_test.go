@@ -5,15 +5,19 @@ package manifest_test
 // SPDX-License-Identifier: Apache-2.0
 
 import (
+	"context"
 	"embed"
 	"errors"
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	_ "embed"
 
 	"github.com/gardener/docforge/pkg/manifest"
+	"github.com/gardener/docforge/pkg/resourcehandlers"
+	"github.com/gardener/docforge/pkg/util/httpclient"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -56,6 +60,25 @@ func (f *fakeFiles) FileTreeFromURL(url string) ([]string, error) {
 	}
 }
 
+func (f *fakeFiles) Accept(uri string) bool                                      { return true }
+func (f *fakeFiles) Read(ctx context.Context, uri string) ([]byte, error)        { return nil, nil }
+func (f *fakeFiles) ReadGitInfo(ctx context.Context, uri string) ([]byte, error) { return nil, nil }
+func (f *fakeFiles) GetRawFormatLink(absLink string) (string, error)             { return "", nil }
+func (f *fakeFiles) GetClient() httpclient.Client                                { return nil }
+func (f *fakeFiles) GetRateLimit(ctx context.Context) (int, int, time.Time, error) {
+	return 0, 0, time.Time{}, nil
+}
+
+type fakeRegistry struct {
+	*fakeFiles
+}
+
+func (r *fakeRegistry) Load(rhs ...resourcehandlers.ResourceHandler)  {}
+func (r *fakeRegistry) Remove(rh ...resourcehandlers.ResourceHandler) {}
+func (r *fakeRegistry) Get(uri string) resourcehandlers.ResourceHandler {
+	return r.fakeFiles
+}
+
 func collectFiles(n *manifest.Node) []*manifest.Node {
 	if n.Type == "file" {
 		n.RemoveParent()
@@ -73,7 +96,7 @@ func buildManifestFiles(exampleName string) ([]*manifest.Node, error) {
 		err  error
 		root *manifest.Node
 	)
-	if root, err = manifest.ResolveManifest(exampleName, &fakeFiles{}); err != nil {
+	if root, err = manifest.ResolveManifest(exampleName, &fakeRegistry{}); err != nil {
 		return nil, err
 	}
 	return collectFiles(root), nil
@@ -95,6 +118,9 @@ var _ = Describe("Manifest test", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(len(files)).To(Equal(len(expected)))
 				for i := range files {
+					if expected[i].Frontmatter == nil {
+						expected[i].Frontmatter = map[string]interface{}{}
+					}
 					Expect(*files[i]).To(Equal(*expected[i]))
 				}
 			},
