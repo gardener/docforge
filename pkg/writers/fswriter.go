@@ -24,7 +24,7 @@ type FSWriter struct {
 
 func (f *FSWriter) Write(name, path string, docBlob []byte, node *manifest.Node) error {
 	//generate _index.md content
-	if f.Hugo && name == "_index.md" && node != nil && node.Frontmatter != nil {
+	if f.Hugo && name == "_index.md" && node != nil && node.Frontmatter != nil && docBlob == nil {
 		buf := bytes.Buffer{}
 		_, _ = buf.Write([]byte("---\n"))
 		fm, err := yaml.Marshal(node.Frontmatter)
