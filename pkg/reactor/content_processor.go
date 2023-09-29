@@ -67,12 +67,6 @@ type docContent struct {
 	docURI string
 }
 
-// used in Hugo mode
-type frontmatterProcessor struct {
-	node           *manifest.Node
-	IndexFileNames []string
-}
-
 // NodeContentProcessor operates on documents content to reconcile links and schedule linked resources downloads
 //
 //counterfeiter:generate . NodeContentProcessor
@@ -165,16 +159,7 @@ func (c *nodeContentProcessor) Process(ctx context.Context, b *bytes.Buffer, r R
 		klog.Warningf("empty content for node %s\n", nFullName)
 		return nil
 	}
-	// render node content
-	// 1 - frontmatter preprocessing
-	var fmp *frontmatterProcessor
-	if c.hugo.Enabled {
-		fmp = &frontmatterProcessor{
-			node:           n,
-			IndexFileNames: c.hugo.IndexFileNames,
-		}
-	}
-	if err := preprocessFrontmatter(nc, fmp); err != nil {
+	if err := preprocessFrontmatter(nc, n, c.hugo.IndexFileNames, c.hugo.Enabled); err != nil {
 		return err
 	}
 	// 2. - write node content
@@ -236,7 +221,7 @@ func getCachedContent(n *manifest.Node) *docContent {
 	return nil
 }
 
-func preprocessFrontmatter(nc []*docContent, fmp *frontmatterProcessor) error {
+func preprocessFrontmatter(nc []*docContent, node *manifest.Node, IndexFileNames []string, hugoEnabled bool) error {
 	if len(nc) > 1 {
 		aggregated := make(map[string]interface{})
 		for i := len(nc) - 1; i >= 0; i-- {
@@ -252,13 +237,26 @@ func preprocessFrontmatter(nc []*docContent, fmp *frontmatterProcessor) error {
 			return fmt.Errorf("expect ast kind %s, but get %s", ast.KindDocument, nc[0].docAst.Kind())
 		}
 	}
-	if fmp != nil && len(nc) > 0 && nc[0].docAst.Kind() == ast.KindDocument {
+	if hugoEnabled && len(nc) > 0 && nc[0].docAst.Kind() == ast.KindDocument {
 		d := nc[0].docAst.(*ast.Document)
-		pfm, err := fmp.processFrontmatter(d.Meta())
-		if err != nil {
-			return err
+		docFrontmatter := d.Meta()
+		for k, v := range node.Frontmatter {
+			if k == "aliases" && docFrontmatter["aliases"] != nil {
+				asArray1, _ := docFrontmatter["aliases"].([]interface{})
+				asArray2, _ := v.([]interface{})
+				for _, yataa := range asArray1 {
+					asArray2 = append(asArray2, fmt.Sprintf("%s", yataa))
+
+				}
+				docFrontmatter["aliases"] = asArray2
+			} else {
+				docFrontmatter[k] = v
+			}
 		}
-		d.SetMeta(pfm)
+		if _, ok := docFrontmatter["title"]; !ok {
+			docFrontmatter["title"] = getNodeTitle(node, IndexFileNames)
+		}
+		d.SetMeta(docFrontmatter)
 	}
 	return nil
 }
@@ -562,65 +560,14 @@ func buildDownloadDestination(node *manifest.Node, resourceName, root string) st
 	return resourceRelPath
 }
 
-///////////// frontmatter processor ////////
-
-// GetFrontmatter converts frontmatter to a map[string] format
-func GetFrontmatter(frontmatter interface{}, nodepath string) (map[string]interface{}, error) {
-	output := map[string]interface{}{}
-	switch frontmatter.(type) {
-	case map[string]interface{}:
-		output, _ = frontmatter.(map[string]interface{})
-	case map[interface{}]interface{}:
-		iimap, _ := frontmatter.(map[interface{}]interface{})
-		for key, value := range iimap {
-			output[fmt.Sprintf("%v", key)] = value
-		}
-	default:
-		return nil, fmt.Errorf("invalid frontmatter properties for node: %s", nodepath)
-	}
-	return output, nil
-}
-
-func (f *frontmatterProcessor) processFrontmatter(docFrontmatter map[string]interface{}) (map[string]interface{}, error) {
-	var nodeMeta, parentMeta map[string]interface{}
-	var err error
-	// 1 front matter from doc node
-	if val, ok := f.node.Properties["frontmatter"]; ok {
-		if nodeMeta, err = GetFrontmatter(val, f.node.FullName()); err != nil {
-			return nil, err
-		}
-	}
-	// 2 front matter from doc node parent (only if the current one is section file)
-	if f.node.Name() == "_index.md" && (f.node.Parent() != nil && f.node.Parent().Path != "") {
-		if val, ok := f.node.Parent().Properties["frontmatter"]; ok {
-			if parentMeta, err = GetFrontmatter(val, f.node.Path); err != nil {
-				return nil, err
-			}
-		}
-	}
-	// overwrite docFrontmatter with node
-	for k, v := range nodeMeta {
-		docFrontmatter[k] = v
-	}
-	// overwrite docFrontmatter with parent
-	for k, v := range parentMeta {
-		docFrontmatter[k] = v
-	}
-	// add Title if missing
-	if _, ok := docFrontmatter["title"]; !ok {
-		docFrontmatter["title"] = f.getNodeTitle()
-	}
-	return docFrontmatter, nil
-}
-
 // Determines node title from its name or its parent name if
 // it is eligible to be index file, and then normalizes either
 // as a title - removing `-`, `_`, `.md` and converting to title
 // case.
-func (f *frontmatterProcessor) getNodeTitle() string {
-	title := f.node.Name()
-	if (f.node.Parent() != nil && f.node.Parent().Path != "") && f.nodeIsIndexFile(f.node.Name()) {
-		title = f.node.Parent().Name()
+func getNodeTitle(node *manifest.Node, IndexFileNames []string) string {
+	title := node.Name()
+	if (node.Parent() != nil && node.Parent().Path != "") && nodeIsIndexFile(node.Name(), node, IndexFileNames) {
+		title = node.Parent().Name()
 	}
 	title = strings.TrimSuffix(title, ".md")
 	title = strings.ReplaceAll(title, "_", " ")
@@ -632,8 +579,8 @@ func (f *frontmatterProcessor) getNodeTitle() string {
 // Compares a node name to the configured list of index file
 // and a default name '_index.md' to determine if this node
 // is an index document node.
-func (f *frontmatterProcessor) nodeIsIndexFile(name string) bool {
-	for _, s := range f.IndexFileNames {
+func nodeIsIndexFile(name string, node *manifest.Node, IndexFileNames []string) bool {
+	for _, s := range IndexFileNames {
 		if strings.EqualFold(name, s) {
 			return true
 		}

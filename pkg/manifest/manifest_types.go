@@ -29,6 +29,8 @@ type DirType struct {
 type FilesTreeType struct {
 	// FileTree is a tree url of a repo
 	FileTree string `yaml:"fileTree,omitempty"`
+	// ExcludeFiles files to be excluded
+	ExcludeFiles []string `yaml:"excludeFiles,omitempty"`
 }
 
 // ManifType represents a manifest node
@@ -51,6 +53,8 @@ type Node struct {
 
 	// Properties of the node
 	Properties map[string]interface{} `yaml:"properties,omitempty"`
+	// Frontmatter of the node
+	Frontmatter map[string]interface{} `yaml:"frontmatter,omitempty"`
 	// Type of node
 	Type string `yaml:"type,omitempty"`
 	// Path of node
