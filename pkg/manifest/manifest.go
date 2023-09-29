@@ -6,14 +6,15 @@ import (
 	"path"
 	"strings"
 
+	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/gardener/docforge/pkg/util/urls"
 	"gopkg.in/yaml.v2"
 )
 
-type nodeTransformation func(node *Node, parent *Node, manifest *Node, fs FileSource) error
+type nodeTransformation func(node *Node, parent *Node, manifest *Node, r resourcehandlers.Registry) error
 
-func processManifest(f nodeTransformation, node *Node, parent *Node, manifest *Node, fs FileSource) error {
-	if err := f(node, parent, manifest, fs); err != nil {
+func processManifest(f nodeTransformation, node *Node, parent *Node, manifest *Node, r resourcehandlers.Registry) error {
+	if err := f(node, parent, manifest, r); err != nil {
 		return err
 	}
 	manifestNode := manifest
@@ -22,7 +23,7 @@ func processManifest(f nodeTransformation, node *Node, parent *Node, manifest *N
 	}
 	i := 0
 	for i < len(node.Structure) {
-		if err := processManifest(f, node.Structure[i], node, manifestNode, fs); err != nil {
+		if err := processManifest(f, node.Structure[i], node, manifestNode, r); err != nil {
 			if node.Manifest != "" {
 				return fmt.Errorf("manifest %s -> %w", node.Manifest, err)
 			}
@@ -33,7 +34,7 @@ func processManifest(f nodeTransformation, node *Node, parent *Node, manifest *N
 	return nil
 }
 
-func loadManifestStructure(node *Node, parent *Node, manifest *Node, fs FileSource) error {
+func loadManifestStructure(node *Node, parent *Node, manifest *Node, r resourcehandlers.Registry) error {
 	var (
 		err         error
 		content     string
@@ -42,10 +43,12 @@ func loadManifestStructure(node *Node, parent *Node, manifest *Node, fs FileSour
 	if node.Manifest == "" {
 		return nil
 	}
+	fs := r.Get(manifest.Manifest)
 	if newManifest, err = fs.BuildAbsLink(manifest.Manifest, node.Manifest); err != nil {
 		return fmt.Errorf("can't build manifest node %s absolute URL : %w ", node.Manifest, err)
 	}
 	node.Manifest = newManifest
+	fs = r.Get(node.Manifest)
 	if content, err = fs.ManifestFromURL(node.Manifest); err != nil {
 		return fmt.Errorf("can't get manifest file content : %w", err)
 	}
@@ -55,7 +58,7 @@ func loadManifestStructure(node *Node, parent *Node, manifest *Node, fs FileSour
 	return nil
 }
 
-func moveManifestContentIntoTree(node *Node, parent *Node, manifest *Node, fs FileSource) error {
+func moveManifestContentIntoTree(node *Node, parent *Node, manifest *Node, r resourcehandlers.Registry) error {
 	if node.Type != "manifest" {
 		return nil
 	}
@@ -66,7 +69,7 @@ func moveManifestContentIntoTree(node *Node, parent *Node, manifest *Node, fs Fi
 	return nil
 }
 
-func decideNodeType(node *Node, _ *Node, _ *Node, _ FileSource) error {
+func decideNodeType(node *Node, _ *Node, _ *Node, _ resourcehandlers.Registry) error {
 	node.Type = ""
 	candidateType := []string{}
 	if node.Manifest != "" {
@@ -92,7 +95,7 @@ func decideNodeType(node *Node, _ *Node, _ *Node, _ FileSource) error {
 	}
 }
 
-func calculatePath(node *Node, parent *Node, _ *Node, _ FileSource) error {
+func calculatePath(node *Node, parent *Node, _ *Node, _ resourcehandlers.Registry) error {
 	if parent == nil {
 		return nil
 	}
@@ -111,7 +114,7 @@ func calculatePath(node *Node, parent *Node, _ *Node, _ FileSource) error {
 	return nil
 }
 
-func resolveFileRelativeLinks(node *Node, _ *Node, manifest *Node, fs FileSource) error {
+func resolveFileRelativeLinks(node *Node, _ *Node, manifest *Node, r resourcehandlers.Registry) error {
 	var (
 		err     error
 		newLink string
@@ -126,11 +129,13 @@ func resolveFileRelativeLinks(node *Node, _ *Node, manifest *Node, fs FileSource
 			node.Source = node.File
 			node.File = path.Base(node.File)
 		}
+		fs := r.Get(manifest.Manifest)
 		if newLink, err = fs.BuildAbsLink(manifest.Manifest, node.Source); err != nil {
 			return fmt.Errorf("cant build node's absolute link %s : %w", node.Source, err)
 		}
 		node.Source = newLink
 	case "fileTree":
+		fs := r.Get(manifest.Manifest)
 		if newLink, err = fs.BuildAbsLink(manifest.Manifest, node.FileTree); err != nil {
 			return fmt.Errorf("cant build node's absolute link %s : %w", node.FileTree, err)
 		}
@@ -139,16 +144,17 @@ func resolveFileRelativeLinks(node *Node, _ *Node, manifest *Node, fs FileSource
 	return nil
 }
 
-func extractFilesFromNode(node *Node, parent *Node, manifest *Node, fs FileSource) error {
+func extractFilesFromNode(node *Node, parent *Node, manifest *Node, r resourcehandlers.Registry) error {
 	switch node.Type {
 	case "file":
 		if !strings.HasSuffix(node.File, ".md") {
 			node.File += ".md"
 		}
 	case "fileTree":
+		fs := r.Get(node.FileTree)
 		files, err := fs.FileTreeFromURL(node.FileTree)
 		if err != nil {
-			return nil
+			return err
 		}
 		if err := constructNodeTree(files, node, parent); err != nil {
 			return err
@@ -175,6 +181,16 @@ func constructNodeTree(files []string, node *Node, parent *Node) error {
 	for _, file := range files {
 		extension := urls.Ext(file)
 		if extension != "md" && extension != "" {
+			continue
+		}
+		shouldExclude := false
+		for _, excludeFile := range node.ExcludeFiles {
+			if file == excludeFile {
+				shouldExclude = true
+				break
+			}
+		}
+		if shouldExclude {
 			continue
 		}
 		source, err := url.JoinPath(strings.Replace(node.FileTree, "/tree/", "/blob/", 1), file)
@@ -217,7 +233,7 @@ func getParrentNode(pathToDirNode map[string]*Node, parentPath string) *Node {
 	return out
 }
 
-func mergeFolders(node *Node, parent *Node, manifest *Node, _ FileSource) error {
+func mergeFolders(node *Node, parent *Node, manifest *Node, _ resourcehandlers.Registry) error {
 	nodeNameToNode := map[string]*Node{}
 	for _, child := range node.Structure {
 		switch child.Type {
@@ -230,7 +246,12 @@ func mergeFolders(node *Node, parent *Node, manifest *Node, _ FileSource) error 
 			}
 		case "file":
 			if _, ok := nodeNameToNode[child.File]; ok {
-				return fmt.Errorf("file \n\n%s\nin manifest %s that will be written in %s causes collision", child, manifest.ManifType.Manifest, child.Path)
+				if child.Frontmatter != nil && nodeNameToNode[child.File].Frontmatter != nil && child.Frontmatter["persona"] != nodeNameToNode[child.File].Frontmatter["persona"] {
+					persona, _ := child.Frontmatter["persona"].(string)
+					child.File = strings.ReplaceAll(child.File, ".md", "-"+personaToDir[persona]+".md")
+				} else {
+					return fmt.Errorf("file \n\n%s\nin manifest %s that will be written in %s causes collision", child, manifest.ManifType.Manifest, child.Path)
+				}
 			}
 			nodeNameToNode[child.File] = child
 		}
@@ -239,17 +260,16 @@ func mergeFolders(node *Node, parent *Node, manifest *Node, _ FileSource) error 
 }
 
 var dirToPersona = map[string]string{"usage": "Users", "operations": "Operators", "development": "Developers"}
+var personaToDir = map[string]string{"Users": "usage", "Operators": "operations", "Developers": "development"}
 
-func resolvePersonaFolders(node *Node, parent *Node, manifest *Node, _ FileSource) error {
+func resolvePersonaFolders(node *Node, parent *Node, manifest *Node, _ resourcehandlers.Registry) error {
 	if node.Type == "dir" {
 		if node.Dir == "development" || node.Dir == "operations" || node.Dir == "usage" {
 			for _, child := range node.Structure {
-				if child.Properties == nil {
-					child.Properties = map[string]interface{}{}
+				if child.Frontmatter == nil {
+					child.Frontmatter = map[string]interface{}{}
 				}
-				//TODO: merge maps
-				//	if node.Properties["frontmatter"] != nil && node.Properties["frontmatter"]["categories"] == nil {
-				child.Properties["frontmatter"] = MergeStringMaps(child.Properties, map[string]interface{}{"persona": dirToPersona[node.Dir]})
+				child.Frontmatter["persona"] = dirToPersona[node.Dir]
 			}
 			parent.Structure = append(parent.Structure, node.Structure...)
 			removeNodeFromParent(node, parent)
@@ -259,71 +279,99 @@ func resolvePersonaFolders(node *Node, parent *Node, manifest *Node, _ FileSourc
 	return nil
 }
 
-// MergeStringMaps merges the content of the newMaps with the oldMap. If a key already exists then
-// it gets overwritten by the last value with the same key.
-func MergeStringMaps[T any](oldMap map[string]T, newMaps ...map[string]T) map[string]T {
-	var out map[string]T
-
-	if oldMap != nil {
-		out = make(map[string]T, len(oldMap))
-	}
-	for k, v := range oldMap {
-		out[k] = v
-	}
-
-	for _, newMap := range newMaps {
-		if newMap != nil && out == nil {
-			out = make(map[string]T)
+func propagateFrontmatter(node *Node, parent *Node, manifest *Node, _ resourcehandlers.Registry) error {
+	if parent != nil {
+		newFM := map[string]interface{}{}
+		for k, v := range parent.Frontmatter {
+			newFM[k] = v
 		}
-
-		for k, v := range newMap {
-			out[k] = v
+		for k, v := range node.Frontmatter {
+			newFM[k] = v
 		}
+		node.Frontmatter = newFM
 	}
-
-	return out
+	return nil
 }
 
-func setParent(node *Node, parent *Node, _ *Node, _ FileSource) error {
+func setParent(node *Node, parent *Node, _ *Node, _ resourcehandlers.Registry) error {
 	node.parent = parent
 	return nil
 }
 
-// ResolveManifest collects files in FileCollector from a given url and FileSource
-func ResolveManifest(url string, fs FileSource) (*Node, error) {
+func calculateAliases(node *Node, parent *Node, _ *Node, _ resourcehandlers.Registry) error {
+	var (
+		nodeAliases  []interface{}
+		childAliases []interface{}
+		formatted    bool
+	)
+	if nodeAliases, formatted = node.Frontmatter["aliases"].([]interface{}); node.Frontmatter != nil && node.Frontmatter["aliases"] != nil && !formatted {
+		return fmt.Errorf("node X \n\n%s\n has invalid alias format", node)
+	}
+	for _, nodeAlias := range nodeAliases {
+		for _, child := range node.Structure {
+			if child.Frontmatter == nil {
+				child.Frontmatter = map[string]interface{}{}
+			}
+			if child.Frontmatter["aliases"] == nil {
+				child.Frontmatter["aliases"] = []interface{}{}
+			}
+			if childAliases, formatted = child.Frontmatter["aliases"].([]interface{}); !formatted {
+				return fmt.Errorf("node \n\n%s\n has invalid alias format", child)
+			}
+			childAliases = append(childAliases, fmt.Sprintf("%s", nodeAlias)+"/"+strings.TrimSuffix(child.Name(), ".md"))
+			child.Frontmatter["aliases"] = childAliases
+		}
+	}
+	return nil
+}
+
+// ResolveManifest collects files in FileCollector from a given url and resourcehandlers.FileSource
+func ResolveManifest(url string, r resourcehandlers.Registry) (*Node, error) {
 	manifest := Node{
 		ManifType: ManifType{
 			Manifest: url,
 		},
 	}
-	if err := processManifest(loadManifestStructure, &manifest, nil, &manifest, fs); err != nil {
+	if err := processManifest(loadManifestStructure, &manifest, nil, &manifest, r); err != nil {
 		return nil, err
 	}
-	if err := processManifest(decideNodeType, &manifest, nil, &manifest, fs); err != nil {
+	if err := processManifest(decideNodeType, &manifest, nil, &manifest, r); err != nil {
 		return nil, err
 	}
-	if err := processManifest(calculatePath, &manifest, nil, &manifest, fs); err != nil {
+	if err := processManifest(calculatePath, &manifest, nil, &manifest, r); err != nil {
 		return nil, err
 	}
-	if err := processManifest(resolveFileRelativeLinks, &manifest, nil, &manifest, fs); err != nil {
+	if err := processManifest(resolveFileRelativeLinks, &manifest, nil, &manifest, r); err != nil {
 		return nil, err
 	}
-	if err := processManifest(extractFilesFromNode, &manifest, nil, &manifest, fs); err != nil {
+	if err := processManifest(extractFilesFromNode, &manifest, nil, &manifest, r); err != nil {
 		return nil, err
 	}
-	if err := processManifest(moveManifestContentIntoTree, &manifest, nil, &manifest, fs); err != nil {
+	if err := processManifest(moveManifestContentIntoTree, &manifest, nil, &manifest, r); err != nil {
 		return nil, err
 	}
-	if err := processManifest(mergeFolders, &manifest, nil, &manifest, fs); err != nil {
+	if err := processManifest(mergeFolders, &manifest, nil, &manifest, r); err != nil {
 		return nil, err
 	}
-	if err := processManifest(resolvePersonaFolders, &manifest, nil, &manifest, fs); err != nil {
+	if err := processManifest(calculateAliases, &manifest, nil, &manifest, r); err != nil {
 		return nil, err
 	}
-	if err := processManifest(calculatePath, &manifest, nil, &manifest, fs); err != nil {
+	if err := processManifest(resolvePersonaFolders, &manifest, nil, &manifest, r); err != nil {
 		return nil, err
 	}
-	if err := processManifest(setParent, &manifest, nil, &manifest, fs); err != nil {
+	if err := processManifest(calculatePath, &manifest, nil, &manifest, r); err != nil {
+		return nil, err
+	}
+	if err := processManifest(mergeFolders, &manifest, nil, &manifest, r); err != nil {
+		return nil, err
+	}
+	if err := processManifest(calculatePath, &manifest, nil, &manifest, r); err != nil {
+		return nil, err
+	}
+	if err := processManifest(setParent, &manifest, nil, &manifest, r); err != nil {
+		return nil, err
+	}
+	if err := processManifest(propagateFrontmatter, &manifest, nil, &manifest, r); err != nil {
 		return nil, err
 	}
 	return &manifest, nil

@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"net/url"
 	"os"
@@ -88,6 +89,9 @@ func (p *GHC) FileTreeFromURL(url string) ([]string, error) {
 	//bPrefix := fmt.Sprintf("%s://%s/%s/%s/blob/%s/%s", r.URL.Scheme, r.URL.Host, r.Owner, r.Repo, r.Ref, r.Path)
 	p.muxSHA.Lock()
 	defer p.muxSHA.Unlock()
+	if local := p.checkForLocalMapping(r); len(local) > 0 {
+		return p.readLocalFileTree(*r, local), nil
+	}
 	t, err := p.getTree(context.TODO(), r, true)
 	if err != nil {
 		return nil, err
@@ -306,6 +310,18 @@ func (p *GHC) readLocalFile(_ context.Context, r *util.ResourceInfo, localPath s
 		return nil, fmt.Errorf("reading file %s for uri %s fails: %v", fn, r.Raw, err)
 	}
 	return cnt, nil
+}
+
+func (p *GHC) readLocalFileTree(r util.ResourceInfo, localPath string) []string {
+	dirPath := filepath.Join(localPath, r.Path)
+	files := []string{}
+	filepath.Walk(dirPath, func(path string, info fs.FileInfo, err error) error {
+		if !info.IsDir() && strings.HasSuffix(path, ".md") {
+			files = append(files, strings.TrimPrefix(strings.TrimPrefix(path, dirPath), "/"))
+		}
+		return nil
+	})
+	return files
 }
 
 // downloadContent download file content like: github.Client.Repositories#DownloadContents, but with different error handling

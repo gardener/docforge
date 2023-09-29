@@ -148,7 +148,7 @@ func (r *Reactor) Run(ctx context.Context, url string) error {
 			r.Config.DryRunWriter.Flush()
 		}
 	}()
-	if m, err = manifest.ResolveManifest(url, r.ResourceHandlers.Get(url)); err != nil {
+	if m, err = manifest.ResolveManifest(url, r.ResourceHandlers); err != nil {
 		return fmt.Errorf("failed to resolve manifest %s. %+v", r.Config.ManifestPath, err)
 	}
 	if r.Config.Resolve {

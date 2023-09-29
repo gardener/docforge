@@ -12,7 +12,6 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/util/httpclient"
 )
 
@@ -28,8 +27,12 @@ func (e ErrResourceNotFound) Error() string {
 //
 //counterfeiter:generate . ResourceHandler
 type ResourceHandler interface {
-	manifest.FileSource
-
+	//ManifestFromURL Gets the manifest content from a given url
+	ManifestFromURL(url string) (string, error)
+	//FileTreeFromURL Get files that are present in the given url tree
+	FileTreeFromURL(url string) ([]string, error)
+	//BuildAbsLink Builds the abs link given where it is referenced
+	BuildAbsLink(source, link string) (string, error)
 	// Accept accepts manifests if this ResourceHandler can manage the type of resources
 	// identified by the URI scheme of uri.
 	Accept(uri string) bool
