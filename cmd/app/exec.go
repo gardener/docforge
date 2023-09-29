@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/gardener/docforge/pkg/resourcehandlers"
+	"k8s.io/klog/v2"
 )
 
 func exec(ctx context.Context) error {
@@ -14,6 +15,11 @@ func exec(ctx context.Context) error {
 	)
 
 	err = vip.Unmarshal(&options)
+	klog.Infof("Manifest: %s", options.ManifestPath)
+	for resource, mapped := range options.ResourceMappings {
+		klog.Infof("%s -> %s", resource, mapped)
+	}
+	klog.Infof("Output dir: %s", options.DestinationPath)
 	if err != nil {
 		return err
 	}
