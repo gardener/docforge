@@ -313,7 +313,9 @@ func (l *linkResolver) resolveBaseLink(link *linkInfo) error {
 		// can we handle changes to this destination?
 		if l.resourceHandlers.Get(link.destination) == nil {
 			// we don't have a handler for it. Leave it be.
-			l.validator.ValidateLink(link.URL, link.destination, l.source)
+			if l.validator != nil {
+				l.validator.ValidateLink(link.URL, link.destination, l.source)
+			}
 			return nil
 		}
 		absLink = link.destination
@@ -394,7 +396,9 @@ func (l *linkResolver) resolveBaseLink(link *linkInfo) error {
 		link.destination = absLink
 	}
 	if link.URL.IsAbs() { // all relative links exist (validation is performed in resourcehandlers.ResourceHandler#BuildAbsLink)
-		l.validator.ValidateLink(absURL, link.destination, l.source)
+		if l.validator != nil {
+			l.validator.ValidateLink(absURL, link.destination, l.source)
+		}
 	}
 	return nil
 }

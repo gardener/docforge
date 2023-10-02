@@ -33,6 +33,7 @@ type Options struct {
 	DryRun                       bool     `mapstructure:"dry-run"`
 	Resolve                      bool     `mapstructure:"resolve"`
 	ExtractedFilesFormats        []string `mapstructure:"extracted-files-formats"`
+	ValidateLinks                bool     `mapstructure:"validate-links"`
 }
 
 // Hugo is the configuration options for creating HUGO implementations
@@ -113,6 +114,9 @@ func NewReactor(o Config) (*Reactor, error) {
 		return nil, err
 	}
 	v := NewValidator(validatorTasks)
+	if !o.ValidateLinks {
+		v = nil
+	}
 	worker := &DocumentWorker{
 		writer:               o.Writer,
 		reader:               &GenericReader{ResourceHandlers: rhRegistry},
