@@ -76,6 +76,10 @@ func configureFlags(command *cobra.Command) {
 		"Supported content format extensions (exampel: .md)")
 	_ = vip.BindPFlag("extracted-files-formats", command.Flags().Lookup("extracted-files-formats"))
 
+	command.Flags().Bool("validate-links", true,
+		"Links should be validated")
+	_ = vip.BindPFlag("validate-links", command.Flags().Lookup("validate-links"))
+
 	cacheDir := ""
 	userHomeDir, err := os.UserHomeDir()
 	if err == nil {
