@@ -5,7 +5,7 @@
 package version_test
 
 import (
-	. "github.com/gardener/docforge/pkg/version"
+	"github.com/gardener/docforge/cmd/version"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -14,7 +14,7 @@ import (
 var _ = Describe("version", func() {
 	Describe("version", func() {
 		It("should not return a specific version number", func() {
-			Expect(Version).To(Equal("binary was not built properly"))
+			Expect(version.Version).To(Equal("binary was not built properly"))
 		})
 	})
 })
