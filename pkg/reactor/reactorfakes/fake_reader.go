@@ -8,7 +8,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/gardener/docforge/pkg/reactor"
+	"github.com/gardener/docforge/pkg/readers"
 )
 
 type FakeReader struct {
@@ -119,4 +119,4 @@ func (fake *FakeReader) recordInvocation(key string, args []interface{}) {
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ reactor.Reader = new(FakeReader)
+var _ readers.Reader = new(FakeReader)

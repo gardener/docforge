@@ -15,9 +15,9 @@ import (
 
 	_ "embed"
 
+	"github.com/gardener/docforge/pkg/httpclient"
 	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
-	"github.com/gardener/docforge/pkg/util/httpclient"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -81,7 +81,7 @@ func (r *fakeRegistry) Get(uri string) resourcehandlers.ResourceHandler {
 
 func collectFiles(n *manifest.Node) []*manifest.Node {
 	if n.Type == "file" {
-		n.RemoveParent()
+		n.Parent = nil
 		return []*manifest.Node{n}
 	}
 	out := []*manifest.Node{}

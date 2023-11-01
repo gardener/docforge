@@ -13,11 +13,12 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/gardener/docforge/cmd/hugo"
 	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/reactor"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/gardener/docforge/pkg/resourcehandlers/githubhttpcache"
-	"github.com/gardener/docforge/pkg/util/osshim"
+	"github.com/gardener/docforge/pkg/resourcehandlers/osshim"
 	"github.com/gardener/docforge/pkg/writers"
 	"github.com/google/go-github/v43/github"
 	"github.com/gregjones/httpcache"
@@ -48,7 +49,9 @@ func initResourceHandlers(ctx context.Context, o resourcehandlers.ResourceHandle
 		rh := newResourceHandler(u.Host, client, httpClient, o.ResourceMappings, options)
 		rhs = append(rhs, rh)
 	}
-
+	if len(rhs) == 0 {
+		return rhs, fmt.Errorf("no resource handlers were loaded. Is the config yaml file correct?")
+	}
 	return rhs, errs.ErrorOrNil()
 }
 
@@ -97,7 +100,7 @@ func newResourceHandler(host string, client *github.Client, httpClient *http.Cli
 }
 
 // NewReactor creates a Reactor from Options
-func newReactor(options reactor.Options, hugo reactor.Hugo, rhs []resourcehandlers.ResourceHandler) (*reactor.Reactor, error) {
+func getReactorConfig(options reactor.Options, hugo hugo.Hugo, rhs []resourcehandlers.ResourceHandler) reactor.Config {
 	config := reactor.Config{
 		Options:          options,
 		ResourceHandlers: rhs,
@@ -124,5 +127,5 @@ func newReactor(options reactor.Options, hugo reactor.Hugo, rhs []resourcehandle
 		}
 	}
 
-	return reactor.NewReactor(config)
+	return config
 }

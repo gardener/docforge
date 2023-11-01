@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/gardener/docforge/pkg/resourcehandlers"
-	"github.com/gardener/docforge/pkg/util/httpclient"
+	"github.com/gardener/docforge/pkg/httpclient"
 )
 
 type FakeResourceHandler struct {

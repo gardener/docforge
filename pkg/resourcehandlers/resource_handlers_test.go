@@ -10,13 +10,7 @@ import (
 
 	"github.com/gardener/docforge/pkg/resourcehandlers"
 	"github.com/gardener/docforge/pkg/resourcehandlers/resourcehandlersfakes"
-
-	"github.com/gardener/docforge/pkg/util/tests"
 )
-
-func init() {
-	tests.SetKlogV(6)
-}
 
 func TestGet(t *testing.T) {
 	nonAcceptingHandler := &resourcehandlersfakes.FakeResourceHandler{}

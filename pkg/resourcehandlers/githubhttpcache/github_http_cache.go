@@ -20,11 +20,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gardener/docforge/pkg/httpclient"
 	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/resourcehandlers"
-	"github.com/gardener/docforge/pkg/util"
-	"github.com/gardener/docforge/pkg/util/httpclient"
-	"github.com/gardener/docforge/pkg/util/osshim"
+	"github.com/gardener/docforge/pkg/resourcehandlers/osshim"
 	"github.com/google/go-github/v43/github"
 	"k8s.io/klog/v2"
 )
@@ -148,7 +147,7 @@ func (p *GHC) BuildAbsLink(source, link string) (string, error) {
 
 // Accept implements the resourcehandlers.ResourceHandler#Accept
 func (p *GHC) Accept(uri string) bool {
-	r, err := util.BuildResourceInfo(uri)
+	r, err := resourcehandlers.BuildResourceInfo(uri)
 	if err != nil || r.URL.Scheme != "https" {
 		return false
 	}
@@ -217,7 +216,7 @@ func (p *GHC) ReadGitInfo(ctx context.Context, uri string) ([]byte, error) {
 
 // GetRawFormatLink implements the resourcehandlers.ResourceHandler#GetRawFormatLink
 func (p *GHC) GetRawFormatLink(absLink string) (string, error) {
-	r, err := util.BuildResourceInfo(absLink)
+	r, err := resourcehandlers.BuildResourceInfo(absLink)
 	if err != nil {
 		return "", err
 	}
@@ -245,7 +244,7 @@ func (p *GHC) GetRateLimit(ctx context.Context) (int, int, time.Time, error) {
 
 // checkForLocalMapping returns repository root on file system if local mapping configuration
 // for the repository is set in config file or empty string otherwise.
-func (p *GHC) checkForLocalMapping(r *util.ResourceInfo) string {
+func (p *GHC) checkForLocalMapping(r *resourcehandlers.ResourceInfo) string {
 	key := strings.ToLower(r.GetRepoURL())
 	if localPath, ok := p.localMappings[key]; ok {
 		return localPath
@@ -255,7 +254,7 @@ func (p *GHC) checkForLocalMapping(r *util.ResourceInfo) string {
 }
 
 // readFile reads a file from GitHub
-func (p *GHC) readFile(ctx context.Context, r *util.ResourceInfo) ([]byte, error) {
+func (p *GHC) readFile(ctx context.Context, r *resourcehandlers.ResourceInfo) ([]byte, error) {
 	var cnt []byte
 	// read using GitService and file URL -> file SHA mapping
 	if SHA, ok := p.getFileSHA(r.Raw); ok {
@@ -300,7 +299,7 @@ func (p *GHC) readFile(ctx context.Context, r *util.ResourceInfo) ([]byte, error
 }
 
 // readLocalFile reads a file from FS
-func (p *GHC) readLocalFile(_ context.Context, r *util.ResourceInfo, localPath string) ([]byte, error) {
+func (p *GHC) readLocalFile(_ context.Context, r *resourcehandlers.ResourceInfo, localPath string) ([]byte, error) {
 	fn := filepath.Join(localPath, r.Path)
 	cnt, err := p.os.ReadFile(fn)
 	if err != nil {
@@ -312,7 +311,7 @@ func (p *GHC) readLocalFile(_ context.Context, r *util.ResourceInfo, localPath s
 	return cnt, nil
 }
 
-func (p *GHC) readLocalFileTree(r util.ResourceInfo, localPath string) []string {
+func (p *GHC) readLocalFileTree(r resourcehandlers.ResourceInfo, localPath string) []string {
 	dirPath := filepath.Join(localPath, r.Path)
 	files := []string{}
 	filepath.Walk(dirPath, func(path string, info fs.FileInfo, err error) error {
@@ -325,7 +324,7 @@ func (p *GHC) readLocalFileTree(r util.ResourceInfo, localPath string) []string 
 }
 
 // downloadContent download file content like: github.Client.Repositories#DownloadContents, but with different error handling
-func (p *GHC) downloadContent(ctx context.Context, opt *github.RepositoryContentGetOptions, r *util.ResourceInfo) ([]byte, error) {
+func (p *GHC) downloadContent(ctx context.Context, opt *github.RepositoryContentGetOptions, r *resourcehandlers.ResourceInfo) ([]byte, error) {
 	dir := path.Dir(r.Path)
 	filename := path.Base(r.Path)
 	dirContents, resp, err := p.getDirContents(ctx, r.Owner, r.Repo, dir, opt)
@@ -367,7 +366,7 @@ func (p *GHC) getDirContents(ctx context.Context, owner, repo, path string, opts
 }
 
 // getTree returns subtree with root r#Path
-func (p *GHC) getTree(ctx context.Context, r *util.ResourceInfo, recursive bool) (*github.Tree, error) {
+func (p *GHC) getTree(ctx context.Context, r *resourcehandlers.ResourceInfo, recursive bool) (*github.Tree, error) {
 	sha := fmt.Sprintf("%s:%s", r.Ref, r.Path)
 	sha = url.PathEscape(sha)
 	gitTree, resp, err := p.client.Git.GetTree(ctx, r.Owner, r.Repo, sha, recursive)
@@ -385,7 +384,7 @@ func (p *GHC) getTree(ctx context.Context, r *util.ResourceInfo, recursive bool)
 
 // buildAbsLink builds absolute link if <link> is relative using <source> as a base
 // resourcehandlers.ErrResourceNotFound if target resource doesn't exist
-func (p *GHC) buildAbsLink(source *util.ResourceInfo, link string) (string, error) {
+func (p *GHC) buildAbsLink(source *resourcehandlers.ResourceInfo, link string) (string, error) {
 	l, err := url.Parse(strings.TrimSuffix(link, "/"))
 	if err != nil {
 		return "", err
@@ -421,7 +420,7 @@ func (p *GHC) buildAbsLink(source *util.ResourceInfo, link string) (string, erro
 
 // determineLinkType returns the type of relative link (blob|tree)
 // resourcehandlers.ErrResourceNotFound if target resource doesn't exist
-func (p *GHC) determineLinkType(source *util.ResourceInfo, rel *url.URL) (string, error) {
+func (p *GHC) determineLinkType(source *resourcehandlers.ResourceInfo, rel *url.URL) (string, error) {
 	var tp string
 	var err error
 	gtp := "tree" // guess the type of resource
@@ -487,8 +486,8 @@ func (p *GHC) determineLinkType(source *util.ResourceInfo, rel *url.URL) (string
 }
 
 // getResourceInfo build ResourceInfo and resolves 'DEFAULT_BRANCH' to repo default branch
-func (p *GHC) getResolvedResourceInfo(ctx context.Context, uri string) (*util.ResourceInfo, error) {
-	r, err := util.BuildResourceInfo(uri)
+func (p *GHC) getResolvedResourceInfo(ctx context.Context, uri string) (*resourcehandlers.ResourceInfo, error) {
+	r, err := resourcehandlers.BuildResourceInfo(uri)
 	if err != nil {
 		return nil, err
 	}
