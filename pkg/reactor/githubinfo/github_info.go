@@ -9,7 +9,7 @@ import (
 
 	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/readers"
-	"github.com/gardener/docforge/pkg/resourcehandlers"
+	resourcehandlers "github.com/gardener/docforge/pkg/readers/repositoryhosts"
 	"github.com/gardener/docforge/pkg/writers"
 	"k8s.io/klog/v2"
 )

@@ -13,7 +13,7 @@ import (
 	"github.com/gardener/docforge/pkg/document"
 	"github.com/gardener/docforge/pkg/httpclient"
 	"github.com/gardener/docforge/pkg/reactor/jobs"
-	"github.com/gardener/docforge/pkg/resourcehandlers"
+	"github.com/gardener/docforge/pkg/readers/repositoryhosts"
 	"k8s.io/klog/v2"
 )
 
@@ -23,7 +23,7 @@ type validator struct {
 }
 
 // New creates new Validator
-func New(workerCount int, failFast bool, wg *sync.WaitGroup, client httpclient.Client, registry resourcehandlers.Registry) (document.Validator, jobs.QueueController, error) {
+func New(workerCount int, failFast bool, wg *sync.WaitGroup, client httpclient.Client, registry repositoryhosts.Registry) (document.Validator, jobs.QueueController, error) {
 	vWorker, err := NewValidatorWorker(client, registry)
 	if err != nil {
 		return nil, nil, err

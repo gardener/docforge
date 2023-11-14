@@ -7,7 +7,7 @@ import (
 	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/reactor/documentworker"
 	"github.com/gardener/docforge/pkg/reactor/jobs"
-	"github.com/gardener/docforge/pkg/resourcehandlers"
+	resourcehandlers "github.com/gardener/docforge/pkg/readers/repositoryhosts"
 	"github.com/gardener/docforge/pkg/writers"
 )
 
@@ -41,18 +41,18 @@ type Config struct {
 	Options
 	Writers
 	hugo.Hugo
-	ResourceHandlers []resourcehandlers.ResourceHandler
+	RepositoryHosts []resourcehandlers.RepositoryHost
 }
 
 // Reactor orchestrates the documentation build workflow
 type Reactor struct {
-	Config           Config
-	ResourceHandlers resourcehandlers.Registry
-	DocumentWorker   *documentworker.DocumentWorker
-	DocumentTasks    *jobs.JobQueue
-	DownloadTasks    jobs.QueueController
-	GitHubInfoTasks  jobs.QueueController
-	ValidatorTasks   jobs.QueueController
+	Config          Config
+	RepositoryHosts resourcehandlers.Registry
+	DocumentWorker  *documentworker.DocumentWorker
+	DocumentTasks   *jobs.JobQueue
+	DownloadTasks   jobs.QueueController
+	GitHubInfoTasks jobs.QueueController
+	ValidatorTasks  jobs.QueueController
 	// reac'torWaitGroup used to determine when all parallel tasks are done
 	reactorWaitGroup *sync.WaitGroup
 	sources          map[string][]*manifest.Node

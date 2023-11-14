@@ -14,7 +14,7 @@ import (
 	"github.com/gardener/docforge/pkg/reactor/downloader"
 	"github.com/gardener/docforge/pkg/reactor/jobs"
 	"github.com/gardener/docforge/pkg/reactor/reactorfakes"
-	"github.com/gardener/docforge/pkg/resourcehandlers"
+	"github.com/gardener/docforge/pkg/readers/repositoryhosts"
 	"github.com/gardener/docforge/pkg/writers/writersfakes"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -111,7 +111,7 @@ var _ = Describe("Downloader", func() {
 			})
 			Context("read fails with resource not found", func() {
 				BeforeEach(func() {
-					reader.ReadReturns(nil, resourcehandlers.ErrResourceNotFound("fake_target"))
+					reader.ReadReturns(nil, repositoryhosts.ErrResourceNotFound("fake_target"))
 				})
 				It("succeeded", func() {
 					Expect(err).NotTo(HaveOccurred())

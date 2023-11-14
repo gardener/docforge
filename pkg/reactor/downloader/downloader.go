@@ -8,11 +8,12 @@ import (
 	"sync"
 
 	"github.com/gardener/docforge/pkg/readers"
-	"github.com/gardener/docforge/pkg/resourcehandlers"
+	resourcehandlers "github.com/gardener/docforge/pkg/readers/repositoryhosts"
 	"github.com/gardener/docforge/pkg/writers"
 	"k8s.io/klog/v2"
 )
 
+// DownloadWorker is the structure that processes downloads
 type DownloadWorker struct {
 	reader readers.Reader
 	writer writers.Writer

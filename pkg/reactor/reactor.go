@@ -22,7 +22,7 @@ import (
 	"github.com/gardener/docforge/pkg/reactor/jobs"
 	"github.com/gardener/docforge/pkg/reactor/linkvalidator"
 	"github.com/gardener/docforge/pkg/readers"
-	"github.com/gardener/docforge/pkg/resourcehandlers"
+	resourcehandlers "github.com/gardener/docforge/pkg/readers/repositoryhosts"
 	"github.com/hashicorp/go-multierror"
 	"k8s.io/klog/v2"
 )
@@ -36,10 +36,10 @@ func NewReactor(o Config) (*Reactor, error) {
 	)
 	reactorWG := &sync.WaitGroup{}
 
-	rhRegistry := resourcehandlers.NewRegistry(o.ResourceHandlers...)
+	rhRegistry := resourcehandlers.NewRegistry(o.RepositoryHosts...)
 
 	dScheduler, downloadTasks, err := downloader.New(o.ResourceDownloadWorkersCount, o.FailFast, reactorWG, &readers.GenericReader{
-		ResourceHandlers: rhRegistry,
+		RepositoryHosts: rhRegistry,
 	}, o.ResourceDownloadWriter)
 	if err != nil {
 		return nil, err
@@ -53,21 +53,21 @@ func NewReactor(o Config) (*Reactor, error) {
 	}
 	if o.GitInfoWriter != nil {
 		ghInfo, ghInfoTasks, err = githubinfo.New(o.ResourceDownloadWorkersCount, o.FailFast, reactorWG, &readers.GenericReader{
-			ResourceHandlers: rhRegistry,
-			IsGitHubInfo:     true,
+			RepositoryHosts: rhRegistry,
+			IsGitHubInfo:    true,
 		}, o.GitInfoWriter)
 		if err != nil {
 			return nil, err
 		}
 	}
-	worker, docTasks, err := documentworker.New(o.DocumentWorkersCount, o.FailFast, reactorWG, &readers.GenericReader{ResourceHandlers: rhRegistry}, o.Writer, document.NewNodeContentProcessor(o.ResourcesPath, dScheduler, v, rhRegistry, o.Hugo), ghInfo)
+	worker, docTasks, err := documentworker.New(o.DocumentWorkersCount, o.FailFast, reactorWG, &readers.GenericReader{RepositoryHosts: rhRegistry}, o.Writer, document.NewNodeContentProcessor(o.ResourcesPath, dScheduler, v, rhRegistry, o.Hugo), ghInfo)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Reactor{
 		Config:           o,
-		ResourceHandlers: rhRegistry,
+		RepositoryHosts:  rhRegistry,
 		DocumentWorker:   worker,
 		DocumentTasks:    docTasks,
 		DownloadTasks:    downloadTasks,
@@ -79,7 +79,7 @@ func NewReactor(o Config) (*Reactor, error) {
 }
 
 // Run starts build operation on documentation
-func (r *Reactor) Run(ctx context.Context, manifestUrl string) error {
+func (r *Reactor) Run(ctx context.Context, manifestURL string) error {
 	ctx, cancel := context.WithCancel(ctx)
 	m := &manifest.Node{}
 	var err error
@@ -89,7 +89,7 @@ func (r *Reactor) Run(ctx context.Context, manifestUrl string) error {
 			r.Config.DryRunWriter.Flush()
 		}
 	}()
-	if m, err = manifest.ResolveManifest(manifestUrl, r.ResourceHandlers); err != nil {
+	if m, err = manifest.ResolveManifest(manifestURL, r.RepositoryHosts); err != nil {
 		return fmt.Errorf("failed to resolve manifest %s. %+v", r.Config.ManifestPath, err)
 	}
 	if r.Config.Resolve {
@@ -125,7 +125,7 @@ func (r *Reactor) Run(ctx context.Context, manifestUrl string) error {
 	klog.Infof("Validation tasks processed: %d\n", r.ValidatorTasks.GetProcessedTasksCount())
 
 	for _, rhHost := range []string{"https://github.com", "https://github.tools.sap", "https://github.wdf.sap.corp"} {
-		rh := r.ResourceHandlers.Get(rhHost)
+		rh := r.RepositoryHosts.Get(rhHost)
 		u, err := url.Parse(rhHost)
 		if err != nil {
 			return err

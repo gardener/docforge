@@ -19,7 +19,7 @@ import (
 	"github.com/gardener/docforge/pkg/document/markdown"
 	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/readers"
-	"github.com/gardener/docforge/pkg/resourcehandlers"
+	resourcehandlers "github.com/gardener/docforge/pkg/readers/repositoryhosts"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/renderer"
 	"k8s.io/klog/v2"
@@ -399,7 +399,7 @@ func (l *linkResolver) resolveBaseLink(link *linkInfo) error {
 		klog.V(6).Infof("[%s] %s -> %s\n", l.source, link.destination, absLink)
 		link.destination = absLink
 	}
-	if link.URL.IsAbs() { // all relative links exist (validation is performed in resourcehandlers.ResourceHandler#BuildAbsLink)
+	if link.URL.IsAbs() { // all relative links exist (validation is performed in resourcehandlers.RepositoryHost#BuildAbsLink)
 		if l.validator != nil {
 			l.validator.ValidateLink(absURL, link.destination, l.source)
 		}

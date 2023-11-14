@@ -15,7 +15,7 @@ import (
 	"github.com/gardener/docforge/cmd/version"
 	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/reactor"
-	"github.com/gardener/docforge/pkg/resourcehandlers"
+	"github.com/gardener/docforge/pkg/readers/repositoryhosts"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"k8s.io/klog/v2"
@@ -30,10 +30,10 @@ const (
 
 // Options data structure with all the options for docforge
 type options struct {
-	reactor.Options                         `mapstructure:",squash"`
-	hugo.Hugo                               `mapstructure:",squash"`
-	resourcehandlers.ResourceHandlerOptions `mapstructure:",squash"`
-	manifest.ParsingOptions                 `mapstructure:",squash"`
+	reactor.Options                       `mapstructure:",squash"`
+	hugo.Hugo                             `mapstructure:",squash"`
+	repositoryhosts.RepositoryHostOptions `mapstructure:",squash"`
+	manifest.ParsingOptions               `mapstructure:",squash"`
 }
 
 var vip *viper.Viper

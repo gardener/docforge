@@ -8,7 +8,7 @@ import (
 	"io/fs"
 	"sync"
 
-	"github.com/gardener/docforge/pkg/resourcehandlers/osshim"
+	"github.com/gardener/docforge/pkg/readers/repositoryhosts/osshim"
 )
 
 type FakeOs struct {

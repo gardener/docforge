@@ -8,7 +8,7 @@ import (
 	"context"
 
 	"github.com/gardener/docforge/pkg/readers"
-	"github.com/gardener/docforge/pkg/resourcehandlers/resourcehandlersfakes"
+	"github.com/gardener/docforge/pkg/readers/repositoryhosts/repositoryhostsfakes"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -31,13 +31,13 @@ var _ = Describe("Reader", func() {
 	})
 	When("invokes Reader.Read", func() {
 		var (
-			resHandlers *resourcehandlersfakes.FakeRegistry
-			resHandler  *resourcehandlersfakes.FakeResourceHandler
+			resHandlers *repositoryhostsfakes.FakeRegistry
+			resHandler  *repositoryhostsfakes.FakeRepositoryHost
 		)
 		BeforeEach(func() {
-			resHandler = &resourcehandlersfakes.FakeResourceHandler{}
-			resHandlers = &resourcehandlersfakes.FakeRegistry{}
-			reader.ResourceHandlers = resHandlers
+			resHandler = &repositoryhostsfakes.FakeRepositoryHost{}
+			resHandlers = &repositoryhostsfakes.FakeRegistry{}
+			reader.RepositoryHosts = resHandlers
 			resHandler.ReadReturns([]byte("content"), nil)
 			resHandler.ReadGitInfoReturns([]byte("git_info"), nil)
 			resHandlers.GetReturns(resHandler)

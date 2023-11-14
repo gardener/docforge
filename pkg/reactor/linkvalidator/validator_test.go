@@ -18,7 +18,7 @@ import (
 	"github.com/gardener/docforge/pkg/httpclient/httpclientfakes"
 	"github.com/gardener/docforge/pkg/reactor/jobs"
 	"github.com/gardener/docforge/pkg/reactor/linkvalidator"
-	"github.com/gardener/docforge/pkg/resourcehandlers/resourcehandlersfakes"
+	"github.com/gardener/docforge/pkg/readers/repositoryhosts/repositoryhostsfakes"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -32,7 +32,7 @@ var _ = Describe("Validator", func() {
 	var (
 		err         error
 		httpClient  *httpclientfakes.FakeClient
-		resHandlers *resourcehandlersfakes.FakeRegistry
+		resHandlers *repositoryhostsfakes.FakeRegistry
 
 		worker            *linkvalidator.ValidatorWorker
 		linkDestination   string
@@ -40,7 +40,7 @@ var _ = Describe("Validator", func() {
 	)
 	BeforeEach(func() {
 		httpClient = &httpclientfakes.FakeClient{}
-		resHandlers = &resourcehandlersfakes.FakeRegistry{}
+		resHandlers = &repositoryhostsfakes.FakeRegistry{}
 	})
 	JustBeforeEach(func() {
 		worker, err = linkvalidator.NewValidatorWorker(httpClient, resHandlers)
@@ -67,7 +67,7 @@ var _ = Describe("Validator", func() {
 			It("should fails", func() {
 				Expect(worker).To(BeNil())
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("resourceHandlers is nil"))
+				Expect(err.Error()).To(ContainSubstring("repositoryhosts is nil"))
 			})
 		})
 		When("invokes work func", func() {
@@ -209,11 +209,11 @@ var _ = Describe("Validator", func() {
 			})
 			When("resource handlers for the link is found", func() {
 				var (
-					resourceHandler   *resourcehandlersfakes.FakeResourceHandler
+					resourceHandler   *repositoryhostsfakes.FakeRepositoryHost
 					handlerHttpClient *httpclientfakes.FakeClient
 				)
 				BeforeEach(func() {
-					resourceHandler = &resourcehandlersfakes.FakeResourceHandler{}
+					resourceHandler = &repositoryhostsfakes.FakeRepositoryHost{}
 					resHandlers.GetReturns(resourceHandler)
 					handlerHttpClient = &httpclientfakes.FakeClient{}
 					handlerHttpClient.DoReturns(&http.Response{

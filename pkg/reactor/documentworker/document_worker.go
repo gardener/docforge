@@ -36,6 +36,7 @@ type DocumentWorker struct {
 	gitHubInfo           githubinfo.GitHubInfo
 }
 
+// New creates a new DocumentWorker
 func New(workerCount int, failFast bool, wg *sync.WaitGroup, reader readers.Reader, writer writers.Writer, ncp document.NodeContentProcessor, gitHubInfo githubinfo.GitHubInfo) (*DocumentWorker, *jobs.JobQueue, error) {
 	worker := &DocumentWorker{
 		writer:               writer,
@@ -50,7 +51,6 @@ func New(workerCount int, failFast bool, wg *sync.WaitGroup, reader readers.Read
 	return worker, queue, nil
 }
 
-// Work implements jobs.WorkerFunc
 func (w *DocumentWorker) execute(ctx context.Context, task interface{}) error {
 	node, ok := task.(*manifest.Node)
 	if !ok {
@@ -59,6 +59,7 @@ func (w *DocumentWorker) execute(ctx context.Context, task interface{}) error {
 	return w.Work(ctx, node)
 }
 
+// Work processes a node and writes its content
 func (w *DocumentWorker) Work(ctx context.Context, node *manifest.Node) error {
 	var cnt []byte
 	path := node.Path

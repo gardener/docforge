@@ -16,9 +16,9 @@ import (
 	"github.com/gardener/docforge/cmd/hugo"
 	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/reactor"
-	"github.com/gardener/docforge/pkg/resourcehandlers"
-	"github.com/gardener/docforge/pkg/resourcehandlers/githubhttpcache"
-	"github.com/gardener/docforge/pkg/resourcehandlers/osshim"
+	"github.com/gardener/docforge/pkg/readers/repositoryhosts"
+	"github.com/gardener/docforge/pkg/readers/repositoryhosts/githubhttpcache"
+	"github.com/gardener/docforge/pkg/readers/repositoryhosts/osshim"
 	"github.com/gardener/docforge/pkg/writers"
 	"github.com/google/go-github/v43/github"
 	"github.com/gregjones/httpcache"
@@ -28,8 +28,8 @@ import (
 	"golang.org/x/oauth2"
 )
 
-func initResourceHandlers(ctx context.Context, o resourcehandlers.ResourceHandlerOptions, options manifest.ParsingOptions) ([]resourcehandlers.ResourceHandler, error) {
-	var rhs []resourcehandlers.ResourceHandler
+func initRepositoryHosts(ctx context.Context, o repositoryhosts.RepositoryHostOptions, options manifest.ParsingOptions) ([]repositoryhosts.RepositoryHost, error) {
+	var rhs []repositoryhosts.RepositoryHost
 	var errs *multierror.Error
 	for host, oAuthToken := range o.Credentials {
 		instance := host
@@ -46,7 +46,7 @@ func initResourceHandlers(ctx context.Context, o resourcehandlers.ResourceHandle
 		if err != nil {
 			errs = multierror.Append(errs, err)
 		}
-		rh := newResourceHandler(u.Host, client, httpClient, o.ResourceMappings, options)
+		rh := newRepositoryHost(u.Host, client, httpClient, o.ResourceMappings, options)
 		rhs = append(rhs, rh)
 	}
 	if len(rhs) == 0 {
@@ -91,7 +91,7 @@ func buildClient(ctx context.Context, accessToken string, host string, cachePath
 	return client, httpClient, err
 }
 
-func newResourceHandler(host string, client *github.Client, httpClient *http.Client, localMappings map[string]string, options manifest.ParsingOptions) resourcehandlers.ResourceHandler {
+func newRepositoryHost(host string, client *github.Client, httpClient *http.Client, localMappings map[string]string, options manifest.ParsingOptions) repositoryhosts.RepositoryHost {
 	rawHost := "raw." + host
 	if host == "github.com" {
 		rawHost = "raw.githubusercontent.com"
@@ -100,11 +100,11 @@ func newResourceHandler(host string, client *github.Client, httpClient *http.Cli
 }
 
 // NewReactor creates a Reactor from Options
-func getReactorConfig(options reactor.Options, hugo hugo.Hugo, rhs []resourcehandlers.ResourceHandler) reactor.Config {
+func getReactorConfig(options reactor.Options, hugo hugo.Hugo, rhs []repositoryhosts.RepositoryHost) reactor.Config {
 	config := reactor.Config{
-		Options:          options,
-		ResourceHandlers: rhs,
-		Hugo:             hugo,
+		Options:         options,
+		RepositoryHosts: rhs,
+		Hugo:            hugo,
 	}
 
 	if config.DryRun {

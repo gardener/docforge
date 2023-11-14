@@ -10,12 +10,12 @@ import (
 	"testing"
 
 	"github.com/gardener/docforge/pkg/manifest"
-	"github.com/gardener/docforge/pkg/resourcehandlers"
-	"github.com/gardener/docforge/pkg/resourcehandlers/resourcehandlersfakes"
+	repositoryhosts "github.com/gardener/docforge/pkg/readers/repositoryhosts"
+	"github.com/gardener/docforge/pkg/readers/repositoryhosts/repositoryhostsfakes"
 	"github.com/stretchr/testify/assert"
 )
 
-// TODO: This is a flaky test. In the future the ResourceHandler should be mocked.
+// TODO: This is a flaky test. In the future the RepositoryHost should be mocked.
 func Test_processLink(t *testing.T) {
 
 	nodeB := &manifest.Node{
@@ -75,10 +75,10 @@ func Test_processLink(t *testing.T) {
 			wantDestination:   "https://github.com/gardener/gardener/releases/tag/v1.4.0",
 			wantErr:           nil,
 			mutate: func(c *nodeContentProcessor) {
-				h := resourcehandlersfakes.FakeResourceHandler{}
+				h := repositoryhostsfakes.FakeRepositoryHost{}
 				h.AcceptReturns(true)
 				h.BuildAbsLinkReturns("https://github.com/gardener/gardener/releases/tag/v1.4.0", nil)
-				c.resourceHandlers = resourcehandlers.NewRegistry(&h)
+				c.resourceHandlers = repositoryhosts.NewRegistry(&h)
 			},
 		},
 		// links to resources
@@ -89,10 +89,10 @@ func Test_processLink(t *testing.T) {
 			wantDestination:   "https://github.com/gardener/gardener/blob/v1.10.0/docs/image.png",
 			wantErr:           nil,
 			mutate: func(c *nodeContentProcessor) {
-				h := resourcehandlersfakes.FakeResourceHandler{}
+				h := repositoryhostsfakes.FakeRepositoryHost{}
 				h.AcceptReturns(true)
 				h.BuildAbsLinkReturns("https://github.com/gardener/gardener/blob/v1.10.0/docs/image.png", nil)
-				c.resourceHandlers = resourcehandlers.NewRegistry(&h)
+				c.resourceHandlers = repositoryhosts.NewRegistry(&h)
 			},
 		},
 		{
@@ -108,10 +108,10 @@ func Test_processLink(t *testing.T) {
 			wantErr:           nil,
 			embeddable:        true,
 			mutate: func(c *nodeContentProcessor) {
-				h := resourcehandlersfakes.FakeResourceHandler{}
+				h := repositoryhostsfakes.FakeRepositoryHost{}
 				h.AcceptReturns(true)
 				h.BuildAbsLinkReturns("https://github.com/gardener/gardener/blob/v1.10.0/docs/image.png", nil)
-				c.resourceHandlers = resourcehandlers.NewRegistry(&h)
+				c.resourceHandlers = repositoryhosts.NewRegistry(&h)
 			},
 		},
 		{
@@ -126,10 +126,10 @@ func Test_processLink(t *testing.T) {
 			wantDestination:   "https://github.com/gardener/gardener/blob/v1.10.0/image.png",
 			wantErr:           nil,
 			mutate: func(c *nodeContentProcessor) {
-				h := resourcehandlersfakes.FakeResourceHandler{}
+				h := repositoryhostsfakes.FakeRepositoryHost{}
 				h.AcceptReturns(true)
 				h.BuildAbsLinkReturns("https://github.com/gardener/gardener/blob/v1.10.0/image.png", nil)
-				c.resourceHandlers = resourcehandlers.NewRegistry(&h)
+				c.resourceHandlers = repositoryhosts.NewRegistry(&h)
 			},
 		},
 		{
@@ -187,10 +187,10 @@ func Test_processLink(t *testing.T) {
 			wantDestination:   "https://github.com/gardener/gardener/blob/v1.10.0/docs/another.md",
 			wantErr:           nil,
 			mutate: func(c *nodeContentProcessor) {
-				h := resourcehandlersfakes.FakeResourceHandler{}
+				h := repositoryhostsfakes.FakeRepositoryHost{}
 				h.AcceptReturns(true)
 				h.BuildAbsLinkReturns("https://github.com/gardener/gardener/blob/v1.10.0/docs/another.md", nil)
-				c.resourceHandlers = resourcehandlers.NewRegistry(&h)
+				c.resourceHandlers = repositoryhosts.NewRegistry(&h)
 			},
 		},
 		{
@@ -206,20 +206,20 @@ func Test_processLink(t *testing.T) {
 			embeddable:        true,
 			wantErr:           nil,
 			mutate: func(c *nodeContentProcessor) {
-				h := resourcehandlersfakes.FakeResourceHandler{}
+				h := repositoryhostsfakes.FakeRepositoryHost{}
 				h.AcceptReturns(true)
 				h.BuildAbsLinkReturns("https://github.com/gardener/gardener/blob/v1.10.0/docs/image.png", nil)
-				c.resourceHandlers = resourcehandlers.NewRegistry(&h)
+				c.resourceHandlers = repositoryhosts.NewRegistry(&h)
 			},
 		},
 	}
 	for _, tc := range testCases {
 		t.Run("", func(t *testing.T) {
-			frh := &resourcehandlersfakes.FakeResourceHandler{}
+			frh := &repositoryhostsfakes.FakeRepositoryHost{}
 			frh.AcceptReturns(true)
 			c := &nodeContentProcessor{
 				resourcesRoot:    "/__resources",
-				resourceHandlers: resourcehandlers.NewRegistry(frh),
+				resourceHandlers: repositoryhosts.NewRegistry(frh),
 				validator:        &fakeValidator{},
 				downloader:       &fakeDownload{},
 				sourceLocations:  tc.sourceLocations,

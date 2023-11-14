@@ -8,7 +8,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/gardener/docforge/pkg/resourcehandlers"
+	resourcehandlers "github.com/gardener/docforge/pkg/readers/repositoryhosts"
 )
 
 // Reader reads the bytes' data from a given source URI
@@ -20,7 +20,7 @@ type Reader interface {
 
 // GenericReader is generic implementation for Reader interface
 type GenericReader struct {
-	ResourceHandlers resourcehandlers.Registry
+	RepositoryHosts resourcehandlers.Registry
 	// if IsGitHubInfo is true the GitHub info for the resource is read
 	IsGitHubInfo bool
 }
@@ -28,7 +28,7 @@ type GenericReader struct {
 // Read reads from the resource at the source URL delegating
 // the actual operation to a suitable resource handler
 func (g *GenericReader) Read(ctx context.Context, source string) ([]byte, error) {
-	if handler := g.ResourceHandlers.Get(source); handler != nil {
+	if handler := g.RepositoryHosts.Get(source); handler != nil {
 		if g.IsGitHubInfo {
 			return handler.ReadGitInfo(ctx, source)
 		}

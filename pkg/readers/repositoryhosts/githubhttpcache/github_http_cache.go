@@ -22,13 +22,13 @@ import (
 
 	"github.com/gardener/docforge/pkg/httpclient"
 	"github.com/gardener/docforge/pkg/manifest"
-	"github.com/gardener/docforge/pkg/resourcehandlers"
-	"github.com/gardener/docforge/pkg/resourcehandlers/osshim"
+	resourcehandlers "github.com/gardener/docforge/pkg/readers/repositoryhosts"
+	"github.com/gardener/docforge/pkg/readers/repositoryhosts/osshim"
 	"github.com/google/go-github/v43/github"
 	"k8s.io/klog/v2"
 )
 
-// GHC implements resourcehandlers.ResourceHandler interface using GitHub manifestadapter with transport level persistent cache.
+// GHC implements resourcehandlers.RepositoryHost interface using GitHub manifestadapter with transport level persistent cache.
 type GHC struct {
 	client        *github.Client
 	httpClient    *http.Client
@@ -44,7 +44,7 @@ type GHC struct {
 }
 
 // NewGHC creates new GHC resource handler
-func NewGHC(client *github.Client, httpClient *http.Client, os osshim.Os, acceptedHosts []string, localMappings map[string]string, options manifest.ParsingOptions) resourcehandlers.ResourceHandler {
+func NewGHC(client *github.Client, httpClient *http.Client, os osshim.Os, acceptedHosts []string, localMappings map[string]string, options manifest.ParsingOptions) resourcehandlers.RepositoryHost {
 	return &GHC{
 		client:        client,
 		httpClient:    httpClient,
@@ -143,9 +143,9 @@ func (p *GHC) BuildAbsLink(source, link string) (string, error) {
 	return p.buildAbsLink(r, link)
 }
 
-//========================= resourcehandlers.ResourceHandler ===================================================
+//========================= resourcehandlers.RepositoryHost ===================================================
 
-// Accept implements the resourcehandlers.ResourceHandler#Accept
+// Accept implements the resourcehandlers.RepositoryHost#Accept
 func (p *GHC) Accept(uri string) bool {
 	r, err := resourcehandlers.BuildResourceInfo(uri)
 	if err != nil || r.URL.Scheme != "https" {
@@ -159,7 +159,7 @@ func (p *GHC) Accept(uri string) bool {
 	return false
 }
 
-// Read implements the resourcehandlers.ResourceHandler#Read
+// Read implements the resourcehandlers.RepositoryHost#Read
 func (p *GHC) Read(ctx context.Context, uri string) ([]byte, error) {
 	r, err := p.getResolvedResourceInfo(ctx, uri)
 	if err != nil {
@@ -174,7 +174,7 @@ func (p *GHC) Read(ctx context.Context, uri string) ([]byte, error) {
 	return p.readFile(ctx, r)
 }
 
-// ReadGitInfo implements the resourcehandlers.ResourceHandler#ReadGitInfo
+// ReadGitInfo implements the resourcehandlers.RepositoryHost#ReadGitInfo
 func (p *GHC) ReadGitInfo(ctx context.Context, uri string) ([]byte, error) {
 	r, err := p.getResolvedResourceInfo(ctx, uri)
 	if err != nil {
@@ -214,7 +214,7 @@ func (p *GHC) ReadGitInfo(ctx context.Context, uri string) ([]byte, error) {
 	return blob, nil
 }
 
-// GetRawFormatLink implements the resourcehandlers.ResourceHandler#GetRawFormatLink
+// GetRawFormatLink implements the resourcehandlers.RepositoryHost#GetRawFormatLink
 func (p *GHC) GetRawFormatLink(absLink string) (string, error) {
 	r, err := resourcehandlers.BuildResourceInfo(absLink)
 	if err != nil {
@@ -226,12 +226,12 @@ func (p *GHC) GetRawFormatLink(absLink string) (string, error) {
 	return r.GetRawURL(), nil
 }
 
-// GetClient implements the resourcehandlers.ResourceHandler#GetClient
+// GetClient implements the resourcehandlers.RepositoryHost#GetClient
 func (p *GHC) GetClient() httpclient.Client {
 	return p.httpClient
 }
 
-// GetRateLimit implements the resourcehandlers.ResourceHandler#GetRateLimit
+// GetRateLimit implements the resourcehandlers.RepositoryHost#GetRateLimit
 func (p *GHC) GetRateLimit(ctx context.Context) (int, int, time.Time, error) {
 	r, _, err := p.client.RateLimits(ctx)
 	if err != nil {

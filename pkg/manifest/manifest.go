@@ -6,7 +6,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/gardener/docforge/pkg/resourcehandlers"
+	resourcehandlers "github.com/gardener/docforge/pkg/readers/repositoryhosts"
 	"gopkg.in/yaml.v2"
 )
 
@@ -382,7 +382,7 @@ func ResolveManifest(url string, r resourcehandlers.Registry) (*Node, error) {
 	return &manifest, nil
 }
 
-// GetAllNodes returns all nodes in a manifest as array
+// GetAllNodes returns all nodes in a manifest as arrayqgi
 func GetAllNodes(node *Node) []*Node {
 	collected := []*Node{node}
 	for _, child := range node.Structure {

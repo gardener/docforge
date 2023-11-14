@@ -4,7 +4,7 @@
 
 package osshim
 
-//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate -header ../../../license_prefix.txt
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate -header ../../../../license_prefix.txt
 
 import (
 	"os"

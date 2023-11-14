@@ -17,7 +17,7 @@ import (
 
 	"github.com/gardener/docforge/pkg/httpclient"
 	"github.com/gardener/docforge/pkg/manifest"
-	"github.com/gardener/docforge/pkg/resourcehandlers"
+	resourcehandlers "github.com/gardener/docforge/pkg/readers/repositoryhosts"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -73,9 +73,9 @@ type fakeRegistry struct {
 	*fakeFiles
 }
 
-func (r *fakeRegistry) Load(rhs ...resourcehandlers.ResourceHandler)  {}
-func (r *fakeRegistry) Remove(rh ...resourcehandlers.ResourceHandler) {}
-func (r *fakeRegistry) Get(uri string) resourcehandlers.ResourceHandler {
+func (r *fakeRegistry) Load(rhs ...resourcehandlers.RepositoryHost)  {}
+func (r *fakeRegistry) Remove(rh ...resourcehandlers.RepositoryHost) {}
+func (r *fakeRegistry) Get(uri string) resourcehandlers.RepositoryHost {
 	return r.fakeFiles
 }
 

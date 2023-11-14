@@ -10,7 +10,7 @@ import (
 	"github.com/gardener/docforge/pkg/reactor/githubinfo"
 	"github.com/gardener/docforge/pkg/reactor/jobs"
 	"github.com/gardener/docforge/pkg/reactor/reactorfakes"
-	"github.com/gardener/docforge/pkg/resourcehandlers"
+	"github.com/gardener/docforge/pkg/readers/repositoryhosts"
 	"github.com/gardener/docforge/pkg/writers/writersfakes"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -124,7 +124,7 @@ var _ = Describe("GithubInfo", func() {
 			})
 			Context("read fails with resource not found", func() {
 				BeforeEach(func() {
-					reader.ReadReturnsOnCall(0, nil, resourcehandlers.ErrResourceNotFound("fake_target"))
+					reader.ReadReturnsOnCall(0, nil, repositoryhosts.ErrResourceNotFound("fake_target"))
 				})
 				It("succeeded", func() {
 					Expect(err).NotTo(HaveOccurred())

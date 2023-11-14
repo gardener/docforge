@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-package resourcehandlers
+package repositoryhosts
 
 import (
 	"fmt"

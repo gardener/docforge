@@ -14,26 +14,26 @@ import (
 	"time"
 
 	"github.com/gardener/docforge/pkg/httpclient"
-	"github.com/gardener/docforge/pkg/resourcehandlers"
+	"github.com/gardener/docforge/pkg/readers/repositoryhosts"
 	"k8s.io/klog/v2"
 )
 
 type ValidatorWorker struct {
-	httpClient       httpclient.Client
-	resourceHandlers resourcehandlers.Registry
-	validated        *linkSet
+	httpClient      httpclient.Client
+	repositoryhosts repositoryhosts.Registry
+	validated       *linkSet
 }
 
-func NewValidatorWorker(httpClient httpclient.Client, resourceHandlers resourcehandlers.Registry) (*ValidatorWorker, error) {
+func NewValidatorWorker(httpClient httpclient.Client, repositoryhosts repositoryhosts.Registry) (*ValidatorWorker, error) {
 	if httpClient == nil || reflect.ValueOf(httpClient).IsNil() {
 		return nil, errors.New("invalid argument: httpClient is nil")
 	}
-	if resourceHandlers == nil || reflect.ValueOf(resourceHandlers).IsNil() {
-		return nil, errors.New("invalid argument: resourceHandlers is nil")
+	if repositoryhosts == nil || reflect.ValueOf(repositoryhosts).IsNil() {
+		return nil, errors.New("invalid argument: repositoryhosts is nil")
 	}
 	return &ValidatorWorker{
 		httpClient,
-		resourceHandlers,
+		repositoryhosts,
 		&linkSet{
 			set: make(map[string]struct{}),
 		},
@@ -59,7 +59,7 @@ func (v *ValidatorWorker) Validate(ctx context.Context, LinkURL *url.URL, LinkDe
 	client := v.httpClient
 	// check for handler HTTP Client
 	absLinkDestination := LinkURL.String()
-	if handler := v.resourceHandlers.Get(absLinkDestination); handler != nil {
+	if handler := v.repositoryhosts.Get(absLinkDestination); handler != nil {
 		// get appropriate http client, if any
 		if handlerClient := handler.GetClient(); handlerClient != nil {
 			client = handlerClient
