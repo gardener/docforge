@@ -34,7 +34,7 @@ docforge:
         image: "golang:1.20.0"
         output_dir: "binary"
       integration-test:
-        image: "eu.gcr.io/gardener-project/gardener/testmachinery/testmachinery-run:stable"
+        image: "europe-docker.pkg.dev/gardener-project/releases/testmachinery/testmachinery-run:stable"
       check-manifest:
         image: "eu.gcr.io/gardener-project/gardener-website-generator:stable"
   jobs:
