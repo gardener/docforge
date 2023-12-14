@@ -10,16 +10,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Parent returns the parent node (if any) of this node n
-func (n *Node) Parent() *Node {
-	return n.parent
-}
-
-// RemoveParent removes parent from node. Used for testing
-func (n *Node) RemoveParent() {
-	n.parent = nil
-}
-
 // FullName returns fully qualified name of this node
 // i.e. Node.Path + Node.Name
 func (n *Node) FullName() string {

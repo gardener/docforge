@@ -10,12 +10,12 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/gardener/docforge/cmd/completion"
 	"github.com/gardener/docforge/cmd/gendocs"
+	"github.com/gardener/docforge/cmd/hugo"
 	"github.com/gardener/docforge/cmd/version"
 	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/reactor"
-	"github.com/gardener/docforge/pkg/resourcehandlers"
+	"github.com/gardener/docforge/pkg/readers/repositoryhosts"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"k8s.io/klog/v2"
@@ -30,10 +30,10 @@ const (
 
 // Options data structure with all the options for docforge
 type options struct {
-	reactor.Options                         `mapstructure:",squash"`
-	reactor.Hugo                            `mapstructure:",squash"`
-	resourcehandlers.ResourceHandlerOptions `mapstructure:",squash"`
-	manifest.ParsingOptions                 `mapstructure:",squash"`
+	reactor.Options                       `mapstructure:",squash"`
+	hugo.Hugo                             `mapstructure:",squash"`
+	repositoryhosts.RepositoryHostOptions `mapstructure:",squash"`
+	manifest.ParsingOptions               `mapstructure:",squash"`
 }
 
 var vip *viper.Viper
@@ -54,8 +54,6 @@ func NewCommand(ctx context.Context) *cobra.Command {
 	version := version.NewVersionCmd()
 	cmd.AddCommand(version)
 
-	completion := completion.NewCompletionCmd()
-	cmd.AddCommand(completion)
 	genCmdDocs := gendocs.NewGenCmdDocs()
 	cmd.AddCommand(genCmdDocs)
 

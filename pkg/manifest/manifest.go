@@ -6,8 +6,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/gardener/docforge/pkg/resourcehandlers"
-	"github.com/gardener/docforge/pkg/util/urls"
+	resourcehandlers "github.com/gardener/docforge/pkg/readers/repositoryhosts"
 	"gopkg.in/yaml.v2"
 )
 
@@ -179,7 +178,7 @@ func constructNodeTree(files []string, node *Node, parent *Node) error {
 	pathToDirNode := map[string]*Node{}
 	pathToDirNode[node.Path] = parent
 	for _, file := range files {
-		extension := urls.Ext(file)
+		extension := ext(file)
 		if extension != "md" && extension != "" {
 			continue
 		}
@@ -263,19 +262,21 @@ var dirToPersona = map[string]string{"usage": "Users", "operations": "Operators"
 var personaToDir = map[string]string{"Users": "usage", "Operators": "operations", "Developers": "development"}
 
 func resolvePersonaFolders(node *Node, parent *Node, manifest *Node, _ resourcehandlers.Registry) error {
-	if node.Type == "dir" {
-		if node.Dir == "development" || node.Dir == "operations" || node.Dir == "usage" {
-			for _, child := range node.Structure {
-				if child.Frontmatter == nil {
-					child.Frontmatter = map[string]interface{}{}
-				}
-				child.Frontmatter["persona"] = dirToPersona[node.Dir]
+	if node.Type == "dir" && (node.Dir == "development" || node.Dir == "operations" || node.Dir == "usage") {
+		for _, child := range node.Structure {
+			if child.Frontmatter == nil {
+				child.Frontmatter = map[string]interface{}{}
 			}
-			parent.Structure = append(parent.Structure, node.Structure...)
-			removeNodeFromParent(node, parent)
+			child.Frontmatter["persona"] = dirToPersona[node.Dir]
+			finalAlias := strings.TrimSuffix(child.Name(), ".md") + "/"
+			if child.Name() == "_index.md" {
+				finalAlias = ""
+			}
+			child.Frontmatter["aliases"] = []interface{}{"/" + parent.Path + "/" + node.Dir + "/" + finalAlias}
 		}
+		parent.Structure = append(parent.Structure, node.Structure...)
+		removeNodeFromParent(node, parent)
 	}
-
 	return nil
 }
 
@@ -294,7 +295,7 @@ func propagateFrontmatter(node *Node, parent *Node, manifest *Node, _ resourceha
 }
 
 func setParent(node *Node, parent *Node, _ *Node, _ resourcehandlers.Registry) error {
-	node.parent = parent
+	node.Parent = parent
 	return nil
 }
 
@@ -318,7 +319,11 @@ func calculateAliases(node *Node, parent *Node, _ *Node, _ resourcehandlers.Regi
 			if childAliases, formatted = child.Frontmatter["aliases"].([]interface{}); !formatted {
 				return fmt.Errorf("node \n\n%s\n has invalid alias format", child)
 			}
-			childAliases = append(childAliases, fmt.Sprintf("%s", nodeAlias)+"/"+strings.TrimSuffix(child.Name(), ".md"))
+			finalAlias := strings.TrimSuffix(child.Name(), ".md") + "/"
+			if child.Name() == "_index.md" {
+				finalAlias = ""
+			}
+			childAliases = append(childAliases, fmt.Sprintf("%s", nodeAlias)+"/"+finalAlias)
 			child.Frontmatter["aliases"] = childAliases
 		}
 	}
@@ -353,10 +358,10 @@ func ResolveManifest(url string, r resourcehandlers.Registry) (*Node, error) {
 	if err := processManifest(mergeFolders, &manifest, nil, &manifest, r); err != nil {
 		return nil, err
 	}
-	if err := processManifest(calculateAliases, &manifest, nil, &manifest, r); err != nil {
+	if err := processManifest(resolvePersonaFolders, &manifest, nil, &manifest, r); err != nil {
 		return nil, err
 	}
-	if err := processManifest(resolvePersonaFolders, &manifest, nil, &manifest, r); err != nil {
+	if err := processManifest(calculateAliases, &manifest, nil, &manifest, r); err != nil {
 		return nil, err
 	}
 	if err := processManifest(calculatePath, &manifest, nil, &manifest, r); err != nil {
@@ -375,4 +380,29 @@ func ResolveManifest(url string, r resourcehandlers.Registry) (*Node, error) {
 		return nil, err
 	}
 	return &manifest, nil
+}
+
+// GetAllNodes returns all nodes in a manifest as arrayqgi
+func GetAllNodes(node *Node) []*Node {
+	collected := []*Node{node}
+	for _, child := range node.Structure {
+		collected = append(collected, GetAllNodes(child)...)
+	}
+	return collected
+}
+
+// Ext returns the resource name extension used by URL path.
+// The extension is the suffix beginning at the final dot
+// in the final element of path; it is empty if there is
+// no dot.
+func ext(path string) string {
+	for i := len(path) - 1; i >= 0 && path[i] != '/'; i-- {
+		if path[i] == '.' {
+			if i <= (len(path) - 1) {
+				return path[i+1:]
+			}
+			return path[i:]
+		}
+	}
+	return ""
 }
