@@ -5,38 +5,41 @@
 package repositoryhostsfakes
 
 import (
+	"context"
 	"sync"
 
 	"github.com/gardener/docforge/pkg/readers/repositoryhosts"
 )
 
 type FakeRegistry struct {
-	GetStub        func(string) repositoryhosts.RepositoryHost
+	GetStub        func(string) (repositoryhosts.RepositoryHost, error)
 	getMutex       sync.RWMutex
 	getArgsForCall []struct {
 		arg1 string
 	}
 	getReturns struct {
 		result1 repositoryhosts.RepositoryHost
+		result2 error
 	}
 	getReturnsOnCall map[int]struct {
 		result1 repositoryhosts.RepositoryHost
+		result2 error
 	}
 	LoadStub        func(...repositoryhosts.RepositoryHost)
 	loadMutex       sync.RWMutex
 	loadArgsForCall []struct {
 		arg1 []repositoryhosts.RepositoryHost
 	}
-	RemoveStub        func(...repositoryhosts.RepositoryHost)
-	removeMutex       sync.RWMutex
-	removeArgsForCall []struct {
-		arg1 []repositoryhosts.RepositoryHost
+	LogRateLimitsStub        func(context.Context)
+	logRateLimitsMutex       sync.RWMutex
+	logRateLimitsArgsForCall []struct {
+		arg1 context.Context
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeRegistry) Get(arg1 string) repositoryhosts.RepositoryHost {
+func (fake *FakeRegistry) Get(arg1 string) (repositoryhosts.RepositoryHost, error) {
 	fake.getMutex.Lock()
 	ret, specificReturn := fake.getReturnsOnCall[len(fake.getArgsForCall)]
 	fake.getArgsForCall = append(fake.getArgsForCall, struct {
@@ -50,9 +53,9 @@ func (fake *FakeRegistry) Get(arg1 string) repositoryhosts.RepositoryHost {
 		return stub(arg1)
 	}
 	if specificReturn {
-		return ret.result1
+		return ret.result1, ret.result2
 	}
-	return fakeReturns.result1
+	return fakeReturns.result1, fakeReturns.result2
 }
 
 func (fake *FakeRegistry) GetCallCount() int {
@@ -61,7 +64,7 @@ func (fake *FakeRegistry) GetCallCount() int {
 	return len(fake.getArgsForCall)
 }
 
-func (fake *FakeRegistry) GetCalls(stub func(string) repositoryhosts.RepositoryHost) {
+func (fake *FakeRegistry) GetCalls(stub func(string) (repositoryhosts.RepositoryHost, error)) {
 	fake.getMutex.Lock()
 	defer fake.getMutex.Unlock()
 	fake.GetStub = stub
@@ -74,27 +77,30 @@ func (fake *FakeRegistry) GetArgsForCall(i int) string {
 	return argsForCall.arg1
 }
 
-func (fake *FakeRegistry) GetReturns(result1 repositoryhosts.RepositoryHost) {
+func (fake *FakeRegistry) GetReturns(result1 repositoryhosts.RepositoryHost, result2 error) {
 	fake.getMutex.Lock()
 	defer fake.getMutex.Unlock()
 	fake.GetStub = nil
 	fake.getReturns = struct {
 		result1 repositoryhosts.RepositoryHost
-	}{result1}
+		result2 error
+	}{result1, result2}
 }
 
-func (fake *FakeRegistry) GetReturnsOnCall(i int, result1 repositoryhosts.RepositoryHost) {
+func (fake *FakeRegistry) GetReturnsOnCall(i int, result1 repositoryhosts.RepositoryHost, result2 error) {
 	fake.getMutex.Lock()
 	defer fake.getMutex.Unlock()
 	fake.GetStub = nil
 	if fake.getReturnsOnCall == nil {
 		fake.getReturnsOnCall = make(map[int]struct {
 			result1 repositoryhosts.RepositoryHost
+			result2 error
 		})
 	}
 	fake.getReturnsOnCall[i] = struct {
 		result1 repositoryhosts.RepositoryHost
-	}{result1}
+		result2 error
+	}{result1, result2}
 }
 
 func (fake *FakeRegistry) Load(arg1 ...repositoryhosts.RepositoryHost) {
@@ -129,35 +135,35 @@ func (fake *FakeRegistry) LoadArgsForCall(i int) []repositoryhosts.RepositoryHos
 	return argsForCall.arg1
 }
 
-func (fake *FakeRegistry) Remove(arg1 ...repositoryhosts.RepositoryHost) {
-	fake.removeMutex.Lock()
-	fake.removeArgsForCall = append(fake.removeArgsForCall, struct {
-		arg1 []repositoryhosts.RepositoryHost
+func (fake *FakeRegistry) LogRateLimits(arg1 context.Context) {
+	fake.logRateLimitsMutex.Lock()
+	fake.logRateLimitsArgsForCall = append(fake.logRateLimitsArgsForCall, struct {
+		arg1 context.Context
 	}{arg1})
-	stub := fake.RemoveStub
-	fake.recordInvocation("Remove", []interface{}{arg1})
-	fake.removeMutex.Unlock()
+	stub := fake.LogRateLimitsStub
+	fake.recordInvocation("LogRateLimits", []interface{}{arg1})
+	fake.logRateLimitsMutex.Unlock()
 	if stub != nil {
-		fake.RemoveStub(arg1...)
+		fake.LogRateLimitsStub(arg1)
 	}
 }
 
-func (fake *FakeRegistry) RemoveCallCount() int {
-	fake.removeMutex.RLock()
-	defer fake.removeMutex.RUnlock()
-	return len(fake.removeArgsForCall)
+func (fake *FakeRegistry) LogRateLimitsCallCount() int {
+	fake.logRateLimitsMutex.RLock()
+	defer fake.logRateLimitsMutex.RUnlock()
+	return len(fake.logRateLimitsArgsForCall)
 }
 
-func (fake *FakeRegistry) RemoveCalls(stub func(...repositoryhosts.RepositoryHost)) {
-	fake.removeMutex.Lock()
-	defer fake.removeMutex.Unlock()
-	fake.RemoveStub = stub
+func (fake *FakeRegistry) LogRateLimitsCalls(stub func(context.Context)) {
+	fake.logRateLimitsMutex.Lock()
+	defer fake.logRateLimitsMutex.Unlock()
+	fake.LogRateLimitsStub = stub
 }
 
-func (fake *FakeRegistry) RemoveArgsForCall(i int) []repositoryhosts.RepositoryHost {
-	fake.removeMutex.RLock()
-	defer fake.removeMutex.RUnlock()
-	argsForCall := fake.removeArgsForCall[i]
+func (fake *FakeRegistry) LogRateLimitsArgsForCall(i int) context.Context {
+	fake.logRateLimitsMutex.RLock()
+	defer fake.logRateLimitsMutex.RUnlock()
+	argsForCall := fake.logRateLimitsArgsForCall[i]
 	return argsForCall.arg1
 }
 
@@ -168,8 +174,8 @@ func (fake *FakeRegistry) Invocations() map[string][][]interface{} {
 	defer fake.getMutex.RUnlock()
 	fake.loadMutex.RLock()
 	defer fake.loadMutex.RUnlock()
-	fake.removeMutex.RLock()
-	defer fake.removeMutex.RUnlock()
+	fake.logRateLimitsMutex.RLock()
+	defer fake.logRateLimitsMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

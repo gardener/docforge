@@ -1,0 +1,95 @@
+package downloader
+
+import (
+	"context"
+	"crypto/md5"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"path"
+	"reflect"
+	"strings"
+	"sync"
+
+	"github.com/gardener/docforge/pkg/readers/link"
+	"github.com/gardener/docforge/pkg/readers/repositoryhosts"
+	"github.com/gardener/docforge/pkg/writers"
+	"k8s.io/klog/v2"
+)
+
+// DownloadWorker is the structure that processes downloads
+type DownloadWorker struct {
+	registry repositoryhosts.Registry
+	writer   writers.Writer
+	// lock for accessing the downloadedResources map
+	mux sync.Mutex
+	// map with downloaded resources
+	downloadedResources map[string]struct{}
+}
+
+func NewDownloader(registry repositoryhosts.Registry, writer writers.Writer) (*DownloadWorker, error) {
+	if registry == nil || reflect.ValueOf(registry).IsNil() {
+		return nil, errors.New("invalid argument: reader is nil")
+	}
+	if writer == nil || reflect.ValueOf(writer).IsNil() {
+		return nil, errors.New("invalid argument: writer is nil")
+	}
+	return &DownloadWorker{
+		registry:            registry,
+		writer:              writer,
+		downloadedResources: make(map[string]struct{}),
+	}, nil
+}
+
+func DownloadResourceName(resource link.Resource, document string) string {
+	mdsum := md5.Sum([]byte(resource.GetResourceURL()))
+	ext := path.Ext(resource.Path)
+	name := strings.TrimSuffix(path.Base(resource.Path), ext)
+	hash := hex.EncodeToString(mdsum[:])[:6]
+	return fmt.Sprintf("%s_%s%s", name, hash, ext)
+
+}
+
+func (d *DownloadWorker) Download(ctx context.Context, source string, target string, document string) error {
+	if !d.shouldDownload(source) {
+		return nil
+	}
+	if err := d.download(ctx, source, target); err != nil {
+		dErr := fmt.Errorf("downloading %s as %s from document %s failed: %v", source, target, document, err)
+		if _, ok := err.(repositoryhosts.ErrResourceNotFound); ok {
+			// for missing resources just log warning
+			klog.Warning(dErr.Error())
+			return nil
+		}
+		return dErr
+	}
+	return nil
+}
+
+// shouldDownload checks whether a download task for the same Source is being processed
+func (d *DownloadWorker) shouldDownload(Source string) bool {
+	d.mux.Lock()
+	defer d.mux.Unlock()
+	if _, ok := d.downloadedResources[Source]; ok {
+		return false
+	}
+	d.downloadedResources[Source] = struct{}{}
+	return true
+}
+
+func (d *DownloadWorker) download(ctx context.Context, Source string, Target string) error {
+	klog.V(6).Infof("downloading %s as %s\n", Source, Target)
+	// normal read
+	repoHost, err := d.registry.Get(Source)
+	if err != nil {
+		return err
+	}
+	blob, err := repoHost.Read(ctx, Source)
+	if err != nil {
+		return err
+	}
+	if err = d.writer.Write(Target, "", blob, nil); err != nil {
+		return err
+	}
+	return nil
+}

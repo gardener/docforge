@@ -15,10 +15,9 @@ import (
 
 	"github.com/gardener/docforge/cmd/hugo"
 	"github.com/gardener/docforge/pkg/manifest"
-	"github.com/gardener/docforge/pkg/reactor"
+	"github.com/gardener/docforge/pkg/osfakes/osshim"
 	"github.com/gardener/docforge/pkg/readers/repositoryhosts"
 	"github.com/gardener/docforge/pkg/readers/repositoryhosts/githubhttpcache"
-	"github.com/gardener/docforge/pkg/readers/repositoryhosts/osshim"
 	"github.com/gardener/docforge/pkg/writers"
 	"github.com/google/go-github/v43/github"
 	"github.com/gregjones/httpcache"
@@ -96,12 +95,12 @@ func newRepositoryHost(host string, client *github.Client, httpClient *http.Clie
 	if host == "github.com" {
 		rawHost = "raw.githubusercontent.com"
 	}
-	return githubhttpcache.NewGHC(client, httpClient, &osshim.OsShim{}, []string{host, rawHost}, localMappings, options)
+	return githubhttpcache.NewGHC(host, client, httpClient, &osshim.OsShim{}, []string{host, rawHost}, localMappings, options)
 }
 
 // NewReactor creates a Reactor from Options
-func getReactorConfig(options reactor.Options, hugo hugo.Hugo, rhs []repositoryhosts.RepositoryHost) reactor.Config {
-	config := reactor.Config{
+func getReactorConfig(options Options, hugo hugo.Hugo, rhs []repositoryhosts.RepositoryHost) Config {
+	config := Config{
 		Options:         options,
 		RepositoryHosts: rhs,
 		Hugo:            hugo,

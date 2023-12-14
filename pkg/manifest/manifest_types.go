@@ -60,5 +60,5 @@ type Node struct {
 	// Path of node
 	Path string `yaml:"path,omitempty"`
 	// Parent of node
-	Parent *Node
+	parent *Node
 }

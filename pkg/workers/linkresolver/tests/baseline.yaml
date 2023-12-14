@@ -1,0 +1,21 @@
+structure:
+- dir: one
+  structure:
+  - file: node
+    multiSource:
+    - https://github.com/fake_owner/fake_repo/blob/master/target2
+    - https://github.com/fake_owner/fake_repo/blob/master/target
+  - dir: internal
+    structure:
+    - file: linked
+      multiSource:
+      - https://github.com/fake_owner/fake_repo/blob/master/clickher2
+      - https://github.com/fake_owner/fake_repo/blob/master/clickhere
+- dir: two
+  structure:
+  - dir: internal
+    structure:
+    - file: linked
+      multiSource:
+      - https://github.com/fake_owner/fake_repo/blob/master/clickher2
+      - https://github.com/fake_owner/fake_repo/blob/master/clickhere

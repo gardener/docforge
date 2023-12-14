@@ -7,7 +7,6 @@ package writers
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -46,7 +45,7 @@ func (f *FSWriter) Write(name, path string, docBlob []byte, node *manifest.Node)
 		name = fmt.Sprintf("%s.%s", name, f.Ext)
 	}
 	filePath := filepath.Join(p, name)
-	if err := ioutil.WriteFile(filePath, docBlob, 0644); err != nil {
+	if err := os.WriteFile(filePath, docBlob, 0644); err != nil {
 		return fmt.Errorf("error writing %s: %v", filePath, err)
 	}
 	return nil

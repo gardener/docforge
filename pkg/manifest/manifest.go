@@ -42,12 +42,18 @@ func loadManifestStructure(node *Node, parent *Node, manifest *Node, r resourceh
 	if node.Manifest == "" {
 		return nil
 	}
-	fs := r.Get(manifest.Manifest)
-	if newManifest, err = fs.BuildAbsLink(manifest.Manifest, node.Manifest); err != nil {
+	fs, err := r.Get(manifest.Manifest)
+	if err != nil {
+		return err
+	}
+	if newManifest, err = fs.ToAbsLink(manifest.Manifest, node.Manifest); err != nil {
 		return fmt.Errorf("can't build manifest node %s absolute URL : %w ", node.Manifest, err)
 	}
 	node.Manifest = newManifest
-	fs = r.Get(node.Manifest)
+	fs, err = r.Get(node.Manifest)
+	if err != nil {
+		return err
+	}
 	if content, err = fs.ManifestFromURL(node.Manifest); err != nil {
 		return fmt.Errorf("can't get manifest file content : %w", err)
 	}
@@ -113,9 +119,8 @@ func calculatePath(node *Node, parent *Node, _ *Node, _ resourcehandlers.Registr
 	return nil
 }
 
-func resolveFileRelativeLinks(node *Node, _ *Node, manifest *Node, r resourcehandlers.Registry) error {
+func resolveRelativeLinks(node *Node, _ *Node, manifest *Node, r resourcehandlers.Registry) error {
 	var (
-		err     error
 		newLink string
 	)
 	switch node.Type {
@@ -128,14 +133,20 @@ func resolveFileRelativeLinks(node *Node, _ *Node, manifest *Node, r resourcehan
 			node.Source = node.File
 			node.File = path.Base(node.File)
 		}
-		fs := r.Get(manifest.Manifest)
-		if newLink, err = fs.BuildAbsLink(manifest.Manifest, node.Source); err != nil {
+		fs, err := r.Get(manifest.Manifest)
+		if err != nil {
+			return err
+		}
+		if newLink, err = fs.ToAbsLink(manifest.Manifest, node.Source); err != nil {
 			return fmt.Errorf("cant build node's absolute link %s : %w", node.Source, err)
 		}
 		node.Source = newLink
 	case "fileTree":
-		fs := r.Get(manifest.Manifest)
-		if newLink, err = fs.BuildAbsLink(manifest.Manifest, node.FileTree); err != nil {
+		fs, err := r.Get(manifest.Manifest)
+		if err != nil {
+			return err
+		}
+		if newLink, err = fs.ToAbsLink(manifest.Manifest, node.FileTree); err != nil {
 			return fmt.Errorf("cant build node's absolute link %s : %w", node.FileTree, err)
 		}
 		node.FileTree = newLink
@@ -150,7 +161,10 @@ func extractFilesFromNode(node *Node, parent *Node, manifest *Node, r resourceha
 			node.File += ".md"
 		}
 	case "fileTree":
-		fs := r.Get(node.FileTree)
+		fs, err := r.Get(node.FileTree)
+		if err != nil {
+			return err
+		}
 		files, err := fs.FileTreeFromURL(node.FileTree)
 		if err != nil {
 			return err
@@ -178,8 +192,8 @@ func constructNodeTree(files []string, node *Node, parent *Node) error {
 	pathToDirNode := map[string]*Node{}
 	pathToDirNode[node.Path] = parent
 	for _, file := range files {
-		extension := ext(file)
-		if extension != "md" && extension != "" {
+		extension := path.Ext(file)
+		if extension != ".md" && extension != "" {
 			continue
 		}
 		shouldExclude := false
@@ -295,7 +309,7 @@ func propagateFrontmatter(node *Node, parent *Node, manifest *Node, _ resourceha
 }
 
 func setParent(node *Node, parent *Node, _ *Node, _ resourcehandlers.Registry) error {
-	node.Parent = parent
+	node.parent = parent
 	return nil
 }
 
@@ -331,7 +345,7 @@ func calculateAliases(node *Node, parent *Node, _ *Node, _ resourcehandlers.Regi
 }
 
 // ResolveManifest collects files in FileCollector from a given url and resourcehandlers.FileSource
-func ResolveManifest(url string, r resourcehandlers.Registry) (*Node, error) {
+func ResolveManifest(url string, r resourcehandlers.Registry) ([]*Node, error) {
 	manifest := Node{
 		ManifType: ManifType{
 			Manifest: url,
@@ -346,7 +360,7 @@ func ResolveManifest(url string, r resourcehandlers.Registry) (*Node, error) {
 	if err := processManifest(calculatePath, &manifest, nil, &manifest, r); err != nil {
 		return nil, err
 	}
-	if err := processManifest(resolveFileRelativeLinks, &manifest, nil, &manifest, r); err != nil {
+	if err := processManifest(resolveRelativeLinks, &manifest, nil, &manifest, r); err != nil {
 		return nil, err
 	}
 	if err := processManifest(extractFilesFromNode, &manifest, nil, &manifest, r); err != nil {
@@ -379,30 +393,14 @@ func ResolveManifest(url string, r resourcehandlers.Registry) (*Node, error) {
 	if err := processManifest(propagateFrontmatter, &manifest, nil, &manifest, r); err != nil {
 		return nil, err
 	}
-	return &manifest, nil
+	return getAllNodes(&manifest), nil
 }
 
 // GetAllNodes returns all nodes in a manifest as arrayqgi
-func GetAllNodes(node *Node) []*Node {
+func getAllNodes(node *Node) []*Node {
 	collected := []*Node{node}
 	for _, child := range node.Structure {
-		collected = append(collected, GetAllNodes(child)...)
+		collected = append(collected, getAllNodes(child)...)
 	}
 	return collected
-}
-
-// Ext returns the resource name extension used by URL path.
-// The extension is the suffix beginning at the final dot
-// in the final element of path; it is empty if there is
-// no dot.
-func ext(path string) string {
-	for i := len(path) - 1; i >= 0 && path[i] != '/'; i-- {
-		if path[i] == '.' {
-			if i <= (len(path) - 1) {
-				return path[i+1:]
-			}
-			return path[i:]
-		}
-	}
-	return ""
 }

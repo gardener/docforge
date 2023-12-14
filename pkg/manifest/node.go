@@ -5,16 +5,11 @@
 package manifest
 
 import (
-	"path/filepath"
+	"path"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
-
-// FullName returns fully qualified name of this node
-// i.e. Node.Path + Node.Name
-func (n *Node) FullName() string {
-	return n.Path + "/" + n.Name()
-}
 
 // Name is the name of the node
 func (n *Node) Name() string {
@@ -28,15 +23,27 @@ func (n *Node) Name() string {
 	}
 }
 
+// NodePath returns fully qualified name of this node
+// i.e. Node.Path + Node.Name
+func (n *Node) NodePath() string {
+	return path.Join(n.Path, n.Name())
+}
+
+func (n *Node) HugoPrettyPath() string {
+	name := n.Name()
+	name = strings.TrimSuffix(name, ".md")
+	name = strings.TrimSuffix(name, "/_index")
+	return path.Join(n.Path, name) + "/"
+}
+
 // IsDocument returns true if the node is a document node
-func (n *Node) IsDocument() bool {
+func (n *Node) HasContent() bool {
 	return len(n.MultiSource) > 0 || len(n.Source) > 0
 }
 
-// RelativePath returns the relative path betwee two nodes
-func (n *Node) RelativePath(to *Node) string {
-	p, _ := filepath.Rel(n.Path, to.FullName())
-	return p
+// Parent is the node parent
+func (n *Node) Parent() *Node {
+	return n.parent
 }
 
 func (n *Node) String() string {
