@@ -32,7 +32,7 @@ func (n *Node) NodePath() string {
 func (n *Node) HugoPrettyPath() string {
 	name := n.Name()
 	name = strings.TrimSuffix(name, ".md")
-	name = strings.TrimSuffix(name, "/_index")
+	name = strings.TrimSuffix(name, "_index")
 	return path.Join(n.Path, name) + "/"
 }
 

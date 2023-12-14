@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2023 SAP SE or an SAP affiliate company and Gardener contributors
+//
+// SPDX-License-Identifier: Apache-2.0
 package linkresolver_test
 
 import (
@@ -116,6 +119,13 @@ var _ = Describe("Document link resolving", func() {
 			newLink, validate, err := linkResolver.ResolveLink("#anchor", node, source)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(newLink).To(Equal("/baseURL/one/node/#anchor"))
+			Expect(validate).To(Equal(true))
+		})
+
+		It("Resolves _index.md correctly", func() {
+			newLink, validate, err := linkResolver.ResolveLink("https://github.com/fake_owner/fake_repo/blob/master/docs/_index.md", node, source)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(newLink).To(Equal("/baseURL/two/internal/"))
 			Expect(validate).To(Equal(true))
 		})
 

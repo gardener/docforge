@@ -15,6 +15,7 @@ structure:
   structure:
   - dir: internal
     structure:
+    - file: https://github.com/fake_owner/fake_repo/blob/master/docs/_index.md
     - file: linked
       multiSource:
       - https://github.com/fake_owner/fake_repo/blob/master/clickher2
