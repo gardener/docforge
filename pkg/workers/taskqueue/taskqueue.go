@@ -21,7 +21,7 @@ const (
 	bufferSize    = 1000
 )
 
-// QueueController can Start/Stop the queue and see its status
+// Interface can Start/Stop the queue and see its status
 type Interface interface {
 	QueueController
 	// AddTask adds a task to the tasks queue and increase wg counter
@@ -78,7 +78,7 @@ type taskQueue struct {
 // The WorkerFunc type declares workers functional interface
 type WorkerFunc func(ctx context.Context, task interface{}) error
 
-// NewTaskQueue create an empty task queue
+// New create an empty task queue
 func New(id string, size int, workFunc WorkerFunc, failFast bool, wg *sync.WaitGroup) (Interface, error) {
 	if size < minWorkerSize || size > maxWorkerSize {
 		return nil, fmt.Errorf("job queue %s init fails: invalid workers size '%d', valid size interval is [%d,%d]", id, size, minWorkerSize, maxWorkerSize)

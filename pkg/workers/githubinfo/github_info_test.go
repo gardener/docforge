@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 SAP SE or an SAP affiliate company and Gardener contributors
 //
 // SPDX-License-Identifier: Apache-2.0
+
 package githubinfo_test
 
 import (
@@ -31,7 +32,7 @@ var _ = Describe("Executing WriteGithubInfo", func() {
 		repoHost1 *repositoryhostsfakes.FakeRepositoryHost
 		repoHost2 *repositoryhostsfakes.FakeRepositoryHost
 		writer    *writersfakes.FakeWriter
-		worker    *githubinfo.GitHubInfoWorker
+		worker    *githubinfo.Worker
 
 		ctx      context.Context
 		taskNode *manifest.Node

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 SAP SE or an SAP affiliate company and Gardener contributors
 //
 // SPDX-License-Identifier: Apache-2.0
+
 package document_test
 
 import (
@@ -36,7 +37,7 @@ var manifests embed.FS
 
 var _ = Describe("Document resolving", func() {
 	var (
-		dw *document.DocumentWorker
+		dw *document.Worker
 
 		w *writersfakes.FakeWriter
 	)

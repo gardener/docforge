@@ -27,7 +27,8 @@ import (
 	"k8s.io/klog/v2"
 )
 
-type DocumentWorker struct {
+// Worker represents document worker
+type Worker struct {
 	linkresolver linkresolver.Interface
 	downloader   downloader.Interface
 	validator    linkvalidator.Interface
@@ -47,9 +48,9 @@ type docContent struct {
 	docURI string
 }
 
-// NewDocumentWorker creates DocumentWorker objects
-func NewDocumentWorker(resourcesRoot string, downloader downloader.Interface, validator linkvalidator.Interface, linkResolver linkresolver.Interface, rh repositoryhosts.Registry, hugo hugo.Hugo, writer writers.Writer) *DocumentWorker {
-	return &DocumentWorker{
+// NewDocumentWorker creates Worker objects
+func NewDocumentWorker(resourcesRoot string, downloader downloader.Interface, validator linkvalidator.Interface, linkResolver linkresolver.Interface, rh repositoryhosts.Registry, hugo hugo.Hugo, writer writers.Writer) *Worker {
+	return &Worker{
 		linkResolver,
 		downloader,
 		validator,
@@ -70,7 +71,7 @@ var (
 )
 
 // ProcessNode processes a node and writes its content
-func (d *DocumentWorker) ProcessNode(ctx context.Context, node *manifest.Node) error {
+func (d *Worker) ProcessNode(ctx context.Context, node *manifest.Node) error {
 	var cnt []byte
 	if node.HasContent() {
 		// Process the node
@@ -92,7 +93,7 @@ func (d *DocumentWorker) ProcessNode(ctx context.Context, node *manifest.Node) e
 	return nil
 }
 
-func (d *DocumentWorker) process(ctx context.Context, b *bytes.Buffer, n *manifest.Node) error {
+func (d *Worker) process(ctx context.Context, b *bytes.Buffer, n *manifest.Node) error {
 	// manifest.Node content by priority
 	var fullContent []*docContent
 	nodePath := n.NodePath()
@@ -142,7 +143,7 @@ func (d *DocumentWorker) process(ctx context.Context, b *bytes.Buffer, n *manife
 	return nil
 }
 
-func (d *DocumentWorker) processSource(ctx context.Context, sourceType string, source string, nodePath string) (*docContent, error) {
+func (d *Worker) processSource(ctx context.Context, sourceType string, source string, nodePath string) (*docContent, error) {
 	var dc *docContent
 	repoHost, err := d.Repositoryhosts.Get(source)
 	if err != nil {
@@ -161,7 +162,7 @@ func (d *DocumentWorker) processSource(ctx context.Context, sourceType string, s
 }
 
 type linkResolverTask struct {
-	DocumentWorker
+	Worker
 	Node   *manifest.Node
 	Source string
 }

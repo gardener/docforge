@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 SAP SE or an SAP affiliate company and Gardener contributors
 //
 // SPDX-License-Identifier: Apache-2.0
+
 package githubinfo
 
 import (
@@ -16,29 +17,28 @@ import (
 	"k8s.io/klog/v2"
 )
 
-type GitHubInfoWorker struct {
+// Worker github info worker
+type Worker struct {
 	registry repositoryhosts.Registry
 	writer   writers.Writer
 }
 
-func NewGithubWorker(registry repositoryhosts.Registry, writer writers.Writer) (*GitHubInfoWorker, error) {
+// NewGithubWorker creates new Worker object
+func NewGithubWorker(registry repositoryhosts.Registry, writer writers.Writer) (*Worker, error) {
 	if registry == nil || reflect.ValueOf(registry).IsNil() {
 		return nil, errors.New("invalid argument: reader is nil")
 	}
 	if writer == nil || reflect.ValueOf(writer).IsNil() {
 		return nil, errors.New("invalid argument: writer is nil")
 	}
-	return &GitHubInfoWorker{
+	return &Worker{
 		registry,
 		writer,
 	}, nil
 }
 
-// for each source:
-// get corresponding repohost
-// read git info for source
-// write to file
-func (w *GitHubInfoWorker) WriteGithubInfo(ctx context.Context, node *manifest.Node) error {
+// WriteGithubInfo writes github info to writer for a given node
+func (w *Worker) WriteGithubInfo(ctx context.Context, node *manifest.Node) error {
 	var (
 		b       bytes.Buffer
 		info    []byte

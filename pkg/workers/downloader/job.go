@@ -29,7 +29,7 @@ type downloadScheduler struct {
 	queue taskqueue.Interface
 }
 
-// NewDownloadScheduler create a DownloadScheduler to schedule download resources
+// New create a DownloadScheduler to schedule download resources
 func New(workerCount int, failFast bool, wg *sync.WaitGroup, registry repositoryhosts.Registry, writer writers.Writer) (Interface, taskqueue.QueueController, error) {
 	dWorker, err := NewDownloader(registry, writer)
 	if err != nil {

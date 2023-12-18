@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 SAP SE or an SAP affiliate company and Gardener contributors
 //
 // SPDX-License-Identifier: Apache-2.0
+
 package linkvalidator
 
 import (
@@ -21,11 +22,13 @@ import (
 	"k8s.io/klog/v2"
 )
 
+// ValidatorWorker holds nessesary objects ti validate URl
 type ValidatorWorker struct {
 	repository repositoryhosts.Registry
 	validated  *linkSet
 }
 
+// NewValidatorWorker creates new ValidatorWorker
 func NewValidatorWorker(repository repositoryhosts.Registry) (*ValidatorWorker, error) {
 	if repository == nil || reflect.ValueOf(repository).IsNil() {
 		return nil, errors.New("invalid argument: repositoryhosts is nil")
@@ -38,6 +41,7 @@ func NewValidatorWorker(repository repositoryhosts.Registry) (*ValidatorWorker, 
 	}, nil
 }
 
+// Validate validates a link
 func (v *ValidatorWorker) Validate(ctx context.Context, LinkDestination string, ContentSourcePath string) error {
 	var (
 		req  *http.Request

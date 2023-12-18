@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 SAP SE or an SAP affiliate company and Gardener contributors
 //
 // SPDX-License-Identifier: Apache-2.0
+
 package link
 
 import (
@@ -10,7 +11,7 @@ import (
 	"regexp"
 )
 
-// ResourceInfo represents a GitHub resource URL
+// Resource represents a GitHub resource URL
 type Resource struct {
 	url.URL
 	Host  string
@@ -28,6 +29,7 @@ var (
 	relative          = regexp.MustCompile(`([^\?#]+).*`)
 )
 
+// NewResource creates new resource from url as string
 func NewResource(URL string) (Resource, error) {
 	u, err := url.Parse(URL)
 	if err != nil {
@@ -36,6 +38,7 @@ func NewResource(URL string) (Resource, error) {
 	return NewResourceFromURL(u)
 }
 
+// NewResourceFromURL creates new resource from url object
 func NewResourceFromURL(u *url.URL) (Resource, error) {
 	components := rawPrefixed.FindStringSubmatch(u.String())
 	if components != nil {
@@ -83,7 +86,7 @@ func NewResourceFromURL(u *url.URL) (Resource, error) {
 	return Resource{}, nil
 }
 
-// GetURL returns the u
+// GetResourceURL returns the u
 func (r *Resource) GetResourceURL() string {
 	return fmt.Sprintf("https://%s/%s/%s/%s/%s/%s", r.Host, r.Owner, r.Repo, r.Type, r.Ref, r.Path)
 }

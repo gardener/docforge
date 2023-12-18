@@ -26,7 +26,7 @@ type GitHubInfo interface {
 }
 
 type gitHubInfo struct {
-	*GitHubInfoWorker
+	*Worker
 	queue taskqueue.Interface
 }
 
@@ -56,7 +56,7 @@ func (g *gitHubInfo) WriteGitHubInfo(node *manifest.Node) bool {
 }
 
 // GitHubInfoWork is jobs.WorkerFunc for GitHub infos
-func (w *GitHubInfoWorker) execute(ctx context.Context, task interface{}) error {
+func (w *Worker) execute(ctx context.Context, task interface{}) error {
 	node, ok := task.(*manifest.Node)
 	if !ok {
 		return fmt.Errorf("incorrect github info task: %T", task)
