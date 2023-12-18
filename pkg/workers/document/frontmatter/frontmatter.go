@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 SAP SE or an SAP affiliate company and Gardener contributors
 //
 // SPDX-License-Identifier: Apache-2.0
+
 package frontmatter
 
 import (
@@ -13,11 +14,14 @@ import (
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate -header ../../../../license_prefix.txt
 
 //counterfeiter:generate . NodeMeta
+
+// NodeMeta represents node meta operations
 type NodeMeta interface {
 	Meta() map[string]interface{}
 	SetMeta(map[string]interface{})
 }
 
+// MoveMultiSourceFrontmatterToTopDocument moves MultiSource frontmatter to top document
 func MoveMultiSourceFrontmatterToTopDocument(dc []NodeMeta) {
 	if len(dc) < 2 {
 		return
@@ -32,6 +36,7 @@ func MoveMultiSourceFrontmatterToTopDocument(dc []NodeMeta) {
 	dc[0].SetMeta(aggregated)
 }
 
+// MergeDocumentAndNodeFrontmatter merges frontmatter from document and node object
 func MergeDocumentAndNodeFrontmatter(nodeAst NodeMeta, node *manifest.Node) {
 	if nodeAst == nil || node == nil {
 		return

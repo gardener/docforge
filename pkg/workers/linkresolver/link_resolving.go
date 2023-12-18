@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 SAP SE or an SAP affiliate company and Gardener contributors
 //
 // SPDX-License-Identifier: Apache-2.0
+
 package linkresolver
 
 import (
@@ -21,18 +22,20 @@ import (
 // Interface resolves links URLs
 //
 //counterfeiter:generate . Interface
+
+// Interface represent link resolving interface
 type Interface interface {
 	ResolveLink(destination string, node *manifest.Node, source string) (string, bool, error)
 }
 
-// extends DocumentWorker with current source URI & node
+// LinkResolver represents link resolving nessesary objects
 type LinkResolver struct {
 	Repositoryhosts repositoryhosts.Registry
 	SourceToNode    map[string][]*manifest.Node
 	Hugo            hugo.Hugo
 }
 
-// return empty string if failed
+// ResolveLink resolves link
 func (l *LinkResolver) ResolveLink(destination string, node *manifest.Node, source string) (string, bool, error) {
 	newDestination := strings.ReplaceAll(destination, "/:v:/", "/%3Av%3A/")
 	if newDestination != destination {

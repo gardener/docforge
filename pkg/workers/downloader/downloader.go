@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 SAP SE or an SAP affiliate company and Gardener contributors
 //
 // SPDX-License-Identifier: Apache-2.0
+
 package downloader
 
 import (
@@ -30,6 +31,7 @@ type DownloadWorker struct {
 	downloadedResources map[string]struct{}
 }
 
+// NewDownloader creates new downloader
 func NewDownloader(registry repositoryhosts.Registry, writer writers.Writer) (*DownloadWorker, error) {
 	if registry == nil || reflect.ValueOf(registry).IsNil() {
 		return nil, errors.New("invalid argument: reader is nil")
@@ -44,6 +46,7 @@ func NewDownloader(registry repositoryhosts.Registry, writer writers.Writer) (*D
 	}, nil
 }
 
+// DownloadResourceName create resource name that will be dowloaded from a resource link
 func DownloadResourceName(resource link.Resource, document string) string {
 	mdsum := md5.Sum([]byte(resource.GetResourceURL()))
 	ext := path.Ext(resource.Path)
@@ -53,6 +56,7 @@ func DownloadResourceName(resource link.Resource, document string) string {
 
 }
 
+// Download downloads source as target
 func (d *DownloadWorker) Download(ctx context.Context, source string, target string, document string) error {
 	if !d.shouldDownload(source) {
 		return nil

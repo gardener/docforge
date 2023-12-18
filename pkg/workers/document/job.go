@@ -20,18 +20,19 @@ import (
 	"k8s.io/klog/v2"
 )
 
-// DocumentWorker defines a structure for processing manifest.Node document content
+// Worker defines a structure for processing manifest.Node document content
 type documentScheduler struct {
-	*DocumentWorker
+	*Worker
 	queue taskqueue.Interface
 }
 
-type DocumentProcessor interface {
+// Processor represents document processor
+type Processor interface {
 	ProcessNode(node *manifest.Node) bool
 }
 
-// New creates a new DocumentWorker
-func New(workerCount int, failFast bool, wg *sync.WaitGroup, structure []*manifest.Node, resourcesRoot string, downloadJob downloader.Interface, validator linkvalidator.Interface, rh repositoryhosts.Registry, hugo hugo.Hugo, writer writers.Writer) (DocumentProcessor, taskqueue.QueueController, error) {
+// New creates a new Worker
+func New(workerCount int, failFast bool, wg *sync.WaitGroup, structure []*manifest.Node, resourcesRoot string, downloadJob downloader.Interface, validator linkvalidator.Interface, rh repositoryhosts.Registry, hugo hugo.Hugo, writer writers.Writer) (Processor, taskqueue.QueueController, error) {
 	lr := &linkresolver.LinkResolver{
 		Repositoryhosts: rh,
 		Hugo:            hugo,
@@ -66,7 +67,7 @@ func (ds *documentScheduler) ProcessNode(node *manifest.Node) bool {
 	return added
 }
 
-func (w *DocumentWorker) execute(ctx context.Context, task interface{}) error {
+func (w *Worker) execute(ctx context.Context, task interface{}) error {
 	node, ok := task.(*manifest.Node)
 	if !ok {
 		return fmt.Errorf("incorrect document work task: %T", task)

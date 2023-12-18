@@ -150,6 +150,7 @@ func (p *GHC) ToAbsLink(source, link string) (string, error) {
 
 //========================= repositoryhosts.RepositoryHost ===================================================
 
+// Name returns host name
 func (p *GHC) Name() string {
 	return p.hostName
 }

@@ -11,7 +11,7 @@ import (
 )
 
 // Options encapsulates the parameters for creating
-// new Reactor objects with NewReactor
+// new Reactor objects
 type Options struct {
 	DocumentWorkersCount         int      `mapstructure:"document-workers"`
 	ValidationWorkersCount       int      `mapstructure:"validation-workers"`

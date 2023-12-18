@@ -29,6 +29,7 @@ func (n *Node) NodePath() string {
 	return path.Join(n.Path, n.Name())
 }
 
+// HugoPrettyPath returns hugo pretty path
 func (n *Node) HugoPrettyPath() string {
 	name := n.Name()
 	name = strings.TrimSuffix(name, ".md")
@@ -36,7 +37,7 @@ func (n *Node) HugoPrettyPath() string {
 	return path.Join(n.Path, name) + "/"
 }
 
-// IsDocument returns true if the node is a document node
+// HasContent returns true if the node is a document node
 func (n *Node) HasContent() bool {
 	return len(n.MultiSource) > 0 || len(n.Source) > 0
 }
