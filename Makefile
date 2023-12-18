@@ -86,10 +86,6 @@ test-clean:
 	@find . -name "*.coverprofile" -type f -delete
 	@rm -f docforge.coverage.html
 
-.PHONY: docs-lint
-docs-lint:
-	@.ci/docs-lint
-
 .PHONY: docs-gen
 docs-gen:
 	@.ci/docs-gen

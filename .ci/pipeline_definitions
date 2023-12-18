@@ -51,10 +51,6 @@ docforge:
             BINARY_PATH: 'binary_path'
           depends:
           - build
-        docs-lint:
-          image: "eu.gcr.io/gardener-project/docs-toolbelt:latest"
-          depends:
-          - docs-gen
     release:
       traits:
         version:
