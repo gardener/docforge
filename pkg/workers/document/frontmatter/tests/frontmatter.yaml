@@ -1,0 +1,12 @@
+structure:
+- file: foo.md
+- file: bar.md
+  frontmatter:
+    baz: node_bazVal
+    aliases:
+    - node_alias1
+    - node_alias2
+    bar: node_barVal
+    barArray:
+    - node_bar1
+    - node_bar2

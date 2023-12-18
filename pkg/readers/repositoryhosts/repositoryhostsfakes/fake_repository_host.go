@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gardener/docforge/pkg/httpclient"
+	"github.com/gardener/docforge/pkg/osfakes/httpclient"
 	"github.com/gardener/docforge/pkg/readers/repositoryhosts"
 )
 
@@ -24,20 +24,6 @@ type FakeRepositoryHost struct {
 	}
 	acceptReturnsOnCall map[int]struct {
 		result1 bool
-	}
-	BuildAbsLinkStub        func(string, string) (string, error)
-	buildAbsLinkMutex       sync.RWMutex
-	buildAbsLinkArgsForCall []struct {
-		arg1 string
-		arg2 string
-	}
-	buildAbsLinkReturns struct {
-		result1 string
-		result2 error
-	}
-	buildAbsLinkReturnsOnCall map[int]struct {
-		result1 string
-		result2 error
 	}
 	FileTreeFromURLStub        func(string) ([]string, error)
 	fileTreeFromURLMutex       sync.RWMutex
@@ -105,6 +91,16 @@ type FakeRepositoryHost struct {
 		result1 string
 		result2 error
 	}
+	NameStub        func() string
+	nameMutex       sync.RWMutex
+	nameArgsForCall []struct {
+	}
+	nameReturns struct {
+		result1 string
+	}
+	nameReturnsOnCall map[int]struct {
+		result1 string
+	}
 	ReadStub        func(context.Context, string) ([]byte, error)
 	readMutex       sync.RWMutex
 	readArgsForCall []struct {
@@ -131,6 +127,20 @@ type FakeRepositoryHost struct {
 	}
 	readGitInfoReturnsOnCall map[int]struct {
 		result1 []byte
+		result2 error
+	}
+	ToAbsLinkStub        func(string, string) (string, error)
+	toAbsLinkMutex       sync.RWMutex
+	toAbsLinkArgsForCall []struct {
+		arg1 string
+		arg2 string
+	}
+	toAbsLinkReturns struct {
+		result1 string
+		result2 error
+	}
+	toAbsLinkReturnsOnCall map[int]struct {
+		result1 string
 		result2 error
 	}
 	invocations      map[string][][]interface{}
@@ -196,71 +206,6 @@ func (fake *FakeRepositoryHost) AcceptReturnsOnCall(i int, result1 bool) {
 	fake.acceptReturnsOnCall[i] = struct {
 		result1 bool
 	}{result1}
-}
-
-func (fake *FakeRepositoryHost) BuildAbsLink(arg1 string, arg2 string) (string, error) {
-	fake.buildAbsLinkMutex.Lock()
-	ret, specificReturn := fake.buildAbsLinkReturnsOnCall[len(fake.buildAbsLinkArgsForCall)]
-	fake.buildAbsLinkArgsForCall = append(fake.buildAbsLinkArgsForCall, struct {
-		arg1 string
-		arg2 string
-	}{arg1, arg2})
-	stub := fake.BuildAbsLinkStub
-	fakeReturns := fake.buildAbsLinkReturns
-	fake.recordInvocation("BuildAbsLink", []interface{}{arg1, arg2})
-	fake.buildAbsLinkMutex.Unlock()
-	if stub != nil {
-		return stub(arg1, arg2)
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fakeReturns.result1, fakeReturns.result2
-}
-
-func (fake *FakeRepositoryHost) BuildAbsLinkCallCount() int {
-	fake.buildAbsLinkMutex.RLock()
-	defer fake.buildAbsLinkMutex.RUnlock()
-	return len(fake.buildAbsLinkArgsForCall)
-}
-
-func (fake *FakeRepositoryHost) BuildAbsLinkCalls(stub func(string, string) (string, error)) {
-	fake.buildAbsLinkMutex.Lock()
-	defer fake.buildAbsLinkMutex.Unlock()
-	fake.BuildAbsLinkStub = stub
-}
-
-func (fake *FakeRepositoryHost) BuildAbsLinkArgsForCall(i int) (string, string) {
-	fake.buildAbsLinkMutex.RLock()
-	defer fake.buildAbsLinkMutex.RUnlock()
-	argsForCall := fake.buildAbsLinkArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
-}
-
-func (fake *FakeRepositoryHost) BuildAbsLinkReturns(result1 string, result2 error) {
-	fake.buildAbsLinkMutex.Lock()
-	defer fake.buildAbsLinkMutex.Unlock()
-	fake.BuildAbsLinkStub = nil
-	fake.buildAbsLinkReturns = struct {
-		result1 string
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *FakeRepositoryHost) BuildAbsLinkReturnsOnCall(i int, result1 string, result2 error) {
-	fake.buildAbsLinkMutex.Lock()
-	defer fake.buildAbsLinkMutex.Unlock()
-	fake.BuildAbsLinkStub = nil
-	if fake.buildAbsLinkReturnsOnCall == nil {
-		fake.buildAbsLinkReturnsOnCall = make(map[int]struct {
-			result1 string
-			result2 error
-		})
-	}
-	fake.buildAbsLinkReturnsOnCall[i] = struct {
-		result1 string
-		result2 error
-	}{result1, result2}
 }
 
 func (fake *FakeRepositoryHost) FileTreeFromURL(arg1 string) ([]string, error) {
@@ -578,6 +523,59 @@ func (fake *FakeRepositoryHost) ManifestFromURLReturnsOnCall(i int, result1 stri
 	}{result1, result2}
 }
 
+func (fake *FakeRepositoryHost) Name() string {
+	fake.nameMutex.Lock()
+	ret, specificReturn := fake.nameReturnsOnCall[len(fake.nameArgsForCall)]
+	fake.nameArgsForCall = append(fake.nameArgsForCall, struct {
+	}{})
+	stub := fake.NameStub
+	fakeReturns := fake.nameReturns
+	fake.recordInvocation("Name", []interface{}{})
+	fake.nameMutex.Unlock()
+	if stub != nil {
+		return stub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *FakeRepositoryHost) NameCallCount() int {
+	fake.nameMutex.RLock()
+	defer fake.nameMutex.RUnlock()
+	return len(fake.nameArgsForCall)
+}
+
+func (fake *FakeRepositoryHost) NameCalls(stub func() string) {
+	fake.nameMutex.Lock()
+	defer fake.nameMutex.Unlock()
+	fake.NameStub = stub
+}
+
+func (fake *FakeRepositoryHost) NameReturns(result1 string) {
+	fake.nameMutex.Lock()
+	defer fake.nameMutex.Unlock()
+	fake.NameStub = nil
+	fake.nameReturns = struct {
+		result1 string
+	}{result1}
+}
+
+func (fake *FakeRepositoryHost) NameReturnsOnCall(i int, result1 string) {
+	fake.nameMutex.Lock()
+	defer fake.nameMutex.Unlock()
+	fake.NameStub = nil
+	if fake.nameReturnsOnCall == nil {
+		fake.nameReturnsOnCall = make(map[int]struct {
+			result1 string
+		})
+	}
+	fake.nameReturnsOnCall[i] = struct {
+		result1 string
+	}{result1}
+}
+
 func (fake *FakeRepositoryHost) Read(arg1 context.Context, arg2 string) ([]byte, error) {
 	fake.readMutex.Lock()
 	ret, specificReturn := fake.readReturnsOnCall[len(fake.readArgsForCall)]
@@ -708,13 +706,76 @@ func (fake *FakeRepositoryHost) ReadGitInfoReturnsOnCall(i int, result1 []byte, 
 	}{result1, result2}
 }
 
+func (fake *FakeRepositoryHost) ToAbsLink(arg1 string, arg2 string) (string, error) {
+	fake.toAbsLinkMutex.Lock()
+	ret, specificReturn := fake.toAbsLinkReturnsOnCall[len(fake.toAbsLinkArgsForCall)]
+	fake.toAbsLinkArgsForCall = append(fake.toAbsLinkArgsForCall, struct {
+		arg1 string
+		arg2 string
+	}{arg1, arg2})
+	stub := fake.ToAbsLinkStub
+	fakeReturns := fake.toAbsLinkReturns
+	fake.recordInvocation("ToAbsLink", []interface{}{arg1, arg2})
+	fake.toAbsLinkMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *FakeRepositoryHost) ToAbsLinkCallCount() int {
+	fake.toAbsLinkMutex.RLock()
+	defer fake.toAbsLinkMutex.RUnlock()
+	return len(fake.toAbsLinkArgsForCall)
+}
+
+func (fake *FakeRepositoryHost) ToAbsLinkCalls(stub func(string, string) (string, error)) {
+	fake.toAbsLinkMutex.Lock()
+	defer fake.toAbsLinkMutex.Unlock()
+	fake.ToAbsLinkStub = stub
+}
+
+func (fake *FakeRepositoryHost) ToAbsLinkArgsForCall(i int) (string, string) {
+	fake.toAbsLinkMutex.RLock()
+	defer fake.toAbsLinkMutex.RUnlock()
+	argsForCall := fake.toAbsLinkArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
+}
+
+func (fake *FakeRepositoryHost) ToAbsLinkReturns(result1 string, result2 error) {
+	fake.toAbsLinkMutex.Lock()
+	defer fake.toAbsLinkMutex.Unlock()
+	fake.ToAbsLinkStub = nil
+	fake.toAbsLinkReturns = struct {
+		result1 string
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeRepositoryHost) ToAbsLinkReturnsOnCall(i int, result1 string, result2 error) {
+	fake.toAbsLinkMutex.Lock()
+	defer fake.toAbsLinkMutex.Unlock()
+	fake.ToAbsLinkStub = nil
+	if fake.toAbsLinkReturnsOnCall == nil {
+		fake.toAbsLinkReturnsOnCall = make(map[int]struct {
+			result1 string
+			result2 error
+		})
+	}
+	fake.toAbsLinkReturnsOnCall[i] = struct {
+		result1 string
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *FakeRepositoryHost) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
 	fake.acceptMutex.RLock()
 	defer fake.acceptMutex.RUnlock()
-	fake.buildAbsLinkMutex.RLock()
-	defer fake.buildAbsLinkMutex.RUnlock()
 	fake.fileTreeFromURLMutex.RLock()
 	defer fake.fileTreeFromURLMutex.RUnlock()
 	fake.getClientMutex.RLock()
@@ -725,10 +786,14 @@ func (fake *FakeRepositoryHost) Invocations() map[string][][]interface{} {
 	defer fake.getRawFormatLinkMutex.RUnlock()
 	fake.manifestFromURLMutex.RLock()
 	defer fake.manifestFromURLMutex.RUnlock()
+	fake.nameMutex.RLock()
+	defer fake.nameMutex.RUnlock()
 	fake.readMutex.RLock()
 	defer fake.readMutex.RUnlock()
 	fake.readGitInfoMutex.RLock()
 	defer fake.readGitInfoMutex.RUnlock()
+	fake.toAbsLinkMutex.RLock()
+	defer fake.toAbsLinkMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

@@ -14,7 +14,6 @@ import (
 	"github.com/gardener/docforge/cmd/hugo"
 	"github.com/gardener/docforge/cmd/version"
 	"github.com/gardener/docforge/pkg/manifest"
-	"github.com/gardener/docforge/pkg/reactor"
 	"github.com/gardener/docforge/pkg/readers/repositoryhosts"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -30,7 +29,7 @@ const (
 
 // Options data structure with all the options for docforge
 type options struct {
-	reactor.Options                       `mapstructure:",squash"`
+	Options                               `mapstructure:",squash"`
 	hugo.Hugo                             `mapstructure:",squash"`
 	repositoryhosts.RepositoryHostOptions `mapstructure:",squash"`
 	manifest.ParsingOptions               `mapstructure:",squash"`

@@ -9,10 +9,9 @@ package repositoryhosts
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"time"
 
-	"github.com/gardener/docforge/pkg/httpclient"
+	"github.com/gardener/docforge/pkg/osfakes/httpclient"
 )
 
 // ErrResourceNotFound indicated that a resource was not found
@@ -31,8 +30,8 @@ type RepositoryHost interface {
 	ManifestFromURL(url string) (string, error)
 	//FileTreeFromURL Get files that are present in the given url tree
 	FileTreeFromURL(url string) ([]string, error)
-	//BuildAbsLink Builds the abs link given where it is referenced
-	BuildAbsLink(source, link string) (string, error)
+	//ToAbsLink Builds the abs link given where it is referenced
+	ToAbsLink(source, link string) (string, error)
 	// Accept accepts manifests if this RepositoryHost can manage the type of resources identified by the URI scheme of uri.
 	Accept(uri string) bool
 	// Read a resource content at uri into a byte array
@@ -42,36 +41,13 @@ type RepositoryHost interface {
 	// GetRawFormatLink returns a link to an embeddable object (image) in raw format.
 	// If the provided link is not referencing an embeddable object, the function returns absLink without changes.
 	GetRawFormatLink(absLink string) (string, error)
+	// Name of repository host
+	Name() string
 	// GetClient returns an HTTP client for accessing handler's resources
 	GetClient() httpclient.Client
 	// GetRateLimit returns rate limit and remaining API calls for the resource handler backend (e.g. GitHub RateLimit)
 	// returns negative values if RateLimit is not applicable
 	GetRateLimit(ctx context.Context) (int, int, time.Time, error)
-}
-
-// Registry can register and return resource handlers for an url
-//
-//counterfeiter:generate . Registry
-type Registry interface {
-	Load(rhs ...RepositoryHost)
-	Get(uri string) RepositoryHost
-	Remove(rh ...RepositoryHost)
-}
-
-type registry struct {
-	handlers []RepositoryHost
-}
-
-// NewRegistry creates Registry object, optionally loading it with
-// resourceHandlers if provided
-func NewRegistry(resourceHandlers ...RepositoryHost) Registry {
-	r := &registry{
-		handlers: []RepositoryHost{},
-	}
-	if len(resourceHandlers) > 0 {
-		r.Load(resourceHandlers...)
-	}
-	return r
 }
 
 // RepositoryHostOptions options for the resource handler
@@ -86,52 +62,4 @@ type RepositoryHostOptions struct {
 type Credential struct {
 	Host       string
 	OAuthToken string
-}
-
-// Load loads a RepositoryHost into the Registry
-func (r *registry) Load(rhs ...RepositoryHost) {
-	r.handlers = append(r.handlers, rhs...)
-}
-
-// Get returns an appropriate handler for this type of URIs if anyone those registered accepts it (its Accepts method returns true).
-func (r *registry) Get(uri string) RepositoryHost {
-	for _, h := range r.handlers {
-		if h.Accept(uri) {
-			return h
-		}
-	}
-	return nil
-}
-
-// Remove removes a RepositoryHost from registry. If no argument is provided
-// the method will remove all registered handlers
-func (r *registry) Remove(resourceHandlers ...RepositoryHost) {
-	if len(resourceHandlers) == 0 {
-		r.handlers = []RepositoryHost{}
-	}
-	var idx []int
-	rhs := append([]RepositoryHost{}, resourceHandlers...)
-	for _, rh := range rhs {
-		if i := indexOf(rh, r.handlers); i > -1 {
-			idx = append(idx, i)
-		}
-	}
-	for _, i := range idx {
-		remove(r.handlers, i)
-	}
-}
-
-func indexOf(r RepositoryHost, rhs []RepositoryHost) int {
-	var idx = -1
-	for i, _r := range rhs {
-		if reflect.DeepEqual(_r, r) {
-			return i
-		}
-	}
-	return idx
-}
-
-func remove(rhs []RepositoryHost, i int) []RepositoryHost {
-	rhs[len(rhs)-1], rhs[i] = rhs[i], rhs[len(rhs)-1]
-	return rhs[:len(rhs)-1]
 }

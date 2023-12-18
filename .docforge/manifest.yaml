@@ -1,6 +1,0 @@
-structure:
-- name: _index.md
-  source: /README.md
-- name: docs
-  nodesSelector:
-    path: /docs

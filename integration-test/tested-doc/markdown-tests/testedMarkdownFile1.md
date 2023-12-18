@@ -17,3 +17,6 @@ title: testedFile1
 
 ### Link existing image with relative path and title
 ![test5](./../images/gardener-docforge-logo.png "gardener-docforge-logo")
+
+### Link outside image
+![test6](https://github.com/kubernetes/kubernetes/blob/master/logo/logo.png)

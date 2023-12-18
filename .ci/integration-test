@@ -41,17 +41,11 @@ removeHashFromImageName() {
 
 diffDirs() {
   if [[ $(uname) == 'Darwin' ]] || [[ $(uname) == *"Linux"* ]]; then
-    output="$(diff -r "${1}" "${2}")"
+    diff -r "${1}" "${2}"
   else
-    output="$(fc "${1}" "${2}")"
+    fc "${1}" "${2}"
   fi
-
-  if [[ -n "${output}" ]]; then
-    echo "${output}"
-    exit 1
-  else
     echo "  Passed"
-  fi
 }
 
 testGeneratedTrees() {

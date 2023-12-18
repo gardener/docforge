@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2023 SAP SE or an SAP affiliate company and Gardener contributors
+//
+// SPDX-License-Identifier: Apache-2.0
 package manifest
 
 // Manifest represents a manifest document
@@ -60,5 +63,5 @@ type Node struct {
 	// Path of node
 	Path string `yaml:"path,omitempty"`
 	// Parent of node
-	Parent *Node
+	parent *Node
 }
