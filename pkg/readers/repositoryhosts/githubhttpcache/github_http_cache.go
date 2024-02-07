@@ -344,7 +344,7 @@ func (p *GHC) GetRateLimit(ctx context.Context) (int, int, time.Time, error) {
 
 // checkForLocalMapping returns repository root on file system if local mapping configuration
 // for the repository is set in config file or empty string otherwise.
-func (p *GHC) checkForLocalMapping(r *link.GithubResource) string {
+func (p *GHC) checkForLocalMapping(r *link.Resource) string {
 	key := strings.ToLower(r.GetRepoURL())
 	if localPath, ok := p.localMappings[key]; ok {
 		return localPath
@@ -354,7 +354,7 @@ func (p *GHC) checkForLocalMapping(r *link.GithubResource) string {
 }
 
 // readLocalFile reads a file from FS
-func (p *GHC) readLocalFile(_ context.Context, r *link.GithubResource, localPath string) ([]byte, error) {
+func (p *GHC) readLocalFile(_ context.Context, r *link.Resource, localPath string) ([]byte, error) {
 	fn := filepath.Join(localPath, r.Path)
 	cnt, err := p.os.ReadFile(fn)
 	if err != nil {
@@ -366,7 +366,7 @@ func (p *GHC) readLocalFile(_ context.Context, r *link.GithubResource, localPath
 	return cnt, nil
 }
 
-func (p *GHC) readLocalFileTree(r link.GithubResource, localPath string) []string {
+func (p *GHC) readLocalFileTree(r link.Resource, localPath string) []string {
 	dirPath := filepath.Join(localPath, r.Path)
 	files := []string{}
 	filepath.Walk(dirPath, func(path string, info fs.FileInfo, err error) error {
@@ -379,7 +379,7 @@ func (p *GHC) readLocalFileTree(r link.GithubResource, localPath string) []strin
 }
 
 // downloadContent download file content like: github.Client.Repositories#DownloadContents, but with different error handling
-func (p *GHC) downloadContent(ctx context.Context, opt *github.RepositoryContentGetOptions, r *link.GithubResource) ([]byte, error) {
+func (p *GHC) downloadContent(ctx context.Context, opt *github.RepositoryContentGetOptions, r *link.Resource) ([]byte, error) {
 	dir := path.Dir(r.Path)
 	filename := path.Base(r.Path)
 	dirContents, resp, err := p.getDirContents(ctx, r.Owner, r.Repo, dir, opt)
@@ -421,7 +421,7 @@ func (p *GHC) getDirContents(ctx context.Context, owner, repo, path string, opts
 
 // determineLinkType returns the type of relative link (blob|tree)
 // repositoryhosts.ErrResourceNotFound if target resource doesn't exist
-func (p *GHC) determineLinkType(source *link.GithubResource, rel *url.URL) (string, error) {
+func (p *GHC) determineLinkType(source *link.Resource, rel *url.URL) (string, error) {
 	var tp string
 	var err error
 	gtp := "tree"
@@ -487,7 +487,7 @@ func (p *GHC) determineLinkType(source *link.GithubResource, rel *url.URL) (stri
 }
 
 // getResourceInfo build ResourceInfo and resolves 'DEFAULT_BRANCH' to repo default branch
-func (p *GHC) getResolvedResourceInfo(ctx context.Context, uri string) (*link.GithubResource, error) {
+func (p *GHC) getResolvedResourceInfo(ctx context.Context, uri string) (*link.Resource, error) {
 	r, err := link.NewResource(uri)
 	if err != nil {
 		return nil, err

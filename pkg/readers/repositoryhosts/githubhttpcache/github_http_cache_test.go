@@ -132,7 +132,7 @@ var _ = Describe("Github cache test", func() {
 	Describe("#ToAbsLink", func() {
 		Describe("absolute link", func() {
 			It("", func() {
-				url, err := ghc.ToAbsLink("https://github.com/gardener/docforge/blob/master/README.md", "https://github.com/raw/gardener/docforge/master/docs/one.png")
+				url, err := ghc.ToAbsLink("https://github.com/gardener/docforge/blob/master/README.md", "https://github.com/gardener/docforge/raw/master/docs/one.png")
 				Expect(err).NotTo(HaveOccurred())
 				Expect(url).To(Equal("https://github.com/gardener/docforge/raw/master/docs/one.png"))
 			})
