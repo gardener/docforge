@@ -53,7 +53,7 @@ var _ = Describe("Github cache test", func() {
 			rls.RateLimitsReturns(nil, nil, errors.New("yataa error"))
 		})
 
-		It("", func() {
+		It("return correct rate limit", func() {
 			_, _, _, err := ghc.GetRateLimit(context.TODO())
 			Expect(err).To(Equal(errors.New("yataa error")))
 
@@ -131,7 +131,7 @@ var _ = Describe("Github cache test", func() {
 
 	Describe("#ToAbsLink", func() {
 		Describe("absolute link", func() {
-			It("", func() {
+			It("returns unmodified abs link", func() {
 				url, err := ghc.ToAbsLink("https://github.com/gardener/docforge/blob/master/README.md", "https://github.com/gardener/docforge/raw/master/docs/one.png")
 				Expect(err).NotTo(HaveOccurred())
 				Expect(url).To(Equal("https://github.com/gardener/docforge/raw/master/docs/one.png"))
@@ -157,13 +157,13 @@ var _ = Describe("Github cache test", func() {
 				repositories.GetContentsReturns(nil, docsContent, nil, nil)
 			})
 
-			It("", func() {
+			It("returns correct abs link of a file", func() {
 				url, err := ghc.ToAbsLink("https://github.com/gardener/docforge/blob/master/README.md", "../docs/one.md")
 				Expect(err).NotTo(HaveOccurred())
 				Expect(url).To(Equal("https://github.com/gardener/docforge/blob/master/docs/one.md"))
 			})
 
-			It("", func() {
+			It("returns correct abs link of a directory", func() {
 				url, err := ghc.ToAbsLink("https://github.com/gardener/docforge/blob/master/README.md", "../docs/developer")
 				Expect(err).NotTo(HaveOccurred())
 				Expect(url).To(Equal("https://github.com/gardener/docforge/tree/master/docs/developer"))
@@ -173,7 +173,7 @@ var _ = Describe("Github cache test", func() {
 	})
 
 	Describe("#Read", func() {
-		Describe("md", func() {
+		Describe("md file", func() {
 			BeforeEach(func() {
 				byteContent := []byte("foo")
 				docContent := &github.RepositoryContent{
@@ -182,13 +182,13 @@ var _ = Describe("Github cache test", func() {
 				repositories.GetContentsReturns(docContent, nil, nil, nil)
 			})
 
-			It("", func() {
+			It("returns correct content", func() {
 				content, err := ghc.Read(context.TODO(), "https://github.com/gardener/docforge/blob/master/README.md")
 				Expect(err).NotTo(HaveOccurred())
 				Expect(string(content)).To(Equal("foo"))
 			})
 		})
-		Describe("png", func() {
+		Describe("png file", func() {
 			BeforeEach(func() {
 				docsContent := []*github.RepositoryContent{
 					{
@@ -200,12 +200,29 @@ var _ = Describe("Github cache test", func() {
 				git.GetBlobRawReturns([]byte("logo_contents"), nil, nil)
 			})
 
-			It("", func() {
+			It("returns correct content", func() {
 				content, err := ghc.Read(context.TODO(), "https://github.com/gardener/docforge/blob/master/logo.png")
 				Expect(err).NotTo(HaveOccurred())
 				Expect(string(content)).To(Equal("logo_contents"))
 			})
 		})
+	})
+
+	Describe("#ManifestFromURL", func() {
+		BeforeEach(func() {
+			byteContent := []byte("foo")
+			docContent := &github.RepositoryContent{
+				Content: github.String(base64.StdEncoding.EncodeToString(byteContent)),
+			}
+			repositories.GetContentsReturns(docContent, nil, nil, nil)
+		})
+
+		It("returns correct content", func() {
+			content, err := ghc.ManifestFromURL("https://github.com/gardener/docforge/blob/master/manifest.yaml")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).To(Equal("foo"))
+		})
+
 	})
 
 	Describe("#ReadGitInfo", func() {
@@ -240,10 +257,11 @@ var _ = Describe("Github cache test", func() {
 			repositories.ListCommitsReturns(commits, nil, nil)
 		})
 
-		It("", func() {
-			_, err := ghc.ReadGitInfo(context.TODO(), "https://github.com/gardener/docforge/blob/master/README.md")
+		It("returns correct git info", func() {
+			content, err := ghc.ReadGitInfo(context.TODO(), "https://github.com/gardener/docforge/blob/master/README.md")
 			Expect(err).NotTo(HaveOccurred())
-			//	Expect(string(content)).To(Equal("foo"))
+			Expect(string(content)).To(Equal("{\n  \"lastmod\": \"2024-02-07 13:11:00\",\n  \"publishdate\": \"2024-02-06 13:11:00\",\n  \"author\": {\n    \"name\": \"one\",\n    \"email\": \"one@\"\n  },\n  \"weburl\": \"bar\",\n  \"shaalias\": \"master\",\n  \"path\": \"README.md\"\n}"))
 		})
 	})
+
 })

@@ -7,7 +7,6 @@ package link
 import (
 	"fmt"
 	"net/url"
-	"path"
 	"regexp"
 )
 
@@ -99,14 +98,4 @@ func (r *Resource) GetRepoURL() string {
 // GetRawURL returns the GitHub raw URL if the resource is 'blob', otherwise returns the origin URL
 func (r *Resource) GetRawURL() string {
 	return fmt.Sprintf("https://%s/%s/%s/raw/%s/%s", r.Host, r.Owner, r.Repo, r.Ref, r.Path)
-}
-
-// GetResourceName returns the name of the resource (including extension), if resource path is empty returns '.'
-func (r *Resource) GetResourceName() string {
-	return path.Base(r.Path)
-}
-
-// GetResourceExt returns the resource name extension, empty string if when no extension exists
-func (r *Resource) GetResourceExt() string {
-	return path.Ext(r.Path)
 }

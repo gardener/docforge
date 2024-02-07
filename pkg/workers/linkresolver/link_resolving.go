@@ -5,9 +5,11 @@
 package linkresolver
 
 import (
+	"cmp"
 	"fmt"
 	"path"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/gardener/docforge/cmd/hugo"
@@ -37,29 +39,27 @@ type LinkResolver struct {
 
 // ResolveLink resolves link
 func (l *LinkResolver) ResolveLink(destination string, node *manifest.Node, source string) (string, bool, error) {
-	newDestination := strings.ReplaceAll(destination, "/:v:/", "/%3Av%3A/")
-	if newDestination != destination {
+	escapedEmoji := strings.ReplaceAll(destination, "/:v:/", "/%3Av%3A/")
+	if escapedEmoji != destination {
 		klog.Warningf("escaping : for /:v:/ in link %s for source %s ", destination, source)
-		destination = newDestination
+		destination = escapedEmoji
 	}
-
 	destinationResource, err := link.NewResource(destination)
 	if err != nil {
 		return "", false, fmt.Errorf("error when parsing link in %s : %w", source, err)
 	}
+	shouldValidate := true
 	// resolve outside links
 	if destinationResource.IsAbs() {
 		if _, err := l.Repositoryhosts.Get(destination); err != nil {
 			// we don't have a handler for it. Leave it be.
 			return destination, true, nil
 		}
-	}
-	shouldValidate := true
-	// convert destination to absolute link
-	if !destinationResource.IsAbs() {
+	} else {
+		// convert destination to absolute link
 		docHandler, err := l.Repositoryhosts.Get(source)
 		if err != nil {
-			return "", false, fmt.Errorf("Unexpected error - can't get a handler for already read content: %w", err)
+			return "", false, fmt.Errorf("unexpected error - can't get a handler for already read content: %w", err)
 		}
 		if destination, err = docHandler.ToAbsLink(source, destination); err != nil {
 			if _, ok := err.(repositoryhosts.ErrResourceNotFound); !ok {
@@ -79,17 +79,11 @@ func (l *LinkResolver) ResolveLink(destination string, node *manifest.Node, sour
 		return destination, shouldValidate, nil
 	}
 	// found nodes with this source -> find the shortest path from l.node to one of nodes
-	minLength := -1
-	var destinationNode *manifest.Node
-	for _, n := range nl {
-		// TODO: n = findVisibleNode(n) is relative link broken?
-		relPathBetweenNodes, _ := filepath.Rel(node.Path, n.NodePath())
-		pathLength := strings.Count(relPathBetweenNodes, "/")
-		if pathLength < minLength || minLength == -1 {
-			minLength = pathLength
-			destinationNode = n
-		}
-	}
+	destinationNode := slices.MinFunc(nl, func(a, b *manifest.Node) int {
+		relPathBetweenNodeAndA, _ := filepath.Rel(node.Path, a.NodePath())
+		relPathBetweenNodeAndB, _ := filepath.Rel(node.Path, a.NodePath())
+		return cmp.Compare(strings.Count(relPathBetweenNodeAndA, "/"), strings.Count(relPathBetweenNodeAndB, "/"))
+	})
 	// construct destination from node path
 	destination = strings.ToLower(destinationNode.NodePath())
 	if l.Hugo.Enabled {
