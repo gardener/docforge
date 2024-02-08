@@ -4,6 +4,8 @@
 
 package githubhttpcache
 
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate -header ../../../../license_prefix.txt
+
 import (
 	"context"
 	"encoding/base64"
@@ -15,6 +17,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -32,8 +35,10 @@ import (
 // GHC implements repositoryhosts.RepositoryHost interface using GitHub manifestadapter with transport level persistent cache.
 type GHC struct {
 	hostName      string
-	client        *github.Client
-	httpClient    *http.Client
+	client        httpclient.Client
+	git           Git
+	rateLimit     RateLimitSource
+	repositories  Repositories
 	os            osshim.Os
 	acceptedHosts []string
 	localMappings map[string]string
@@ -45,12 +50,38 @@ type GHC struct {
 	options       manifest.ParsingOptions
 }
 
+//counterfeiter:generate . RateLimitSource
+
+// RateLimitSource is an interface needed for faking
+type RateLimitSource interface {
+	RateLimits(ctx context.Context) (*github.RateLimits, *github.Response, error)
+}
+
+//counterfeiter:generate . Repositories
+
+// Repositories is an interface needed for faking
+type Repositories interface {
+	ListCommits(ctx context.Context, owner, repo string, opts *github.CommitsListOptions) ([]*github.RepositoryCommit, *github.Response, error)
+	GetContents(ctx context.Context, owner, repo, path string, opts *github.RepositoryContentGetOptions) (fileContent *github.RepositoryContent, directoryContent []*github.RepositoryContent, resp *github.Response, err error)
+	Get(ctx context.Context, owner, repo string) (*github.Repository, *github.Response, error)
+}
+
+//counterfeiter:generate . Git
+
+// Git is an interface needed for faking
+type Git interface {
+	GetBlobRaw(ctx context.Context, owner, repo, sha string) ([]byte, *github.Response, error)
+	GetTree(ctx context.Context, owner string, repo string, sha string, recursive bool) (*github.Tree, *github.Response, error)
+}
+
 // NewGHC creates new GHC resource handler
-func NewGHC(hostName string, client *github.Client, httpClient *http.Client, os osshim.Os, acceptedHosts []string, localMappings map[string]string, options manifest.ParsingOptions) repositoryhosts.RepositoryHost {
+func NewGHC(hostName string, rateLimit RateLimitSource, repositories Repositories, git Git, client httpclient.Client, os osshim.Os, acceptedHosts []string, localMappings map[string]string, options manifest.ParsingOptions) repositoryhosts.RepositoryHost {
 	return &GHC{
 		hostName:      hostName,
 		client:        client,
-		httpClient:    httpClient,
+		git:           git,
+		rateLimit:     rateLimit,
+		repositories:  repositories,
 		os:            os,
 		acceptedHosts: acceptedHosts,
 		localMappings: localMappings,
@@ -80,8 +111,8 @@ type GitInfo struct {
 //========================= manifest.FileSource ===================================================
 
 // FileTreeFromURL implements manifest.FileSource#FileTreeFromURL
-func (p *GHC) FileTreeFromURL(url string) ([]string, error) {
-	r, err := p.getResolvedResourceInfo(context.TODO(), url)
+func (p *GHC) FileTreeFromURL(URL string) ([]string, error) {
+	r, err := p.getResolvedResourceInfo(context.TODO(), URL)
 	if err != nil {
 		return nil, err
 	}
@@ -94,12 +125,20 @@ func (p *GHC) FileTreeFromURL(url string) ([]string, error) {
 	if local := p.checkForLocalMapping(r); len(local) > 0 {
 		return p.readLocalFileTree(*r, local), nil
 	}
-	t, err := p.getTree(context.TODO(), r, true)
+	sha := fmt.Sprintf("%s:%s", r.Ref, r.Path)
+	sha = url.PathEscape(sha)
+	tree, resp, err := p.git.GetTree(context.TODO(), r.Owner, r.Repo, sha, true)
+	if resp != nil && resp.StatusCode == http.StatusNotFound {
+		return nil, repositoryhosts.ErrResourceNotFound(r.String())
+	}
+	if resp != nil && resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("reading tree %s fails with HTTP status: %d", r.String(), resp.StatusCode)
+	}
 	if err != nil {
 		return nil, err
 	}
 	res := []string{}
-	for _, e := range t.Entries {
+	for _, e := range tree.Entries {
 		extracted := false
 		ePath := strings.TrimPrefix(*e.Path, "/")
 		for _, extractedFormat := range p.options.ExtractedFilesFormats {
@@ -114,7 +153,6 @@ func (p *GHC) FileTreeFromURL(url string) ([]string, error) {
 			continue
 		}
 		res = append(res, ePath)
-
 	}
 	return res, nil
 }
@@ -125,13 +163,12 @@ func (p *GHC) ManifestFromURL(url string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	content, err := p.Read(context.TODO(), r.GetResourceURL())
+	content, err := p.Read(context.TODO(), r.String())
 	return string(content), err
 }
 
 // ToAbsLink implements manifest.FileSource#ToAbsLink
 func (p *GHC) ToAbsLink(source, link string) (string, error) {
-
 	r, err := p.getResolvedResourceInfo(context.TODO(), source)
 	if err != nil {
 		return link, err
@@ -141,11 +178,40 @@ func (p *GHC) ToAbsLink(source, link string) (string, error) {
 		if err != nil {
 			return link, err
 		}
-		link = l.GetResourceURL()
+		link = l.String()
 	}
-	res, err := p.buildAbsLink(r, link)
+	l, err := url.Parse(strings.TrimSuffix(link, "/"))
+	if err != nil {
+		return link, err
+	}
+	if l.IsAbs() {
+		return link, nil // already absolute
+	}
+	// build URL based on source path
+	u, err := url.Parse("/" + r.Path)
+	if err != nil {
+		return link, err
+	}
+	if u, err = u.Parse(l.Path); err != nil {
+		return link, err
+	}
+	// determine the type of the resource: (blob|tree)
+	var tp string
+	if tp, err = p.determineLinkType(r, u); err != nil {
+		return tp, err
+	}
+	res, err := url.Parse(r.URL.String())
+	if err != nil {
+		return "", err
+	}
+	// set path
+	res.Path = fmt.Sprintf("/%s/%s/%s/%s%s", r.Owner, r.Repo, tp, r.Ref, u.Path)
+	// set query & fragment
+	res.ForceQuery = l.ForceQuery
+	res.RawQuery = l.RawQuery
+	res.Fragment = l.Fragment
 
-	return res, err
+	return res.String(), nil
 }
 
 //========================= repositoryhosts.RepositoryHost ===================================================
@@ -157,12 +223,12 @@ func (p *GHC) Name() string {
 
 // Accept implements the repositoryhosts.RepositoryHost#Accept
 func (p *GHC) Accept(uri string) bool {
-	r, err := link.NewResource(uri)
-	if err != nil || r.URL.Scheme != "https" {
+	r, err := url.Parse(uri)
+	if err != nil || r.Scheme != "https" {
 		return false
 	}
 	for _, h := range p.acceptedHosts {
-		if h == r.URL.Host {
+		if h == r.Host {
 			return true
 		}
 	}
@@ -181,92 +247,9 @@ func (p *GHC) Read(ctx context.Context, uri string) ([]byte, error) {
 	if local := p.checkForLocalMapping(r); len(local) > 0 {
 		return p.readLocalFile(ctx, r, local)
 	}
-	return p.readFile(ctx, r)
-}
-
-// ReadGitInfo implements the repositoryhosts.RepositoryHost#ReadGitInfo
-func (p *GHC) ReadGitInfo(ctx context.Context, uri string) ([]byte, error) {
-	r, err := p.getResolvedResourceInfo(ctx, uri)
-	if err != nil {
-		return nil, err
-	}
-	opts := &github.CommitsListOptions{
-		Path: r.Path,
-		SHA:  r.Ref,
-	}
-	var commits []*github.RepositoryCommit
-	var resp *github.Response
-	if commits, resp, err = p.client.Repositories.ListCommits(ctx, r.Owner, r.Repo, opts); err != nil {
-		return nil, err
-	}
-	if resp != nil && resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("list commits for %s fails with HTTP status: %d", r.String(), resp.StatusCode)
-	}
-	var blob []byte
-	if commits != nil {
-		gitInfo := transform(commits)
-		if gitInfo == nil {
-			return nil, nil
-		}
-
-		if len(r.Ref) > 0 {
-			gitInfo.SHAAlias = &r.Ref
-		}
-		if len(r.Path) > 0 {
-			gitInfo.Path = &r.Path
-		}
-		if blob, err = marshallGitInfo(gitInfo); err != nil {
-			return nil, err
-		}
-	}
-	return blob, nil
-}
-
-// GetRawFormatLink implements the repositoryhosts.RepositoryHost#GetRawFormatLink
-func (p *GHC) GetRawFormatLink(absLink string) (string, error) {
-	r, err := link.NewResource(absLink)
-	if err != nil {
-		return "", err
-	}
-	if !r.URL.IsAbs() {
-		return absLink, nil // don't modify relative links
-	}
-	return r.GetRawURL(), nil
-}
-
-// GetClient implements the repositoryhosts.RepositoryHost#GetClient
-func (p *GHC) GetClient() httpclient.Client {
-	return p.httpClient
-}
-
-// GetRateLimit implements the repositoryhosts.RepositoryHost#GetRateLimit
-func (p *GHC) GetRateLimit(ctx context.Context) (int, int, time.Time, error) {
-	r, _, err := p.client.RateLimits(ctx)
-	if err != nil {
-		return -1, -1, time.Now(), err
-	}
-	return r.Core.Limit, r.Core.Remaining, r.Core.Reset.Time, nil
-}
-
-//==============================================================================================================
-
-// checkForLocalMapping returns repository root on file system if local mapping configuration
-// for the repository is set in config file or empty string otherwise.
-func (p *GHC) checkForLocalMapping(r *link.Resource) string {
-	key := strings.ToLower(r.GetRepoURL())
-	if localPath, ok := p.localMappings[key]; ok {
-		return localPath
-	}
-	// repo URLs keys in config file may end with '/'
-	return p.localMappings[key+"/"]
-}
-
-// readFile reads a file from GitHub
-func (p *GHC) readFile(ctx context.Context, r *link.Resource) ([]byte, error) {
-	var cnt []byte
 	// read using GitService and file URL -> file SHA mapping
 	if SHA, ok := p.getFileSHA(r.String()); ok {
-		raw, resp, err := p.client.Git.GetBlobRaw(ctx, r.Owner, r.Repo, SHA)
+		raw, resp, err := p.git.GetBlobRaw(ctx, r.Owner, r.Repo, SHA)
 		if err != nil {
 			if resp != nil && resp.StatusCode == http.StatusNotFound {
 				return nil, repositoryhosts.ErrResourceNotFound(r.String())
@@ -284,7 +267,7 @@ func (p *GHC) readFile(ctx context.Context, r *link.Resource) ([]byte, error) {
 		return p.downloadContent(ctx, opt, r)
 	}
 	// read using RepositoriesService.GetContents for markdowns and module manifests - 1 manifestadapter call
-	fc, _, resp, err := p.client.Repositories.GetContents(ctx, r.Owner, r.Repo, r.Path, opt)
+	fc, _, resp, err := p.repositories.GetContents(ctx, r.Owner, r.Repo, r.Path, opt)
 	if err != nil {
 		if resp != nil && resp.StatusCode == http.StatusNotFound {
 			return nil, repositoryhosts.ErrResourceNotFound(r.String())
@@ -299,11 +282,81 @@ func (p *GHC) readFile(ctx context.Context, r *link.Resource) ([]byte, error) {
 	if resp != nil && resp.StatusCode >= 400 {
 		return nil, fmt.Errorf("reading blob %s fails with HTTP status: %d", r.String(), resp.StatusCode)
 	}
-	cnt, err = base64.StdEncoding.DecodeString(*fc.Content)
+	cnt, err := base64.StdEncoding.DecodeString(*fc.Content)
 	if err != nil {
 		return nil, err
 	}
 	return cnt, nil
+}
+
+// ReadGitInfo implements the repositoryhosts.RepositoryHost#ReadGitInfo
+func (p *GHC) ReadGitInfo(ctx context.Context, uri string) ([]byte, error) {
+	r, err := p.getResolvedResourceInfo(ctx, uri)
+	if err != nil {
+		return nil, err
+	}
+	opts := &github.CommitsListOptions{
+		Path: r.Path,
+		SHA:  r.Ref,
+	}
+	var commits []*github.RepositoryCommit
+	var resp *github.Response
+	if commits, resp, err = p.repositories.ListCommits(ctx, r.Owner, r.Repo, opts); err != nil {
+		return nil, err
+	}
+	if resp != nil && resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("list commits for %s fails with HTTP status: %d", r.String(), resp.StatusCode)
+	}
+	gitInfo := transform(commits)
+	if gitInfo == nil {
+		return nil, nil
+	}
+	if len(r.Ref) > 0 {
+		gitInfo.SHAAlias = &r.Ref
+	}
+	if len(r.Path) > 0 {
+		gitInfo.Path = &r.Path
+	}
+	return json.MarshalIndent(gitInfo, "", "  ")
+}
+
+// GetRawFormatLink implements the repositoryhosts.RepositoryHost#GetRawFormatLink
+func (p *GHC) GetRawFormatLink(absLink string) (string, error) {
+	r, err := link.NewResource(absLink)
+	if err != nil {
+		return "", err
+	}
+	if !r.URL.IsAbs() {
+		return absLink, nil // don't modify relative links
+	}
+	return r.GetRawURL(), nil
+}
+
+// GetClient implements the repositoryhosts.RepositoryHost#GetClient
+func (p *GHC) GetClient() httpclient.Client {
+	return p.client
+}
+
+// GetRateLimit implements the repositoryhosts.RepositoryHost#GetRateLimit
+func (p *GHC) GetRateLimit(ctx context.Context) (int, int, time.Time, error) {
+	r, _, err := p.rateLimit.RateLimits(ctx)
+	if err != nil {
+		return -1, -1, time.Now(), err
+	}
+	return r.Core.Limit, r.Core.Remaining, r.Core.Reset.Time, nil
+}
+
+//==============================================================================================================
+
+// checkForLocalMapping returns repository root on file system if local mapping configuration
+// for the repository is set in config file or empty string otherwise.
+func (p *GHC) checkForLocalMapping(r *link.Resource) string {
+	key := strings.ToLower(r.GetRepoURL())
+	if localPath, ok := p.localMappings[key]; ok {
+		return localPath
+	}
+	// repo URLs keys in config file may end with '/'
+	return p.localMappings[key+"/"]
 }
 
 // readLocalFile reads a file from FS
@@ -347,8 +400,7 @@ func (p *GHC) downloadContent(ctx context.Context, opt *github.RepositoryContent
 			if contents.SHA == nil || *contents.SHA == "" {
 				return nil, fmt.Errorf("no SHA found for %s", r.String())
 			}
-			var cnt []byte
-			cnt, resp, err = p.client.Git.GetBlobRaw(ctx, r.Owner, r.Repo, *contents.SHA)
+			cnt, resp, err := p.git.GetBlobRaw(ctx, r.Owner, r.Repo, *contents.SHA)
 			if err != nil {
 				if resp != nil && resp.StatusCode == http.StatusNotFound {
 					return nil, repositoryhosts.ErrResourceNotFound(r.String())
@@ -369,66 +421,8 @@ func (p *GHC) downloadContent(ctx context.Context, opt *github.RepositoryContent
 func (p *GHC) getDirContents(ctx context.Context, owner, repo, path string, opts *github.RepositoryContentGetOptions) (dc []*github.RepositoryContent, resp *github.Response, err error) {
 	p.muxCnt.Lock()
 	defer p.muxCnt.Unlock()
-	_, dc, resp, err = p.client.Repositories.GetContents(ctx, owner, repo, path, opts)
+	_, dc, resp, err = p.repositories.GetContents(ctx, owner, repo, path, opts)
 	return
-}
-
-// getTree returns subtree with root r#Path
-func (p *GHC) getTree(ctx context.Context, r *link.Resource, recursive bool) (*github.Tree, error) {
-	sha := fmt.Sprintf("%s:%s", r.Ref, r.Path)
-	sha = url.PathEscape(sha)
-	gitTree, resp, err := p.client.Git.GetTree(ctx, r.Owner, r.Repo, sha, recursive)
-	if err != nil {
-		if resp != nil && resp.StatusCode == http.StatusNotFound {
-			return nil, repositoryhosts.ErrResourceNotFound(r.String())
-		}
-		return nil, err
-	}
-	if resp != nil && resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("reading tree %s fails with HTTP status: %d", r.String(), resp.StatusCode)
-	}
-	return gitTree, nil
-}
-
-// buildAbsLink builds absolute link if <link> is relative using <source> as a base
-// repositoryhosts.ErrResourceNotFound if target resource doesn't exist
-func (p *GHC) buildAbsLink(source *link.Resource, link string) (string, error) {
-	l, err := url.Parse(strings.TrimSuffix(link, "/"))
-	if err != nil {
-		return link, err
-	}
-	if l.IsAbs() {
-		return link, nil // already absolute
-	}
-	// build URL based on source path
-	var u *url.URL
-
-	if u, err = url.Parse("/" + source.Path); err != nil {
-		return link, err
-	}
-	if u, err = u.Parse(l.Path); err != nil {
-		return link, err
-	}
-	if link == "testedDir/testedMarkdownFile3.md" {
-		fmt.Println("Why this bullshit " + source.Path)
-	}
-	// determine the type of the resource: (blob|tree)
-	var tp string
-	if tp, err = p.determineLinkType(source, u); err != nil {
-		return tp, err
-	}
-	res, err := url.Parse(source.URL.String())
-	if err != nil {
-		return "", err
-	}
-	// set path
-	res.Path = fmt.Sprintf("/%s/%s/%s/%s%s", source.Owner, source.Repo, tp, source.Ref, u.Path)
-	// set query & fragment
-	res.ForceQuery = l.ForceQuery
-	res.RawQuery = l.RawQuery
-	res.Fragment = l.Fragment
-
-	return res.String(), nil
 }
 
 // determineLinkType returns the type of relative link (blob|tree)
@@ -436,7 +430,7 @@ func (p *GHC) buildAbsLink(source *link.Resource, link string) (string, error) {
 func (p *GHC) determineLinkType(source *link.Resource, rel *url.URL) (string, error) {
 	var tp string
 	var err error
-	gtp := "tree" // guess the type of resource
+	gtp := "tree"
 	if len(path.Ext(rel.Path)) > 0 {
 		gtp = "blob"
 	}
@@ -504,13 +498,14 @@ func (p *GHC) getResolvedResourceInfo(ctx context.Context, uri string) (*link.Re
 	if err != nil {
 		return nil, err
 	}
-	if r.Ref == "DEFAULT_BRANCH" {
-		defaultBranch, err := p.getDefaultBranch(ctx, r.Owner, r.Repo)
-		if err != nil {
-			return nil, err
-		}
-		r.Ref = defaultBranch
+	if r.Ref != "DEFAULT_BRANCH" {
+		return &r, nil
 	}
+	defaultBranch, err := p.getDefaultBranch(ctx, r.Owner, r.Repo)
+	if err != nil {
+		return nil, err
+	}
+	r.Ref = defaultBranch
 	return &r, nil
 }
 
@@ -522,7 +517,7 @@ func (p *GHC) getDefaultBranch(ctx context.Context, owner string, repository str
 	if def, ok := p.defBranches[key]; ok {
 		return def, nil
 	}
-	repo, _, err := p.client.Repositories.Get(ctx, owner, repository)
+	repo, _, err := p.repositories.Get(ctx, owner, repository)
 	if err != nil {
 		return "", err
 	}
@@ -544,66 +539,41 @@ func transform(commits []*github.RepositoryCommit) *GitInfo {
 		return nil
 	}
 	gitInfo := &GitInfo{}
-	var nonInternalCommits []*github.RepositoryCommit
 	// skip internal commits
-	for _, commit := range commits {
-		if !isInternalCommit(commit) {
-			nonInternalCommits = append(nonInternalCommits, commit)
-		}
-	}
+	nonInternalCommits := slices.DeleteFunc(commits, isInternalCommit)
 	if len(nonInternalCommits) == 0 {
 		return nil
 	}
 	sort.Slice(nonInternalCommits, func(i, j int) bool {
 		return nonInternalCommits[i].GetCommit().GetCommitter().GetDate().After(nonInternalCommits[j].GetCommit().GetCommitter().GetDate())
 	})
-
 	lastModifiedDate := nonInternalCommits[0].GetCommit().GetCommitter().GetDate().Format(DateFormat)
 	gitInfo.LastModifiedDate = &lastModifiedDate
-	webURL := nonInternalCommits[0].GetHTMLURL()
-	webURL = strings.Split(webURL, "/commit/")[0]
-	gitInfo.WebURL = &webURL
 
-	publishDate := commits[len(nonInternalCommits)-1].GetCommit().GetCommitter().GetDate().Format(DateFormat)
-	gitInfo.PublishDate = &publishDate
+	webURL := nonInternalCommits[0].GetHTMLURL()
+	gitInfo.WebURL = github.String(strings.Split(webURL, "/commit/")[0])
+
+	gitInfo.PublishDate = github.String(nonInternalCommits[len(nonInternalCommits)-1].GetCommit().GetCommitter().GetDate().Format(DateFormat))
 
 	if gitInfo.Author = getCommitAuthor(nonInternalCommits[len(nonInternalCommits)-1]); gitInfo.Author == nil {
 		klog.Warningf("cannot get commit author")
 	}
-	if len(nonInternalCommits) > 1 {
-		gitInfo.Contributors = []*github.User{}
-		var registered []string
-		for _, commit := range nonInternalCommits {
-			var contributor *github.User
-			if contributor = getCommitAuthor(commit); contributor == nil {
-				continue
-			}
-			if contributor.GetType() == "User" && contributor.GetEmail() != gitInfo.Author.GetEmail() && !contains(registered, contributor.GetEmail()) {
-				gitInfo.Contributors = append(gitInfo.Contributors, contributor)
-				registered = append(registered, contributor.GetEmail())
-			}
+	if len(nonInternalCommits) < 2 {
+		return gitInfo
+	}
+	gitInfo.Contributors = []*github.User{}
+	var registered []string
+	for _, commit := range nonInternalCommits {
+		var contributor *github.User
+		if contributor = getCommitAuthor(commit); contributor == nil {
+			continue
+		}
+		if contributor.GetType() == "User" && contributor.GetEmail() != gitInfo.Author.GetEmail() && slices.Index(registered, contributor.GetEmail()) < 0 {
+			gitInfo.Contributors = append(gitInfo.Contributors, contributor)
+			registered = append(registered, contributor.GetEmail())
 		}
 	}
-
 	return gitInfo
-}
-
-func contains(slice []string, s string) bool {
-	for _, _s := range slice {
-		if s == _s {
-			return true
-		}
-	}
-	return false
-}
-
-// marshallGitInfo serializes git.Info to byte array
-func marshallGitInfo(gitInfo *GitInfo) ([]byte, error) {
-	blob, err := json.MarshalIndent(gitInfo, "", "  ")
-	if err != nil {
-		return nil, err
-	}
-	return blob, nil
 }
 
 func isInternalCommit(commit *github.RepositoryCommit) bool {
@@ -615,27 +585,20 @@ func isInternalCommit(commit *github.RepositoryCommit) bool {
 		strings.HasPrefix(email, "gardener.opensource")
 }
 
-func mergeAuthors(author *github.User, commitAuthor *github.CommitAuthor) *github.User {
-	if author == nil {
-		author = &github.User{}
-	}
-	if commitAuthor != nil {
-		author.Name = commitAuthor.Name
-		author.Email = commitAuthor.Email
-	}
-	return author
-}
-
 func getCommitAuthor(commit *github.RepositoryCommit) *github.User {
-	var contributor *github.User
-	if contributor = commit.GetAuthor(); contributor != nil && commit.GetCommit().GetAuthor() != nil {
-		contributor = mergeAuthors(contributor, commit.GetCommit().GetAuthor())
+	getCommitAuthor := commit.GetCommit().GetAuthor()
+	getCommitCommiter := commit.GetCommit().GetCommitter()
+	contributor := commit.GetAuthor()
+	if contributor != nil && getCommitAuthor != nil {
+		contributor.Name = getCommitAuthor.Name
+		contributor.Email = getCommitAuthor.Email
+		return contributor
 	}
-	if contributor == nil && commit.GetCommit().GetAuthor() != nil {
-		contributor = mergeAuthors(&github.User{}, commit.GetCommit().GetAuthor())
+	if getCommitAuthor != nil {
+		return &github.User{Name: getCommitAuthor.Name, Email: getCommitAuthor.Email}
 	}
-	if contributor == nil && commit.GetCommit().GetCommitter() != nil {
-		contributor = mergeAuthors(&github.User{}, commit.GetCommit().GetCommitter())
+	if getCommitCommiter != nil {
+		return &github.User{Name: getCommitCommiter.Name, Email: getCommitCommiter.Email}
 	}
-	return contributor
+	return nil
 }

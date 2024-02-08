@@ -38,11 +38,6 @@ func processManifest(f nodeTransformation, node *Node, parent *Node, manifest *N
 }
 
 func loadManifestStructure(node *Node, parent *Node, manifest *Node, r resourcehandlers.Registry) error {
-	var (
-		err         error
-		content     string
-		newManifest string
-	)
 	if node.Manifest == "" {
 		return nil
 	}
@@ -50,7 +45,8 @@ func loadManifestStructure(node *Node, parent *Node, manifest *Node, r resourceh
 	if err != nil {
 		return err
 	}
-	if newManifest, err = fs.ToAbsLink(manifest.Manifest, node.Manifest); err != nil {
+	newManifest, err := fs.ToAbsLink(manifest.Manifest, node.Manifest)
+	if err != nil {
 		return fmt.Errorf("can't build manifest node %s absolute URL : %w ", node.Manifest, err)
 	}
 	node.Manifest = newManifest
@@ -58,7 +54,8 @@ func loadManifestStructure(node *Node, parent *Node, manifest *Node, r resourceh
 	if err != nil {
 		return err
 	}
-	if content, err = fs.ManifestFromURL(node.Manifest); err != nil {
+	content, err := fs.ManifestFromURL(node.Manifest)
+	if err != nil {
 		return fmt.Errorf("can't get manifest file content : %w", err)
 	}
 	if err = yaml.Unmarshal([]byte(content), node); err != nil {

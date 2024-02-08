@@ -83,7 +83,7 @@ var _ = Describe("Document resolving", func() {
 	})
 
 	Context("#ProcessNode", func() {
-		It("", func() {
+		It("returns correct multisource content", func() {
 			node := &manifest.Node{
 				FileType: manifest.FileType{
 					File:        "node",
@@ -106,7 +106,7 @@ var _ = Describe("Document resolving", func() {
 			Expect(node).To(Equal(nodegot))
 		})
 
-		It("", func() {
+		It("returns correct single source content", func() {
 			node := &manifest.Node{
 				FileType: manifest.FileType{
 					File:   "node",

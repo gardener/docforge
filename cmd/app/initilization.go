@@ -95,7 +95,7 @@ func newRepositoryHost(host string, client *github.Client, httpClient *http.Clie
 	if host == "github.com" {
 		rawHost = "raw.githubusercontent.com"
 	}
-	return githubhttpcache.NewGHC(host, client, httpClient, &osshim.OsShim{}, []string{host, rawHost}, localMappings, options)
+	return githubhttpcache.NewGHC(host, client, client.Repositories, client.Git, httpClient, &osshim.OsShim{}, []string{host, rawHost}, localMappings, options)
 }
 
 // NewReactor creates a Reactor from Options
