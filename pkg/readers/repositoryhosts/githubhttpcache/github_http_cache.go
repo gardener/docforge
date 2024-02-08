@@ -51,11 +51,15 @@ type GHC struct {
 }
 
 //counterfeiter:generate . RateLimitSource
+
+// RateLimitSource is an interface needed for faking
 type RateLimitSource interface {
 	RateLimits(ctx context.Context) (*github.RateLimits, *github.Response, error)
 }
 
 //counterfeiter:generate . Repositories
+
+// Repositories is an interface needed for faking
 type Repositories interface {
 	ListCommits(ctx context.Context, owner, repo string, opts *github.CommitsListOptions) ([]*github.RepositoryCommit, *github.Response, error)
 	GetContents(ctx context.Context, owner, repo, path string, opts *github.RepositoryContentGetOptions) (fileContent *github.RepositoryContent, directoryContent []*github.RepositoryContent, resp *github.Response, err error)
@@ -63,6 +67,8 @@ type Repositories interface {
 }
 
 //counterfeiter:generate . Git
+
+// Git is an interface needed for faking
 type Git interface {
 	GetBlobRaw(ctx context.Context, owner, repo, sha string) ([]byte, *github.Response, error)
 	GetTree(ctx context.Context, owner string, repo string, sha string, recursive bool) (*github.Tree, *github.Response, error)
