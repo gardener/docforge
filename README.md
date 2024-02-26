@@ -1,8 +1,6 @@
 # docforge
-
+[![REUSE status](https://api.reuse.software/badge/github.com/gardener/docforge)](https://api.reuse.software/info/github.com/gardener/docforge)
 ![Docforge Logo](docs/images/gardener-docforge-logo.svg)
-
-[![reuse compliant](https://reuse.software/badge/reuse-compliant.svg)](https://reuse.software/)
 
 Docforge is a *Documentation-As-Code* enabling command-line tool that reproducibly *forges* source documentation into publishable documentation bundles, using desired documentation state declarations called *documentation manifests*. A documentation manifest includes structured references to source documentation files and rules for fetching sources. All links within the Markdown documents are adjusted automatically according to declared structure. Embeddable resources, like images, are download and packed into the bundles.
 
