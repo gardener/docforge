@@ -211,6 +211,11 @@ func constructNodeTree(files []string, node *Node, parent *Node) error {
 		if err != nil {
 			return err
 		}
+		// url.JoinPath escapes once so we revert it's escape
+		source, err = url.PathUnescape(source)
+		if err != nil {
+			return err
+		}
 		fileName := path.Base(file)
 		if !strings.HasSuffix(fileName, ".md") {
 			fileName = fileName + ".md"
