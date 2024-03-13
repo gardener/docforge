@@ -76,17 +76,17 @@ func NewParsedResourceURL(u *url.URL) (ResourceURL, error) {
 	return ResourceURL{}, fmt.Errorf("%s is not a resource URL", u.String())
 }
 
-// ToResourceURL returns the u
-func (r *ResourceURL) ToResourceURL() string {
+// String returns the u
+func (r *ResourceURL) String() string {
 	return fmt.Sprintf("https://%s/%s/%s/%s/%s/%s", r.Host, r.Owner, r.Repo, r.Type, r.Ref, r.ResourcePath)
 }
 
-// TotRepoURL returns the GitHub repository URL
-func (r *ResourceURL) TotRepoURL() string {
+// RepoURL returns the GitHub repository URL
+func (r *ResourceURL) RepoURL() string {
 	return fmt.Sprintf("https://%s/%s/%s", r.Host, r.Owner, r.Repo)
 }
 
-// ToRawURL returns the GitHub raw URL if the resource is 'blob', otherwise returns the origin URL
-func (r *ResourceURL) ToRawURL() string {
+// RawURL returns the GitHub raw URL if the resource is 'blob', otherwise returns the origin URL
+func (r *ResourceURL) RawURL() string {
 	return fmt.Sprintf("https://%s/%s/%s/raw/%s/%s", r.Host, r.Owner, r.Repo, r.Ref, r.ResourcePath)
 }

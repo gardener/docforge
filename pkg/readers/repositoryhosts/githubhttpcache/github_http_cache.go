@@ -185,7 +185,7 @@ func (p *GHC) ToAbsLink(source, link string) (string, error) {
 		if err != nil {
 			return link, err
 		}
-		link = l.ToResourceURL()
+		link = l.String()
 	}
 	l, err := url.Parse(strings.TrimSuffix(link, "/"))
 	if err != nil {
@@ -320,7 +320,7 @@ func (p *GHC) ReadGitInfo(ctx context.Context, uri string) ([]byte, error) {
 		return nil, err
 	}
 	if resp != nil && resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("list commits for %s fails with HTTP status: %d", r.ToResourceURL(), resp.StatusCode)
+		return nil, fmt.Errorf("list commits for %s fails with HTTP status: %d", r.String(), resp.StatusCode)
 	}
 	gitInfo := transform(commits)
 	if gitInfo == nil {
@@ -348,7 +348,7 @@ func (p *GHC) GetRawFormatLink(link string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return r.ToRawURL(), nil
+	return r.RawURL(), nil
 }
 
 // GetClient implements the repositoryhosts.RepositoryHost#GetClient
@@ -370,7 +370,7 @@ func (p *GHC) GetRateLimit(ctx context.Context) (int, int, time.Time, error) {
 // checkForLocalMapping returns repository root on file system if local mapping configuration
 // for the repository is set in config file or empty string otherwise.
 func (p *GHC) checkForLocalMapping(r *resource.ResourceURL) (string, error) {
-	repoURL := r.TotRepoURL()
+	repoURL := r.RepoURL()
 	key := strings.ToLower(repoURL)
 	if localPath, ok := p.localMappings[key]; ok {
 		return localPath, nil
@@ -385,9 +385,9 @@ func (p *GHC) readLocalFile(_ context.Context, r *resource.ResourceURL, localPat
 	cnt, err := p.os.ReadFile(fn)
 	if err != nil {
 		if p.os.IsNotExist(err) {
-			return nil, repositoryhosts.ErrResourceNotFound(r.ToResourceURL())
+			return nil, repositoryhosts.ErrResourceNotFound(r.String())
 		}
-		return nil, fmt.Errorf("reading file %s for uri %s fails: %v", fn, r.ToResourceURL(), err)
+		return nil, fmt.Errorf("reading file %s for uri %s fails: %v", fn, r.String(), err)
 	}
 	return cnt, nil
 }
@@ -411,30 +411,30 @@ func (p *GHC) downloadContent(ctx context.Context, opt *github.RepositoryContent
 	dirContents, resp, err := p.getDirContents(ctx, r.Owner, r.Repo, dir, opt)
 	if err != nil {
 		if resp != nil && resp.StatusCode == http.StatusNotFound {
-			return nil, repositoryhosts.ErrResourceNotFound(r.ToResourceURL())
+			return nil, repositoryhosts.ErrResourceNotFound(r.String())
 		}
 		return nil, err
 	}
 	for _, contents := range dirContents {
 		if *contents.Name == filename {
 			if contents.SHA == nil || *contents.SHA == "" {
-				return nil, fmt.Errorf("no SHA found for %s", r.ToResourceURL())
+				return nil, fmt.Errorf("no SHA found for %s", r.String())
 			}
 			cnt, resp, err := p.git.GetBlobRaw(ctx, r.Owner, r.Repo, *contents.SHA)
 			if err != nil {
 				if resp != nil && resp.StatusCode == http.StatusNotFound {
-					return nil, repositoryhosts.ErrResourceNotFound(r.ToResourceURL())
+					return nil, repositoryhosts.ErrResourceNotFound(r.String())
 				}
 				return nil, err
 			}
 			if resp != nil && resp.StatusCode >= 400 {
-				return nil, fmt.Errorf("content download for %s fails with HTTP status: %d", r.ToResourceURL(), resp.StatusCode)
+				return nil, fmt.Errorf("content download for %s fails with HTTP status: %d", r.String(), resp.StatusCode)
 			}
 			return cnt, nil
 		}
 	}
 	// not found
-	return nil, repositoryhosts.ErrResourceNotFound(r.ToResourceURL())
+	return nil, repositoryhosts.ErrResourceNotFound(r.String())
 }
 
 // wraps github.Client Repositories.GetContents and synchronize the access to avoid 'unexpected EOF' errors when reading directory content

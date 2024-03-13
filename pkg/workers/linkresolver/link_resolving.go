@@ -84,7 +84,7 @@ func (l *LinkResolver) ResolveLink(destination string, node *manifest.Node, sour
 	if err != nil {
 		return "", false, fmt.Errorf("unexpected error when parsing link %s in %s : %w", destination, source, err)
 	}
-	destinationResourceURL := destinationResource.ToResourceURL()
+	destinationResourceURL := destinationResource.String()
 	// check if link refers to a node
 	nl, ok := l.SourceToNode[destinationResourceURL]
 	if !ok {
