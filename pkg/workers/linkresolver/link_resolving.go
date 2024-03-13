@@ -7,6 +7,7 @@ package linkresolver
 import (
 	"cmp"
 	"fmt"
+	"net/url"
 	"path"
 	"path/filepath"
 	"slices"
@@ -44,13 +45,13 @@ func (l *LinkResolver) ResolveLink(destination string, node *manifest.Node, sour
 		klog.Warningf("escaping : for /:v:/ in link %s for source %s ", destination, source)
 		destination = escapedEmoji
 	}
-	destinationResource, err := resource.NewResource(destination)
+	destinationLink, err := url.Parse(destination)
 	if err != nil {
 		return "", false, fmt.Errorf("error when parsing link in %s : %w", source, err)
 	}
 	shouldValidate := true
 	// resolve outside links
-	if destinationResource.IsAbs() {
+	if destinationLink.IsAbs() {
 		if _, err := l.Repositoryhosts.Get(destination); err != nil {
 			// we don't have a handler for it. Leave it be.
 			return destination, true, nil
@@ -70,7 +71,7 @@ func (l *LinkResolver) ResolveLink(destination string, node *manifest.Node, sour
 		}
 	}
 	// destination is absolute URL from a repository host
-	destinationResource, err = resource.NewResource(destination)
+	destinationResource, err := resource.NewResource(destination)
 	if err != nil {
 		return "", false, fmt.Errorf("error when parsing link in %s : %w", source, err)
 	}
