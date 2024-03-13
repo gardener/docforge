@@ -26,8 +26,8 @@ func (e ErrResourceNotFound) Error() string {
 //
 //counterfeiter:generate . RepositoryHost
 type RepositoryHost interface {
-	//FileTreeFromURL Get files that are present in the given url tree
-	FileTreeFromURL(resourceURL string) ([]string, error)
+	//Tree Get files that are present in the given url tree
+	Tree(resourceURL string) ([]string, error)
 	//ToAbsLink Builds the abs link given where it is referenced
 	ToAbsLink(source, link string) (string, error)
 	// Accept accepts manifests if this RepositoryHost can manage the type of resources identified by the URI scheme of uri.

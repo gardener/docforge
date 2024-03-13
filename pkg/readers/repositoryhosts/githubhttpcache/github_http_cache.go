@@ -110,8 +110,8 @@ type GitInfo struct {
 
 //========================= manifest.FileSource ===================================================
 
-// FileTreeFromURL implements manifest.FileSource#FileTreeFromURL
-func (p *GHC) FileTreeFromURL(resourceURL string) ([]string, error) {
+// Tree implements manifest.FileSource#Tree
+func (p *GHC) Tree(resourceURL string) ([]string, error) {
 	r, err := p.resolveDefaultBranch(context.TODO(), resourceURL)
 	if err != nil {
 		return nil, fmt.Errorf("could not get file tree: %w", err)

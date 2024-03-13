@@ -168,7 +168,7 @@ func extractFilesFromNode(node *Node, parent *Node, manifest *Node, r resourceha
 		if err != nil {
 			return err
 		}
-		files, err := fs.FileTreeFromURL(node.FileTree)
+		files, err := fs.Tree(node.FileTree)
 		if err != nil {
 			return err
 		}
