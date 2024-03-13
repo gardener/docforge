@@ -333,14 +333,18 @@ func (p *GHC) ReadGitInfo(ctx context.Context, uri string) ([]byte, error) {
 
 // GetRawFormatLink implements the repositoryhosts.RepositoryHost#GetRawFormatLink
 func (p *GHC) GetRawFormatLink(link string) (string, error) {
-	r, err := resource.NewResource(link)
+	url, err := url.Parse(link)
 	if err != nil {
 		return "", err
 	}
-	if !r.URL.IsAbs() {
+	if !url.IsAbs() {
 		return link, nil // don't modify relative links
 	}
-	return r.ToRawURL()
+	r, err := resource.NewResourceURLFromURL(url)
+	if err != nil {
+		return "", err
+	}
+	return r.ToRawURL(), nil
 }
 
 // GetClient implements the repositoryhosts.RepositoryHost#GetClient
