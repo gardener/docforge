@@ -46,7 +46,7 @@ func NewDownloader(registry repositoryhosts.Registry, writer writers.Writer) (*D
 	}, nil
 }
 
-// DownloadResourceName create resource name that will be dowloaded from a resource link
+// DownloadURLName create resource name that will be dowloaded from a resource link
 func DownloadURLName(url *url.URL, document string) string {
 	resourcePath := url.String()
 	mdsum := md5.Sum([]byte(resourcePath + document))

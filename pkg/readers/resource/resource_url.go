@@ -12,12 +12,13 @@ var (
 	githubusercontent = regexp.MustCompile(`https://raw.githubusercontent.com/([^/]+)/([^/]+)/([^/]+)/([^\?#]+).*`)
 )
 
+// IsResourceURL checks if link is resource URL
 func IsResourceURL(link string) bool {
 	return rawPrefixed.MatchString(link) || resource.MatchString(link) || githubusercontent.MatchString(link)
 }
 
-// Resource represents a GitHub resource URL
-type ResourceURL struct {
+// URL represents a GitHub resource URL
+type URL struct {
 	Host         string
 	Owner        string
 	Repo         string
@@ -26,23 +27,23 @@ type ResourceURL struct {
 	ResourcePath string
 }
 
-// NewResource creates new resource from url as string
-func NewResourceURL(URL string) (ResourceURL, error) {
-	u, err := url.Parse(URL)
+// NewURL creates new resource from url as string
+func NewURL(resourceURL string) (URL, error) {
+	u, err := url.Parse(resourceURL)
 	if err != nil {
-		return ResourceURL{}, err
+		return URL{}, err
 	}
-	return NewParsedResourceURL(u)
+	return NewParsedURL(u)
 }
 
-// NewResourceFromURL creates new resource from url object
-func NewParsedResourceURL(u *url.URL) (ResourceURL, error) {
+// NewParsedURL creates new resource from url object
+func NewParsedURL(u *url.URL) (URL, error) {
 	if u.String() == "" {
-		return ResourceURL{}, nil
+		return URL{}, nil
 	}
 	components := rawPrefixed.FindStringSubmatch(u.String())
 	if components != nil {
-		return ResourceURL{
+		return URL{
 			Host:         components[1],
 			Owner:        components[2],
 			Repo:         components[3],
@@ -53,7 +54,7 @@ func NewParsedResourceURL(u *url.URL) (ResourceURL, error) {
 	}
 	components = githubusercontent.FindStringSubmatch(u.String())
 	if components != nil {
-		return ResourceURL{
+		return URL{
 			Host:         "github.com",
 			Owner:        components[1],
 			Repo:         components[2],
@@ -64,7 +65,7 @@ func NewParsedResourceURL(u *url.URL) (ResourceURL, error) {
 	}
 	components = resource.FindStringSubmatch(u.String())
 	if components != nil {
-		return ResourceURL{
+		return URL{
 			Host:         components[1],
 			Owner:        components[2],
 			Repo:         components[3],
@@ -73,20 +74,20 @@ func NewParsedResourceURL(u *url.URL) (ResourceURL, error) {
 			ResourcePath: components[6],
 		}, nil
 	}
-	return ResourceURL{}, fmt.Errorf("%s is not a resource URL", u.String())
+	return URL{}, fmt.Errorf("%s is not a resource URL", u.String())
 }
 
 // String returns the u
-func (r *ResourceURL) String() string {
+func (r *URL) String() string {
 	return fmt.Sprintf("https://%s/%s/%s/%s/%s/%s", r.Host, r.Owner, r.Repo, r.Type, r.Ref, r.ResourcePath)
 }
 
 // RepoURL returns the GitHub repository URL
-func (r *ResourceURL) RepoURL() string {
+func (r *URL) RepoURL() string {
 	return fmt.Sprintf("https://%s/%s/%s", r.Host, r.Owner, r.Repo)
 }
 
 // RawURL returns the GitHub raw URL if the resource is 'blob', otherwise returns the origin URL
-func (r *ResourceURL) RawURL() string {
+func (r *URL) RawURL() string {
 	return fmt.Sprintf("https://%s/%s/%s/raw/%s/%s", r.Host, r.Owner, r.Repo, r.Ref, r.ResourcePath)
 }

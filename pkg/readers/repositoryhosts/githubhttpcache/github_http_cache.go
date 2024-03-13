@@ -344,7 +344,7 @@ func (p *GHC) GetRawFormatLink(link string) (string, error) {
 	if !url.IsAbs() {
 		return link, nil // don't modify relative links
 	}
-	r, err := resource.NewParsedResourceURL(url)
+	r, err := resource.NewParsedURL(url)
 	if err != nil {
 		return "", err
 	}
@@ -369,7 +369,7 @@ func (p *GHC) GetRateLimit(ctx context.Context) (int, int, time.Time, error) {
 
 // checkForLocalMapping returns repository root on file system if local mapping configuration
 // for the repository is set in config file or empty string otherwise.
-func (p *GHC) checkForLocalMapping(r *resource.ResourceURL) (string, error) {
+func (p *GHC) checkForLocalMapping(r *resource.URL) (string, error) {
 	repoURL := r.RepoURL()
 	key := strings.ToLower(repoURL)
 	if localPath, ok := p.localMappings[key]; ok {
@@ -380,7 +380,7 @@ func (p *GHC) checkForLocalMapping(r *resource.ResourceURL) (string, error) {
 }
 
 // readLocalFile reads a file from FS
-func (p *GHC) readLocalFile(_ context.Context, r *resource.ResourceURL, localPath string) ([]byte, error) {
+func (p *GHC) readLocalFile(_ context.Context, r *resource.URL, localPath string) ([]byte, error) {
 	fn := filepath.Join(localPath, r.ResourcePath)
 	cnt, err := p.os.ReadFile(fn)
 	if err != nil {
@@ -392,7 +392,7 @@ func (p *GHC) readLocalFile(_ context.Context, r *resource.ResourceURL, localPat
 	return cnt, nil
 }
 
-func (p *GHC) readLocalFileTree(r resource.ResourceURL, localPath string) []string {
+func (p *GHC) readLocalFileTree(r resource.URL, localPath string) []string {
 	dirPath := filepath.Join(localPath, r.ResourcePath)
 	files := []string{}
 	filepath.Walk(dirPath, func(path string, info fs.FileInfo, err error) error {
@@ -405,7 +405,7 @@ func (p *GHC) readLocalFileTree(r resource.ResourceURL, localPath string) []stri
 }
 
 // downloadContent download file content like: github.Client.Repositories#DownloadContents, but with different error handling
-func (p *GHC) downloadContent(ctx context.Context, opt *github.RepositoryContentGetOptions, r *resource.ResourceURL) ([]byte, error) {
+func (p *GHC) downloadContent(ctx context.Context, opt *github.RepositoryContentGetOptions, r *resource.URL) ([]byte, error) {
 	dir := path.Dir(r.ResourcePath)
 	filename := path.Base(r.ResourcePath)
 	dirContents, resp, err := p.getDirContents(ctx, r.Owner, r.Repo, dir, opt)
@@ -453,7 +453,7 @@ func (p *GHC) determineLinkType(sourceURL *url.URL, rel *url.URL) (string, error
 	if len(path.Ext(rel.Path)) > 0 {
 		gtp = "blob"
 	}
-	source, err := resource.NewParsedResourceURL(sourceURL)
+	source, err := resource.NewParsedURL(sourceURL)
 	if err != nil {
 		return "", err
 	}
@@ -520,8 +520,8 @@ func (p *GHC) determineLinkType(sourceURL *url.URL, rel *url.URL) (string, error
 }
 
 // getResourceInfo build ResourceInfo and resolves 'DEFAULT_BRANCH' to repo default branch
-func (p *GHC) resolveDefaultBranch(ctx context.Context, resourceURL string) (*resource.ResourceURL, error) {
-	r, err := resource.NewResourceURL(resourceURL)
+func (p *GHC) resolveDefaultBranch(ctx context.Context, resourceURL string) (*resource.URL, error) {
+	r, err := resource.NewURL(resourceURL)
 	if err != nil {
 		return nil, err
 	}
