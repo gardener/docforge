@@ -157,10 +157,16 @@ var _ = Describe("Github cache test", func() {
 				repositories.GetContentsReturns(nil, docsContent, nil, nil)
 			})
 
-			It("returns correct abs link of a file", func() {
-				url, err := ghc.ToAbsLink("https://github.com/gardener/docforge/blob/master/README.md", "../docs/one.md")
+			It("returns correct abs link of a relative file", func() {
+				url, err := ghc.ToAbsLink("https://github.com/gardener/docforge/blob/master/README.md", "./docs/one.md")
 				Expect(err).NotTo(HaveOccurred())
 				Expect(url).To(Equal("https://github.com/gardener/docforge/blob/master/docs/one.md"))
+			})
+
+			FIt("returns correct abs link of a relative file", func() {
+				url, err := ghc.ToAbsLink("https://github.com/gardener/docforge/blob/master/foo/bar/baz/README.md", "../../docs/one.md")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(url).To(Equal("https://github.com/gardener/docforge/blob/master/foo/docs/one.md"))
 			})
 
 			It("returns correct abs link of a directory", func() {

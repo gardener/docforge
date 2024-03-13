@@ -69,12 +69,18 @@ func (l *LinkResolver) ResolveLink(destination string, node *manifest.Node, sour
 			shouldValidate = false
 		}
 	}
+	// destination is absolute URL from a repository host
 	destinationResource, err = link.NewResource(destination)
 	if err != nil {
 		return "", false, fmt.Errorf("error when parsing link in %s : %w", source, err)
 	}
+	destinationResourceURL, err := destinationResource.ToResourceURL()
+	if err != nil {
+		// link is from repository host but not a resource
+		return destination, shouldValidate, nil
+	}
 	// check if link refers to a node
-	nl, ok := l.SourceToNode[destinationResource.GetResourceURL()]
+	nl, ok := l.SourceToNode[destinationResourceURL]
 	if !ok {
 		return destination, shouldValidate, nil
 	}
