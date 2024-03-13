@@ -80,7 +80,7 @@ func (l *LinkResolver) ResolveLink(destination string, node *manifest.Node, sour
 	if err != nil {
 		return "", false, fmt.Errorf("unexpected error when parsing link %s in %s : %w", destination, source, err)
 	}
-	destinationResource, err := resource.NewParsedURL(destinationLink)
+	destinationResource, err := resource.FromURL(destinationLink)
 	if err != nil {
 		return "", false, fmt.Errorf("unexpected error when parsing link %s in %s : %w", destination, source, err)
 	}

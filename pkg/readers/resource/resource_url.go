@@ -27,17 +27,17 @@ type URL struct {
 	ResourcePath string
 }
 
-// NewURL creates new resource from url as string
-func NewURL(resourceURL string) (URL, error) {
+// New creates new resource from url as string
+func New(resourceURL string) (URL, error) {
 	u, err := url.Parse(resourceURL)
 	if err != nil {
 		return URL{}, err
 	}
-	return NewParsedURL(u)
+	return FromURL(u)
 }
 
-// NewParsedURL creates new resource from url object
-func NewParsedURL(u *url.URL) (URL, error) {
+// FromURL creates new resource from url object
+func FromURL(u *url.URL) (URL, error) {
 	if u.String() == "" {
 		return URL{}, nil
 	}

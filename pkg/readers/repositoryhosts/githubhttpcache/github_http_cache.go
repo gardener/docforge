@@ -344,7 +344,7 @@ func (p *GHC) GetRawFormatLink(link string) (string, error) {
 	if !url.IsAbs() {
 		return link, nil // don't modify relative links
 	}
-	r, err := resource.NewParsedURL(url)
+	r, err := resource.FromURL(url)
 	if err != nil {
 		return "", err
 	}
@@ -453,7 +453,7 @@ func (p *GHC) determineLinkType(sourceURL *url.URL, rel *url.URL) (string, error
 	if len(path.Ext(rel.Path)) > 0 {
 		gtp = "blob"
 	}
-	source, err := resource.NewParsedURL(sourceURL)
+	source, err := resource.FromURL(sourceURL)
 	if err != nil {
 		return "", err
 	}
@@ -521,7 +521,7 @@ func (p *GHC) determineLinkType(sourceURL *url.URL, rel *url.URL) (string, error
 
 // getResourceInfo build ResourceInfo and resolves 'DEFAULT_BRANCH' to repo default branch
 func (p *GHC) resolveDefaultBranch(ctx context.Context, resourceURL string) (*resource.URL, error) {
-	r, err := resource.NewURL(resourceURL)
+	r, err := resource.New(resourceURL)
 	if err != nil {
 		return nil, err
 	}
