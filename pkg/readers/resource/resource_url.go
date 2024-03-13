@@ -3,6 +3,13 @@ package resource
 import (
 	"fmt"
 	"net/url"
+	"regexp"
+)
+
+var (
+	rawPrefixed       = regexp.MustCompile(`https://([^/]+)/raw/([^/]+)/([^/]+)/([^/]+)/([^\?#]+).*`)
+	resource          = regexp.MustCompile(`https://([^/]+)/([^/]+)/([^/]+)/([^/]+)/([^/]+)/([^\?#]+).*`)
+	githubusercontent = regexp.MustCompile(`https://raw.githubusercontent.com/([^/]+)/([^/]+)/([^/]+)/([^\?#]+).*`)
 )
 
 func IsResourceURL(link string) bool {
@@ -66,7 +73,7 @@ func NewParsedResourceURL(u *url.URL) (ResourceURL, error) {
 			ResourcePath: components[6],
 		}, nil
 	}
-	return ResourceURL{}, fmt.Errorf("unknown link type for resource %s", u.String())
+	return ResourceURL{}, fmt.Errorf("%s is not a resource URL", u.String())
 }
 
 // ToResourceURL returns the u
