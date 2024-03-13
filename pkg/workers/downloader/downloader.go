@@ -10,13 +10,13 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"net/url"
 	"path"
 	"reflect"
 	"strings"
 	"sync"
 
 	"github.com/gardener/docforge/pkg/readers/repositoryhosts"
-	"github.com/gardener/docforge/pkg/readers/resource"
 	"github.com/gardener/docforge/pkg/writers"
 	"k8s.io/klog/v2"
 )
@@ -47,8 +47,8 @@ func NewDownloader(registry repositoryhosts.Registry, writer writers.Writer) (*D
 }
 
 // DownloadResourceName create resource name that will be dowloaded from a resource link
-func DownloadResourceName(resource resource.Resource, document string) string {
-	resourcePath := resource.String()
+func DownloadURLName(url *url.URL, document string) string {
+	resourcePath := url.String()
 	mdsum := md5.Sum([]byte(resourcePath + document))
 	ext := path.Ext(resourcePath)
 	name := strings.TrimSuffix(path.Base(resourcePath), ext)
