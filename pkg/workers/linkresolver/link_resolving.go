@@ -14,8 +14,8 @@ import (
 
 	"github.com/gardener/docforge/cmd/hugo"
 	"github.com/gardener/docforge/pkg/manifest"
-	"github.com/gardener/docforge/pkg/readers/link"
 	"github.com/gardener/docforge/pkg/readers/repositoryhosts"
+	"github.com/gardener/docforge/pkg/readers/resource"
 	"k8s.io/klog/v2"
 )
 
@@ -44,7 +44,7 @@ func (l *LinkResolver) ResolveLink(destination string, node *manifest.Node, sour
 		klog.Warningf("escaping : for /:v:/ in link %s for source %s ", destination, source)
 		destination = escapedEmoji
 	}
-	destinationResource, err := link.NewResource(destination)
+	destinationResource, err := resource.NewResource(destination)
 	if err != nil {
 		return "", false, fmt.Errorf("error when parsing link in %s : %w", source, err)
 	}
@@ -70,7 +70,7 @@ func (l *LinkResolver) ResolveLink(destination string, node *manifest.Node, sour
 		}
 	}
 	// destination is absolute URL from a repository host
-	destinationResource, err = link.NewResource(destination)
+	destinationResource, err = resource.NewResource(destination)
 	if err != nil {
 		return "", false, fmt.Errorf("error when parsing link in %s : %w", source, err)
 	}

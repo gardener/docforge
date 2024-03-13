@@ -26,8 +26,8 @@ import (
 	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/osfakes/httpclient"
 	"github.com/gardener/docforge/pkg/osfakes/osshim"
-	"github.com/gardener/docforge/pkg/readers/link"
 	"github.com/gardener/docforge/pkg/readers/repositoryhosts"
+	"github.com/gardener/docforge/pkg/readers/resource"
 	"github.com/google/go-github/v43/github"
 	"k8s.io/klog/v2"
 )
@@ -332,13 +332,13 @@ func (p *GHC) ReadGitInfo(ctx context.Context, uri string) ([]byte, error) {
 }
 
 // GetRawFormatLink implements the repositoryhosts.RepositoryHost#GetRawFormatLink
-func (p *GHC) GetRawFormatLink(absLink string) (string, error) {
-	r, err := link.NewResource(absLink)
+func (p *GHC) GetRawFormatLink(link string) (string, error) {
+	r, err := resource.NewResource(link)
 	if err != nil {
 		return "", err
 	}
 	if !r.URL.IsAbs() {
-		return absLink, nil // don't modify relative links
+		return link, nil // don't modify relative links
 	}
 	return r.ToRawURL()
 }
@@ -361,7 +361,7 @@ func (p *GHC) GetRateLimit(ctx context.Context) (int, int, time.Time, error) {
 
 // checkForLocalMapping returns repository root on file system if local mapping configuration
 // for the repository is set in config file or empty string otherwise.
-func (p *GHC) checkForLocalMapping(r *link.Resource) (string, error) {
+func (p *GHC) checkForLocalMapping(r *resource.Resource) (string, error) {
 	repoURL, err := r.TotRepoURL()
 	if err != nil {
 		return "", err
@@ -375,7 +375,7 @@ func (p *GHC) checkForLocalMapping(r *link.Resource) (string, error) {
 }
 
 // readLocalFile reads a file from FS
-func (p *GHC) readLocalFile(_ context.Context, r *link.Resource, localPath string) ([]byte, error) {
+func (p *GHC) readLocalFile(_ context.Context, r *resource.Resource, localPath string) ([]byte, error) {
 	fn := filepath.Join(localPath, r.Path)
 	cnt, err := p.os.ReadFile(fn)
 	if err != nil {
@@ -387,7 +387,7 @@ func (p *GHC) readLocalFile(_ context.Context, r *link.Resource, localPath strin
 	return cnt, nil
 }
 
-func (p *GHC) readLocalFileTree(r link.Resource, localPath string) []string {
+func (p *GHC) readLocalFileTree(r resource.Resource, localPath string) []string {
 	dirPath := filepath.Join(localPath, r.Path)
 	files := []string{}
 	filepath.Walk(dirPath, func(path string, info fs.FileInfo, err error) error {
@@ -400,7 +400,7 @@ func (p *GHC) readLocalFileTree(r link.Resource, localPath string) []string {
 }
 
 // downloadContent download file content like: github.Client.Repositories#DownloadContents, but with different error handling
-func (p *GHC) downloadContent(ctx context.Context, opt *github.RepositoryContentGetOptions, r *link.Resource) ([]byte, error) {
+func (p *GHC) downloadContent(ctx context.Context, opt *github.RepositoryContentGetOptions, r *resource.Resource) ([]byte, error) {
 	dir := path.Dir(r.Path)
 	filename := path.Base(r.Path)
 	dirContents, resp, err := p.getDirContents(ctx, r.Owner, r.Repo, dir, opt)
@@ -442,7 +442,7 @@ func (p *GHC) getDirContents(ctx context.Context, owner, repo, path string, opts
 
 // determineLinkType returns the type of relative link (blob|tree)
 // repositoryhosts.ErrResourceNotFound if target resource doesn't exist
-func (p *GHC) determineLinkType(source *link.Resource, rel *url.URL) (string, error) {
+func (p *GHC) determineLinkType(source *resource.Resource, rel *url.URL) (string, error) {
 	var tp string
 	var err error
 	gtp := "tree"
@@ -512,8 +512,8 @@ func (p *GHC) determineLinkType(source *link.Resource, rel *url.URL) (string, er
 }
 
 // getResourceInfo build ResourceInfo and resolves 'DEFAULT_BRANCH' to repo default branch
-func (p *GHC) getResolvedResourceInfo(ctx context.Context, uri string) (*link.Resource, error) {
-	r, err := link.NewResource(uri)
+func (p *GHC) getResolvedResourceInfo(ctx context.Context, uri string) (*resource.Resource, error) {
+	r, err := resource.NewResource(uri)
 	if err != nil {
 		return nil, err
 	}

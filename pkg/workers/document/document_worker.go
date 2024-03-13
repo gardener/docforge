@@ -15,8 +15,8 @@ import (
 
 	"github.com/gardener/docforge/cmd/hugo"
 	"github.com/gardener/docforge/pkg/manifest"
-	"github.com/gardener/docforge/pkg/readers/link"
 	"github.com/gardener/docforge/pkg/readers/repositoryhosts"
+	"github.com/gardener/docforge/pkg/readers/resource"
 	"github.com/gardener/docforge/pkg/workers/document/frontmatter"
 	"github.com/gardener/docforge/pkg/workers/document/markdown"
 	"github.com/gardener/docforge/pkg/workers/downloader"
@@ -175,7 +175,7 @@ func (d *linkResolverTask) resolveLink(dest string, isEmbeddable bool) (string, 
 	if u.Scheme == "mailto" {
 		return dest, nil
 	}
-	resource, err := link.NewResourceFromURL(u)
+	resource, err := resource.NewResourceFromURL(u)
 	if err != nil {
 		return dest, err
 	}
@@ -209,7 +209,7 @@ func (d *linkResolverTask) resolveLink(dest string, isEmbeddable bool) (string, 
 	return rawLink, nil
 }
 
-func downloadEmbeddable(resource link.Resource) bool {
+func downloadEmbeddable(resource resource.Resource) bool {
 	if !resource.IsAbs() {
 		return true
 	}

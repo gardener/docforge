@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-package link
+package resource
 
 import (
 	"fmt"
@@ -23,7 +23,7 @@ type Resource struct {
 
 var (
 	rawPrefixed       = regexp.MustCompile(`https://([^/]+)/raw/([^/]+)/([^/]+)/([^/]+)/([^\?#]+).*`)
-	absLink           = regexp.MustCompile(`https://([^/]+)/([^/]+)/([^/]+)/([^/]+)/([^/]+)/([^\?#]+).*`)
+	resource          = regexp.MustCompile(`https://([^/]+)/([^/]+)/([^/]+)/([^/]+)/([^/]+)/([^\?#]+).*`)
 	githubusercontent = regexp.MustCompile(`https://raw.githubusercontent.com/([^/]+)/([^/]+)/([^/]+)/([^\?#]+).*`)
 	other             = regexp.MustCompile(`([^\?#]*).*`)
 )
@@ -66,7 +66,7 @@ func NewResourceFromURL(u *url.URL) (Resource, error) {
 			Path:  components[4],
 		}, nil
 	}
-	components = absLink.FindStringSubmatch(u.String())
+	components = resource.FindStringSubmatch(u.String())
 	if components != nil {
 		return Resource{
 			URL:   *u,
