@@ -233,8 +233,8 @@ func (p *GHC) Name() string {
 }
 
 // Accept implements the repositoryhosts.RepositoryHost#Accept
-func (p *GHC) Accept(uri string) bool {
-	r, err := url.Parse(uri)
+func (p *GHC) Accept(link string) bool {
+	r, err := url.Parse(link)
 	if err != nil || r.Scheme != "https" {
 		return false
 	}
@@ -305,8 +305,8 @@ func (p *GHC) Read(ctx context.Context, resourceURL string) ([]byte, error) {
 }
 
 // ReadGitInfo implements the repositoryhosts.RepositoryHost#ReadGitInfo
-func (p *GHC) ReadGitInfo(ctx context.Context, uri string) ([]byte, error) {
-	r, err := p.resolveDefaultBranch(ctx, uri)
+func (p *GHC) ReadGitInfo(ctx context.Context, resourceURL string) ([]byte, error) {
+	r, err := p.resolveDefaultBranch(ctx, resourceURL)
 	if err != nil {
 		return nil, err
 	}

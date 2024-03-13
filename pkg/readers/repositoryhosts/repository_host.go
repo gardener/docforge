@@ -29,18 +29,18 @@ type RepositoryHost interface {
 	//ManifestFromURL Gets the manifest content from a given url
 	ManifestFromURL(url string) (string, error)
 	//FileTreeFromURL Get files that are present in the given url tree
-	FileTreeFromURL(url string) ([]string, error)
+	FileTreeFromURL(resourceURL string) ([]string, error)
 	//ToAbsLink Builds the abs link given where it is referenced
 	ToAbsLink(source, link string) (string, error)
 	// Accept accepts manifests if this RepositoryHost can manage the type of resources identified by the URI scheme of uri.
-	Accept(uri string) bool
+	Accept(link string) bool
 	// Read a resource content at uri into a byte array
-	Read(ctx context.Context, uri string) ([]byte, error)
+	Read(ctx context.Context, resourceURL string) ([]byte, error)
 	// ReadGitInfo reads git info for the resource
-	ReadGitInfo(ctx context.Context, uri string) ([]byte, error)
+	ReadGitInfo(ctx context.Context, resourceURL string) ([]byte, error)
 	// GetRawFormatLink returns a link to an embeddable object (image) in raw format.
 	// If the provided link is not referencing an embeddable object, the function returns absLink without changes.
-	GetRawFormatLink(absLink string) (string, error)
+	GetRawFormatLink(link string) (string, error)
 	// Name of repository host
 	Name() string
 	// GetClient returns an HTTP client for accessing handler's resources
