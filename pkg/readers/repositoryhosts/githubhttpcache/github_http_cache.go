@@ -122,7 +122,11 @@ func (p *GHC) FileTreeFromURL(URL string) ([]string, error) {
 	//bPrefix := fmt.Sprintf("%s://%s/%s/%s/blob/%s/%s", r.URL.Scheme, r.URL.Host, r.Owner, r.Repo, r.Ref, r.Path)
 	p.muxSHA.Lock()
 	defer p.muxSHA.Unlock()
-	if local := p.checkForLocalMapping(r); len(local) > 0 {
+	local, err := p.checkForLocalMapping(r)
+	if err != nil {
+		return nil, err
+	}
+	if len(local) > 0 {
 		return p.readLocalFileTree(*r, local), nil
 	}
 	sha := fmt.Sprintf("%s:%s", r.Ref, r.Path)
@@ -178,7 +182,10 @@ func (p *GHC) ToAbsLink(source, link string) (string, error) {
 		if err != nil {
 			return link, err
 		}
-		link = l.String()
+		link, err = l.ToResourceURL()
+		if err != nil {
+			return link, err
+		}
 	}
 	l, err := url.Parse(strings.TrimSuffix(link, "/"))
 	if err != nil {
@@ -244,7 +251,11 @@ func (p *GHC) Read(ctx context.Context, uri string) ([]byte, error) {
 	if r.Type != "blob" && r.Type != "raw" {
 		return nil, fmt.Errorf("not a blob/raw url: %s", r.String())
 	}
-	if local := p.checkForLocalMapping(r); len(local) > 0 {
+	local, err := p.checkForLocalMapping(r)
+	if err != nil {
+		return nil, err
+	}
+	if len(local) > 0 {
 		return p.readLocalFile(ctx, r, local)
 	}
 	// read using GitService and file URL -> file SHA mapping
@@ -329,7 +340,7 @@ func (p *GHC) GetRawFormatLink(absLink string) (string, error) {
 	if !r.URL.IsAbs() {
 		return absLink, nil // don't modify relative links
 	}
-	return r.GetRawURL(), nil
+	return r.ToRawURL()
 }
 
 // GetClient implements the repositoryhosts.RepositoryHost#GetClient
@@ -350,13 +361,17 @@ func (p *GHC) GetRateLimit(ctx context.Context) (int, int, time.Time, error) {
 
 // checkForLocalMapping returns repository root on file system if local mapping configuration
 // for the repository is set in config file or empty string otherwise.
-func (p *GHC) checkForLocalMapping(r *link.Resource) string {
-	key := strings.ToLower(r.GetRepoURL())
+func (p *GHC) checkForLocalMapping(r *link.Resource) (string, error) {
+	repoURL, err := r.TotRepoURL()
+	if err != nil {
+		return "", err
+	}
+	key := strings.ToLower(repoURL)
 	if localPath, ok := p.localMappings[key]; ok {
-		return localPath
+		return localPath, nil
 	}
 	// repo URLs keys in config file may end with '/'
-	return p.localMappings[key+"/"]
+	return p.localMappings[key+"/"], nil
 }
 
 // readLocalFile reads a file from FS
@@ -436,7 +451,11 @@ func (p *GHC) determineLinkType(source *link.Resource, rel *url.URL) (string, er
 	}
 	expURI := fmt.Sprintf("%s://%s/%s/%s/%s/%s%s", source.URL.Scheme, source.URL.Host, source.Owner, source.Repo, gtp, source.Ref, rel.Path)
 	// local case
-	if local := p.checkForLocalMapping(source); len(local) > 0 {
+	local, err := p.checkForLocalMapping(source)
+	if err != nil {
+		return "", err
+	}
+	if len(local) > 0 {
 		fn := filepath.Join(local, rel.Path)
 		var info os.FileInfo
 		info, err = p.os.Lstat(fn)
