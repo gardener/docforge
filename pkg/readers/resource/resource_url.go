@@ -25,11 +25,11 @@ func NewResourceURL(URL string) (ResourceURL, error) {
 	if err != nil {
 		return ResourceURL{}, err
 	}
-	return NewResourceURLFromURL(u)
+	return NewParsedResourceURL(u)
 }
 
 // NewResourceFromURL creates new resource from url object
-func NewResourceURLFromURL(u *url.URL) (ResourceURL, error) {
+func NewParsedResourceURL(u *url.URL) (ResourceURL, error) {
 	if u.String() == "" {
 		return ResourceURL{}, nil
 	}

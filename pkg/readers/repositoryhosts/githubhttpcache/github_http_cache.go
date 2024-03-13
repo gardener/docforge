@@ -340,7 +340,7 @@ func (p *GHC) GetRawFormatLink(link string) (string, error) {
 	if !url.IsAbs() {
 		return link, nil // don't modify relative links
 	}
-	r, err := resource.NewResourceURLFromURL(url)
+	r, err := resource.NewParsedResourceURL(url)
 	if err != nil {
 		return "", err
 	}
