@@ -43,9 +43,8 @@ var _ = Describe("Document resolving", func() {
 	)
 	BeforeEach(func() {
 		localHost := repositoryhostsfakes.FakeRepositoryHost{}
-		localHost.ManifestFromURLCalls(func(url string) (string, error) {
-			content, err := manifests.ReadFile(url)
-			return string(content), err
+		localHost.ReadCalls(func(ctx context.Context, url string) ([]byte, error) {
+			return manifests.ReadFile(url)
 		})
 		localHost.ToAbsLinkCalls(func(URL, link string) (string, error) {
 

@@ -214,23 +214,6 @@ var _ = Describe("Github cache test", func() {
 		})
 	})
 
-	Describe("#ManifestFromURL", func() {
-		BeforeEach(func() {
-			byteContent := []byte("foo")
-			docContent := &github.RepositoryContent{
-				Content: github.String(base64.StdEncoding.EncodeToString(byteContent)),
-			}
-			repositories.GetContentsReturns(docContent, nil, nil, nil)
-		})
-
-		It("returns correct content", func() {
-			content, err := ghc.ManifestFromURL("https://github.com/gardener/docforge/blob/master/manifest.yaml")
-			Expect(err).NotTo(HaveOccurred())
-			Expect(string(content)).To(Equal("foo"))
-		})
-
-	})
-
 	Describe("#ReadGitInfo", func() {
 		BeforeEach(func() {
 			time1 := time.Date(2024, time.February, 6, 13, 11, 0, 0, time.UTC)

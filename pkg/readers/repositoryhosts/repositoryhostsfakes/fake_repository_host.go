@@ -78,19 +78,6 @@ type FakeRepositoryHost struct {
 		result1 string
 		result2 error
 	}
-	ManifestFromURLStub        func(string) (string, error)
-	manifestFromURLMutex       sync.RWMutex
-	manifestFromURLArgsForCall []struct {
-		arg1 string
-	}
-	manifestFromURLReturns struct {
-		result1 string
-		result2 error
-	}
-	manifestFromURLReturnsOnCall map[int]struct {
-		result1 string
-		result2 error
-	}
 	NameStub        func() string
 	nameMutex       sync.RWMutex
 	nameArgsForCall []struct {
@@ -459,70 +446,6 @@ func (fake *FakeRepositoryHost) GetRawFormatLinkReturnsOnCall(i int, result1 str
 	}{result1, result2}
 }
 
-func (fake *FakeRepositoryHost) ManifestFromURL(arg1 string) (string, error) {
-	fake.manifestFromURLMutex.Lock()
-	ret, specificReturn := fake.manifestFromURLReturnsOnCall[len(fake.manifestFromURLArgsForCall)]
-	fake.manifestFromURLArgsForCall = append(fake.manifestFromURLArgsForCall, struct {
-		arg1 string
-	}{arg1})
-	stub := fake.ManifestFromURLStub
-	fakeReturns := fake.manifestFromURLReturns
-	fake.recordInvocation("ManifestFromURL", []interface{}{arg1})
-	fake.manifestFromURLMutex.Unlock()
-	if stub != nil {
-		return stub(arg1)
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fakeReturns.result1, fakeReturns.result2
-}
-
-func (fake *FakeRepositoryHost) ManifestFromURLCallCount() int {
-	fake.manifestFromURLMutex.RLock()
-	defer fake.manifestFromURLMutex.RUnlock()
-	return len(fake.manifestFromURLArgsForCall)
-}
-
-func (fake *FakeRepositoryHost) ManifestFromURLCalls(stub func(string) (string, error)) {
-	fake.manifestFromURLMutex.Lock()
-	defer fake.manifestFromURLMutex.Unlock()
-	fake.ManifestFromURLStub = stub
-}
-
-func (fake *FakeRepositoryHost) ManifestFromURLArgsForCall(i int) string {
-	fake.manifestFromURLMutex.RLock()
-	defer fake.manifestFromURLMutex.RUnlock()
-	argsForCall := fake.manifestFromURLArgsForCall[i]
-	return argsForCall.arg1
-}
-
-func (fake *FakeRepositoryHost) ManifestFromURLReturns(result1 string, result2 error) {
-	fake.manifestFromURLMutex.Lock()
-	defer fake.manifestFromURLMutex.Unlock()
-	fake.ManifestFromURLStub = nil
-	fake.manifestFromURLReturns = struct {
-		result1 string
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *FakeRepositoryHost) ManifestFromURLReturnsOnCall(i int, result1 string, result2 error) {
-	fake.manifestFromURLMutex.Lock()
-	defer fake.manifestFromURLMutex.Unlock()
-	fake.ManifestFromURLStub = nil
-	if fake.manifestFromURLReturnsOnCall == nil {
-		fake.manifestFromURLReturnsOnCall = make(map[int]struct {
-			result1 string
-			result2 error
-		})
-	}
-	fake.manifestFromURLReturnsOnCall[i] = struct {
-		result1 string
-		result2 error
-	}{result1, result2}
-}
-
 func (fake *FakeRepositoryHost) Name() string {
 	fake.nameMutex.Lock()
 	ret, specificReturn := fake.nameReturnsOnCall[len(fake.nameArgsForCall)]
@@ -784,8 +707,6 @@ func (fake *FakeRepositoryHost) Invocations() map[string][][]interface{} {
 	defer fake.getRateLimitMutex.RUnlock()
 	fake.getRawFormatLinkMutex.RLock()
 	defer fake.getRawFormatLinkMutex.RUnlock()
-	fake.manifestFromURLMutex.RLock()
-	defer fake.manifestFromURLMutex.RUnlock()
 	fake.nameMutex.RLock()
 	defer fake.nameMutex.RUnlock()
 	fake.readMutex.RLock()

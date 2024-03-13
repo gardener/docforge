@@ -5,6 +5,7 @@ package manifest_test
 // SPDX-License-Identifier: Apache-2.0
 
 import (
+	"context"
 	"embed"
 	"errors"
 	"fmt"
@@ -44,10 +45,8 @@ var _ = Describe("Manifest test", func() {
 				yaml.Unmarshal([]byte(resultBytes), &expected)
 
 				fakeFiles := &repositoryhostsfakes.FakeRepositoryHost{}
-				fakeFiles.ManifestFromURLCalls(func(url string) (string, error) {
-					url = strings.TrimPrefix(url, "https://test")
-					content, err := examples.ReadFile(url)
-					return string(content), err
+				fakeFiles.ReadCalls(func(ctx context.Context, url string) ([]byte, error) {
+					return examples.ReadFile(strings.TrimPrefix(url, "https://test"))
 				})
 				fakeFiles.ToAbsLinkCalls(func(url, link string) (string, error) {
 					if strings.HasPrefix(link, "/") {

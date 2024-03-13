@@ -5,6 +5,7 @@
 package linkresolver_test
 
 import (
+	"context"
 	"embed"
 	"fmt"
 	"net/url"
@@ -41,9 +42,8 @@ var _ = Describe("Document link resolving", func() {
 		BeforeEach(func() {
 			linkResolver = linkresolver.LinkResolver{}
 			localHost := repositoryhostsfakes.FakeRepositoryHost{}
-			localHost.ManifestFromURLCalls(func(url string) (string, error) {
-				content, err := manifests.ReadFile(url)
-				return string(content), err
+			localHost.ReadCalls(func(ctx context.Context, url string) ([]byte, error) {
+				return manifests.ReadFile(url)
 			})
 			localHost.ToAbsLinkCalls(func(URL, link string) (string, error) {
 				if URL == "tests/baseline.yaml" {

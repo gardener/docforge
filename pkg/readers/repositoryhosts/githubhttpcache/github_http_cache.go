@@ -161,15 +161,6 @@ func (p *GHC) FileTreeFromURL(resourceURL string) ([]string, error) {
 	return res, nil
 }
 
-// ManifestFromURL implements manifest.FileSource#ManifestFromURL
-func (p *GHC) ManifestFromURL(resourceURL string) (string, error) {
-	if _, err := p.resolveDefaultBranch(context.TODO(), resourceURL); err != nil {
-		return "", fmt.Errorf("could not get manifest from url: %w", err)
-	}
-	content, err := p.Read(context.TODO(), resourceURL)
-	return string(content), err
-}
-
 // ToAbsLink implements manifest.FileSource#ToAbsLink
 func (p *GHC) ToAbsLink(source, link string) (string, error) {
 	r, err := p.resolveDefaultBranch(context.TODO(), source)
