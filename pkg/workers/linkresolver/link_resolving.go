@@ -76,7 +76,11 @@ func (l *LinkResolver) ResolveLink(destination string, node *manifest.Node, sour
 		return destination, shouldValidate, nil
 	}
 	// destination is resource URL
-	destinationResource, err := resource.NewResourceURL(destination)
+	destinationLink, err = url.Parse(destination)
+	if err != nil {
+		return "", false, fmt.Errorf("unexpected error when parsing link %s in %s : %w", destination, source, err)
+	}
+	destinationResource, err := resource.NewResourceURLFromURL(destinationLink)
 	if err != nil {
 		return "", false, fmt.Errorf("unexpected error when parsing link %s in %s : %w", destination, source, err)
 	}
@@ -98,11 +102,11 @@ func (l *LinkResolver) ResolveLink(destination string, node *manifest.Node, sour
 		destination = strings.ToLower(destinationNode.HugoPrettyPath())
 	}
 	destination = fmt.Sprintf("/%s/", path.Join(l.Hugo.BaseURL, destination))
-	if destinationResource.ForceQuery || destinationResource.RawQuery != "" {
-		destination = fmt.Sprintf("%s?%s", destination, destinationResource.RawQuery)
+	if destinationLink.ForceQuery || destinationLink.RawQuery != "" {
+		destination = fmt.Sprintf("%s?%s", destination, destinationLink.RawQuery)
 	}
-	if destinationResource.Fragment != "" {
-		destination = fmt.Sprintf("%s#%s", destination, destinationResource.Fragment)
+	if destinationLink.Fragment != "" {
+		destination = fmt.Sprintf("%s#%s", destination, destinationLink.Fragment)
 	}
 	return destination, true, nil
 }
