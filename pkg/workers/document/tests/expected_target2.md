@@ -7,7 +7,7 @@
 [test2](/integration-test/tested-doc/html-tests/testedHTMLFile2.md)
 
 ### Link existing image with relative path
-![test3](/baseURL/__resources/gardener-docforge-logo_ed3bb1.png)
+![test3](/baseURL/__resources/gardener-docforge-logo_94ecd1.png)
 
 ### Link existing image with relative path and title
-![test4](/baseURL/__resources/gardener-docforge-logo_9c54c7.png "gardener-docforge-logo")
+![test4](/baseURL/__resources/gardener-docforge-logo_d59fa3.png "gardener-docforge-logo")
