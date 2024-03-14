@@ -355,9 +355,7 @@ func (p *GHC) GetRateLimit(ctx context.Context) (int, int, time.Time, error) {
 // checkForLocalMapping returns repository root on file system if local mapping configuration
 // for the repository is set in config file or empty string otherwise.
 func (p *GHC) checkForLocalMapping(r *resource.URL) string {
-	repoURL := r.RepoURL()
-	key := strings.ToLower(repoURL)
-	return p.localMappings[key]
+	return p.localMappings[r.RepoURL()]
 }
 
 // readLocalFile reads a file from FS
