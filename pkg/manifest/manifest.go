@@ -5,6 +5,7 @@
 package manifest
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"path"
@@ -54,10 +55,11 @@ func loadManifestStructure(node *Node, parent *Node, manifest *Node, r resourceh
 	if err != nil {
 		return err
 	}
-	content, err := fs.ManifestFromURL(node.Manifest)
+	byteContent, err := fs.Read(context.TODO(), node.Manifest)
 	if err != nil {
 		return fmt.Errorf("can't get manifest file content : %w", err)
 	}
+	content := string(byteContent)
 	if err = yaml.Unmarshal([]byte(content), node); err != nil {
 		return fmt.Errorf("can't parse manifest %s yaml content : %w", node.Manifest, err)
 	}
@@ -166,7 +168,7 @@ func extractFilesFromNode(node *Node, parent *Node, manifest *Node, r resourceha
 		if err != nil {
 			return err
 		}
-		files, err := fs.FileTreeFromURL(node.FileTree)
+		files, err := fs.Tree(node.FileTree)
 		if err != nil {
 			return err
 		}

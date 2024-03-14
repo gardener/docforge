@@ -15,7 +15,6 @@ import (
 
 	"github.com/gardener/docforge/cmd/hugo"
 	"github.com/gardener/docforge/pkg/manifest"
-	"github.com/gardener/docforge/pkg/readers/link"
 	"github.com/gardener/docforge/pkg/readers/repositoryhosts"
 	"github.com/gardener/docforge/pkg/workers/document/frontmatter"
 	"github.com/gardener/docforge/pkg/workers/document/markdown"
@@ -168,30 +167,26 @@ type linkResolverTask struct {
 }
 
 func (d *linkResolverTask) resolveLink(dest string, isEmbeddable bool) (string, error) {
-	u, err := url.Parse(dest)
+	url, err := url.Parse(dest)
 	if err != nil {
 		return dest, err
 	}
-	if u.Scheme == "mailto" {
+	if url.Scheme == "mailto" {
 		return dest, nil
-	}
-	resource, err := link.NewResourceFromURL(u)
-	if err != nil {
-		return dest, err
 	}
 	newLink, shouldValidate, err := d.linkresolver.ResolveLink(dest, d.Node, d.Source)
 	if err != nil {
 		return dest, err
 	}
-	if shouldValidate && !downloadEmbeddable(resource) {
+	if shouldValidate && !downloadEmbeddable(url) {
 		d.validator.ValidateLink(dest, d.Source)
 	}
 	if !isEmbeddable {
 		return newLink, nil
 	}
 	// Links to resources that are not structure document nodes are scheduled for download and their destination is updated to relative path to predefined location for resources.
-	if downloadEmbeddable(resource) {
-		downloadResourceName := downloader.DownloadResourceName(resource, d.Source)
+	if downloadEmbeddable(url) {
+		downloadResourceName := downloader.DownloadURLName(url, d.Source)
 		if err = d.downloader.Schedule(newLink, downloadResourceName, d.Source); err != nil {
 			return dest, err
 		}
@@ -209,14 +204,14 @@ func (d *linkResolverTask) resolveLink(dest string, isEmbeddable bool) (string, 
 	return rawLink, nil
 }
 
-func downloadEmbeddable(resource link.Resource) bool {
-	if !resource.IsAbs() {
+func downloadEmbeddable(url *url.URL) bool {
+	if !url.IsAbs() {
 		return true
 	}
 	// if embeddable link is absolute, download only if belongs to internal GitHub or own organization
 	// TODO: make it configurable
-	if resource.Host == "github.tools.sap" || resource.Host == "raw.github.tools.sap" || resource.Host == "github.wdf.sap.corp" {
+	if url.Host == "github.tools.sap" || url.Host == "raw.github.tools.sap" || url.Host == "github.wdf.sap.corp" {
 		return true
 	}
-	return strings.HasPrefix(resource.Path, "/gardener/") && (resource.Host == "github.com" || resource.Host == "raw.githubusercontent.com")
+	return strings.HasPrefix(url.Path, "/gardener/") && (url.Host == "github.com" || url.Host == "raw.githubusercontent.com")
 }

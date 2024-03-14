@@ -4,14 +4,16 @@
 
 package repositoryhostsfakes
 
-import "embed"
+import (
+	"context"
+	"embed"
+)
 
 // FilesystemRegistry builds fake registry from directory
 func FilesystemRegistry(dir embed.FS) *FakeRegistry {
 	localHost := FakeRepositoryHost{}
-	localHost.ManifestFromURLCalls(func(url string) (string, error) {
-		content, err := dir.ReadFile(url)
-		return string(content), err
+	localHost.ReadCalls(func(ctx context.Context, url string) ([]byte, error) {
+		return dir.ReadFile(url)
 	})
 	localHost.ToAbsLinkCalls(func(url, link string) (string, error) {
 		return link, nil

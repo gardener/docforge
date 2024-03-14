@@ -60,9 +60,9 @@ var _ = Describe("Github cache test", func() {
 		})
 	})
 
-	Describe("#FileTreeFromURL", func() {
+	Describe("#Tree", func() {
 		It("not a tree url", func() {
-			_, err := ghc.FileTreeFromURL("https://github.com/gardener/docforge/blob/master/README.md")
+			_, err := ghc.Tree("https://github.com/gardener/docforge/blob/master/README.md")
 			Expect(err.Error()).To(ContainSubstring("not a tree url"))
 		})
 
@@ -73,7 +73,7 @@ var _ = Describe("Github cache test", func() {
 			})
 
 			It("not found", func() {
-				_, err := ghc.FileTreeFromURL("https://github.com/gardener/docforge/tree/master/pkg")
+				_, err := ghc.Tree("https://github.com/gardener/docforge/tree/master/pkg")
 				Expect(err.Error()).To(ContainSubstring("not found"))
 			})
 		})
@@ -85,7 +85,7 @@ var _ = Describe("Github cache test", func() {
 			})
 
 			It("not found", func() {
-				_, err := ghc.FileTreeFromURL("https://github.com/gardener/docforge/tree/master/pkg")
+				_, err := ghc.Tree("https://github.com/gardener/docforge/tree/master/pkg")
 				Expect(err.Error()).To(ContainSubstring("fails with HTTP status: 503"))
 			})
 		})
@@ -120,7 +120,7 @@ var _ = Describe("Github cache test", func() {
 			})
 
 			It("not found", func() {
-				tree, err := ghc.FileTreeFromURL("https://github.com/gardener/docforge/tree/master/pkg")
+				tree, err := ghc.Tree("https://github.com/gardener/docforge/tree/master/pkg")
 				Expect(tree).To(Equal([]string{"README.md", "docs/_index.md"}))
 				Expect(err).NotTo(HaveOccurred())
 
@@ -212,23 +212,6 @@ var _ = Describe("Github cache test", func() {
 				Expect(string(content)).To(Equal("logo_contents"))
 			})
 		})
-	})
-
-	Describe("#ManifestFromURL", func() {
-		BeforeEach(func() {
-			byteContent := []byte("foo")
-			docContent := &github.RepositoryContent{
-				Content: github.String(base64.StdEncoding.EncodeToString(byteContent)),
-			}
-			repositories.GetContentsReturns(docContent, nil, nil, nil)
-		})
-
-		It("returns correct content", func() {
-			content, err := ghc.ManifestFromURL("https://github.com/gardener/docforge/blob/master/manifest.yaml")
-			Expect(err).NotTo(HaveOccurred())
-			Expect(string(content)).To(Equal("foo"))
-		})
-
 	})
 
 	Describe("#ReadGitInfo", func() {

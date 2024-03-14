@@ -5,6 +5,7 @@ package manifest_test
 // SPDX-License-Identifier: Apache-2.0
 
 import (
+	"context"
 	"embed"
 	"errors"
 	"fmt"
@@ -44,10 +45,8 @@ var _ = Describe("Manifest test", func() {
 				yaml.Unmarshal([]byte(resultBytes), &expected)
 
 				fakeFiles := &repositoryhostsfakes.FakeRepositoryHost{}
-				fakeFiles.ManifestFromURLCalls(func(url string) (string, error) {
-					url = strings.TrimPrefix(url, "https://test")
-					content, err := examples.ReadFile(url)
-					return string(content), err
+				fakeFiles.ReadCalls(func(ctx context.Context, url string) ([]byte, error) {
+					return examples.ReadFile(strings.TrimPrefix(url, "https://test"))
 				})
 				fakeFiles.ToAbsLinkCalls(func(url, link string) (string, error) {
 					if strings.HasPrefix(link, "/") {
@@ -55,7 +54,7 @@ var _ = Describe("Manifest test", func() {
 					}
 					return link, nil
 				})
-				fakeFiles.FileTreeFromURLCalls(func(url string) ([]string, error) {
+				fakeFiles.TreeCalls(func(url string) ([]string, error) {
 					files := map[string][]string{}
 					files["https://test/website"] = []string{"blog/2023/_index.md"}
 					files["https://test/blogs"] = []string{"2023/one", "2023/two.md"}

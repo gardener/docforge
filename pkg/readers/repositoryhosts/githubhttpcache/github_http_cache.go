@@ -26,8 +26,8 @@ import (
 	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/osfakes/httpclient"
 	"github.com/gardener/docforge/pkg/osfakes/osshim"
-	"github.com/gardener/docforge/pkg/readers/link"
 	"github.com/gardener/docforge/pkg/readers/repositoryhosts"
+	"github.com/gardener/docforge/pkg/readers/resource"
 	"github.com/google/go-github/v43/github"
 	"k8s.io/klog/v2"
 )
@@ -110,14 +110,14 @@ type GitInfo struct {
 
 //========================= manifest.FileSource ===================================================
 
-// FileTreeFromURL implements manifest.FileSource#FileTreeFromURL
-func (p *GHC) FileTreeFromURL(URL string) ([]string, error) {
-	r, err := p.getResolvedResourceInfo(context.TODO(), URL)
+// Tree implements manifest.FileSource#Tree
+func (p *GHC) Tree(resourceURL string) ([]string, error) {
+	r, err := p.resolveDefaultBranch(context.TODO(), resourceURL)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not get file tree: %w", err)
 	}
 	if r.Type != "tree" {
-		return nil, fmt.Errorf("not a tree url: %s", r.String())
+		return nil, fmt.Errorf("not a tree url: %s", resourceURL)
 	}
 	//bPrefix := fmt.Sprintf("%s://%s/%s/%s/blob/%s/%s", r.URL.Scheme, r.URL.Host, r.Owner, r.Repo, r.Ref, r.Path)
 	p.muxSHA.Lock()
@@ -129,14 +129,14 @@ func (p *GHC) FileTreeFromURL(URL string) ([]string, error) {
 	if len(local) > 0 {
 		return p.readLocalFileTree(*r, local), nil
 	}
-	sha := fmt.Sprintf("%s:%s", r.Ref, r.Path)
+	sha := fmt.Sprintf("%s:%s", r.Ref, r.ResourcePath)
 	sha = url.PathEscape(sha)
 	tree, resp, err := p.git.GetTree(context.TODO(), r.Owner, r.Repo, sha, true)
 	if resp != nil && resp.StatusCode == http.StatusNotFound {
-		return nil, repositoryhosts.ErrResourceNotFound(r.String())
+		return nil, repositoryhosts.ErrResourceNotFound(resourceURL)
 	}
 	if resp != nil && resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("reading tree %s fails with HTTP status: %d", r.String(), resp.StatusCode)
+		return nil, fmt.Errorf("reading tree %s fails with HTTP status: %d", resourceURL, resp.StatusCode)
 	}
 	if err != nil {
 		return nil, err
@@ -161,31 +161,22 @@ func (p *GHC) FileTreeFromURL(URL string) ([]string, error) {
 	return res, nil
 }
 
-// ManifestFromURL implements manifest.FileSource#ManifestFromURL
-func (p *GHC) ManifestFromURL(url string) (string, error) {
-	r, err := p.getResolvedResourceInfo(context.TODO(), url)
-	if err != nil {
-		return "", err
-	}
-	content, err := p.Read(context.TODO(), r.String())
-	return string(content), err
-}
-
 // ToAbsLink implements manifest.FileSource#ToAbsLink
 func (p *GHC) ToAbsLink(source, link string) (string, error) {
-	r, err := p.getResolvedResourceInfo(context.TODO(), source)
+	r, err := p.resolveDefaultBranch(context.TODO(), source)
 	if err != nil {
 		return link, err
 	}
-	if strings.HasPrefix(link, "http") {
-		l, err := p.getResolvedResourceInfo(context.TODO(), link)
+	linkURL, err := url.Parse(link)
+	if err != nil {
+		return "", fmt.Errorf("failed to compute absolute link: %w", err)
+	}
+	if linkURL.IsAbs() {
+		l, err := p.resolveDefaultBranch(context.TODO(), link)
 		if err != nil {
 			return link, err
 		}
-		link, err = l.ToResourceURL()
-		if err != nil {
-			return link, err
-		}
+		link = l.String()
 	}
 	l, err := url.Parse(strings.TrimSuffix(link, "/"))
 	if err != nil {
@@ -195,7 +186,7 @@ func (p *GHC) ToAbsLink(source, link string) (string, error) {
 		return link, nil // already absolute
 	}
 	// build URL based on source path
-	u, err := url.Parse("/" + r.Path)
+	u, err := url.Parse("/" + r.ResourcePath)
 	if err != nil {
 		return link, err
 	}
@@ -203,11 +194,15 @@ func (p *GHC) ToAbsLink(source, link string) (string, error) {
 		return link, err
 	}
 	// determine the type of the resource: (blob|tree)
-	var tp string
-	if tp, err = p.determineLinkType(r, u); err != nil {
+	rURL, err := url.Parse(source)
+	if err != nil {
+		return "", err
+	}
+	tp, err := p.determineLinkType(rURL, u)
+	if err != nil {
 		return tp, err
 	}
-	res, err := url.Parse(r.URL.String())
+	res, err := url.Parse(rURL.String())
 	if err != nil {
 		return "", err
 	}
@@ -229,8 +224,8 @@ func (p *GHC) Name() string {
 }
 
 // Accept implements the repositoryhosts.RepositoryHost#Accept
-func (p *GHC) Accept(uri string) bool {
-	r, err := url.Parse(uri)
+func (p *GHC) Accept(link string) bool {
+	r, err := url.Parse(link)
 	if err != nil || r.Scheme != "https" {
 		return false
 	}
@@ -243,13 +238,13 @@ func (p *GHC) Accept(uri string) bool {
 }
 
 // Read implements the repositoryhosts.RepositoryHost#Read
-func (p *GHC) Read(ctx context.Context, uri string) ([]byte, error) {
-	r, err := p.getResolvedResourceInfo(ctx, uri)
+func (p *GHC) Read(ctx context.Context, resourceURL string) ([]byte, error) {
+	r, err := p.resolveDefaultBranch(ctx, resourceURL)
 	if err != nil {
 		return nil, err
 	}
 	if r.Type != "blob" && r.Type != "raw" {
-		return nil, fmt.Errorf("not a blob/raw url: %s", r.String())
+		return nil, fmt.Errorf("not a blob/raw url: %s", resourceURL)
 	}
 	local, err := p.checkForLocalMapping(r)
 	if err != nil {
@@ -259,29 +254,29 @@ func (p *GHC) Read(ctx context.Context, uri string) ([]byte, error) {
 		return p.readLocalFile(ctx, r, local)
 	}
 	// read using GitService and file URL -> file SHA mapping
-	if SHA, ok := p.getFileSHA(r.String()); ok {
+	if SHA, ok := p.getFileSHA(resourceURL); ok {
 		raw, resp, err := p.git.GetBlobRaw(ctx, r.Owner, r.Repo, SHA)
 		if err != nil {
 			if resp != nil && resp.StatusCode == http.StatusNotFound {
-				return nil, repositoryhosts.ErrResourceNotFound(r.String())
+				return nil, repositoryhosts.ErrResourceNotFound(resourceURL)
 			}
 			return nil, err
 		}
 		if resp != nil && resp.StatusCode >= 400 {
-			return nil, fmt.Errorf("reading blob %s fails with HTTP status: %d", r.String(), resp.StatusCode)
+			return nil, fmt.Errorf("reading blob %s fails with HTTP status: %d", resourceURL, resp.StatusCode)
 		}
 		return raw, nil
 	}
 	// read using RepositoriesService.DownloadContents for non-markdown and non-manifest files - 2 manifestadapter calls
 	opt := &github.RepositoryContentGetOptions{Ref: r.Ref}
-	if !strings.HasSuffix(strings.ToLower(r.Path), ".md") && !strings.HasSuffix(strings.ToLower(r.Path), ".yaml") {
+	if !strings.HasSuffix(strings.ToLower(r.ResourcePath), ".md") && !strings.HasSuffix(strings.ToLower(r.ResourcePath), ".yaml") {
 		return p.downloadContent(ctx, opt, r)
 	}
 	// read using RepositoriesService.GetContents for markdowns and module manifests - 1 manifestadapter call
-	fc, _, resp, err := p.repositories.GetContents(ctx, r.Owner, r.Repo, r.Path, opt)
+	fc, _, resp, err := p.repositories.GetContents(ctx, r.Owner, r.Repo, r.ResourcePath, opt)
 	if err != nil {
 		if resp != nil && resp.StatusCode == http.StatusNotFound {
-			return nil, repositoryhosts.ErrResourceNotFound(r.String())
+			return nil, repositoryhosts.ErrResourceNotFound(resourceURL)
 		}
 		if resp != nil && resp.StatusCode == http.StatusForbidden {
 			// if file is bigger than 1 MB -> content should be downloaded
@@ -291,7 +286,7 @@ func (p *GHC) Read(ctx context.Context, uri string) ([]byte, error) {
 		return nil, err
 	}
 	if resp != nil && resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("reading blob %s fails with HTTP status: %d", r.String(), resp.StatusCode)
+		return nil, fmt.Errorf("reading blob %s fails with HTTP status: %d", resourceURL, resp.StatusCode)
 	}
 	cnt, err := base64.StdEncoding.DecodeString(*fc.Content)
 	if err != nil {
@@ -301,13 +296,13 @@ func (p *GHC) Read(ctx context.Context, uri string) ([]byte, error) {
 }
 
 // ReadGitInfo implements the repositoryhosts.RepositoryHost#ReadGitInfo
-func (p *GHC) ReadGitInfo(ctx context.Context, uri string) ([]byte, error) {
-	r, err := p.getResolvedResourceInfo(ctx, uri)
+func (p *GHC) ReadGitInfo(ctx context.Context, resourceURL string) ([]byte, error) {
+	r, err := p.resolveDefaultBranch(ctx, resourceURL)
 	if err != nil {
 		return nil, err
 	}
 	opts := &github.CommitsListOptions{
-		Path: r.Path,
+		Path: r.ResourcePath,
 		SHA:  r.Ref,
 	}
 	var commits []*github.RepositoryCommit
@@ -325,22 +320,26 @@ func (p *GHC) ReadGitInfo(ctx context.Context, uri string) ([]byte, error) {
 	if len(r.Ref) > 0 {
 		gitInfo.SHAAlias = &r.Ref
 	}
-	if len(r.Path) > 0 {
-		gitInfo.Path = &r.Path
+	if len(r.ResourcePath) > 0 {
+		gitInfo.Path = &r.ResourcePath
 	}
 	return json.MarshalIndent(gitInfo, "", "  ")
 }
 
 // GetRawFormatLink implements the repositoryhosts.RepositoryHost#GetRawFormatLink
-func (p *GHC) GetRawFormatLink(absLink string) (string, error) {
-	r, err := link.NewResource(absLink)
+func (p *GHC) GetRawFormatLink(link string) (string, error) {
+	url, err := url.Parse(link)
 	if err != nil {
 		return "", err
 	}
-	if !r.URL.IsAbs() {
-		return absLink, nil // don't modify relative links
+	if !url.IsAbs() {
+		return link, nil // don't modify relative links
 	}
-	return r.ToRawURL()
+	r, err := resource.FromURL(url)
+	if err != nil {
+		return "", err
+	}
+	return r.RawURL(), nil
 }
 
 // GetClient implements the repositoryhosts.RepositoryHost#GetClient
@@ -361,11 +360,8 @@ func (p *GHC) GetRateLimit(ctx context.Context) (int, int, time.Time, error) {
 
 // checkForLocalMapping returns repository root on file system if local mapping configuration
 // for the repository is set in config file or empty string otherwise.
-func (p *GHC) checkForLocalMapping(r *link.Resource) (string, error) {
-	repoURL, err := r.TotRepoURL()
-	if err != nil {
-		return "", err
-	}
+func (p *GHC) checkForLocalMapping(r *resource.URL) (string, error) {
+	repoURL := r.RepoURL()
 	key := strings.ToLower(repoURL)
 	if localPath, ok := p.localMappings[key]; ok {
 		return localPath, nil
@@ -375,8 +371,8 @@ func (p *GHC) checkForLocalMapping(r *link.Resource) (string, error) {
 }
 
 // readLocalFile reads a file from FS
-func (p *GHC) readLocalFile(_ context.Context, r *link.Resource, localPath string) ([]byte, error) {
-	fn := filepath.Join(localPath, r.Path)
+func (p *GHC) readLocalFile(_ context.Context, r *resource.URL, localPath string) ([]byte, error) {
+	fn := filepath.Join(localPath, r.ResourcePath)
 	cnt, err := p.os.ReadFile(fn)
 	if err != nil {
 		if p.os.IsNotExist(err) {
@@ -387,8 +383,8 @@ func (p *GHC) readLocalFile(_ context.Context, r *link.Resource, localPath strin
 	return cnt, nil
 }
 
-func (p *GHC) readLocalFileTree(r link.Resource, localPath string) []string {
-	dirPath := filepath.Join(localPath, r.Path)
+func (p *GHC) readLocalFileTree(r resource.URL, localPath string) []string {
+	dirPath := filepath.Join(localPath, r.ResourcePath)
 	files := []string{}
 	filepath.Walk(dirPath, func(path string, info fs.FileInfo, err error) error {
 		if !info.IsDir() && strings.HasSuffix(path, ".md") {
@@ -400,9 +396,9 @@ func (p *GHC) readLocalFileTree(r link.Resource, localPath string) []string {
 }
 
 // downloadContent download file content like: github.Client.Repositories#DownloadContents, but with different error handling
-func (p *GHC) downloadContent(ctx context.Context, opt *github.RepositoryContentGetOptions, r *link.Resource) ([]byte, error) {
-	dir := path.Dir(r.Path)
-	filename := path.Base(r.Path)
+func (p *GHC) downloadContent(ctx context.Context, opt *github.RepositoryContentGetOptions, r *resource.URL) ([]byte, error) {
+	dir := path.Dir(r.ResourcePath)
+	filename := path.Base(r.ResourcePath)
 	dirContents, resp, err := p.getDirContents(ctx, r.Owner, r.Repo, dir, opt)
 	if err != nil {
 		if resp != nil && resp.StatusCode == http.StatusNotFound {
@@ -442,16 +438,19 @@ func (p *GHC) getDirContents(ctx context.Context, owner, repo, path string, opts
 
 // determineLinkType returns the type of relative link (blob|tree)
 // repositoryhosts.ErrResourceNotFound if target resource doesn't exist
-func (p *GHC) determineLinkType(source *link.Resource, rel *url.URL) (string, error) {
-	var tp string
-	var err error
+func (p *GHC) determineLinkType(sourceURL *url.URL, rel *url.URL) (string, error) {
+	tp := ""
 	gtp := "tree"
 	if len(path.Ext(rel.Path)) > 0 {
 		gtp = "blob"
 	}
-	expURI := fmt.Sprintf("%s://%s/%s/%s/%s/%s%s", source.URL.Scheme, source.URL.Host, source.Owner, source.Repo, gtp, source.Ref, rel.Path)
+	source, err := resource.FromURL(sourceURL)
+	if err != nil {
+		return "", err
+	}
+	expURI := fmt.Sprintf("%s://%s/%s/%s/%s/%s%s", sourceURL.Scheme, sourceURL.Host, source.Owner, source.Repo, gtp, source.Ref, rel.Path)
 	// local case
-	local, err := p.checkForLocalMapping(source)
+	local, err := p.checkForLocalMapping(&source)
 	if err != nil {
 		return "", err
 	}
@@ -463,7 +462,7 @@ func (p *GHC) determineLinkType(source *link.Resource, rel *url.URL) (string, er
 			if p.os.IsNotExist(err) {
 				return expURI, repositoryhosts.ErrResourceNotFound(expURI)
 			}
-			return "", fmt.Errorf("cannot determine resource type for path %s and source %s: %v", rel.Path, source.String(), err)
+			return "", fmt.Errorf("cannot determine resource type for path %s and source %s: %v", rel.Path, sourceURL.String(), err)
 		}
 		tp = "blob"
 		if info.IsDir() {
@@ -472,7 +471,7 @@ func (p *GHC) determineLinkType(source *link.Resource, rel *url.URL) (string, er
 		return tp, nil
 	}
 	// list remote repo
-	key := fmt.Sprintf("%s://%s/%s/%s/blob/%s%s", source.URL.Scheme, source.URL.Host, source.Owner, source.Repo, source.Ref, rel.Path)
+	key := fmt.Sprintf("%s://%s/%s/%s/blob/%s%s", sourceURL.Scheme, sourceURL.Host, source.Owner, source.Repo, source.Ref, rel.Path)
 	if _, ok := p.getFileSHA(key); ok {
 		tp = "blob" // as file SHA is cached, type is blob
 	} else {
@@ -486,10 +485,10 @@ func (p *GHC) determineLinkType(source *link.Resource, rel *url.URL) (string, er
 		dc, resp, err = p.getDirContents(context.Background(), source.Owner, source.Repo, dir, opt)
 		if err != nil {
 			if resp != nil && resp.StatusCode == http.StatusNotFound { // parent folder doesn't exist
-				uri := fmt.Sprintf("%s://%s/%s/%s/tree/%s%s", source.URL.Scheme, source.URL.Host, source.Owner, source.Repo, source.Ref, dir)
+				uri := fmt.Sprintf("%s://%s/%s/%s/tree/%s%s", sourceURL.Scheme, sourceURL.Host, source.Owner, source.Repo, source.Ref, dir)
 				return expURI, repositoryhosts.ErrResourceNotFound(uri)
 			}
-			return "", fmt.Errorf("cannot determine resource type for path %s and source %s: %v", rel.Path, source.String(), err)
+			return "", fmt.Errorf("cannot determine resource type for path %s and source %s: %v", rel.Path, sourceURL.String(), err)
 		}
 		for _, d := range dc {
 			// add files SHA
@@ -512,8 +511,8 @@ func (p *GHC) determineLinkType(source *link.Resource, rel *url.URL) (string, er
 }
 
 // getResourceInfo build ResourceInfo and resolves 'DEFAULT_BRANCH' to repo default branch
-func (p *GHC) getResolvedResourceInfo(ctx context.Context, uri string) (*link.Resource, error) {
-	r, err := link.NewResource(uri)
+func (p *GHC) resolveDefaultBranch(ctx context.Context, resourceURL string) (*resource.URL, error) {
+	r, err := resource.New(resourceURL)
 	if err != nil {
 		return nil, err
 	}
