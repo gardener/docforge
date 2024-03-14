@@ -117,7 +117,7 @@ func (p *GHC) Tree(resourceURL string) ([]string, error) {
 		return nil, fmt.Errorf("could not get file tree: %w", err)
 	}
 	if r.Type != "tree" {
-		return nil, fmt.Errorf("not a tree url: %s", resourceURL)
+		return nil, fmt.Errorf("expected a tree url got %s", resourceURL)
 	}
 	//bPrefix := fmt.Sprintf("%s://%s/%s/%s/blob/%s/%s", r.URL.Scheme, r.URL.Host, r.Owner, r.Repo, r.Ref, r.Path)
 	p.muxSHA.Lock()
