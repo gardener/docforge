@@ -140,20 +140,13 @@ func (p *GHC) Tree(resourceURL string) ([]string, error) {
 	}
 	res := []string{}
 	for _, e := range tree.Entries {
-		extracted := false
 		ePath := strings.TrimPrefix(*e.Path, "/")
-		for _, extractedFormat := range p.options.ExtractedFilesFormats {
-			if strings.HasSuffix(strings.ToLower(ePath), extractedFormat) {
-				extracted = true
-				break
-			}
+		extract := slices.ContainsFunc(p.options.ExtractedFilesFormats, func(extention string) bool {
+			return strings.HasSuffix(ePath, extention)
+		})
+		if extract && *e.Type == "blob" {
+			res = append(res, ePath)
 		}
-		// skip node if it is not a supported format
-		if *e.Type != "blob" || !extracted {
-			//klog.V(6).Infof("node selector %s skip entry %s\n", node.NodeSelector.Path, ePath)
-			continue
-		}
-		res = append(res, ePath)
 	}
 	return res, nil
 }
