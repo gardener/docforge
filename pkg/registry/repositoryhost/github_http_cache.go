@@ -102,7 +102,7 @@ func (p *ghc) LoadRepository(ctx context.Context, resourceURL string) error {
 		repoContent[resourceURL] = entry.GetSHA()
 	}
 	p.repositoryFiles[refURL.String()] = repoContent
-	klog.Infof("Loading reference %s with %d entries", resURL.String(), len(repoContent))
+	klog.Infof("Loading reference %s with %d entries", refURL.String(), len(repoContent))
 	return nil
 }
 
