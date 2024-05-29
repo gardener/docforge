@@ -217,7 +217,7 @@ var _ = Describe("Links modifier", func() {
 			})
 			It("does not modify the images", func() {
 				Expect(err).NotTo(HaveOccurred())
-				Expect(buf.Bytes()).To(Equal([]byte(exp)))
+				Expect(buf.String()).To(Equal(exp))
 			})
 		})
 		Context("image resolve error", func() {
