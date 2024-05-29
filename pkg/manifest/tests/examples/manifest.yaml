@@ -1,3 +1,0 @@
-structure:
-- manifest: tests/examples/filetree.yaml
-- manifest: tests/examples/_index_md_with_properties.yaml

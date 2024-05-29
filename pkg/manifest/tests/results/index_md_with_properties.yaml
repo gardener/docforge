@@ -1,0 +1,24 @@
+- file: _index.md
+  type: file
+  properties:
+    title: Blogs
+    aggregate: true
+  path: foo/bar/one
+- file: _index.md
+  type: file
+  source: https://github.com/gardener/docforge/blob/master/contents/website/blog/2024/_index.md
+  properties:
+    aggregate: false
+  path: foo/bar/two
+- file: _index.md
+  type: file
+  source: https://github.com/gardener/docforge/blob/master/contents/website/blog/2024/_index.md
+  path: foo/bar/three
+- file: renamed.md
+  type: file
+  source: https://github.com/gardener/docforge/blob/master/contents/website/blog/2024/_index.md
+  path: foo/bar
+- file: _index.md
+  type: file
+  source: https://github.com/gardener/docforge/blob/master/contents/website/blog/2024/_index.md
+  path: foo/bar/blog/2024

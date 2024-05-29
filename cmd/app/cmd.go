@@ -13,8 +13,7 @@ import (
 	"github.com/gardener/docforge/cmd/gendocs"
 	"github.com/gardener/docforge/cmd/hugo"
 	"github.com/gardener/docforge/cmd/version"
-	"github.com/gardener/docforge/pkg/manifest"
-	"github.com/gardener/docforge/pkg/readers/repositoryhosts"
+	"github.com/gardener/docforge/pkg/registry/repositoryhost"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"k8s.io/klog/v2"
@@ -27,12 +26,12 @@ const (
 	DocforgeHomeDir = ".docforge"
 )
 
-// Options data structure with all the options for docforge
+// options data structure with all the options for docforge
 type options struct {
-	Options                               `mapstructure:",squash"`
-	hugo.Hugo                             `mapstructure:",squash"`
-	repositoryhosts.RepositoryHostOptions `mapstructure:",squash"`
-	manifest.ParsingOptions               `mapstructure:",squash"`
+	Options                       `mapstructure:",squash"`
+	hugo.Hugo                     `mapstructure:",squash"`
+	repositoryhost.InitOptions    `mapstructure:",squash"`
+	repositoryhost.ParsingOptions `mapstructure:",squash"`
 }
 
 var vip *viper.Viper

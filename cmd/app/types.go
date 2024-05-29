@@ -6,7 +6,7 @@ package app
 
 import (
 	"github.com/gardener/docforge/cmd/hugo"
-	"github.com/gardener/docforge/pkg/readers/repositoryhosts"
+	"github.com/gardener/docforge/pkg/registry/repositoryhost"
 	"github.com/gardener/docforge/pkg/writers"
 )
 
@@ -25,6 +25,7 @@ type Options struct {
 	Resolve                      bool     `mapstructure:"resolve"`
 	ExtractedFilesFormats        []string `mapstructure:"extracted-files-formats"`
 	ValidateLinks                bool     `mapstructure:"validate-links"`
+	HostsToReport                []string `mapstructure:"hosts-to-report"`
 }
 
 // Writers struct that collects all the writesr
@@ -40,5 +41,5 @@ type Config struct {
 	Options
 	Writers
 	hugo.Hugo
-	RepositoryHosts []repositoryhosts.RepositoryHost
+	RepositoryHosts []repositoryhost.Interface
 }

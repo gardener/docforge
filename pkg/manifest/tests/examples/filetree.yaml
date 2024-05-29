@@ -1,9 +1,0 @@
-structure:
-# root level fileTree
-- fileTree: /website
-- dir: blog
-  structure:
-  # merging content into root level
-  - fileTree: /blogs
-  # auto adding md suffix
-  - file: /blogs/2023/foo

@@ -14,10 +14,10 @@ title: testedFile1
 [test3](testedDir/innerDir/testedMarkdownFile5.md)
 
 ### Link existing image with relative path
-![test4](../images/gardener-docforge-logo.png)
+![test4](./images/gardener-docforge-logo.png)
 
 ### Link existing image with relative path and title
-![test5](./../images/gardener-docforge-logo.png "gardener-docforge-logo")
+![test5](./images/gardener-docforge-logo.png "gardener-docforge-logo")
 
 ### Link outside image
 ![test6](https://github.com/kubernetes/kubernetes/blob/master/logo/logo.png)

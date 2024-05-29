@@ -5,19 +5,15 @@
 package linkresolver_test
 
 import (
-	"context"
 	"embed"
-	"fmt"
-	"net/url"
-	"strings"
 	"testing"
 
 	_ "embed"
 
 	"github.com/gardener/docforge/cmd/hugo"
 	"github.com/gardener/docforge/pkg/manifest"
-	"github.com/gardener/docforge/pkg/readers/repositoryhosts"
-	"github.com/gardener/docforge/pkg/readers/repositoryhosts/repositoryhostsfakes"
+	"github.com/gardener/docforge/pkg/registry"
+	"github.com/gardener/docforge/pkg/registry/repositoryhost"
 	"github.com/gardener/docforge/pkg/workers/linkresolver"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -28,11 +24,11 @@ func TestJobs(t *testing.T) {
 	RunSpecs(t, "Frontmatter Suite")
 }
 
-//go:embed tests/*
+//go:embed all:tests/*
 var manifests embed.FS
 
 var _ = Describe("Document link resolving", func() {
-	Context("#ResolveLink", func() {
+	Context("#ResolveResourceLink", func() {
 		var (
 			linkResolver linkresolver.LinkResolver
 			node         *manifest.Node
@@ -41,38 +37,14 @@ var _ = Describe("Document link resolving", func() {
 
 		BeforeEach(func() {
 			linkResolver = linkresolver.LinkResolver{}
-			localHost := repositoryhostsfakes.FakeRepositoryHost{}
-			localHost.ReadCalls(func(ctx context.Context, url string) ([]byte, error) {
-				return manifests.ReadFile(url)
-			})
-			localHost.ToAbsLinkCalls(func(URL, link string) (string, error) {
-				if URL == "tests/baseline.yaml" {
-					return link, nil
-				}
-				if link == "invalidfoo/bar.md" {
-					return "", fmt.Errorf("err")
-				}
-				if link == "nonexistentfoo/bar.md" {
-					return "https://github.com/fake_owner/fake_repo/blob/master/nonexistentfoo/bar.md", repositoryhosts.ErrResourceNotFound("err")
-				}
-				u, _ := url.Parse(URL)
-				ulink, _ := url.Parse(link)
-				return u.ResolveReference(ulink).String(), nil
-			})
-			registry := &repositoryhostsfakes.FakeRegistry{}
-			registry.GetCalls(func(s string) (repositoryhosts.RepositoryHost, error) {
-				if strings.HasPrefix(s, "https://github.com") || s == "tests/baseline.yaml" {
-					return &localHost, nil
-				}
-				return nil, fmt.Errorf("no sutiable repository host for %s", s)
-			})
+			registry := registry.NewRegistry(repositoryhost.NewLocalTest(manifests, "https://github.com/gardener/docforge", "tests"))
 			linkResolver.Repositoryhosts = registry
 			linkResolver.Hugo = hugo.Hugo{
 				Enabled: true,
 				BaseURL: "baseURL",
 			}
 			linkResolver.SourceToNode = make(map[string][]*manifest.Node)
-			nodes, err := manifest.ResolveManifest("tests/baseline.yaml", linkResolver.Repositoryhosts)
+			nodes, err := manifest.ResolveManifest("https://github.com/gardener/docforge/blob/master/baseline.yaml", linkResolver.Repositoryhosts)
 			Expect(err).NotTo(HaveOccurred())
 			for _, node := range nodes {
 				if node.Source != "" {
@@ -83,59 +55,49 @@ var _ = Describe("Document link resolving", func() {
 					}
 				}
 			}
-			source = "https://github.com/fake_owner/fake_repo/blob/master/target"
+			source = "https://github.com/gardener/docforge/blob/master/target.md"
 			node = linkResolver.SourceToNode[source][0]
-
 		})
 
-		It("Resolves outside link correctly", func() {
-			newLink, validate, err := linkResolver.ResolveLink("https://outside_link.com", node, source)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(newLink).To(Equal("https://outside_link.com"))
-			Expect(validate).To(Equal(true))
+		It("Broken links should not return error", func() {
+			newLink, err := linkResolver.ResolveResourceLink("invalidfoo/bar.md", node, source)
+			Expect(err).To(Not(HaveOccurred()))
+			Expect(newLink).To(Equal("invalidfoo/bar.md"))
 		})
 
-		It("Fails when can't create absolute link", func() {
-			newLink, validate, err := linkResolver.ResolveLink("invalidfoo/bar.md", node, source)
-			Expect(err).To(HaveOccurred())
-			Expect(newLink).To(Equal(""))
-			Expect(validate).To(Equal(false))
-		})
-
-		It("Resolves non existent resource correctly and won't request validation", func() {
-			newLink, validate, err := linkResolver.ResolveLink("nonexistentfoo/bar.md", node, source)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(newLink).To(Equal("https://github.com/fake_owner/fake_repo/blob/master/nonexistentfoo/bar.md"))
-			Expect(validate).To(Equal(false))
-		})
-
-		It("Resolves linking to manifest source correctly", func() {
-			newLink, validate, err := linkResolver.ResolveLink("clickhere?a=b#c", node, source)
+		It("Resolves linking closest source correctly", func() {
+			newLink, err := linkResolver.ResolveResourceLink("clickhere.md?a=b#c", node, source)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(newLink).To(Equal("/baseURL/one/internal/linked/?a=b#c"))
-			Expect(validate).To(Equal(true))
 		})
 
-		It("Resolves anchor correctly", func() {
-			newLink, validate, err := linkResolver.ResolveLink("#anchor", node, source)
+		It("Resolves anchor to closes source correctly", func() {
+			newLink, err := linkResolver.ResolveResourceLink("clickhere.md#anchor", node, source)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(newLink).To(Equal("/baseURL/one/internal/linked/#anchor"))
+		})
+
+		It("Resolves internal anchor correctly", func() {
+			newLink, err := linkResolver.ResolveResourceLink("#anchor", node, source)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(newLink).To(Equal("/baseURL/one/node/#anchor"))
-			Expect(validate).To(Equal(true))
 		})
 
 		It("Resolves _index.md correctly", func() {
-			newLink, validate, err := linkResolver.ResolveLink("https://github.com/fake_owner/fake_repo/blob/master/docs/_index.md", node, source)
+			newLink, err := linkResolver.ResolveResourceLink("https://github.com/gardener/docforge/blob/master/docs/_index.md", node, source)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(newLink).To(Equal("/baseURL/two/internal/"))
-			Expect(validate).To(Equal(true))
 		})
 
-		It("Escapes /:v:/ correctly", func() {
-			newLink, validate, err := linkResolver.ResolveLink("https://outside_link.com/:v:/one/two", node, source)
+		It("Resolves non-page resource links correctly", func() {
+			newLink, err := linkResolver.ResolveResourceLink("./non-page.md", node, source)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(newLink).To(Equal("https://outside_link.com/%3Av%3A/one/two"))
-			Expect(validate).To(Equal(true))
+			Expect(newLink).To(Equal("https://github.com/gardener/docforge/blob/master/non-page.md"))
+		})
+
+		It("Resolving url with no suitable repository host", func() {
+			_, err := linkResolver.ResolveResourceLink("https://gitlab.com/gardener/docforge/blob/master/README.md", node, source)
+			Expect(err.Error()).To(ContainSubstring("no sutiable repository host"))
 		})
 	})
-
 })

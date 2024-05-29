@@ -10,8 +10,10 @@ import (
 	"sync"
 
 	"github.com/gardener/docforge/pkg/manifest"
-	"github.com/gardener/docforge/pkg/readers/repositoryhosts"
-	documentworker "github.com/gardener/docforge/pkg/workers/document"
+	"github.com/gardener/docforge/pkg/osfakes/osshim"
+	"github.com/gardener/docforge/pkg/registry"
+	"github.com/gardener/docforge/pkg/registry/repositoryhost"
+	"github.com/gardener/docforge/pkg/workers/document"
 	"github.com/gardener/docforge/pkg/workers/downloader"
 	"github.com/gardener/docforge/pkg/workers/githubinfo"
 	"github.com/gardener/docforge/pkg/workers/linkvalidator"
@@ -21,20 +23,22 @@ import (
 
 func exec(ctx context.Context) error {
 	var (
-		rhs     []repositoryhosts.RepositoryHost
+		rhs     []repositoryhost.Interface
 		options options
 	)
 
 	err := vip.Unmarshal(&options)
 	klog.Infof("Manifest: %s", options.ManifestPath)
+	localRH := []repositoryhost.Interface{}
 	for resource, mapped := range options.ResourceMappings {
+		localRH = append(localRH, repositoryhost.NewLocal(&osshim.OsShim{}, resource, mapped))
 		klog.Infof("%s -> %s", resource, mapped)
 	}
 	klog.Infof("Output dir: %s", options.DestinationPath)
 	if err != nil {
 		return err
 	}
-	if rhs, err = initRepositoryHosts(ctx, options.RepositoryHostOptions, options.ParsingOptions); err != nil {
+	if rhs, err = initRepositoryHosts(ctx, options.InitOptions, options.ParsingOptions); err != nil {
 		return err
 	}
 
@@ -46,7 +50,7 @@ func exec(ctx context.Context) error {
 	)
 	reactorWG := &sync.WaitGroup{}
 
-	rhRegistry := repositoryhosts.NewRegistry(config.RepositoryHosts...)
+	rhRegistry := registry.NewRegistry(append(localRH, config.RepositoryHosts...)...)
 	documentNodes, err := manifest.ResolveManifest(manifestURL, rhRegistry)
 	if err != nil {
 		return fmt.Errorf("failed to resolve manifest %s. %+v", config.ManifestPath, err)
@@ -59,14 +63,14 @@ func exec(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	v, validatorTasks, err := linkvalidator.New(config.ValidationWorkersCount, config.FailFast, reactorWG, rhRegistry)
+	v, validatorTasks, err := linkvalidator.New(config.ValidationWorkersCount, config.FailFast, reactorWG, rhRegistry, config.HostsToReport)
 	if err != nil {
 		return err
 	}
 	if !config.ValidateLinks {
 		v = nil
 	}
-	docProcessor, docTasks, err := documentworker.New(config.DocumentWorkersCount, config.FailFast, reactorWG, documentNodes, config.ResourcesPath, dScheduler, v, rhRegistry, config.Hugo, config.Writer)
+	docProcessor, docTasks, err := document.New(config.DocumentWorkersCount, config.FailFast, reactorWG, documentNodes, config.ResourcesPath, dScheduler, v, rhRegistry, config.Hugo, config.Writer)
 	if err != nil {
 		return err
 	}

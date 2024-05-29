@@ -1,0 +1,16 @@
+- file: _index.md
+  type: file
+  source: https://github.com/gardener/docforge/blob/master/contents/website/blog/2024/_index.md
+  path: blog/2024
+- file: foo.md
+  type: file
+  source: https://github.com/gardener/docforge/blob/master/contents/blogs/2024/foo.md
+  path: blog/2024
+- file: two.md
+  type: file
+  source: https://github.com/gardener/docforge/blob/master/contents/blogs/2024/two.md
+  path: blog/2024
+- file: foo.md
+  type: file
+  source: https://github.com/gardener/docforge/blob/master/contents/blogs/2024/foo.md
+  path: blog

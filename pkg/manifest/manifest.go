@@ -6,18 +6,22 @@ package manifest
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"path"
 	"strings"
 
-	resourcehandlers "github.com/gardener/docforge/pkg/readers/repositoryhosts"
+	"github.com/gardener/docforge/pkg/registry"
+	"github.com/gardener/docforge/pkg/registry/repositoryhost"
 	"gopkg.in/yaml.v2"
 )
 
-type nodeTransformation func(node *Node, parent *Node, manifest *Node, r resourcehandlers.Registry) error
+const sectionFile = "_index.md"
 
-func processManifest(f nodeTransformation, node *Node, parent *Node, manifest *Node, r resourcehandlers.Registry) error {
+type nodeTransformation func(node *Node, parent *Node, manifest *Node, r registry.Interface) error
+
+func processManifest(f nodeTransformation, node *Node, parent *Node, manifest *Node, r registry.Interface) error {
 	if err := f(node, parent, manifest, r); err != nil {
 		return err
 	}
@@ -25,37 +29,46 @@ func processManifest(f nodeTransformation, node *Node, parent *Node, manifest *N
 	if node.Manifest != "" {
 		manifestNode = node
 	}
-	i := 0
-	for i < len(node.Structure) {
-		if err := processManifest(f, node.Structure[i], node, manifestNode, r); err != nil {
+	for _, nodeChild := range node.Structure {
+		if err := processManifest(f, nodeChild, node, manifestNode, r); err != nil {
 			if node.Manifest != "" {
 				return fmt.Errorf("manifest %s -> %w", node.Manifest, err)
 			}
 			return err
 		}
-		i++
 	}
 	return nil
 }
 
-func loadManifestStructure(node *Node, parent *Node, manifest *Node, r resourcehandlers.Registry) error {
+func loadManifestStructure(node *Node, parent *Node, manifest *Node, r registry.Interface) error {
+	var err error
+	loadRepoFrom := func(resourceURL string) error {
+		if repositoryhost.IsResourceURL(resourceURL) {
+			return r.LoadRepository(context.TODO(), resourceURL)
+		}
+		return nil
+	}
+	loadErr := errors.Join(loadRepoFrom(node.FileTree), loadRepoFrom(node.File), loadRepoFrom(node.Source))
+	for _, multiSource := range node.MultiSource {
+		loadErr = errors.Join(loadErr, loadRepoFrom(multiSource))
+	}
 	if node.Manifest == "" {
 		return nil
 	}
-	fs, err := r.Get(manifest.Manifest)
-	if err != nil {
-		return err
+	// node.Manifest is a manifest to be loaded
+	if repositoryhost.IsRelative(node.Manifest) {
+		// manifest.Manifest has already been loaded
+		newManifest, err := r.ResolveRelativeLink(manifest.Manifest, node.Manifest)
+		if err != nil {
+			return fmt.Errorf("can't build manifest node %s absolute URL : %w ", node.Manifest, err)
+		}
+		node.Manifest = newManifest
 	}
-	newManifest, err := fs.ToAbsLink(manifest.Manifest, node.Manifest)
-	if err != nil {
-		return fmt.Errorf("can't build manifest node %s absolute URL : %w ", node.Manifest, err)
+	loadErr = errors.Join(loadErr, loadRepoFrom(node.Manifest))
+	if loadErr != nil {
+		return loadErr
 	}
-	node.Manifest = newManifest
-	fs, err = r.Get(node.Manifest)
-	if err != nil {
-		return err
-	}
-	byteContent, err := fs.Read(context.TODO(), node.Manifest)
+	byteContent, err := r.Read(context.TODO(), node.Manifest)
 	if err != nil {
 		return fmt.Errorf("can't get manifest file content : %w", err)
 	}
@@ -66,7 +79,7 @@ func loadManifestStructure(node *Node, parent *Node, manifest *Node, r resourceh
 	return nil
 }
 
-func moveManifestContentIntoTree(node *Node, parent *Node, manifest *Node, r resourcehandlers.Registry) error {
+func moveManifestContentIntoTree(node *Node, parent *Node, manifest *Node, r registry.Interface) error {
 	if node.Type != "manifest" {
 		return nil
 	}
@@ -77,7 +90,7 @@ func moveManifestContentIntoTree(node *Node, parent *Node, manifest *Node, r res
 	return nil
 }
 
-func decideNodeType(node *Node, _ *Node, _ *Node, _ resourcehandlers.Registry) error {
+func decideNodeType(node *Node, _ *Node, _ *Node, _ registry.Interface) error {
 	node.Type = ""
 	candidateType := []string{}
 	if node.Manifest != "" {
@@ -103,7 +116,7 @@ func decideNodeType(node *Node, _ *Node, _ *Node, _ resourcehandlers.Registry) e
 	}
 }
 
-func calculatePath(node *Node, parent *Node, _ *Node, _ resourcehandlers.Registry) error {
+func calculatePath(node *Node, parent *Node, _ *Node, _ registry.Interface) error {
 	if parent == nil {
 		return nil
 	}
@@ -122,53 +135,55 @@ func calculatePath(node *Node, parent *Node, _ *Node, _ resourcehandlers.Registr
 	return nil
 }
 
-func resolveRelativeLinks(node *Node, _ *Node, manifest *Node, r resourcehandlers.Registry) error {
-	var (
-		newLink string
-	)
+func resolveRelativeLinks(node *Node, _ *Node, manifest *Node, r registry.Interface) error {
+	resolveLink := func(link *string) error {
+		if *link == "" {
+			return nil
+		}
+		if repositoryhost.IsResourceURL(*link) {
+			if _, err := r.ResourceURL(*link); err == nil {
+				return nil
+			}
+			return fmt.Errorf("%s does not exist", *link)
+		}
+		newLink, err := r.ResolveRelativeLink(manifest.Manifest, *link)
+		if err != nil {
+			return fmt.Errorf("cant build node's absolute link %s : %w", *link, err)
+		}
+		*link = newLink
+		return nil
+	}
+
 	switch node.Type {
 	case "file":
 		// Don't calculate source for empty _index.md file
-		if node.File == "_index.md" && node.Source == "" {
+		if node.File == sectionFile && node.Source == "" {
 			return nil
 		}
 		if strings.Contains(node.File, "/") {
 			node.Source = node.File
 			node.File = path.Base(node.File)
 		}
-		fs, err := r.Get(manifest.Manifest)
-		if err != nil {
-			return err
+		for i := range node.MultiSource {
+			if err := resolveLink(&node.MultiSource[i]); err != nil {
+				return err
+			}
 		}
-		if newLink, err = fs.ToAbsLink(manifest.Manifest, node.Source); err != nil {
-			return fmt.Errorf("cant build node's absolute link %s : %w", node.Source, err)
-		}
-		node.Source = newLink
+		return resolveLink(&node.Source)
 	case "fileTree":
-		fs, err := r.Get(manifest.Manifest)
-		if err != nil {
-			return err
-		}
-		if newLink, err = fs.ToAbsLink(manifest.Manifest, node.FileTree); err != nil {
-			return fmt.Errorf("cant build node's absolute link %s : %w", node.FileTree, err)
-		}
-		node.FileTree = newLink
+		return resolveLink(&node.FileTree)
 	}
 	return nil
 }
 
-func extractFilesFromNode(node *Node, parent *Node, manifest *Node, r resourcehandlers.Registry) error {
+func extractFilesFromNode(node *Node, parent *Node, manifest *Node, r registry.Interface) error {
 	switch node.Type {
 	case "file":
 		if !strings.HasSuffix(node.File, ".md") {
 			node.File += ".md"
 		}
 	case "fileTree":
-		fs, err := r.Get(node.FileTree)
-		if err != nil {
-			return err
-		}
-		files, err := fs.Tree(node.FileTree)
+		files, err := r.Tree(node.FileTree)
 		if err != nil {
 			return err
 		}
@@ -201,7 +216,7 @@ func constructNodeTree(files []string, node *Node, parent *Node) error {
 		}
 		shouldExclude := false
 		for _, excludeFile := range node.ExcludeFiles {
-			if file == excludeFile {
+			if strings.HasPrefix(file, excludeFile) {
 				shouldExclude = true
 				break
 			}
@@ -254,7 +269,7 @@ func getParrentNode(pathToDirNode map[string]*Node, parentPath string) *Node {
 	return out
 }
 
-func mergeFolders(node *Node, parent *Node, manifest *Node, _ resourcehandlers.Registry) error {
+func mergeFolders(node *Node, parent *Node, manifest *Node, _ registry.Interface) error {
 	nodeNameToNode := map[string]*Node{}
 	for _, child := range node.Structure {
 		switch child.Type {
@@ -283,7 +298,7 @@ func mergeFolders(node *Node, parent *Node, manifest *Node, _ resourcehandlers.R
 var dirToPersona = map[string]string{"usage": "Users", "operations": "Operators", "development": "Developers"}
 var personaToDir = map[string]string{"Users": "usage", "Operators": "operations", "Developers": "development"}
 
-func resolvePersonaFolders(node *Node, parent *Node, manifest *Node, _ resourcehandlers.Registry) error {
+func resolvePersonaFolders(node *Node, parent *Node, manifest *Node, _ registry.Interface) error {
 	if node.Type == "dir" && (node.Dir == "development" || node.Dir == "operations" || node.Dir == "usage") {
 		for _, child := range node.Structure {
 			if child.Frontmatter == nil {
@@ -291,7 +306,7 @@ func resolvePersonaFolders(node *Node, parent *Node, manifest *Node, _ resourceh
 			}
 			child.Frontmatter["persona"] = dirToPersona[node.Dir]
 			finalAlias := strings.TrimSuffix(child.Name(), ".md") + "/"
-			if child.Name() == "_index.md" {
+			if child.Name() == sectionFile {
 				finalAlias = ""
 			}
 			child.Frontmatter["aliases"] = []interface{}{"/" + parent.Path + "/" + node.Dir + "/" + finalAlias}
@@ -302,7 +317,7 @@ func resolvePersonaFolders(node *Node, parent *Node, manifest *Node, _ resourceh
 	return nil
 }
 
-func propagateFrontmatter(node *Node, parent *Node, manifest *Node, _ resourcehandlers.Registry) error {
+func propagateFrontmatter(node *Node, parent *Node, manifest *Node, _ registry.Interface) error {
 	if parent != nil {
 		newFM := map[string]interface{}{}
 		for k, v := range parent.Frontmatter {
@@ -316,44 +331,44 @@ func propagateFrontmatter(node *Node, parent *Node, manifest *Node, _ resourceha
 	return nil
 }
 
-func setParent(node *Node, parent *Node, _ *Node, _ resourcehandlers.Registry) error {
+func setParent(node *Node, parent *Node, _ *Node, _ registry.Interface) error {
 	node.parent = parent
 	return nil
 }
 
-func calculateAliases(node *Node, parent *Node, _ *Node, _ resourcehandlers.Registry) error {
-	var (
-		nodeAliases  []interface{}
-		childAliases []interface{}
-		formatted    bool
-	)
-	if nodeAliases, formatted = node.Frontmatter["aliases"].([]interface{}); node.Frontmatter != nil && node.Frontmatter["aliases"] != nil && !formatted {
-		return fmt.Errorf("node X \n\n%s\n has invalid alias format", node)
-	}
-	for _, nodeAlias := range nodeAliases {
-		for _, child := range node.Structure {
-			if child.Frontmatter == nil {
-				child.Frontmatter = map[string]interface{}{}
-			}
-			if child.Frontmatter["aliases"] == nil {
-				child.Frontmatter["aliases"] = []interface{}{}
-			}
-			if childAliases, formatted = child.Frontmatter["aliases"].([]interface{}); !formatted {
-				return fmt.Errorf("node \n\n%s\n has invalid alias format", child)
-			}
-			finalAlias := strings.TrimSuffix(child.Name(), ".md") + "/"
-			if child.Name() == "_index.md" {
-				finalAlias = ""
-			}
-			childAliases = append(childAliases, fmt.Sprintf("%s", nodeAlias)+"/"+finalAlias)
-			child.Frontmatter["aliases"] = childAliases
-		}
-	}
-	return nil
-}
+// func calculateAliases(node *Node, parent *Node, _ *Node, _ registry.Interface) error {
+// 	var (
+// 		nodeAliases  []interface{}
+// 		childAliases []interface{}
+// 		formatted    bool
+// 	)
+// 	if nodeAliases, formatted = node.Frontmatter["aliases"].([]interface{}); node.Frontmatter != nil && node.Frontmatter["aliases"] != nil && !formatted {
+// 		return fmt.Errorf("node X \n\n%s\n has invalid alias format", node)
+// 	}
+// 	for _, nodeAlias := range nodeAliases {
+// 		for _, child := range node.Structure {
+// 			if child.Frontmatter == nil {
+// 				child.Frontmatter = map[string]interface{}{}
+// 			}
+// 			if child.Frontmatter["aliases"] == nil {
+// 				child.Frontmatter["aliases"] = []interface{}{}
+// 			}
+// 			if childAliases, formatted = child.Frontmatter["aliases"].([]interface{}); !formatted {
+// 				return fmt.Errorf("node \n\n%s\n has invalid alias format", child)
+// 			}
+// 			finalAlias := strings.TrimSuffix(child.Name(), ".md") + "/"
+// 			if child.Name() == "_index.md" {
+// 				finalAlias = ""
+// 			}
+// 			childAliases = append(childAliases, fmt.Sprintf("%s", nodeAlias)+"/"+finalAlias)
+// 			child.Frontmatter["aliases"] = childAliases
+// 		}
+// 	}
+// 	return nil
+// }
 
 // ResolveManifest collects files in FileCollector from a given url and resourcehandlers.FileSource
-func ResolveManifest(url string, r resourcehandlers.Registry) ([]*Node, error) {
+func ResolveManifest(url string, r registry.Interface) ([]*Node, error) {
 	manifest := Node{
 		ManifType: ManifType{
 			Manifest: url,
@@ -383,9 +398,9 @@ func ResolveManifest(url string, r resourcehandlers.Registry) ([]*Node, error) {
 	if err := processManifest(resolvePersonaFolders, &manifest, nil, &manifest, r); err != nil {
 		return nil, err
 	}
-	if err := processManifest(calculateAliases, &manifest, nil, &manifest, r); err != nil {
-		return nil, err
-	}
+	// if err := processManifest(calculateAliases, &manifest, nil, &manifest, r); err != nil {
+	// 	return nil, err
+	// }
 	if err := processManifest(calculatePath, &manifest, nil, &manifest, r); err != nil {
 		return nil, err
 	}

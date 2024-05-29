@@ -1,18 +1,18 @@
 - file: _index.md
   type: file
-  source: https://test/website/blog/2023/_index.md
-  path: blog/2023
-- file: one.md
-  type: file
-  source: https://test/blogs/2023/one
-  path: blog/2023
-- file: two.md
-  type: file
-  source: https://test/blogs/2023/two.md
-  path: blog/2023
+  source: https://github.com/gardener/docforge/blob/master/contents/website/blog/2024/_index.md
+  path: blog/2024
 - file: foo.md
   type: file
-  source: https://test/blogs/2023/foo
+  source: https://github.com/gardener/docforge/blob/master/contents/blogs/2024/foo.md
+  path: blog/2024
+- file: two.md
+  type: file
+  source: https://github.com/gardener/docforge/blob/master/contents/blogs/2024/two.md
+  path: blog/2024
+- file: foo.md
+  type: file
+  source: https://github.com/gardener/docforge/blob/master/contents/blogs/2024/foo.md
   path: blog
 - file: _index.md
   type: file
@@ -22,19 +22,19 @@
   path: foo/bar/one
 - file: _index.md
   type: file
-  source: https://test/one/two/_index.md
+  source: https://github.com/gardener/docforge/blob/master/contents/website/blog/2024/_index.md
   properties:
     aggregate: false
   path: foo/bar/two
 - file: _index.md
   type: file
-  source: https://foo.com/one/two/_index.md
+  source: https://github.com/gardener/docforge/blob/master/contents/website/blog/2024/_index.md
   path: foo/bar/three
 - file: renamed.md
   type: file
-  source: https://foo.com/one/two/_index.md
+  source: https://github.com/gardener/docforge/blob/master/contents/website/blog/2024/_index.md
   path: foo/bar
 - file: _index.md
   type: file
-  source: https://test/website/blog/2023/_index.md
-  path: foo/bar/blog/2023
+  source: https://github.com/gardener/docforge/blob/master/contents/website/blog/2024/_index.md
+  path: foo/bar/blog/2024

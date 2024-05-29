@@ -76,17 +76,6 @@ int_test_expected_metadata_dir="${int_test_dir}/expected-metadata"
 int_test_output_tree_dir="${int_test_dir}/generated-tree"
 int_test_output_metadata_dir="${int_test_dir}/generated-metadata"
 int_test_manifest="https://github.com/gardener/docforge/blob/master/integration-test/manifest.yaml"
-int_test_config_file="${docforge_repo_path}/config"
-
-echo "
-resourceMappings:
-  'https://github.com/gardener/docforge': ${docforge_repo_path}
-" > "$int_test_config_file"
-
-trap cleanup EXIT ERR INT TERM
-function cleanup {
-  rm "$int_test_config_file"
-}
 
 rm -rf "${int_test_output_tree_dir}"
 rm -rf "${int_test_output_metadata_dir}"
@@ -103,7 +92,6 @@ test "$GIT_OAUTH_TOKEN" #fail fast
 
 # Run docforge command with Git handler
 echo "Run ${docforge_bin}"
-export DOCFORGE_CONFIG="$int_test_config_file"
 ${docforge_bin} -f "${int_test_manifest}" -d "${int_test_output_tree_dir}" --hugo --github-oauth-token-map "${GIT_OAUTH_TOKEN}" --github-info-destination ../generated-metadata
 
 #Remove untested metadata keys

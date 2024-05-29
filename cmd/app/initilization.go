@@ -14,10 +14,7 @@ import (
 	"strings"
 
 	"github.com/gardener/docforge/cmd/hugo"
-	"github.com/gardener/docforge/pkg/manifest"
-	"github.com/gardener/docforge/pkg/osfakes/osshim"
-	"github.com/gardener/docforge/pkg/readers/repositoryhosts"
-	"github.com/gardener/docforge/pkg/readers/repositoryhosts/githubhttpcache"
+	"github.com/gardener/docforge/pkg/registry/repositoryhost"
 	"github.com/gardener/docforge/pkg/writers"
 	"github.com/google/go-github/v43/github"
 	"github.com/gregjones/httpcache"
@@ -27,8 +24,8 @@ import (
 	"golang.org/x/oauth2"
 )
 
-func initRepositoryHosts(ctx context.Context, o repositoryhosts.RepositoryHostOptions, options manifest.ParsingOptions) ([]repositoryhosts.RepositoryHost, error) {
-	var rhs []repositoryhosts.RepositoryHost
+func initRepositoryHosts(ctx context.Context, o repositoryhost.InitOptions, options repositoryhost.ParsingOptions) ([]repositoryhost.Interface, error) {
+	var rhs []repositoryhost.Interface
 	var errs *multierror.Error
 	for host, oAuthToken := range o.Credentials {
 		instance := host
@@ -45,7 +42,7 @@ func initRepositoryHosts(ctx context.Context, o repositoryhosts.RepositoryHostOp
 		if err != nil {
 			errs = multierror.Append(errs, err)
 		}
-		rh := newRepositoryHost(u.Host, client, httpClient, o.ResourceMappings, options)
+		rh := newRepositoryHost(u.Host, client, httpClient, options)
 		rhs = append(rhs, rh)
 	}
 	if len(rhs) == 0 {
@@ -90,16 +87,16 @@ func buildClient(ctx context.Context, accessToken string, host string, cachePath
 	return client, httpClient, err
 }
 
-func newRepositoryHost(host string, client *github.Client, httpClient *http.Client, localMappings map[string]string, options manifest.ParsingOptions) repositoryhosts.RepositoryHost {
+func newRepositoryHost(host string, client *github.Client, httpClient *http.Client, options repositoryhost.ParsingOptions) repositoryhost.Interface {
 	rawHost := "raw." + host
 	if host == "github.com" {
 		rawHost = "raw.githubusercontent.com"
 	}
-	return githubhttpcache.NewGHC(host, client, client.Repositories, client.Git, httpClient, &osshim.OsShim{}, []string{host, rawHost}, localMappings, options)
+	return repositoryhost.NewGHC(host, client, client.Repositories, client.Git, httpClient, []string{host, rawHost}, options)
 }
 
 // NewReactor creates a Reactor from Options
-func getReactorConfig(options Options, hugo hugo.Hugo, rhs []repositoryhosts.RepositoryHost) Config {
+func getReactorConfig(options Options, hugo hugo.Hugo, rhs []repositoryhost.Interface) Config {
 	config := Config{
 		Options:         options,
 		RepositoryHosts: rhs,

@@ -12,19 +12,19 @@ import (
 	"reflect"
 
 	"github.com/gardener/docforge/pkg/manifest"
-	"github.com/gardener/docforge/pkg/readers/repositoryhosts"
+	"github.com/gardener/docforge/pkg/registry"
 	"github.com/gardener/docforge/pkg/writers"
 	"k8s.io/klog/v2"
 )
 
 // Worker github info worker
 type Worker struct {
-	registry repositoryhosts.Registry
+	registry registry.Interface
 	writer   writers.Writer
 }
 
 // NewGithubWorker creates new Worker object
-func NewGithubWorker(registry repositoryhosts.Registry, writer writers.Writer) (*Worker, error) {
+func NewGithubWorker(registry registry.Interface, writer writers.Writer) (*Worker, error) {
 	if registry == nil || reflect.ValueOf(registry).IsNil() {
 		return nil, errors.New("invalid argument: reader is nil")
 	}
@@ -57,15 +57,7 @@ func (w *Worker) WriteGithubInfo(ctx context.Context, node *manifest.Node) error
 	for _, s := range sources {
 		klog.V(6).Infof("reading git info for %s\n", s)
 		// read github info
-		repoHost, err := w.registry.Get(s)
-		if err != nil {
-			return err
-		}
-		if info, err = repoHost.ReadGitInfo(ctx, s); err != nil {
-			if _, ok := err.(repositoryhosts.ErrResourceNotFound); ok {
-				klog.Warningf("reading GitHub info for %s fails: %v\n", s, err)
-				continue
-			}
+		if info, err = w.registry.ReadGitInfo(ctx, s); err != nil {
 			return fmt.Errorf("failed to read git info for %s: %v", s, err)
 		}
 		if info != nil {

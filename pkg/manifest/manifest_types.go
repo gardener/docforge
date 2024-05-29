@@ -4,13 +4,6 @@
 
 package manifest
 
-// Manifest represents a manifest document
-type Manifest struct {
-	Node
-	// URL of manifest
-	URL string
-}
-
 // FileType represent a file node
 type FileType struct {
 	// File is the renaming of the file from source. If Source is empty then File should contain the url
@@ -41,28 +34,4 @@ type FilesTreeType struct {
 type ManifType struct {
 	// Manifest is the manifest url
 	Manifest string `yaml:"manifest,omitempty"`
-
-	manifest *Manifest
-}
-
-// Node represents a generic mnifest node
-type Node struct {
-	ManifType `yaml:",inline"`
-
-	FileType `yaml:",inline"`
-
-	DirType `yaml:",inline"`
-
-	FilesTreeType `yaml:",inline"`
-
-	// Properties of the node
-	Properties map[string]interface{} `yaml:"properties,omitempty"`
-	// Frontmatter of the node
-	Frontmatter map[string]interface{} `yaml:"frontmatter,omitempty"`
-	// Type of node
-	Type string `yaml:"type,omitempty"`
-	// Path of node
-	Path string `yaml:"path,omitempty"`
-	// Parent of node
-	parent *Node
 }

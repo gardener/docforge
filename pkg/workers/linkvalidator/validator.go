@@ -12,24 +12,26 @@ import (
 	"net/http"
 	"net/url"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/gardener/docforge/pkg/osfakes/httpclient"
-	"github.com/gardener/docforge/pkg/readers/repositoryhosts"
+	"github.com/gardener/docforge/pkg/registry"
 	"k8s.io/klog/v2"
 )
 
 // ValidatorWorker holds nessesary objects ti validate URl
 type ValidatorWorker struct {
-	repository repositoryhosts.Registry
-	validated  *linkSet
+	repository    registry.Interface
+	validated     *linkSet
+	hostsToReport []string
 }
 
 // NewValidatorWorker creates new ValidatorWorker
-func NewValidatorWorker(repository repositoryhosts.Registry) (*ValidatorWorker, error) {
+func NewValidatorWorker(repository registry.Interface, hostsToReport []string) (*ValidatorWorker, error) {
 	if repository == nil || reflect.ValueOf(repository).IsNil() {
 		return nil, errors.New("invalid argument: repositoryhosts is nil")
 	}
@@ -38,6 +40,7 @@ func NewValidatorWorker(repository repositoryhosts.Registry) (*ValidatorWorker, 
 		&linkSet{
 			set: make(map[string]struct{}),
 		},
+		hostsToReport,
 	}, nil
 }
 
@@ -56,6 +59,9 @@ func (v *ValidatorWorker) Validate(ctx context.Context, LinkDestination string, 
 	if host == "localhost" || host == "127.0.0.1" {
 		return nil
 	}
+	if slices.Contains(v.hostsToReport, LinkURL.Host) {
+		return fmt.Errorf("%s has link %s with host to report", ContentSourcePath, LinkDestination)
+	}
 	// unify links destination by excluding query, fragment & user info
 	u := &url.URL{
 		Scheme: LinkURL.Scheme,
@@ -66,33 +72,31 @@ func (v *ValidatorWorker) Validate(ctx context.Context, LinkDestination string, 
 	if v.validated.exist(unifiedURL) {
 		return nil
 	}
-	var client httpclient.Client
+
 	absLinkDestination := LinkURL.String()
-	repoHost, err := v.repository.Get(absLinkDestination)
-	if err != nil {
-		client = http.DefaultClient
-	} else {
-		client = repoHost.GetClient()
-	}
+	client := v.repository.Client(absLinkDestination)
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
 	// try HEAD
 	if req, err = http.NewRequestWithContext(ctx, http.MethodHead, absLinkDestination, nil); err != nil {
 		return fmt.Errorf("failed to prepare HEAD validation request: %v", err)
 	}
 	if resp, err = doValidation(req, client); err != nil {
-		klog.Warningf("failed to validate absolute link for %s from source %s: %v\n",
-			LinkDestination, ContentSourcePath, err)
+		klog.Warningf("failed to validate absolute link for %s from source %s: %v\n", LinkDestination, ContentSourcePath, err)
 	} else if resp.StatusCode >= 400 && resp.StatusCode != http.StatusForbidden && resp.StatusCode != http.StatusUnauthorized {
 		// on error status code different from authorization errors
 		// retry GET
+		ctx, cancel = context.WithTimeout(ctx, 5*time.Second) // reset the context for the GET request
+		defer cancel()
 		if req, err = http.NewRequestWithContext(ctx, http.MethodGet, absLinkDestination, nil); err != nil {
 			return fmt.Errorf("failed to prepare GET validation request: %v", err)
 		}
 		if resp, err = doValidation(req, client); err != nil {
-			klog.Warningf("failed to validate absolute link for %s from source %s: %v\n",
-				LinkDestination, ContentSourcePath, err)
+			klog.Warningf("failed to validate absolute link for %s from source %s: %v\n", LinkDestination, ContentSourcePath, err)
 		} else if resp.StatusCode >= 400 && resp.StatusCode != http.StatusForbidden && resp.StatusCode != http.StatusUnauthorized {
-			klog.Warningf("failed to validate absolute link for %s from source %s: %v\n",
-				LinkDestination, ContentSourcePath, fmt.Errorf("HTTP Status %s", resp.Status))
+			klog.Warningf("failed to validate absolute link for %s from source %s: %v\n", LinkDestination, ContentSourcePath, fmt.Errorf("HTTP Status %s", resp.Status))
 		}
 	}
 	v.validated.add(unifiedURL)

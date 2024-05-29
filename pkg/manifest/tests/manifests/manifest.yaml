@@ -1,0 +1,3 @@
+structure:
+- manifest: ./merging.yaml
+- manifest: ./index_md_with_properties.yaml

@@ -6,13 +6,13 @@ package downloader_test
 
 import (
 	"context"
+	"embed"
+	_ "embed"
 	"errors"
-	"fmt"
-	"strings"
 	"testing"
 
-	"github.com/gardener/docforge/pkg/readers/repositoryhosts"
-	"github.com/gardener/docforge/pkg/readers/repositoryhosts/repositoryhostsfakes"
+	"github.com/gardener/docforge/pkg/registry"
+	"github.com/gardener/docforge/pkg/registry/repositoryhost"
 	"github.com/gardener/docforge/pkg/workers/downloader"
 	"github.com/gardener/docforge/pkg/writers/writersfakes"
 	. "github.com/onsi/ginkgo"
@@ -24,44 +24,40 @@ func TestJobs(t *testing.T) {
 	RunSpecs(t, "Downloader Suite")
 }
 
+//go:embed test/*
+var repo embed.FS
+
 var _ = Describe("Executing Download", func() {
 	var (
-		err      error
-		registry *repositoryhostsfakes.FakeRegistry
-		repoHost *repositoryhostsfakes.FakeRepositoryHost
-		writer   *writersfakes.FakeWriter
-		worker   *downloader.DownloadWorker
+		err    error
+		r      registry.Interface
+		writer *writersfakes.FakeWriter
+		worker *downloader.DownloadWorker
 
 		ctx      context.Context
 		source   string
 		target   string
 		document string
 	)
+
 	BeforeEach(func() {
 		writer = &writersfakes.FakeWriter{}
-		registry = &repositoryhostsfakes.FakeRegistry{}
-		repoHost = &repositoryhostsfakes.FakeRepositoryHost{}
-
-		registry.GetCalls(func(s string) (repositoryhosts.RepositoryHost, error) {
-			if strings.HasPrefix(s, "repoHost:") {
-				return repoHost, nil
-			}
-			return nil, fmt.Errorf("no sutiable repository host for %s", s)
-		})
-		repoHost.ReadReturns([]byte("content"), nil)
+		r = registry.NewRegistry(repositoryhost.NewLocalTest(repo, "https://github.com/gardener/docforge", "test"))
 		writer.WriteReturns(nil)
-		ctx = context.Background()
-		source = "repoHost://fake_source"
+		ctx = context.TODO()
+		source = "https://github.com/gardener/docforge/blob/master/README.md"
 		target = "fake_target"
 		document = "fake_document"
 	})
+
 	JustBeforeEach(func() {
-		worker, err = downloader.NewDownloader(registry, writer)
+		worker, err = downloader.NewDownloader(r, writer)
 		Expect(worker).NotTo(BeNil())
 		Expect(err).NotTo(HaveOccurred())
 
 		err = worker.Download(ctx, source, target, document)
 	})
+
 	Context("source is already downloaded", func() {
 		JustBeforeEach(func() {
 			Expect(err).NotTo(HaveOccurred())
@@ -72,6 +68,7 @@ var _ = Describe("Executing Download", func() {
 			Expect(writer.WriteCallCount()).To(Equal(1))
 		})
 	})
+
 	Context("no repo host for source repoHost2://fake_source", func() {
 		BeforeEach(func() {
 			source = "repoHost2://fake_source"
@@ -81,25 +78,17 @@ var _ = Describe("Executing Download", func() {
 			Expect(err.Error()).To(ContainSubstring("no sutiable repository host for repoHost2://fake_source"))
 		})
 	})
-	Context("read fails", func() {
+
+	Context("read does not fail when resource not found", func() {
 		BeforeEach(func() {
-			repoHost.ReadReturns(nil, errors.New("fake_read_err"))
-		})
-		It("fails", func() {
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("fake_read_err"))
-		})
-	})
-	Context("read fails with resource not found", func() {
-		BeforeEach(func() {
-			repoHost.ReadReturns(nil, repositoryhosts.ErrResourceNotFound("fake_target"))
+			source = "https://github.com/gardener/docforge/blob/master/Makefile"
 		})
 		It("succeeded", func() {
-			Expect(err).NotTo(HaveOccurred())
-			Expect(repoHost.ReadCallCount()).To(Equal(1))
+			Expect(err).To(Not(HaveOccurred()))
 			Expect(writer.WriteCallCount()).To(Equal(0))
 		})
 	})
+
 	Context("write fails", func() {
 		BeforeEach(func() {
 			writer.WriteReturns(errors.New("fake_write_err"))
@@ -109,6 +98,7 @@ var _ = Describe("Executing Download", func() {
 			Expect(err.Error()).To(ContainSubstring("fake_write_err"))
 		})
 	})
+
 	It("succeeded", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(writer.WriteCallCount()).To(Equal(1))
@@ -116,6 +106,6 @@ var _ = Describe("Executing Download", func() {
 		Expect(node).To(BeNil())
 		Expect(path).To(Equal(""))
 		Expect(name).To(Equal("fake_target"))
-		Expect(string(content)).To(Equal("content"))
+		Expect(string(content)).To(Equal("readme content"))
 	})
 })
