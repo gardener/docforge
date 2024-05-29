@@ -76,7 +76,7 @@ func (v *ValidatorWorker) Validate(ctx context.Context, LinkDestination string, 
 	absLinkDestination := LinkURL.String()
 	client := v.repository.Client(absLinkDestination)
 
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	// try HEAD
@@ -88,7 +88,7 @@ func (v *ValidatorWorker) Validate(ctx context.Context, LinkDestination string, 
 	} else if resp.StatusCode >= 400 && resp.StatusCode != http.StatusForbidden && resp.StatusCode != http.StatusUnauthorized {
 		// on error status code different from authorization errors
 		// retry GET
-		ctx, cancel = context.WithTimeout(ctx, 5*time.Second) // reset the context for the GET request
+		ctx, cancel = context.WithTimeout(ctx, 30*time.Second) // reset the context for the GET request
 		defer cancel()
 		if req, err = http.NewRequestWithContext(ctx, http.MethodGet, absLinkDestination, nil); err != nil {
 			return fmt.Errorf("failed to prepare GET validation request: %v", err)
