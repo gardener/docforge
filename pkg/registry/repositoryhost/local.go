@@ -79,7 +79,7 @@ func (l *Local) ResolveRelativeLink(source URL, relativeLink string) (string, er
 	if _, err := l.ResourceURL(treeURL); err == nil {
 		return treeURL, nil
 	}
-	return relativeLink, ErrResourceNotFound(fmt.Sprintf("%s with source %s", relativeLink, source.String()))
+	return blobURL, ErrResourceNotFound(fmt.Sprintf("%s with source %s", relativeLink, source.String()))
 
 }
 

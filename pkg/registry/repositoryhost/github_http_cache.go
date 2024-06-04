@@ -150,7 +150,7 @@ func (p *ghc) ResolveRelativeLink(sourceResource URL, relativeLink string) (stri
 	if _, err := p.ResourceURL(blobURL); err == nil {
 		return blobURL, nil
 	}
-	return relativeLink, ErrResourceNotFound(fmt.Sprintf("%s with source %s", relativeLink, sourceResource.String()))
+	return blobURL, ErrResourceNotFound(fmt.Sprintf("%s with source %s", relativeLink, sourceResource.String()))
 }
 
 func (p *ghc) Read(ctx context.Context, r URL) ([]byte, error) {

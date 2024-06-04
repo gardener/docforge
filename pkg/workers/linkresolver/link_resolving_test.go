@@ -62,7 +62,7 @@ var _ = Describe("Document link resolving", func() {
 		It("Broken links should not return error", func() {
 			newLink, err := linkResolver.ResolveResourceLink("invalidfoo/bar.md", node, source)
 			Expect(err).To(Not(HaveOccurred()))
-			Expect(newLink).To(Equal("invalidfoo/bar.md"))
+			Expect(newLink).To(Equal("https://github.com/gardener/docforge/blob/master/invalidfoo/bar.md"))
 		})
 
 		It("Resolves linking closest source correctly", func() {
