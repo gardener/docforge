@@ -164,10 +164,10 @@ type linkResolverTask struct {
 	source string
 }
 
-// downloadURLName create resource name that will be dowloaded from a resource link
-func downloadURLName(url repositoryhost.URL, document string) string {
+// DownloadURLName create resource name that will be dowloaded from a resource link
+func DownloadURLName(url repositoryhost.URL) string {
 	resourcePath := url.ResourceURL()
-	mdsum := md5.Sum([]byte(resourcePath + document))
+	mdsum := md5.Sum([]byte(resourcePath))
 	ext := path.Ext(resourcePath)
 	name := strings.TrimSuffix(path.Base(resourcePath), ext)
 	hash := hex.EncodeToString(mdsum[:])[:6]
@@ -219,7 +219,7 @@ func (d *linkResolverTask) resolveEmbededLink(link string, source string) (strin
 		return repositoryhost.RawURL(link)
 	}
 	// download urls from referenced repositories
-	downloadResourceName := downloadURLName(*resourceURL, source)
+	downloadResourceName := DownloadURLName(*resourceURL)
 	if err = d.downloader.Schedule(link, downloadResourceName, source); err != nil {
 		return link, err
 	}

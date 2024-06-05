@@ -2,29 +2,5 @@
   "author": {
     "name": "Zhelyazkov",
     "email": "k.zhelyazkov@sap.com"
-  },
-  "contributors": [
-    {
-      "login": "Kostov6",
-      "id": 14108745,
-      "node_id": "MDQ6VXNlcjE0MTA4NzQ1",
-      "avatar_url": "https://avatars.githubusercontent.com/u/14108745?v=4",
-      "html_url": "https://github.com/Kostov6",
-      "gravatar_id": "",
-      "name": "Viktor",
-      "email": "mail.victor.kostov@gmail.com",
-      "type": "User",
-      "site_admin": false,
-      "url": "https://api.github.com/users/Kostov6",
-      "events_url": "https://api.github.com/users/Kostov6/events{/privacy}",
-      "following_url": "https://api.github.com/users/Kostov6/following{/other_user}",
-      "followers_url": "https://api.github.com/users/Kostov6/followers",
-      "gists_url": "https://api.github.com/users/Kostov6/gists{/gist_id}",
-      "organizations_url": "https://api.github.com/users/Kostov6/orgs",
-      "received_events_url": "https://api.github.com/users/Kostov6/received_events",
-      "repos_url": "https://api.github.com/users/Kostov6/repos",
-      "starred_url": "https://api.github.com/users/Kostov6/starred{/owner}{/repo}",
-      "subscriptions_url": "https://api.github.com/users/Kostov6/subscriptions"
-    }
-  ]
+  }
 }

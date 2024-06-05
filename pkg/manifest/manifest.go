@@ -21,7 +21,16 @@ const sectionFile = "_index.md"
 
 type nodeTransformation func(node *Node, parent *Node, manifest *Node, r registry.Interface) error
 
-func processManifest(f nodeTransformation, node *Node, parent *Node, manifest *Node, r registry.Interface) error {
+func processManifest(node *Node, parent *Node, manifest *Node, r registry.Interface, functions ...nodeTransformation) error {
+	for i := range functions {
+		if err := processTransformation(functions[i], node, parent, manifest, r); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func processTransformation(f nodeTransformation, node *Node, parent *Node, manifest *Node, r registry.Interface) error {
 	if err := f(node, parent, manifest, r); err != nil {
 		return err
 	}
@@ -30,7 +39,7 @@ func processManifest(f nodeTransformation, node *Node, parent *Node, manifest *N
 		manifestNode = node
 	}
 	for _, nodeChild := range node.Structure {
-		if err := processManifest(f, nodeChild, node, manifestNode, r); err != nil {
+		if err := processTransformation(f, nodeChild, node, manifestNode, r); err != nil {
 			if node.Manifest != "" {
 				return fmt.Errorf("manifest %s -> %w", node.Manifest, err)
 			}
@@ -40,40 +49,42 @@ func processManifest(f nodeTransformation, node *Node, parent *Node, manifest *N
 	return nil
 }
 
-func loadManifestStructure(node *Node, parent *Node, manifest *Node, r registry.Interface) error {
-	var err error
+func loadRepositoriesOfResources(node *Node, parent *Node, manifest *Node, r registry.Interface) error {
 	loadRepoFrom := func(resourceURL string) error {
 		if repositoryhost.IsResourceURL(resourceURL) {
 			return r.LoadRepository(context.TODO(), resourceURL)
 		}
 		return nil
 	}
-	loadErr := errors.Join(loadRepoFrom(node.FileTree), loadRepoFrom(node.File), loadRepoFrom(node.Source))
+	loadErr := errors.Join(loadRepoFrom(node.File), loadRepoFrom(node.Source), loadRepoFrom(node.FileTree), loadRepoFrom(node.Manifest))
 	for _, multiSource := range node.MultiSource {
 		loadErr = errors.Join(loadErr, loadRepoFrom(multiSource))
 	}
+	return loadErr
+}
+
+func loadManifestStructure(node *Node, parent *Node, manifest *Node, r registry.Interface) error {
 	if node.Manifest == "" {
 		return nil
 	}
 	// node.Manifest is a manifest to be loaded
 	if repositoryhost.IsRelative(node.Manifest) {
-		// manifest.Manifest has already been loaded
-		newManifest, err := r.ResolveRelativeLink(manifest.Manifest, node.Manifest)
+		// manifest.Manifest has already been loaded into registry
+		manifestResourceURL, err := r.ResolveRelativeLink(manifest.Manifest, node.Manifest)
 		if err != nil {
 			return fmt.Errorf("can't build manifest node %s absolute URL : %w ", node.Manifest, err)
 		}
-		node.Manifest = newManifest
+		node.Manifest = manifestResourceURL
 	}
-	loadErr = errors.Join(loadErr, loadRepoFrom(node.Manifest))
-	if loadErr != nil {
-		return loadErr
+	// load for the read to succeed
+	if err := r.LoadRepository(context.TODO(), node.Manifest); err != nil {
+		return err
 	}
 	byteContent, err := r.Read(context.TODO(), node.Manifest)
 	if err != nil {
 		return fmt.Errorf("can't get manifest file content : %w", err)
 	}
-	content := string(byteContent)
-	if err = yaml.Unmarshal([]byte(content), node); err != nil {
+	if err = yaml.Unmarshal(byteContent, node); err != nil {
 		return fmt.Errorf("can't parse manifest %s yaml content : %w", node.Manifest, err)
 	}
 	return nil
@@ -301,20 +312,30 @@ var personaToDir = map[string]string{"Users": "usage", "Operators": "operations"
 func resolvePersonaFolders(node *Node, parent *Node, manifest *Node, _ registry.Interface) error {
 	if node.Type == "dir" && (node.Dir == "development" || node.Dir == "operations" || node.Dir == "usage") {
 		for _, child := range node.Structure {
-			if child.Frontmatter == nil {
-				child.Frontmatter = map[string]interface{}{}
-			}
-			child.Frontmatter["persona"] = dirToPersona[node.Dir]
-			finalAlias := strings.TrimSuffix(child.Name(), ".md") + "/"
-			if child.Name() == sectionFile {
-				finalAlias = ""
-			}
-			child.Frontmatter["aliases"] = []interface{}{"/" + parent.Path + "/" + node.Dir + "/" + finalAlias}
+			addPersonaAliasesForNode(child, node.Dir, "/"+node.HugoPrettyPath())
 		}
 		parent.Structure = append(parent.Structure, node.Structure...)
 		removeNodeFromParent(node, parent)
 	}
 	return nil
+}
+
+func addPersonaAliasesForNode(node *Node, personaDir string, parrentAlias string) {
+	finalAlias := strings.TrimSuffix(node.Name(), ".md") + "/"
+	if node.Name() == sectionFile {
+		finalAlias = ""
+	}
+	childAlias := parrentAlias + finalAlias
+	if node.Type == "file" {
+		if node.Frontmatter == nil {
+			node.Frontmatter = map[string]interface{}{}
+		}
+		node.Frontmatter["persona"] = dirToPersona[personaDir]
+		node.Frontmatter["aliases"] = []interface{}{childAlias}
+	}
+	for _, child := range node.Structure {
+		addPersonaAliasesForNode(child, personaDir, childAlias)
+	}
 }
 
 func propagateFrontmatter(node *Node, parent *Node, manifest *Node, _ registry.Interface) error {
@@ -374,46 +395,24 @@ func ResolveManifest(url string, r registry.Interface) ([]*Node, error) {
 			Manifest: url,
 		},
 	}
-	if err := processManifest(loadManifestStructure, &manifest, nil, &manifest, r); err != nil {
-		return nil, err
-	}
-	if err := processManifest(decideNodeType, &manifest, nil, &manifest, r); err != nil {
-		return nil, err
-	}
-	if err := processManifest(calculatePath, &manifest, nil, &manifest, r); err != nil {
-		return nil, err
-	}
-	if err := processManifest(resolveRelativeLinks, &manifest, nil, &manifest, r); err != nil {
-		return nil, err
-	}
-	if err := processManifest(extractFilesFromNode, &manifest, nil, &manifest, r); err != nil {
-		return nil, err
-	}
-	if err := processManifest(moveManifestContentIntoTree, &manifest, nil, &manifest, r); err != nil {
-		return nil, err
-	}
-	if err := processManifest(mergeFolders, &manifest, nil, &manifest, r); err != nil {
-		return nil, err
-	}
-	if err := processManifest(resolvePersonaFolders, &manifest, nil, &manifest, r); err != nil {
-		return nil, err
-	}
-	// if err := processManifest(calculateAliases, &manifest, nil, &manifest, r); err != nil {
-	// 	return nil, err
-	// }
-	if err := processManifest(calculatePath, &manifest, nil, &manifest, r); err != nil {
-		return nil, err
-	}
-	if err := processManifest(mergeFolders, &manifest, nil, &manifest, r); err != nil {
-		return nil, err
-	}
-	if err := processManifest(calculatePath, &manifest, nil, &manifest, r); err != nil {
-		return nil, err
-	}
-	if err := processManifest(setParent, &manifest, nil, &manifest, r); err != nil {
-		return nil, err
-	}
-	if err := processManifest(propagateFrontmatter, &manifest, nil, &manifest, r); err != nil {
+	err := processManifest(&manifest, nil, &manifest, r,
+		loadManifestStructure,
+		loadRepositoriesOfResources,
+		decideNodeType,
+		calculatePath,
+		resolveRelativeLinks,
+		extractFilesFromNode,
+		moveManifestContentIntoTree,
+		mergeFolders,
+		calculatePath,
+		resolvePersonaFolders,
+		calculatePath,
+		mergeFolders,
+		calculatePath,
+		setParent,
+		propagateFrontmatter,
+	)
+	if err != nil {
 		return nil, err
 	}
 	return getAllNodes(&manifest), nil
