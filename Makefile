@@ -10,10 +10,9 @@ IMAGE_TAG                                                := $(shell cat VERSION)
 # Rules related to binary build, Docker image build and release #
 #################################################################
 
-.PHONY: revendor
-revendor:
+.PHONY: tidy
+tidy:
 	@GO111MODULE=on go mod tidy
-	@GO111MODULE=on go mod vendor
 
 .PHONY: build
 build:
