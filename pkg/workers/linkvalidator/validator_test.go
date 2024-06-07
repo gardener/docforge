@@ -8,15 +8,12 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
-	"strings"
 	"testing"
 
 	"github.com/gardener/docforge/pkg/osfakes/httpclient/httpclientfakes"
-	"github.com/gardener/docforge/pkg/readers/repositoryhosts"
-	"github.com/gardener/docforge/pkg/readers/repositoryhosts/repositoryhostsfakes"
+	"github.com/gardener/docforge/pkg/registry/registryfakes"
 	"github.com/gardener/docforge/pkg/workers/linkvalidator"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -31,25 +28,19 @@ var _ = Describe("Executing Validate", func() {
 	var (
 		err        error
 		httpClient *httpclientfakes.FakeClient
-		repository *repositoryhostsfakes.FakeRegistry
-		repoHost   *repositoryhostsfakes.FakeRepositoryHost
+		repository *registryfakes.FakeInterface
 		worker     *linkvalidator.ValidatorWorker
 
 		linkDestination   string
 		contentSourcePath string
 		ctx               context.Context
+
+		hostToReport []string
 	)
 	BeforeEach(func() {
 		httpClient = &httpclientfakes.FakeClient{}
-		repository = &repositoryhostsfakes.FakeRegistry{}
-		repoHost = &repositoryhostsfakes.FakeRepositoryHost{}
-		repository.GetCalls(func(s string) (repositoryhosts.RepositoryHost, error) {
-			if strings.HasPrefix(s, "https://repoHost") {
-				return repoHost, nil
-			}
-			return nil, fmt.Errorf("no sutiable repository host for %s", s)
-		})
-		repoHost.GetClientReturns(httpClient)
+		repository = &registryfakes.FakeInterface{}
+		repository.ClientReturns(httpClient)
 
 		ctx = context.Background()
 		httpClient.DoReturns(&http.Response{
@@ -58,9 +49,11 @@ var _ = Describe("Executing Validate", func() {
 		}, nil)
 		linkDestination = "https://repoHost/fake_link"
 		contentSourcePath = "fake_path"
+		hostToReport = []string{}
 	})
+
 	JustBeforeEach(func() {
-		worker, err = linkvalidator.NewValidatorWorker(repository)
+		worker, err = linkvalidator.NewValidatorWorker(repository, hostToReport)
 		Expect(worker).NotTo(BeNil())
 		Expect(err).NotTo(HaveOccurred())
 
@@ -161,18 +154,15 @@ var _ = Describe("Executing Validate", func() {
 	})
 	When("resource handlers for the link is found", func() {
 		var (
-			resourceHandler   *repositoryhostsfakes.FakeRepositoryHost
 			handlerHttpClient *httpclientfakes.FakeClient
 		)
 		BeforeEach(func() {
-			resourceHandler = &repositoryhostsfakes.FakeRepositoryHost{}
-			repository.GetReturns(resourceHandler, nil)
 			handlerHttpClient = &httpclientfakes.FakeClient{}
 			handlerHttpClient.DoReturns(&http.Response{
 				StatusCode: http.StatusOK,
 				Body:       io.NopCloser(bytes.NewReader([]byte(""))),
 			}, nil)
-			resourceHandler.GetClientReturns(handlerHttpClient)
+			repository.ClientReturns(handlerHttpClient)
 		})
 		It("uses handler's client", func() {
 			Expect(err).NotTo(HaveOccurred())
@@ -186,8 +176,5 @@ var _ = Describe("Executing Validate", func() {
 		req := httpClient.DoArgsForCall(0)
 		Expect(req).NotTo(BeNil())
 		Expect(req.Host).To(Equal("repoHost"))
-		Expect(repository.GetCallCount()).To(Equal(1))
-		link := repository.GetArgsForCall(0)
-		Expect(link).To(Equal("https://repoHost/fake_link"))
 	})
 })

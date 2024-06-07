@@ -59,7 +59,9 @@ make build
 # comparing contents
 echo "-------------------------------"
 echo "Diff results"
-diff -r hugo/content hugo/branchContent
+find hugo/content -type f -exec sed -E -i 's@_.{6}\.(png|jpg|jpeg|svg|gif)@.\1@g' {} \;
+find hugo/branchContent -type f -exec sed -E -i 's@_.{6}\.(png|jpg|jpeg|svg|gif)@.\1@g' {} \;
+diff -r --exclude=__resources hugo/content hugo/branchContent
 echo "-------------------------------"
 # dele branch content if needed
 if [[ "$deleteContent" == "yes" ]]; then

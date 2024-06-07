@@ -5,13 +5,25 @@
 package osshimfakes
 
 import (
-	"io/fs"
 	"sync"
 
 	"github.com/gardener/docforge/pkg/osfakes/osshim"
 )
 
 type FakeOs struct {
+	IsDirStub        func(string) (bool, error)
+	isDirMutex       sync.RWMutex
+	isDirArgsForCall []struct {
+		arg1 string
+	}
+	isDirReturns struct {
+		result1 bool
+		result2 error
+	}
+	isDirReturnsOnCall map[int]struct {
+		result1 bool
+		result2 error
+	}
 	IsNotExistStub        func(error) bool
 	isNotExistMutex       sync.RWMutex
 	isNotExistArgsForCall []struct {
@@ -22,19 +34,6 @@ type FakeOs struct {
 	}
 	isNotExistReturnsOnCall map[int]struct {
 		result1 bool
-	}
-	LstatStub        func(string) (fs.FileInfo, error)
-	lstatMutex       sync.RWMutex
-	lstatArgsForCall []struct {
-		arg1 string
-	}
-	lstatReturns struct {
-		result1 fs.FileInfo
-		result2 error
-	}
-	lstatReturnsOnCall map[int]struct {
-		result1 fs.FileInfo
-		result2 error
 	}
 	ReadFileStub        func(string) ([]byte, error)
 	readFileMutex       sync.RWMutex
@@ -51,6 +50,70 @@ type FakeOs struct {
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
+}
+
+func (fake *FakeOs) IsDir(arg1 string) (bool, error) {
+	fake.isDirMutex.Lock()
+	ret, specificReturn := fake.isDirReturnsOnCall[len(fake.isDirArgsForCall)]
+	fake.isDirArgsForCall = append(fake.isDirArgsForCall, struct {
+		arg1 string
+	}{arg1})
+	stub := fake.IsDirStub
+	fakeReturns := fake.isDirReturns
+	fake.recordInvocation("IsDir", []interface{}{arg1})
+	fake.isDirMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *FakeOs) IsDirCallCount() int {
+	fake.isDirMutex.RLock()
+	defer fake.isDirMutex.RUnlock()
+	return len(fake.isDirArgsForCall)
+}
+
+func (fake *FakeOs) IsDirCalls(stub func(string) (bool, error)) {
+	fake.isDirMutex.Lock()
+	defer fake.isDirMutex.Unlock()
+	fake.IsDirStub = stub
+}
+
+func (fake *FakeOs) IsDirArgsForCall(i int) string {
+	fake.isDirMutex.RLock()
+	defer fake.isDirMutex.RUnlock()
+	argsForCall := fake.isDirArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *FakeOs) IsDirReturns(result1 bool, result2 error) {
+	fake.isDirMutex.Lock()
+	defer fake.isDirMutex.Unlock()
+	fake.IsDirStub = nil
+	fake.isDirReturns = struct {
+		result1 bool
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeOs) IsDirReturnsOnCall(i int, result1 bool, result2 error) {
+	fake.isDirMutex.Lock()
+	defer fake.isDirMutex.Unlock()
+	fake.IsDirStub = nil
+	if fake.isDirReturnsOnCall == nil {
+		fake.isDirReturnsOnCall = make(map[int]struct {
+			result1 bool
+			result2 error
+		})
+	}
+	fake.isDirReturnsOnCall[i] = struct {
+		result1 bool
+		result2 error
+	}{result1, result2}
 }
 
 func (fake *FakeOs) IsNotExist(arg1 error) bool {
@@ -112,70 +175,6 @@ func (fake *FakeOs) IsNotExistReturnsOnCall(i int, result1 bool) {
 	fake.isNotExistReturnsOnCall[i] = struct {
 		result1 bool
 	}{result1}
-}
-
-func (fake *FakeOs) Lstat(arg1 string) (fs.FileInfo, error) {
-	fake.lstatMutex.Lock()
-	ret, specificReturn := fake.lstatReturnsOnCall[len(fake.lstatArgsForCall)]
-	fake.lstatArgsForCall = append(fake.lstatArgsForCall, struct {
-		arg1 string
-	}{arg1})
-	stub := fake.LstatStub
-	fakeReturns := fake.lstatReturns
-	fake.recordInvocation("Lstat", []interface{}{arg1})
-	fake.lstatMutex.Unlock()
-	if stub != nil {
-		return stub(arg1)
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fakeReturns.result1, fakeReturns.result2
-}
-
-func (fake *FakeOs) LstatCallCount() int {
-	fake.lstatMutex.RLock()
-	defer fake.lstatMutex.RUnlock()
-	return len(fake.lstatArgsForCall)
-}
-
-func (fake *FakeOs) LstatCalls(stub func(string) (fs.FileInfo, error)) {
-	fake.lstatMutex.Lock()
-	defer fake.lstatMutex.Unlock()
-	fake.LstatStub = stub
-}
-
-func (fake *FakeOs) LstatArgsForCall(i int) string {
-	fake.lstatMutex.RLock()
-	defer fake.lstatMutex.RUnlock()
-	argsForCall := fake.lstatArgsForCall[i]
-	return argsForCall.arg1
-}
-
-func (fake *FakeOs) LstatReturns(result1 fs.FileInfo, result2 error) {
-	fake.lstatMutex.Lock()
-	defer fake.lstatMutex.Unlock()
-	fake.LstatStub = nil
-	fake.lstatReturns = struct {
-		result1 fs.FileInfo
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *FakeOs) LstatReturnsOnCall(i int, result1 fs.FileInfo, result2 error) {
-	fake.lstatMutex.Lock()
-	defer fake.lstatMutex.Unlock()
-	fake.LstatStub = nil
-	if fake.lstatReturnsOnCall == nil {
-		fake.lstatReturnsOnCall = make(map[int]struct {
-			result1 fs.FileInfo
-			result2 error
-		})
-	}
-	fake.lstatReturnsOnCall[i] = struct {
-		result1 fs.FileInfo
-		result2 error
-	}{result1, result2}
 }
 
 func (fake *FakeOs) ReadFile(arg1 string) ([]byte, error) {
@@ -245,10 +244,10 @@ func (fake *FakeOs) ReadFileReturnsOnCall(i int, result1 []byte, result2 error) 
 func (fake *FakeOs) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
+	fake.isDirMutex.RLock()
+	defer fake.isDirMutex.RUnlock()
 	fake.isNotExistMutex.RLock()
 	defer fake.isNotExistMutex.RUnlock()
-	fake.lstatMutex.RLock()
-	defer fake.lstatMutex.RUnlock()
 	fake.readFileMutex.RLock()
 	defer fake.readFileMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}

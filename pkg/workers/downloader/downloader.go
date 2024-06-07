@@ -6,24 +6,20 @@ package downloader
 
 import (
 	"context"
-	"crypto/md5"
-	"encoding/hex"
 	"errors"
 	"fmt"
-	"net/url"
-	"path"
 	"reflect"
-	"strings"
 	"sync"
 
-	"github.com/gardener/docforge/pkg/readers/repositoryhosts"
+	"github.com/gardener/docforge/pkg/registry"
+	"github.com/gardener/docforge/pkg/registry/repositoryhost"
 	"github.com/gardener/docforge/pkg/writers"
 	"k8s.io/klog/v2"
 )
 
 // DownloadWorker is the structure that processes downloads
 type DownloadWorker struct {
-	registry repositoryhosts.Registry
+	registry registry.Interface
 	writer   writers.Writer
 	// lock for accessing the downloadedResources map
 	mux sync.Mutex
@@ -32,7 +28,7 @@ type DownloadWorker struct {
 }
 
 // NewDownloader creates new downloader
-func NewDownloader(registry repositoryhosts.Registry, writer writers.Writer) (*DownloadWorker, error) {
+func NewDownloader(registry registry.Interface, writer writers.Writer) (*DownloadWorker, error) {
 	if registry == nil || reflect.ValueOf(registry).IsNil() {
 		return nil, errors.New("invalid argument: reader is nil")
 	}
@@ -46,17 +42,6 @@ func NewDownloader(registry repositoryhosts.Registry, writer writers.Writer) (*D
 	}, nil
 }
 
-// DownloadURLName create resource name that will be dowloaded from a resource link
-func DownloadURLName(url *url.URL, document string) string {
-	resourcePath := url.String()
-	mdsum := md5.Sum([]byte(resourcePath + document))
-	ext := path.Ext(resourcePath)
-	name := strings.TrimSuffix(path.Base(resourcePath), ext)
-	hash := hex.EncodeToString(mdsum[:])[:6]
-	return fmt.Sprintf("%s_%s%s", name, hash, ext)
-
-}
-
 // Download downloads source as target
 func (d *DownloadWorker) Download(ctx context.Context, source string, target string, document string) error {
 	if !d.shouldDownload(source) {
@@ -64,7 +49,7 @@ func (d *DownloadWorker) Download(ctx context.Context, source string, target str
 	}
 	if err := d.download(ctx, source, target); err != nil {
 		dErr := fmt.Errorf("downloading %s as %s from document %s failed: %v", source, target, document, err)
-		if _, ok := err.(repositoryhosts.ErrResourceNotFound); ok {
+		if _, ok := err.(repositoryhost.ErrResourceNotFound); ok {
 			// for missing resources just log warning
 			klog.Warning(dErr.Error())
 			return nil
@@ -86,13 +71,11 @@ func (d *DownloadWorker) shouldDownload(Source string) bool {
 }
 
 func (d *DownloadWorker) download(ctx context.Context, Source string, Target string) error {
-	klog.V(6).Infof("downloading %s as %s\n", Source, Target)
-	// normal read
-	repoHost, err := d.registry.Get(Source)
+	reosurceURL, err := d.registry.ResourceURL(Source)
 	if err != nil {
 		return err
 	}
-	blob, err := repoHost.Read(ctx, Source)
+	blob, err := d.registry.Read(ctx, reosurceURL.ResourceURL())
 	if err != nil {
 		return err
 	}

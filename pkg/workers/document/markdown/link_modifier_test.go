@@ -212,12 +212,12 @@ var _ = Describe("Links modifier", func() {
 		})
 		Context("images in comments", func() {
 			BeforeEach(func() {
-				md = "block:\n<!-- <p>\n<img src=\"/foo\" alt=\"bar\" title=\"baz\"/>\n</p> -->\n\nrow:\nfoo <!-- <img src=\"/bar\" alt=\"baz\"/> -->\n"
+				md = "block:\n<!-- <p>\n<img src=\"/foo\" alt=\"bar\" title=\"baz\"/>\n</p> -->\nrow:\nfoo <!-- <img src=\"/bar\" alt=\"baz\"/> -->\n"
 				exp = md
 			})
 			It("does not modify the images", func() {
 				Expect(err).NotTo(HaveOccurred())
-				Expect(buf.Bytes()).To(Equal([]byte(exp)))
+				Expect(buf.String()).To(Equal(exp))
 			})
 		})
 		Context("image resolve error", func() {

@@ -12,101 +12,96 @@ import (
 )
 
 type FakeInterface struct {
-	ResolveLinkStub        func(string, *manifest.Node, string) (string, bool, error)
-	resolveLinkMutex       sync.RWMutex
-	resolveLinkArgsForCall []struct {
+	ResolveResourceLinkStub        func(string, *manifest.Node, string) (string, error)
+	resolveResourceLinkMutex       sync.RWMutex
+	resolveResourceLinkArgsForCall []struct {
 		arg1 string
 		arg2 *manifest.Node
 		arg3 string
 	}
-	resolveLinkReturns struct {
+	resolveResourceLinkReturns struct {
 		result1 string
-		result2 bool
-		result3 error
+		result2 error
 	}
-	resolveLinkReturnsOnCall map[int]struct {
+	resolveResourceLinkReturnsOnCall map[int]struct {
 		result1 string
-		result2 bool
-		result3 error
+		result2 error
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeInterface) ResolveLink(arg1 string, arg2 *manifest.Node, arg3 string) (string, bool, error) {
-	fake.resolveLinkMutex.Lock()
-	ret, specificReturn := fake.resolveLinkReturnsOnCall[len(fake.resolveLinkArgsForCall)]
-	fake.resolveLinkArgsForCall = append(fake.resolveLinkArgsForCall, struct {
+func (fake *FakeInterface) ResolveResourceLink(arg1 string, arg2 *manifest.Node, arg3 string) (string, error) {
+	fake.resolveResourceLinkMutex.Lock()
+	ret, specificReturn := fake.resolveResourceLinkReturnsOnCall[len(fake.resolveResourceLinkArgsForCall)]
+	fake.resolveResourceLinkArgsForCall = append(fake.resolveResourceLinkArgsForCall, struct {
 		arg1 string
 		arg2 *manifest.Node
 		arg3 string
 	}{arg1, arg2, arg3})
-	stub := fake.ResolveLinkStub
-	fakeReturns := fake.resolveLinkReturns
-	fake.recordInvocation("ResolveLink", []interface{}{arg1, arg2, arg3})
-	fake.resolveLinkMutex.Unlock()
+	stub := fake.ResolveResourceLinkStub
+	fakeReturns := fake.resolveResourceLinkReturns
+	fake.recordInvocation("ResolveResourceLink", []interface{}{arg1, arg2, arg3})
+	fake.resolveResourceLinkMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2, arg3)
 	}
 	if specificReturn {
-		return ret.result1, ret.result2, ret.result3
+		return ret.result1, ret.result2
 	}
-	return fakeReturns.result1, fakeReturns.result2, fakeReturns.result3
+	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *FakeInterface) ResolveLinkCallCount() int {
-	fake.resolveLinkMutex.RLock()
-	defer fake.resolveLinkMutex.RUnlock()
-	return len(fake.resolveLinkArgsForCall)
+func (fake *FakeInterface) ResolveResourceLinkCallCount() int {
+	fake.resolveResourceLinkMutex.RLock()
+	defer fake.resolveResourceLinkMutex.RUnlock()
+	return len(fake.resolveResourceLinkArgsForCall)
 }
 
-func (fake *FakeInterface) ResolveLinkCalls(stub func(string, *manifest.Node, string) (string, bool, error)) {
-	fake.resolveLinkMutex.Lock()
-	defer fake.resolveLinkMutex.Unlock()
-	fake.ResolveLinkStub = stub
+func (fake *FakeInterface) ResolveResourceLinkCalls(stub func(string, *manifest.Node, string) (string, error)) {
+	fake.resolveResourceLinkMutex.Lock()
+	defer fake.resolveResourceLinkMutex.Unlock()
+	fake.ResolveResourceLinkStub = stub
 }
 
-func (fake *FakeInterface) ResolveLinkArgsForCall(i int) (string, *manifest.Node, string) {
-	fake.resolveLinkMutex.RLock()
-	defer fake.resolveLinkMutex.RUnlock()
-	argsForCall := fake.resolveLinkArgsForCall[i]
+func (fake *FakeInterface) ResolveResourceLinkArgsForCall(i int) (string, *manifest.Node, string) {
+	fake.resolveResourceLinkMutex.RLock()
+	defer fake.resolveResourceLinkMutex.RUnlock()
+	argsForCall := fake.resolveResourceLinkArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *FakeInterface) ResolveLinkReturns(result1 string, result2 bool, result3 error) {
-	fake.resolveLinkMutex.Lock()
-	defer fake.resolveLinkMutex.Unlock()
-	fake.ResolveLinkStub = nil
-	fake.resolveLinkReturns = struct {
+func (fake *FakeInterface) ResolveResourceLinkReturns(result1 string, result2 error) {
+	fake.resolveResourceLinkMutex.Lock()
+	defer fake.resolveResourceLinkMutex.Unlock()
+	fake.ResolveResourceLinkStub = nil
+	fake.resolveResourceLinkReturns = struct {
 		result1 string
-		result2 bool
-		result3 error
-	}{result1, result2, result3}
+		result2 error
+	}{result1, result2}
 }
 
-func (fake *FakeInterface) ResolveLinkReturnsOnCall(i int, result1 string, result2 bool, result3 error) {
-	fake.resolveLinkMutex.Lock()
-	defer fake.resolveLinkMutex.Unlock()
-	fake.ResolveLinkStub = nil
-	if fake.resolveLinkReturnsOnCall == nil {
-		fake.resolveLinkReturnsOnCall = make(map[int]struct {
+func (fake *FakeInterface) ResolveResourceLinkReturnsOnCall(i int, result1 string, result2 error) {
+	fake.resolveResourceLinkMutex.Lock()
+	defer fake.resolveResourceLinkMutex.Unlock()
+	fake.ResolveResourceLinkStub = nil
+	if fake.resolveResourceLinkReturnsOnCall == nil {
+		fake.resolveResourceLinkReturnsOnCall = make(map[int]struct {
 			result1 string
-			result2 bool
-			result3 error
+			result2 error
 		})
 	}
-	fake.resolveLinkReturnsOnCall[i] = struct {
+	fake.resolveResourceLinkReturnsOnCall[i] = struct {
 		result1 string
-		result2 bool
-		result3 error
-	}{result1, result2, result3}
+		result2 error
+	}{result1, result2}
 }
 
 func (fake *FakeInterface) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.resolveLinkMutex.RLock()
-	defer fake.resolveLinkMutex.RUnlock()
+	fake.resolveResourceLinkMutex.RLock()
+	defer fake.resolveResourceLinkMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

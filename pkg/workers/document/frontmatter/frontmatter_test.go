@@ -12,7 +12,8 @@ import (
 	_ "embed"
 
 	"github.com/gardener/docforge/pkg/manifest"
-	"github.com/gardener/docforge/pkg/readers/repositoryhosts/repositoryhostsfakes"
+	"github.com/gardener/docforge/pkg/registry"
+	"github.com/gardener/docforge/pkg/registry/repositoryhost"
 	"github.com/gardener/docforge/pkg/workers/document/frontmatter"
 	"github.com/gardener/docforge/pkg/workers/document/frontmatter/frontmatterfakes"
 
@@ -75,7 +76,8 @@ var _ = Describe("Document frontmatter", func() {
 			err     error
 		)
 		BeforeEach(func() {
-			nodes, err = manifest.ResolveManifest("tests/frontmatter.yaml", repositoryhostsfakes.FilesystemRegistry(manifests))
+			r := registry.NewRegistry(repositoryhost.NewLocalTest(manifests, "https://github.com/gardener/docforge", "tests"))
+			nodes, err = manifest.ResolveManifest("https://github.com/gardener/docforge/blob/master/frontmatter.yaml", r)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(nodes)).To(Equal(3))
 			Expect(nodes[1].Name()).To(Equal("foo.md"))
@@ -157,7 +159,8 @@ var _ = Describe("Document frontmatter", func() {
 			err            error
 		)
 		BeforeEach(func() {
-			nodes, err = manifest.ResolveManifest("tests/titles.yaml", repositoryhostsfakes.FilesystemRegistry(manifests))
+			r := registry.NewRegistry(repositoryhost.NewLocalTest(manifests, "https://github.com/gardener/docforge", "tests"))
+			nodes, err = manifest.ResolveManifest("https://github.com/gardener/docforge/blob/master/titles.yaml", r)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(nodes)).To(Equal(6))
 			Expect(nodes[1].Name()).To(Equal("file_node-1.md"))

@@ -7,6 +7,8 @@ package document
 import (
 	"bytes"
 	"context"
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
 	"net/url"
 	"path"
@@ -15,7 +17,8 @@ import (
 
 	"github.com/gardener/docforge/cmd/hugo"
 	"github.com/gardener/docforge/pkg/manifest"
-	"github.com/gardener/docforge/pkg/readers/repositoryhosts"
+	"github.com/gardener/docforge/pkg/registry"
+	"github.com/gardener/docforge/pkg/registry/repositoryhost"
 	"github.com/gardener/docforge/pkg/workers/document/frontmatter"
 	"github.com/gardener/docforge/pkg/workers/document/markdown"
 	"github.com/gardener/docforge/pkg/workers/downloader"
@@ -36,8 +39,8 @@ type Worker struct {
 
 	resourcesRoot string
 
-	Repositoryhosts repositoryhosts.Registry
-	Hugo            hugo.Hugo
+	repositoryhosts registry.Interface
+	hugo            hugo.Hugo
 }
 
 // docContent defines a document content
@@ -48,7 +51,7 @@ type docContent struct {
 }
 
 // NewDocumentWorker creates Worker objects
-func NewDocumentWorker(resourcesRoot string, downloader downloader.Interface, validator linkvalidator.Interface, linkResolver linkresolver.Interface, rh repositoryhosts.Registry, hugo hugo.Hugo, writer writers.Writer) *Worker {
+func NewDocumentWorker(resourcesRoot string, downloader downloader.Interface, validator linkvalidator.Interface, linkResolver linkresolver.Interface, rh registry.Interface, hugo hugo.Hugo, writer writers.Writer) *Worker {
 	return &Worker{
 		linkResolver,
 		downloader,
@@ -125,9 +128,8 @@ func (d *Worker) process(ctx context.Context, b *bytes.Buffer, n *manifest.Node)
 		}
 		frontmatter.MoveMultiSourceFrontmatterToTopDocument(docs)
 		frontmatter.MergeDocumentAndNodeFrontmatter(firstDoc, n)
-		frontmatter.ComputeNodeTitle(firstDoc, n, d.Hugo.IndexFileNames, d.Hugo.Enabled)
+		frontmatter.ComputeNodeTitle(firstDoc, n, d.hugo.IndexFileNames, d.hugo.Enabled)
 	}
-	// 2. - write node content
 	for _, cnt := range fullContent {
 		lrt := linkResolverTask{
 			*d,
@@ -144,11 +146,7 @@ func (d *Worker) process(ctx context.Context, b *bytes.Buffer, n *manifest.Node)
 
 func (d *Worker) processSource(ctx context.Context, sourceType string, source string, nodePath string) (*docContent, error) {
 	var dc *docContent
-	repoHost, err := d.Repositoryhosts.Get(source)
-	if err != nil {
-		return nil, err
-	}
-	content, err := repoHost.Read(ctx, source)
+	content, err := d.repositoryhosts.Read(ctx, source)
 	if err != nil {
 		return nil, fmt.Errorf("reading %s %s from node %s failed: %w", sourceType, source, nodePath, err)
 	}
@@ -162,11 +160,27 @@ func (d *Worker) processSource(ctx context.Context, sourceType string, source st
 
 type linkResolverTask struct {
 	Worker
-	Node   *manifest.Node
-	Source string
+	node   *manifest.Node
+	source string
+}
+
+// DownloadURLName create resource name that will be dowloaded from a resource link
+func DownloadURLName(url repositoryhost.URL) string {
+	resourcePath := url.ResourceURL()
+	mdsum := md5.Sum([]byte(resourcePath))
+	ext := path.Ext(resourcePath)
+	name := strings.TrimSuffix(path.Base(resourcePath), ext)
+	hash := hex.EncodeToString(mdsum[:])[:6]
+	return fmt.Sprintf("%s_%s%s", name, hash, ext)
+
 }
 
 func (d *linkResolverTask) resolveLink(dest string, isEmbeddable bool) (string, error) {
+	escapedEmoji := strings.ReplaceAll(dest, "/:v:/", "/%3Av%3A/")
+	if escapedEmoji != dest {
+		klog.Warningf("escaping : for /:v:/ in link %s for source %s ", dest, d.source)
+		dest = escapedEmoji
+	}
 	url, err := url.Parse(dest)
 	if err != nil {
 		return dest, err
@@ -174,44 +188,40 @@ func (d *linkResolverTask) resolveLink(dest string, isEmbeddable bool) (string, 
 	if url.Scheme == "mailto" {
 		return dest, nil
 	}
-	newLink, shouldValidate, err := d.linkresolver.ResolveLink(dest, d.Node, d.Source)
-	if err != nil {
-		return dest, err
+	if isEmbeddable {
+		return d.resolveEmbededLink(dest, d.source)
 	}
-	if shouldValidate && !downloadEmbeddable(url) {
-		d.validator.ValidateLink(dest, d.Source)
-	}
-	if !isEmbeddable {
-		return newLink, nil
-	}
-	// Links to resources that are not structure document nodes are scheduled for download and their destination is updated to relative path to predefined location for resources.
-	if downloadEmbeddable(url) {
-		downloadResourceName := downloader.DownloadURLName(url, d.Source)
-		if err = d.downloader.Schedule(newLink, downloadResourceName, d.Source); err != nil {
-			return dest, err
+	// handle non-embeded links
+	if url.IsAbs() {
+		if _, err = d.repositoryhosts.ResourceURL(dest); err != nil {
+			// absolute link that is not referencing any documentation page
+			d.validator.ValidateLink(dest, d.source)
+			return dest, nil
 		}
-		return "/" + path.Join(d.Hugo.BaseURL, d.resourcesRoot, downloadResourceName), nil
 	}
-	// convert them to raw format
-	handler, err := d.Repositoryhosts.Get(dest)
-	if err != nil {
-		return dest, nil
-	}
-	rawLink, err := handler.GetRawFormatLink(dest)
-	if err != nil {
-		return dest, err
-	}
-	return rawLink, nil
+	return d.linkresolver.ResolveResourceLink(dest, d.node, d.source)
 }
 
-func downloadEmbeddable(url *url.URL) bool {
-	if !url.IsAbs() {
-		return true
+func (d *linkResolverTask) resolveEmbededLink(link string, source string) (string, error) {
+	var err error
+	if repositoryhost.IsRelative(link) {
+		link, err = d.repositoryhosts.ResolveRelativeLink(source, link)
+		if err != nil {
+			return link, err
+		}
+	} else if !repositoryhost.IsResourceURL(link) {
+		return link, nil
 	}
-	// if embeddable link is absolute, download only if belongs to internal GitHub or own organization
-	// TODO: make it configurable
-	if url.Host == "github.tools.sap" || url.Host == "raw.github.tools.sap" || url.Host == "github.wdf.sap.corp" {
-		return true
+	// link has format of a resource url
+	resourceURL, err := d.repositoryhosts.ResourceURL(link)
+	if err != nil {
+		// convert urls from not referenced repository  to raw
+		return repositoryhost.RawURL(link)
 	}
-	return strings.HasPrefix(url.Path, "/gardener/") && (url.Host == "github.com" || url.Host == "raw.githubusercontent.com")
+	// download urls from referenced repositories
+	downloadResourceName := DownloadURLName(*resourceURL)
+	if err = d.downloader.Schedule(link, downloadResourceName, source); err != nil {
+		return link, err
+	}
+	return "/" + path.Join(d.hugo.BaseURL, d.resourcesRoot, downloadResourceName), nil
 }

@@ -7,7 +7,6 @@ package linkresolver
 import (
 	"cmp"
 	"fmt"
-	"net/url"
 	"path"
 	"path/filepath"
 	"slices"
@@ -15,8 +14,8 @@ import (
 
 	"github.com/gardener/docforge/cmd/hugo"
 	"github.com/gardener/docforge/pkg/manifest"
-	"github.com/gardener/docforge/pkg/readers/repositoryhosts"
-	"github.com/gardener/docforge/pkg/readers/resource"
+	"github.com/gardener/docforge/pkg/registry"
+	"github.com/gardener/docforge/pkg/registry/repositoryhost"
 	"k8s.io/klog/v2"
 )
 
@@ -28,85 +27,52 @@ import (
 
 // Interface represent link resolving interface
 type Interface interface {
-	ResolveLink(destination string, node *manifest.Node, source string) (string, bool, error)
+	ResolveResourceLink(destination string, node *manifest.Node, source string) (string, error)
 }
 
 // LinkResolver represents link resolving nessesary objects
 type LinkResolver struct {
-	Repositoryhosts repositoryhosts.Registry
+	Repositoryhosts registry.Interface
 	SourceToNode    map[string][]*manifest.Node
 	Hugo            hugo.Hugo
 }
 
-// ResolveLink resolves link
-func (l *LinkResolver) ResolveLink(link string, node *manifest.Node, source string) (string, bool, error) {
-	escapedEmoji := strings.ReplaceAll(link, "/:v:/", "/%3Av%3A/")
-	if escapedEmoji != link {
-		klog.Warningf("escaping : for /:v:/ in link %s for source %s ", link, source)
-		link = escapedEmoji
-	}
-	linkURL, err := url.Parse(link)
-	if err != nil {
-		return "", false, fmt.Errorf("error when parsing link in %s : %w", source, err)
-	}
-	shouldValidate := true
-	// resolve outside links
-	if linkURL.IsAbs() {
-		if _, err := l.Repositoryhosts.Get(link); err != nil {
-			// we don't have a handler for it. Leave it be.
-			return link, true, nil
-		}
-	} else {
-		// convert destination to absolute link
-		docHandler, err := l.Repositoryhosts.Get(source)
+// ResolveResourceLink resolves resource link from a given source
+func (l *LinkResolver) ResolveResourceLink(resourceLink string, node *manifest.Node, source string) (string, error) {
+	// handle relative links to resources
+	if repositoryhost.IsRelative(resourceLink) {
+		var err error
+		// making resourceLink to be resourceURL
+		resourceLink, err = l.Repositoryhosts.ResolveRelativeLink(source, resourceLink)
 		if err != nil {
-			return "", false, fmt.Errorf("unexpected error - can't get a handler for already read content: %w", err)
-		}
-		if link, err = docHandler.ToAbsLink(source, link); err != nil {
-			if _, ok := err.(repositoryhosts.ErrResourceNotFound); !ok {
-				return "", false, err
+			if _, ok := err.(repositoryhost.ErrResourceNotFound); ok {
+				klog.Warningf("failed to validate absolute link for %s from source %s: %v\n", resourceLink, source, err)
+				// don't process broken link and don't return error
+				return resourceLink, nil
 			}
-			klog.Warningf("failed to validate absolute link for %s from source %s: %v\n", link, source, err)
-			shouldValidate = false
+			return resourceLink, err
 		}
 	}
-	// destination is absolute URL from a repository host
-	if !resource.IsResourceURL(link) {
-		// link is from repository host but not a resource
-		return link, shouldValidate, nil
-	}
-	// destination is resource URL
-	linkURL, err = url.Parse(link)
+	destinationResource, err := l.Repositoryhosts.ResourceURL(resourceLink)
 	if err != nil {
-		return "", false, fmt.Errorf("unexpected error when parsing link %s in %s : %w", link, source, err)
+		return resourceLink, fmt.Errorf("error when parsing resource link %s in %s : %w", resourceLink, source, err)
 	}
-	destinationResource, err := resource.FromURL(linkURL)
-	if err != nil {
-		return "", false, fmt.Errorf("unexpected error when parsing link %s in %s : %w", link, source, err)
-	}
-	destinationResourceURL := destinationResource.String()
+	destinationResourceURL := destinationResource.ResourceURL()
 	// check if link refers to a node
 	nl, ok := l.SourceToNode[destinationResourceURL]
 	if !ok {
-		return link, shouldValidate, nil
+		return resourceLink, nil
 	}
 	// found nodes with this source -> find the shortest path from l.node to one of nodes
 	destinationNode := slices.MinFunc(nl, func(a, b *manifest.Node) int {
 		relPathBetweenNodeAndA, _ := filepath.Rel(node.Path, a.NodePath())
-		relPathBetweenNodeAndB, _ := filepath.Rel(node.Path, a.NodePath())
+		relPathBetweenNodeAndB, _ := filepath.Rel(node.Path, b.NodePath())
 		return cmp.Compare(strings.Count(relPathBetweenNodeAndA, "/"), strings.Count(relPathBetweenNodeAndB, "/"))
 	})
 	// construct destination from node path
-	link = strings.ToLower(destinationNode.NodePath())
+	websiteLink := strings.ToLower(destinationNode.NodePath())
 	if l.Hugo.Enabled {
-		link = strings.ToLower(destinationNode.HugoPrettyPath())
+		websiteLink = strings.ToLower(destinationNode.HugoPrettyPath())
 	}
-	link = fmt.Sprintf("/%s/", path.Join(l.Hugo.BaseURL, link))
-	if linkURL.ForceQuery || linkURL.RawQuery != "" {
-		link = fmt.Sprintf("%s?%s", link, linkURL.RawQuery)
-	}
-	if linkURL.Fragment != "" {
-		link = fmt.Sprintf("%s#%s", link, linkURL.Fragment)
-	}
-	return link, true, nil
+	return fmt.Sprintf("/%s/%s", path.Join(l.Hugo.BaseURL, websiteLink), destinationResource.GetResourceSuffix()), nil
 }

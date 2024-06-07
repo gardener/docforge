@@ -60,7 +60,7 @@ clean:
 #####################################################################
 
 .PHONY: verify
-verify: check test
+verify: check test integration-test e2e
 
 .PHONY: check
 check:
@@ -73,6 +73,10 @@ test:
 .PHONY: integration-test
 integration-test:
 	@.ci/integration-test
+	
+.PHONY: e2e
+e2e:
+	@.ci/e2e
 
 .PHONY: test-cov
 test-cov:

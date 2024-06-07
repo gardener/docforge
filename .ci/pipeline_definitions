@@ -30,6 +30,8 @@ docforge:
         image: "golang:1.21.0"
       test:
         image: "golang:1.21.0"
+      e2e:
+        image: "golang:1.21.0"
       build:
         image: "golang:1.21.0"
         output_dir: "binary"

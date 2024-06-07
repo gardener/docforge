@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2021 SAP SE or an SAP affiliate company and Gardener contributors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+set -e
+
+getGitHubToken() {
+  # Check if gardener-ci is available (in local setup)
+  command -v gardener-ci >/dev/null && gardenci="true" || gardenci=""
+  if [[ $gardenci == "true" ]]; then
+    # Get a (round-robin) random technical GitHub user credentials
+    technicalUser=$(gardener-ci config model_element --cfg-type github --cfg-name "${1}" --key credentials | sed -e "s/^GithubCredentials //" -e "s/'/\"/g")
+    if [[ -n "${technicalUser}" ]]; then
+      # get auth token and strip lead/trail quotes
+      authToken="$(jq -r '.authToken' <<< "$technicalUser")"
+      echo "${authToken}"
+    fi
+  fi
+}
+
+if [[ $(uname) == 'Darwin' ]]; then
+  READLINK_BIN="greadlink"
+else
+  READLINK_BIN="readlink"
+fi
+
+docforge_repo_path="$(${READLINK_BIN} -f "$(dirname "${0}")/..")"
+echo "$docforge_repo_path"
+cd "$docforge_repo_path" 
+
+if [[ ! -d ../website-generator/hugo ]]; then
+    pushd ..
+    git clone https://github.com/gardener/website-generator.git
+    popd
+fi
+
+GIT_OAUTH_TOKEN=${GITHUB_OAUTH_TOKEN:-$(getGitHubToken github_com)}
+test "$GIT_OAUTH_TOKEN" #fail fast
+export GITHUB_OAUTH_TOKEN=$GIT_OAUTH_TOKEN
+
+buildWebsite() {
+    make build-local
+    mv bin/docforge /usr/local/bin/docforge
+    pushd ../website-generator
+    make build
+    popd
+}
+
+echo "Building current docforge"
+buildWebsite
+mv ../website-generator/hugo/content ../website-generator/hugo/branchContent
+
+echo "Building master docforge"
+git checkout master
+buildWebsite
+
+echo "-------------------------------"
+echo "Diff results"
+find ../website-generator/hugo/content -type f -exec sed -E -i 's@_.{6}\.(png|jpg|jpeg|svg|gif)@.\1@g' {} \;
+find ../website-generator/hugo/branchContent -type f -exec sed -E -i 's@_.{6}\.(png|jpg|jpeg|svg|gif)@.\1@g' {} \;
+diff -r --exclude=__resources ../website-generator/hugo/content ../website-generator/hugo/branchContent

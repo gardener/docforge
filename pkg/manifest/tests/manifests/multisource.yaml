@@ -1,0 +1,5 @@
+structure:
+- file: testo
+  multiSource:
+  - /contents/blogs/2024/foo.md
+  - /contents/blogs/2024/two.md

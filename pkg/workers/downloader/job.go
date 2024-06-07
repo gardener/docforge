@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/gardener/docforge/pkg/readers/repositoryhosts"
+	"github.com/gardener/docforge/pkg/registry"
 	"github.com/gardener/docforge/pkg/workers/taskqueue"
 	"github.com/gardener/docforge/pkg/writers"
 )
@@ -30,7 +30,7 @@ type downloadScheduler struct {
 }
 
 // New create a DownloadScheduler to schedule download resources
-func New(workerCount int, failFast bool, wg *sync.WaitGroup, registry repositoryhosts.Registry, writer writers.Writer) (Interface, taskqueue.QueueController, error) {
+func New(workerCount int, failFast bool, wg *sync.WaitGroup, registry registry.Interface, writer writers.Writer) (Interface, taskqueue.QueueController, error) {
 	dWorker, err := NewDownloader(registry, writer)
 	if err != nil {
 		return nil, nil, err

@@ -80,6 +80,10 @@ func configureFlags(command *cobra.Command) {
 		"Links should be validated")
 	_ = vip.BindPFlag("validate-links", command.Flags().Lookup("validate-links"))
 
+	command.Flags().StringSlice("hosts-to-report", []string{},
+		"When a link has a host from the given array it will get reported")
+	_ = vip.BindPFlag("hosts-to-report", command.Flags().Lookup("hosts-to-report"))
+
 	cacheDir := ""
 	userHomeDir, err := os.UserHomeDir()
 	if err == nil {

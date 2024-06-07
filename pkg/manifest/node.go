@@ -11,6 +11,28 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Node represents a generic mnifest node
+type Node struct {
+	ManifType `yaml:",inline"`
+
+	FileType `yaml:",inline"`
+
+	DirType `yaml:",inline"`
+
+	FilesTreeType `yaml:",inline"`
+
+	// Properties of the node
+	Properties map[string]interface{} `yaml:"properties,omitempty"`
+	// Frontmatter of the node
+	Frontmatter map[string]interface{} `yaml:"frontmatter,omitempty"`
+	// Type of node
+	Type string `yaml:"type,omitempty"`
+	// Path of node
+	Path string `yaml:"path,omitempty"`
+	// Parent of node
+	parent *Node
+}
+
 // Name is the name of the node
 func (n *Node) Name() string {
 	switch n.Type {

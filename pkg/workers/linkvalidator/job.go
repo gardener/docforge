@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/gardener/docforge/pkg/readers/repositoryhosts"
+	"github.com/gardener/docforge/pkg/registry"
 	"github.com/gardener/docforge/pkg/workers/taskqueue"
 	"k8s.io/klog/v2"
 )
@@ -31,8 +31,8 @@ type validator struct {
 }
 
 // New creates new Validator
-func New(workerCount int, failFast bool, wg *sync.WaitGroup, registry repositoryhosts.Registry) (Interface, taskqueue.QueueController, error) {
-	vWorker, err := NewValidatorWorker(registry)
+func New(workerCount int, failFast bool, wg *sync.WaitGroup, registry registry.Interface, hostsToReport []string) (Interface, taskqueue.QueueController, error) {
+	vWorker, err := NewValidatorWorker(registry, hostsToReport)
 	if err != nil {
 		return nil, nil, err
 	}

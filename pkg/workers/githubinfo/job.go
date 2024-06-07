@@ -10,7 +10,7 @@ import (
 	"sync"
 
 	"github.com/gardener/docforge/pkg/manifest"
-	"github.com/gardener/docforge/pkg/readers/repositoryhosts"
+	"github.com/gardener/docforge/pkg/registry"
 	"github.com/gardener/docforge/pkg/workers/taskqueue"
 	"github.com/gardener/docforge/pkg/writers"
 	"k8s.io/klog/v2"
@@ -31,7 +31,7 @@ type gitHubInfo struct {
 }
 
 // New creates GitHubInfo object for writing GitHub infos
-func New(workerCount int, failFast bool, wg *sync.WaitGroup, registry repositoryhosts.Registry, writer writers.Writer) (GitHubInfo, taskqueue.QueueController, error) {
+func New(workerCount int, failFast bool, wg *sync.WaitGroup, registry registry.Interface, writer writers.Writer) (GitHubInfo, taskqueue.QueueController, error) {
 	ghInfoWorker, err := NewGithubWorker(registry, writer)
 	if err != nil {
 		return nil, nil, err
