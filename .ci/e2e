@@ -38,6 +38,10 @@ if [[ ! -d "$website_generator_path" ]]; then
   git clone https://github.com/gardener/website-generator.git "$website_generator_path"
 fi
 
+echo "Clean old build if done"
+rm -rf "$content"
+rm -rf "$PR_content"
+
 TOKEN=${GITHUB_OAUTH_TOKEN:-$(getGitHubToken github_com)}
 test "$TOKEN" #fail fast
 echo Token accepted
