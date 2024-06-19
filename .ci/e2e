@@ -63,4 +63,6 @@ echo "-------------------------------"
 echo "Diff results"
 find "$content" -type f -exec sed -E -i 's@_.{6}\.(png|jpg|jpeg|svg|gif)@.\1@g' {} \;
 find "$PR_content" -type f -exec sed -E -i 's@_.{6}\.(png|jpg|jpeg|svg|gif)@.\1@g' {} \;
-diff -r --exclude=__resources "$content" "$PR_content"
+rm -rf "${content}/__resources" 
+rm -rf "${PR_content}/__resources" 
+diff -r "$content" "$PR_content"
