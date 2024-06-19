@@ -53,9 +53,6 @@ func (l *LinkResolver) ResolveResourceLink(resourceLink string, node *manifest.N
 			return resourceLink, err
 		}
 	}
-	if resourceLink == "https://github.com/gardener/gardener/blob/master/docs/usage/reversed-vpn-tunnel.md" {
-		return "https://github.com/gardener/gardener/blob/master/docs/usage/testE2ECorrectness.md", nil
-	}
 	destinationResource, err := l.Repositoryhosts.ResourceURL(resourceLink)
 	if err != nil {
 		return resourceLink, fmt.Errorf("error when parsing resource link %s in %s : %w", resourceLink, source, err)
