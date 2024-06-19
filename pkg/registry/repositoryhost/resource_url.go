@@ -109,9 +109,6 @@ func (r URL) ResourceURL() string {
 	if r.resourcePath == "" {
 		return fmt.Sprintf("https://%s/%s/%s/%s/%s", r.host, r.owner, r.repo, r.resourceType, r.ref)
 	}
-	if strings.HasSuffix(r.resourcePath, "reversed-vpn-tunnel.md") {
-		return fmt.Sprintf("https://%s/%s/%s/%s/%s/%s", r.host, r.owner, r.repo, r.resourceType, r.ref, "testBroken")
-	}
 	return fmt.Sprintf("https://%s/%s/%s/%s/%s/%s", r.host, r.owner, r.repo, r.resourceType, r.ref, r.resourcePath)
 }
 
