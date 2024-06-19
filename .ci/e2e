@@ -36,18 +36,17 @@ if [[ ! -d ../website-generator/hugo ]]; then
     popd
 fi
 
-echo Getting token
 TOKEN=${GITHUB_OAUTH_TOKEN:-$(getGitHubToken github_com)}
 test "$TOKEN" #fail fast
 echo Token accepted
 export GITHUB_OAUTH_TOKEN=$TOKEN
 
 buildWebsite() {
-    make build-local
-    mv bin/docforge /usr/local/bin/docforge
-    pushd ../website-generator
-    make build
-    popd
+  LOCAL_BUILD=1 ".ci/build" >/dev/null 2>&1
+  mv bin/docforge /usr/local/bin/docforge
+  pushd ../website-generator
+  make build
+  popd
 }
 
 echo "Building current docforge"
