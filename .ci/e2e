@@ -36,9 +36,11 @@ if [[ ! -d ../website-generator/hugo ]]; then
     popd
 fi
 
-GIT_OAUTH_TOKEN=${GITHUB_OAUTH_TOKEN:-$(getGitHubToken github_com)}
-test "$GIT_OAUTH_TOKEN" #fail fast
-export GITHUB_OAUTH_TOKEN=$GIT_OAUTH_TOKEN
+echo Getting token
+TOKEN=${GITHUB_OAUTH_TOKEN:-$(getGitHubToken github_com)}
+test "$TOKEN" #fail fast
+echo Token accepted
+export GITHUB_OAUTH_TOKEN=$TOKEN
 
 buildWebsite() {
     make build-local
