@@ -1,0 +1,10 @@
+structure:
+- dir: foo
+  frontmatter:
+    title: foo
+  structure:
+  - file: /contents/README.md
+- fileTree: /contents
+- dir: foo
+  frontmatter:
+    weight: 1
