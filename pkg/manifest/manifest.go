@@ -288,6 +288,12 @@ func mergeFolders(node *Node, parent *Node, manifest *Node, _ registry.Interface
 			if mergeIntoNode, ok := nodeNameToNode[child.Dir]; ok {
 				mergeIntoNode.Structure = append(mergeIntoNode.Structure, child.Structure...)
 				removeNodeFromParent(child, node)
+				if child.Frontmatter != nil && len(child.Frontmatter) > 0 {
+					if nodeNameToNode[child.Dir].Frontmatter != nil && len(nodeNameToNode[child.Dir].Frontmatter) > 0 {
+						return fmt.Errorf("there are multiple dirs with name %s and path %s that have frontmatter. Please only use one", child.Dir, child.Path)
+					}
+					nodeNameToNode[child.Dir].Frontmatter = child.Frontmatter
+				}
 			} else {
 				nodeNameToNode[child.Dir] = child
 			}
