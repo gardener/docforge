@@ -27,37 +27,46 @@ else
 fi
 
 docforge_repo_path="$(${READLINK_BIN} -f "$(dirname "${0}")/..")"
-echo "$docforge_repo_path"
-cd "$docforge_repo_path" 
+website_generator_path="${docforge_repo_path}/../website-generator"
+content=${website_generator_path}/hugo/content
+PR_content=${website_generator_path}/hugo/branchContent
+docforge_bin="${docforge_repo_path}/bin/docforge"
 
-if [[ ! -d ../website-generator/hugo ]]; then
-    pushd ..
-    git clone https://github.com/gardener/website-generator.git
-    popd
+echo Docforge repo: "$docforge_repo_path"
+
+if [[ ! -d "$website_generator_path" ]]; then
+  git clone https://github.com/gardener/website-generator.git "$website_generator_path"
 fi
 
-GIT_OAUTH_TOKEN=${GITHUB_OAUTH_TOKEN:-$(getGitHubToken github_com)}
-test "$GIT_OAUTH_TOKEN" #fail fast
-export GITHUB_OAUTH_TOKEN=$GIT_OAUTH_TOKEN
+echo "Clean old build if done"
+rm -rf "$content"
+rm -rf "$PR_content"
+
+TOKEN=${GITHUB_OAUTH_TOKEN:-$(getGitHubToken github_com)}
+test "$TOKEN" #fail fast
+echo Token accepted
+export GITHUB_OAUTH_TOKEN=$TOKEN
 
 buildWebsite() {
-    make build-local
-    mv bin/docforge /usr/local/bin/docforge
-    pushd ../website-generator
-    make build
-    popd
+  LOCAL_BUILD=1 "${docforge_repo_path}/.ci/build" >/dev/null 2>&1
+  mv "$docforge_bin" /usr/local/bin/docforge
+  "${website_generator_path}/.ci/build"
 }
 
 echo "Building current docforge"
 buildWebsite
-mv ../website-generator/hugo/content ../website-generator/hugo/branchContent
+mv "$content" "$PR_content"
 
 echo "Building master docforge"
+pushd "$docforge_repo_path"
 git checkout master
+popd
 buildWebsite
 
 echo "-------------------------------"
 echo "Diff results"
-find ../website-generator/hugo/content -type f -exec sed -E -i 's@_.{6}\.(png|jpg|jpeg|svg|gif)@.\1@g' {} \;
-find ../website-generator/hugo/branchContent -type f -exec sed -E -i 's@_.{6}\.(png|jpg|jpeg|svg|gif)@.\1@g' {} \;
-diff -r --exclude=__resources ../website-generator/hugo/content ../website-generator/hugo/branchContent
+find "$content" -type f -exec sed -E -i 's@_.{6}\.(png|jpg|jpeg|svg|gif)@.\1@g' {} \;
+find "$PR_content" -type f -exec sed -E -i 's@_.{6}\.(png|jpg|jpeg|svg|gif)@.\1@g' {} \;
+rm -rf "${content}/__resources" 
+rm -rf "${PR_content}/__resources" 
+diff -r "$content" "$PR_content"
