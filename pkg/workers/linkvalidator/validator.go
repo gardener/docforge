@@ -108,6 +108,9 @@ func doValidation(req *http.Request, client httpclient.Client) (*http.Response, 
 	intervals := []int{1, 5, 10, 20}
 	resp, err := client.Do(req)
 	if err != nil {
+		if err.Error() == context.DeadlineExceeded.Error() {
+			return resp, errors.New("server took longer than expected to respond")
+		}
 		return resp, err
 	}
 	defer resp.Body.Close()
