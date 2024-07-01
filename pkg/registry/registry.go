@@ -49,7 +49,7 @@ func NewRegistry(resourcerepoHosts ...repositoryhost.Interface) Interface {
 }
 
 func (r *registry) Client(url string) httpclient.Client {
-	rh, _, err := r.repositoryHost(url)
+	rh, _, err := r.anyRepositoryHost(url)
 	if err != nil {
 		return http.DefaultClient
 	}
@@ -57,7 +57,7 @@ func (r *registry) Client(url string) httpclient.Client {
 }
 
 func (r *registry) Tree(resourceURL string) ([]string, error) {
-	rh, url, err := r.repositoryHost(resourceURL)
+	rh, url, err := r.anyRepositoryHost(resourceURL)
 	if err != nil {
 		return []string{}, err
 	}
@@ -65,7 +65,7 @@ func (r *registry) Tree(resourceURL string) ([]string, error) {
 }
 
 func (r *registry) Read(ctx context.Context, resourceURL string) ([]byte, error) {
-	rh, url, err := r.repositoryHost(resourceURL)
+	rh, url, err := r.anyRepositoryHost(resourceURL)
 	if err != nil {
 		return []byte{}, err
 	}
@@ -73,7 +73,7 @@ func (r *registry) Read(ctx context.Context, resourceURL string) ([]byte, error)
 }
 
 func (r *registry) ResolveRelativeLink(source string, relativeLink string) (string, error) {
-	rh, url, err := r.repositoryHost(source)
+	rh, url, err := r.anyRepositoryHost(source)
 	if err != nil {
 		return "", err
 	}
@@ -81,7 +81,7 @@ func (r *registry) ResolveRelativeLink(source string, relativeLink string) (stri
 }
 
 func (r *registry) ReadGitInfo(ctx context.Context, resourceURL string) ([]byte, error) {
-	rh, url, err := r.gitInfoRepositoryHost(resourceURL)
+	rh, url, err := r.githubRepositoryHost(resourceURL)
 	if err != nil {
 		return []byte{}, err
 	}
@@ -89,15 +89,18 @@ func (r *registry) ReadGitInfo(ctx context.Context, resourceURL string) ([]byte,
 }
 
 func (r *registry) LoadRepository(ctx context.Context, resourceURL string) error {
-	rh, err := r.get(resourceURL)
+	rh, err := r.acceptGithubRH(resourceURL)
 	if err != nil {
+		if err.Error() == fmt.Sprintf("no sutiable repository host for %s", resourceURL) {
+			return nil
+		}
 		return err
 	}
 	return rh.LoadRepository(ctx, resourceURL)
 }
 
-func (r *registry) repositoryHost(resourceURL string) (repositoryhost.Interface, *repositoryhost.URL, error) {
-	rh, err := r.get(resourceURL)
+func (r *registry) anyRepositoryHost(resourceURL string) (repositoryhost.Interface, *repositoryhost.URL, error) {
+	rh, err := r.acceptAnyRH(resourceURL)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -109,12 +112,12 @@ func (r *registry) repositoryHost(resourceURL string) (repositoryhost.Interface,
 }
 
 func (r *registry) ResourceURL(resourceURL string) (*repositoryhost.URL, error) {
-	_, url, err := r.repositoryHost(resourceURL)
+	_, url, err := r.anyRepositoryHost(resourceURL)
 	return url, err
 }
 
-func (r *registry) gitInfoRepositoryHost(resourceURL string) (repositoryhost.Interface, *repositoryhost.URL, error) {
-	rh, err := r.getGitInfo(resourceURL)
+func (r *registry) githubRepositoryHost(resourceURL string) (repositoryhost.Interface, *repositoryhost.URL, error) {
+	rh, err := r.acceptGithubRH(resourceURL)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -126,7 +129,7 @@ func (r *registry) gitInfoRepositoryHost(resourceURL string) (repositoryhost.Int
 	return rh, url, nil
 }
 
-func (r *registry) get(uri string) (repositoryhost.Interface, error) {
+func (r *registry) acceptAnyRH(uri string) (repositoryhost.Interface, error) {
 	for _, h := range r.repoHosts {
 		if h.Accept(uri) {
 			return h, nil
@@ -135,7 +138,7 @@ func (r *registry) get(uri string) (repositoryhost.Interface, error) {
 	return nil, fmt.Errorf("no sutiable repository host for %s", uri)
 }
 
-func (r *registry) getGitInfo(uri string) (repositoryhost.Interface, error) {
+func (r *registry) acceptGithubRH(uri string) (repositoryhost.Interface, error) {
 	for _, h := range r.repoHosts {
 		if h.Repositories() != nil && h.Accept(uri) {
 			return h, nil
