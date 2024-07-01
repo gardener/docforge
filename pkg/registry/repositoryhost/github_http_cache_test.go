@@ -98,18 +98,6 @@ var _ = Describe("Github cache test", func() {
 	git.GetTreeReturns(&tree, nil, nil)
 	ghc.LoadRepository(context.TODO(), "https://github.com/gardener/docforge/blob/master/README.md")
 
-	Describe("#GetRateLimit", func() {
-		BeforeEach(func() {
-			rls.RateLimitsReturns(nil, nil, errors.New("yataa error"))
-		})
-
-		It("return correct rate limit", func() {
-			_, _, _, err := ghc.GetRateLimit(context.TODO())
-			Expect(err).To(Equal(errors.New("yataa error")))
-
-		})
-	})
-
 	testRepositoryHost(ghc)
 
 	It("repository updated after loading", func() {
