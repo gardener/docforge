@@ -348,7 +348,9 @@ func propagateFrontmatter(node *Node, parent *Node, manifest *Node, _ registry.I
 	if parent != nil {
 		newFM := map[string]interface{}{}
 		for k, v := range parent.Frontmatter {
-			newFM[k] = v
+			if k != "aliases" {
+				newFM[k] = v
+			}
 		}
 		for k, v := range node.Frontmatter {
 			newFM[k] = v
@@ -358,41 +360,52 @@ func propagateFrontmatter(node *Node, parent *Node, manifest *Node, _ registry.I
 	return nil
 }
 
+func propagateSkipValidation(node *Node, parent *Node, manifest *Node, _ registry.Interface) error {
+	if parent != nil && parent.SkipValidation {
+		node.SkipValidation = parent.SkipValidation
+	}
+	return nil
+}
+
 func setParent(node *Node, parent *Node, _ *Node, _ registry.Interface) error {
 	node.parent = parent
 	return nil
 }
 
-// func calculateAliases(node *Node, parent *Node, _ *Node, _ registry.Interface) error {
-// 	var (
-// 		nodeAliases  []interface{}
-// 		childAliases []interface{}
-// 		formatted    bool
-// 	)
-// 	if nodeAliases, formatted = node.Frontmatter["aliases"].([]interface{}); node.Frontmatter != nil && node.Frontmatter["aliases"] != nil && !formatted {
-// 		return fmt.Errorf("node X \n\n%s\n has invalid alias format", node)
-// 	}
-// 	for _, nodeAlias := range nodeAliases {
-// 		for _, child := range node.Structure {
-// 			if child.Frontmatter == nil {
-// 				child.Frontmatter = map[string]interface{}{}
-// 			}
-// 			if child.Frontmatter["aliases"] == nil {
-// 				child.Frontmatter["aliases"] = []interface{}{}
-// 			}
-// 			if childAliases, formatted = child.Frontmatter["aliases"].([]interface{}); !formatted {
-// 				return fmt.Errorf("node \n\n%s\n has invalid alias format", child)
-// 			}
-// 			finalAlias := strings.TrimSuffix(child.Name(), ".md") + "/"
-// 			if child.Name() == "_index.md" {
-// 				finalAlias = ""
-// 			}
-// 			childAliases = append(childAliases, fmt.Sprintf("%s", nodeAlias)+"/"+finalAlias)
-// 			child.Frontmatter["aliases"] = childAliases
-// 		}
-// 	}
-// 	return nil
-// }
+func calculateAliases(node *Node, parent *Node, _ *Node, _ registry.Interface) error {
+	var (
+		nodeAliases  []interface{}
+		childAliases []interface{}
+		formatted    bool
+	)
+	if nodeAliases, formatted = node.Frontmatter["aliases"].([]interface{}); node.Frontmatter != nil && node.Frontmatter["aliases"] != nil && !formatted {
+		return fmt.Errorf("node X \n\n%s\n has invalid alias format", node)
+	}
+	for _, nodeAliasI := range nodeAliases {
+		for _, child := range node.Structure {
+			if child.Frontmatter == nil {
+				child.Frontmatter = map[string]interface{}{}
+			}
+			if child.Frontmatter["aliases"] == nil {
+				child.Frontmatter["aliases"] = []interface{}{}
+			}
+			if childAliases, formatted = child.Frontmatter["aliases"].([]interface{}); !formatted {
+				return fmt.Errorf("node \n\n%s\n has invalid alias format", child)
+			}
+			childAliasSuffix := strings.TrimSuffix(child.Name(), ".md")
+			if child.Name() == "_index.md" {
+				childAliasSuffix = ""
+			}
+			nodeAlias := fmt.Sprintf("%s", nodeAliasI)
+			if !strings.HasPrefix(nodeAlias, "/") {
+				return fmt.Errorf("there is a node with name %s that has an relative alias %s", node.Name(), nodeAlias)
+			}
+			childAliases = append(childAliases, path.Join(nodeAlias, childAliasSuffix)+"/")
+			child.Frontmatter["aliases"] = childAliases
+		}
+	}
+	return nil
+}
 
 // ResolveManifest collects files in FileCollector from a given url and resourcehandlers.FileSource
 func ResolveManifest(url string, r registry.Interface) ([]*Node, error) {
@@ -417,6 +430,8 @@ func ResolveManifest(url string, r registry.Interface) ([]*Node, error) {
 		calculatePath,
 		setParent,
 		propagateFrontmatter,
+		propagateSkipValidation,
+		calculateAliases,
 	)
 	if err != nil {
 		return nil, err
