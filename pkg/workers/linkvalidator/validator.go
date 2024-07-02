@@ -83,9 +83,9 @@ func (v *ValidatorWorker) Validate(ctx context.Context, LinkDestination string, 
 	if req, err = http.NewRequestWithContext(ctx, http.MethodHead, absLinkDestination, nil); err != nil {
 		return fmt.Errorf("failed to prepare HEAD validation request: %v", err)
 	}
-	if resp, err = doValidation(req, client); err != nil && err.Error() != "server took longer than expected to respond" {
+	if resp, err = doValidation(req, client); err != nil && !errors.Is(err, context.DeadlineExceeded) {
 		klog.Warningf("failed to validate absolute link for %s from source %s: %v\n", LinkDestination, ContentSourcePath, err)
-	} else if (err != nil && err.Error() != "server took longer than expected to respond") || (resp.StatusCode >= 400 && resp.StatusCode != http.StatusForbidden && resp.StatusCode != http.StatusUnauthorized) {
+	} else if errors.Is(err, context.DeadlineExceeded) || (resp.StatusCode >= 400 && resp.StatusCode != http.StatusForbidden && resp.StatusCode != http.StatusUnauthorized) {
 		// on error status code different from authorization errors
 		// retry GET
 		ctx, cancel = context.WithTimeout(ctx, 30*time.Second) // reset the context for the GET request
@@ -108,9 +108,6 @@ func doValidation(req *http.Request, client httpclient.Client) (*http.Response, 
 	intervals := []int{1, 5, 10, 20}
 	resp, err := client.Do(req)
 	if err != nil {
-		if err.Error() == context.DeadlineExceeded.Error() {
-			return resp, errors.New("server took longer than expected to respond")
-		}
 		return resp, err
 	}
 	defer resp.Body.Close()
