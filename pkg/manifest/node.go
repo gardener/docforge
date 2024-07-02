@@ -22,7 +22,7 @@ type Node struct {
 	FilesTreeType `yaml:",inline"`
 
 	// Properties of the node
-	Properties map[string]interface{} `yaml:"properties,omitempty"`
+	SkipValidation bool `yaml:"skipValidation,omitempty"`
 	// Frontmatter of the node
 	Frontmatter map[string]interface{} `yaml:"frontmatter,omitempty"`
 	// Type of node

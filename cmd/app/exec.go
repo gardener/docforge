@@ -67,10 +67,7 @@ func exec(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if !config.ValidateLinks {
-		v = nil
-	}
-	docProcessor, docTasks, err := document.New(config.DocumentWorkersCount, config.FailFast, reactorWG, documentNodes, config.ResourcesPath, dScheduler, v, rhRegistry, config.Hugo, config.Writer)
+	docProcessor, docTasks, err := document.New(config.DocumentWorkersCount, config.FailFast, reactorWG, documentNodes, config.ResourcesPath, dScheduler, v, rhRegistry, config.Hugo, config.Writer, config.SkipLinkValidation)
 	if err != nil {
 		return err
 	}

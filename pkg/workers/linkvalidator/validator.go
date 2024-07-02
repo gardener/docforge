@@ -83,9 +83,9 @@ func (v *ValidatorWorker) Validate(ctx context.Context, LinkDestination string, 
 	if req, err = http.NewRequestWithContext(ctx, http.MethodHead, absLinkDestination, nil); err != nil {
 		return fmt.Errorf("failed to prepare HEAD validation request: %v", err)
 	}
-	if resp, err = doValidation(req, client); err != nil {
+	if resp, err = doValidation(req, client); err != nil && !errors.Is(err, context.DeadlineExceeded) {
 		klog.Warningf("failed to validate absolute link for %s from source %s: %v\n", LinkDestination, ContentSourcePath, err)
-	} else if resp.StatusCode >= 400 && resp.StatusCode != http.StatusForbidden && resp.StatusCode != http.StatusUnauthorized {
+	} else if errors.Is(err, context.DeadlineExceeded) || (resp.StatusCode >= 400 && resp.StatusCode != http.StatusForbidden && resp.StatusCode != http.StatusUnauthorized) {
 		// on error status code different from authorization errors
 		// retry GET
 		ctx, cancel = context.WithTimeout(ctx, 30*time.Second) // reset the context for the GET request

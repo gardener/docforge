@@ -24,8 +24,8 @@ type Options struct {
 	DryRun                       bool     `mapstructure:"dry-run"`
 	Resolve                      bool     `mapstructure:"resolve"`
 	ExtractedFilesFormats        []string `mapstructure:"extracted-files-formats"`
-	ValidateLinks                bool     `mapstructure:"validate-links"`
 	HostsToReport                []string `mapstructure:"hosts-to-report"`
+	SkipLinkValidation           bool     `mapstructure:"skip-link-validation"`
 }
 
 // Writers struct that collects all the writesr

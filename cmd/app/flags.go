@@ -76,9 +76,9 @@ func configureFlags(command *cobra.Command) {
 		"Supported content format extensions (exampel: .md)")
 	_ = vip.BindPFlag("extracted-files-formats", command.Flags().Lookup("extracted-files-formats"))
 
-	command.Flags().Bool("validate-links", true,
-		"Links should be validated")
-	_ = vip.BindPFlag("validate-links", command.Flags().Lookup("validate-links"))
+	command.Flags().Bool("skip-link-validation", false,
+		"Links validation will be skipped")
+	_ = vip.BindPFlag("skip-link-validation", command.Flags().Lookup("skip-link-validation"))
 
 	command.Flags().StringSlice("hosts-to-report", []string{},
 		"When a link has a host from the given array it will get reported")

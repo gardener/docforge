@@ -53,7 +53,7 @@ var _ = Describe("Document resolving", func() {
 			return s1, nil
 		})
 		w = &writersfakes.FakeWriter{}
-		dw = document.NewDocumentWorker("__resources", df, vf, lrf, registry, hugo, w)
+		dw = document.NewDocumentWorker("__resources", df, vf, lrf, registry, hugo, w, false)
 	})
 
 	Context("#ProcessNode", func() {

@@ -39,8 +39,9 @@ type Worker struct {
 
 	resourcesRoot string
 
-	repositoryhosts registry.Interface
-	hugo            hugo.Hugo
+	repositoryhosts    registry.Interface
+	hugo               hugo.Hugo
+	skipLinkValidation bool
 }
 
 // docContent defines a document content
@@ -51,7 +52,7 @@ type docContent struct {
 }
 
 // NewDocumentWorker creates Worker objects
-func NewDocumentWorker(resourcesRoot string, downloader downloader.Interface, validator linkvalidator.Interface, linkResolver linkresolver.Interface, rh registry.Interface, hugo hugo.Hugo, writer writers.Writer) *Worker {
+func NewDocumentWorker(resourcesRoot string, downloader downloader.Interface, validator linkvalidator.Interface, linkResolver linkresolver.Interface, rh registry.Interface, hugo hugo.Hugo, writer writers.Writer, skipLinkValidation bool) *Worker {
 	return &Worker{
 		linkResolver,
 		downloader,
@@ -60,6 +61,7 @@ func NewDocumentWorker(resourcesRoot string, downloader downloader.Interface, va
 		resourcesRoot,
 		rh,
 		hugo,
+		skipLinkValidation,
 	}
 }
 
@@ -195,7 +197,9 @@ func (d *linkResolverTask) resolveLink(dest string, isEmbeddable bool) (string, 
 	if url.IsAbs() {
 		if _, err = d.repositoryhosts.ResourceURL(dest); err != nil {
 			// absolute link that is not referencing any documentation page
-			d.validator.ValidateLink(dest, d.source)
+			if !d.node.SkipValidation && !d.skipLinkValidation {
+				d.validator.ValidateLink(dest, d.source)
+			}
 			return dest, nil
 		}
 	}
