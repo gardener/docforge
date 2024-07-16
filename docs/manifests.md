@@ -19,17 +19,22 @@ structure:
   multiSource:
   - https://github.com/gardener/gardener/blob/master/docs/concepts/foo.md
   - https://github.com/gardener/gardener/blob/master/docs/concepts/bar.md
+# define a section file with no content and only frontmatter properties
+- file: _index.md
+  frontmatter:
+    title: Section A
+    description: Description of Section A
+
 ```
 Result:
 ```
 docforge-docs
 ├── apiserver.md
 ├── overview.md
-└── combined.md
-
+├── combined.md
+└── _index_.md
 ```
 
-TODO: _index.md file 
 
 ### Directory element
 
@@ -103,7 +108,6 @@ structure:
 - file: ../README.md
 # resolves to https://github.com/gardener/docforge/tree/master/docs
 - fileTree: /docs
-
 ```
 ## Frontmatter
 
