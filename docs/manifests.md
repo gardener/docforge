@@ -10,15 +10,15 @@ Manifest: files.yaml
 ```yaml
 structure:
 # file defined by github URL
-- file: https://github.com/gardener/gardener/blob/master/docs/concepts/apiserver.md
+- file: https://github.com/gardener/docforge/blob/master/docs/manifests.md
 # rename README.md to overview.md. Note that if file extension is not specified it is assumed to be .md
 - file: overview
-  source: https://github.com/gardener/gardener/blob/master/docs/README.md
+  source: https://github.com/gardener/docforge/blob/master/docs/README.md
 # defining a file that is the concatenation of multiple files
 - file: combined
   multiSource:
-  - https://github.com/gardener/gardener/blob/master/docs/concepts/foo.md
-  - https://github.com/gardener/gardener/blob/master/docs/concepts/bar.md
+  - https://github.com/gardener/docforge/blob/master/docs/cmd-ref/docforge.md
+  - https://github.com/gardener/docforge/blob/master/docs/cmd-ref/docforge_version.md
 # define a section file with no content and only frontmatter properties
 - file: _index.md
   frontmatter:
@@ -29,7 +29,7 @@ structure:
 Result:
 ```
 docforge-docs
-├── apiserver.md
+├── manifests.md
 ├── overview.md
 ├── combined.md
 └── _index_.md
@@ -44,15 +44,15 @@ structure:
 - dir: section
   structure:
   # the content of the directory is listed under structure the same way as the manifest
-  - file: https://github.com/gardener/gardener/blob/master/docs/concepts/apiserver.md
+  - file: https://github.com/gardener/docforge/blob/master/docs/cmd-ref/docforge.md
 - file: overview
-  source: https://github.com/gardener/gardener/blob/master/docs/README.md
+  source: https://github.com/gardener/docforge/blob/master/docs/README.md
 ```
 Result:
 ```
 docforge-docs
 ├── section
-|   └── apiserver.md
+|   └── docforge.md
 └── overview.md
 ```
 
@@ -63,18 +63,22 @@ structure:
 - dir: section
   structure:
   # loads all files from a given github directory (tree)
-  - fileTree: https://github.com/gardener/gardener/tree/master/docs/concepts
+  - fileTree: https://github.com/gardener/docforge/tree/master/docs
     # relative paths of files to exclude
     excludeFiles:
-    - foo/bar/baz.md
+    - cmd-ref/docforge.md
+    - cmd-ref/docforge_version.md
+    - cmd-ref/docforge_completion.md
+    - cmd-ref/docforge_gen-cmd-docs.md
 ```
 Result:
 ```
 docforge-docs
 └── section
-    |── apiserver.md
-    |── apiserver.md
-    └── apiserver.md
+    |── consistency.md
+    |── manifest-ref.md
+    |── manifests.md
+    └── user-index.md
 ```
 
 ### Manifest element
@@ -89,10 +93,11 @@ Result:
 ```
 docforge-docs
 ├── section
-|   └── apiserver.md
-|   └── apiserver.md
-|   └── apiserver.md
-|   └── apiserver.md
+|   |── docforge.md
+|   |── consistency.md
+|   |── manifest-ref.md
+|   |── manifests.md
+|   └── user-index.md
 └── overview.md
 ```
 
@@ -122,14 +127,14 @@ structure:
     weight: 1
     tag: dev
   structure:
-  - file: https://github.com/gardener/gardener/blob/master/docs/concepts/apiserver.md
+  - file: https://github.com/gardener/docforge/blob/master/docs/manifests.md
     frontmatter:
       title: Guides
       description: Walkthroughs of common activities
       # this will override the frontmatter property from section
       weight: 5
 - file: overview
-  source: https://github.com/gardener/gardener/blob/master/docs/README.md
+  source: https://github.com/gardener/docforge/blob/master/docs/README.md
 ```
 Result: section/apiserver.md
 ``` yaml
@@ -154,14 +159,14 @@ structure:
     # all children will have alias /dirmove/blogs/<path_from_here_to_child>
     - /dirmove/blogs
   structure:
-  - file: https://github.com/gardener/gardener/blob/master/docs/concepts/apiserver.md
+  - file: https://github.com/gardener/docforge/blob/master/docs/manifests.md
     frontmatter:
       title: Guides
       description: Walkthroughs of common activities
       aliases:
       - /root/file/
 - file: overview
-  source: https://github.com/gardener/gardener/blob/master/docs/README.md
+  source: https://github.com/gardener/docforge/blob/master/docs/README.md
 ```
 Result: section/apiserver.md
 ``` yaml
