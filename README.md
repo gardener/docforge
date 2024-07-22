@@ -47,9 +47,9 @@ For convenience, copy the docforge executable somewhere on your PATH. For Linux/
 
 ### Operators
 
-Docker images with all docforge releases are public at [Google Cloud Registry](https://console.cloud.google.com/gcr/images/gardener-project/EU/docforge?project=gardener-project&gcrImageListsize=30). To pull a docforge image for a release use the release as image tag, e.g. for docforge version [`v0.30.0`](https://github.com/gardener/docforge/releases/tag/v0.30.0):
+Docker images with all docforge releases are public at [Google Artifact Registry](https://console.cloud.google.com/artifacts/docker/gardener-project/europe/releases/docforge?project=gardener-project&gcrImageListsize=30). To pull a docforge image for a release use the release as image tag, e.g. for docforge version [`v0.46.0`](https://github.com/gardener/docforge/releases/tag/v0.46.0):
 ```sh
-docker pull eu.gcr.io/gardener-project/docforge:v0.30.0
+docker pull europe-docker.pkg.dev/gardener-project/releases/docforge:v0.46.0
 ```
 
 ### Developers

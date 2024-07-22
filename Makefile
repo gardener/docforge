@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-REGISTRY                                                 := eu.gcr.io/gardener-project
+REGISTRY                                                 := europe-docker.pkg.dev/gardener-project/releases
 DOCODE_IMAGE_REPOSITORY                          		 := $(REGISTRY)/docforge
 IMAGE_TAG                                                := $(shell cat VERSION)
 
