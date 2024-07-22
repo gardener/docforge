@@ -9,7 +9,8 @@ docforge:
       version:
         preprocess: "inject-commit-hash"
         inject_effective_version: true
-      component_descriptor: ~
+      component_descriptor:
+        ocm_repository: "europe-docker.pkg.dev/gardener-project/snapshots"
       publish:
         oci-builder: docker-buildx
         platforms:
@@ -18,7 +19,7 @@ docforge:
         dockerimages:
           docforge:
             registry: "gcr-readwrite"
-            image: "eu.gcr.io/gardener-project/docforge"
+            image: "europe-docker.pkg.dev/gardener-project/snapshots/docforge"
             dockerfile: "Dockerfile"
             inputs:
               repos:
@@ -57,6 +58,23 @@ docforge:
       traits:
         version:
           preprocess: "finalize"
+        component_descriptor:
+          ocm_repository: "europe-docker.pkg.dev/gardener-project/releases"
+        publish:
+          oci-builder: docker-buildx
+          platforms:
+          - linux/amd64
+          - linux/arm64
+          dockerimages:
+            docforge:
+              registry: "gcr-readwrite"
+              image: "europe-docker.pkg.dev/gardener-project/releases/docforge"
+              dockerfile: "Dockerfile"
+              inputs:
+                repos:
+                  source: ~
+                steps:
+                  build: ~
         release:
           nextversion: "bump_minor"
         slack:
