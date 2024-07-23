@@ -39,7 +39,7 @@ docforge:
       integration-test:
         image: "europe-docker.pkg.dev/gardener-project/releases/testmachinery/testmachinery-run:stable"
       check-manifest:
-        image: "eu.gcr.io/gardener-project/gardener-website-generator:stable"
+        image: "europe-docker.pkg.dev/gardener-project/releases/gardener-website-generator:stable"
   jobs:
     head-update:
       traits:
