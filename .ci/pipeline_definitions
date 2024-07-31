@@ -38,8 +38,6 @@ docforge:
         output_dir: "binary"
       integration-test:
         image: "europe-docker.pkg.dev/gardener-project/releases/testmachinery/testmachinery-run:stable"
-      check-manifest:
-        image: "europe-docker.pkg.dev/gardener-project/releases/gardener-website-generator:stable"
   jobs:
     head-update:
       traits:
@@ -47,13 +45,6 @@ docforge:
     pull-request:
       traits:
         pull-request: ~
-      steps:
-        docs-gen:
-          image: "golang:1.21.0"
-          inputs:
-            BINARY: "binary"
-          depends:
-          - build
     release:
       traits:
         version:
