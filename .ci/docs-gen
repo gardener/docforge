@@ -18,15 +18,15 @@ if [[ -z "${SOURCE_PATH}" ]]; then
   SOURCE_PATH="$(${READLINK_BIN} -f "$(dirname "${0}")/..")"
 fi
 
-if [[ -z "${BINARY_PATH}" ]]; then
-  BINARY_PATH="${SOURCE_PATH}/bin"
+if [[ -z "${BINARY}" ]]; then
+  BINARY="${SOURCE_PATH}/bin"
 else
-  BINARY_PATH="${BINARY_PATH}/bin"
+  BINARY="${BINARY}/bin"
 fi
 
-if [[ ! -d "${BINARY_PATH}/rel" ]]; then
-  echo "${BINARY_PATH}/rel does not exist. Forgot to build the binaries before running this?"
+if [[ ! -d "${BINARY}/rel" ]]; then
+  echo "${BINARY}/rel does not exist. Forgot to build the binaries before running this?"
   exit 1
 fi
 
-"$BINARY_PATH/rel/${binary}" gen-cmd-docs -d "$SOURCE_PATH/docs/cmd-ref"
+"$BINARY/rel/${binary}" gen-cmd-docs -d "$SOURCE_PATH/docs/cmd-ref"

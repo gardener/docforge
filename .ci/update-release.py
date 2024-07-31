@@ -14,7 +14,7 @@ VERSION_FILE_NAME='VERSION'
 
 repo_owner_and_name = util.check_env('SOURCE_GITHUB_REPO_OWNER_AND_NAME')
 repo_dir = util.check_env('MAIN_REPO_DIR')
-output_dir = util.check_env('BINARY_PATH')
+output_dir = util.check_env('BINARY')
 
 repo_owner, repo_name = repo_owner_and_name.split('/')
 

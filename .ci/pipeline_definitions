@@ -51,7 +51,7 @@ docforge:
         docs-gen:
           image: "golang:1.21.0"
           inputs:
-            BINARY_PATH: 'binary_path'
+            BINARY: "binary"
           depends:
           - build
     release:
@@ -87,6 +87,6 @@ docforge:
         update-release:
           execute: 'update-release.py'
           inputs:
-            BINARY_PATH: 'binary_path'
+            BINARY: "binary"
           depends:
           - release
