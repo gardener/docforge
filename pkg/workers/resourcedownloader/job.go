@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-package downloader
+package resourcedownloader
 
 import (
 	"context"
@@ -25,7 +25,7 @@ type Interface interface {
 }
 
 type downloadScheduler struct {
-	*DownloadWorker
+	*ResourceDownloadWorker
 	queue taskqueue.Interface
 }
 
@@ -55,7 +55,7 @@ func (ds *downloadScheduler) Schedule(source string, target string, document str
 	return nil
 }
 
-func (d *DownloadWorker) ececute(ctx context.Context, task interface{}) error {
+func (d *ResourceDownloadWorker) ececute(ctx context.Context, task interface{}) error {
 	dt, ok := task.(*downloadTask)
 	if !ok {
 		return fmt.Errorf("incorrect download task: %T", task)

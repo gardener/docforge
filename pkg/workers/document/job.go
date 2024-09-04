@@ -12,9 +12,9 @@ import (
 	"github.com/gardener/docforge/cmd/hugo"
 	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/registry"
-	"github.com/gardener/docforge/pkg/workers/downloader"
 	"github.com/gardener/docforge/pkg/workers/linkresolver"
 	"github.com/gardener/docforge/pkg/workers/linkvalidator"
+	"github.com/gardener/docforge/pkg/workers/resourcedownloader"
 	"github.com/gardener/docforge/pkg/workers/taskqueue"
 	"github.com/gardener/docforge/pkg/writers"
 	"k8s.io/klog/v2"
@@ -32,7 +32,7 @@ type Processor interface {
 }
 
 // New creates a new Worker
-func New(workerCount int, failFast bool, wg *sync.WaitGroup, structure []*manifest.Node, resourcesRoot string, downloadJob downloader.Interface, validator linkvalidator.Interface, rhs registry.Interface, hugo hugo.Hugo, writer writers.Writer, skipLinkValidation bool) (Processor, taskqueue.QueueController, error) {
+func New(workerCount int, failFast bool, wg *sync.WaitGroup, structure []*manifest.Node, resourcesRoot string, downloadJob resourcedownloader.Interface, validator linkvalidator.Interface, rhs registry.Interface, hugo hugo.Hugo, writer writers.Writer, skipLinkValidation bool) (Processor, taskqueue.QueueController, error) {
 	lr := &linkresolver.LinkResolver{
 		Repositoryhosts: rhs,
 		Hugo:            hugo,

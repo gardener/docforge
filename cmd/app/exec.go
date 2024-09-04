@@ -14,9 +14,9 @@ import (
 	"github.com/gardener/docforge/pkg/registry"
 	"github.com/gardener/docforge/pkg/registry/repositoryhost"
 	"github.com/gardener/docforge/pkg/workers/document"
-	"github.com/gardener/docforge/pkg/workers/downloader"
 	"github.com/gardener/docforge/pkg/workers/githubinfo"
 	"github.com/gardener/docforge/pkg/workers/linkvalidator"
+	"github.com/gardener/docforge/pkg/workers/resourcedownloader"
 	"github.com/gardener/docforge/pkg/workers/taskqueue"
 	"k8s.io/klog/v2"
 )
@@ -59,7 +59,7 @@ func exec(ctx context.Context) error {
 		fmt.Println(documentNodes[0])
 	}
 
-	dScheduler, downloadTasks, err := downloader.New(config.ResourceDownloadWorkersCount, config.FailFast, reactorWG, rhRegistry, config.ResourceDownloadWriter)
+	dScheduler, downloadTasks, err := resourcedownloader.New(config.ResourceDownloadWorkersCount, config.FailFast, reactorWG, rhRegistry, config.ResourceDownloadWriter)
 	if err != nil {
 		return err
 	}

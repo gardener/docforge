@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-package downloader_test
+package resourcedownloader_test
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 
 	"github.com/gardener/docforge/pkg/registry"
 	"github.com/gardener/docforge/pkg/registry/repositoryhost"
-	"github.com/gardener/docforge/pkg/workers/downloader"
+	"github.com/gardener/docforge/pkg/workers/resourcedownloader"
 	"github.com/gardener/docforge/pkg/writers/writersfakes"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -32,7 +32,7 @@ var _ = Describe("Executing Download", func() {
 		err    error
 		r      registry.Interface
 		writer *writersfakes.FakeWriter
-		worker *downloader.DownloadWorker
+		worker *resourcedownloader.ResourceDownloadWorker
 
 		ctx      context.Context
 		source   string
@@ -51,7 +51,7 @@ var _ = Describe("Executing Download", func() {
 	})
 
 	JustBeforeEach(func() {
-		worker, err = downloader.NewDownloader(r, writer)
+		worker, err = resourcedownloader.NewDownloader(r, writer)
 		Expect(worker).NotTo(BeNil())
 		Expect(err).NotTo(HaveOccurred())
 
