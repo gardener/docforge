@@ -7,7 +7,7 @@ package downloaderfakes
 import (
 	"sync"
 
-	"github.com/gardener/docforge/pkg/workers/downloader"
+	"github.com/gardener/docforge/pkg/workers/resourcedownloader"
 )
 
 type FakeInterface struct {
@@ -115,4 +115,4 @@ func (fake *FakeInterface) recordInvocation(key string, args []interface{}) {
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ downloader.Interface = new(FakeInterface)
+var _ resourcedownloader.Interface = new(FakeInterface)
