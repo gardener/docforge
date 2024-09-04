@@ -10,6 +10,7 @@ Docforge is designed to support the re-purposing of documentation sources. Inste
 
 Docforge manifests are modular, supporting references to other manifests that are included recursively for maintaining potentially complex structures, e.g. for large documentation portals.
 
+
 ![](./docs/images/docforge-overview.svg)
 <figcaption>Figure 1: Docforge overview</figcaption>
 
