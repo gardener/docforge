@@ -96,7 +96,8 @@ func (p *ghc) LoadRepository(ctx context.Context, resourceURL string) error {
 		}
 		resource, err := refURL.GetDifferentType(entry.GetType())
 		if err != nil {
-			return err
+			klog.Infof("failed processing %s when loading repository: %s. Skipping it", entry.GetPath(), err.Error())
+			continue
 		}
 		resourceURL := fmt.Sprintf("%s/%s", resource, entry.GetPath())
 		repoContent[resourceURL] = entry.GetSHA()
