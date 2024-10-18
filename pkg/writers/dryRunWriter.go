@@ -70,7 +70,7 @@ func (d *dryRunWriter) GetWriter(root string) Writer {
 	return _w
 }
 
-func (w *writer) Write(name, path string, docBlob []byte, node *manifest.Node) error {
+func (w *writer) Write(name, path string, docBlob []byte, node *manifest.Node, IndexFileNames []string) error {
 	if len(docBlob) > 0 && node != nil {
 		if !strings.HasSuffix(name, ".md") {
 			name = fmt.Sprintf("%s.md", name)

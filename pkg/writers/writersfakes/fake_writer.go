@@ -12,13 +12,14 @@ import (
 )
 
 type FakeWriter struct {
-	WriteStub        func(string, string, []byte, *manifest.Node) error
+	WriteStub        func(string, string, []byte, *manifest.Node, []string) error
 	writeMutex       sync.RWMutex
 	writeArgsForCall []struct {
 		arg1 string
 		arg2 string
 		arg3 []byte
 		arg4 *manifest.Node
+		arg5 []string
 	}
 	writeReturns struct {
 		result1 error
@@ -30,11 +31,16 @@ type FakeWriter struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeWriter) Write(arg1 string, arg2 string, arg3 []byte, arg4 *manifest.Node) error {
+func (fake *FakeWriter) Write(arg1 string, arg2 string, arg3 []byte, arg4 *manifest.Node, arg5 []string) error {
 	var arg3Copy []byte
 	if arg3 != nil {
 		arg3Copy = make([]byte, len(arg3))
 		copy(arg3Copy, arg3)
+	}
+	var arg5Copy []string
+	if arg5 != nil {
+		arg5Copy = make([]string, len(arg5))
+		copy(arg5Copy, arg5)
 	}
 	fake.writeMutex.Lock()
 	ret, specificReturn := fake.writeReturnsOnCall[len(fake.writeArgsForCall)]
@@ -43,13 +49,14 @@ func (fake *FakeWriter) Write(arg1 string, arg2 string, arg3 []byte, arg4 *manif
 		arg2 string
 		arg3 []byte
 		arg4 *manifest.Node
-	}{arg1, arg2, arg3Copy, arg4})
+		arg5 []string
+	}{arg1, arg2, arg3Copy, arg4, arg5Copy})
 	stub := fake.WriteStub
 	fakeReturns := fake.writeReturns
-	fake.recordInvocation("Write", []interface{}{arg1, arg2, arg3Copy, arg4})
+	fake.recordInvocation("Write", []interface{}{arg1, arg2, arg3Copy, arg4, arg5Copy})
 	fake.writeMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2, arg3, arg4)
+		return stub(arg1, arg2, arg3, arg4, arg5)
 	}
 	if specificReturn {
 		return ret.result1
@@ -63,17 +70,17 @@ func (fake *FakeWriter) WriteCallCount() int {
 	return len(fake.writeArgsForCall)
 }
 
-func (fake *FakeWriter) WriteCalls(stub func(string, string, []byte, *manifest.Node) error) {
+func (fake *FakeWriter) WriteCalls(stub func(string, string, []byte, *manifest.Node, []string) error) {
 	fake.writeMutex.Lock()
 	defer fake.writeMutex.Unlock()
 	fake.WriteStub = stub
 }
 
-func (fake *FakeWriter) WriteArgsForCall(i int) (string, string, []byte, *manifest.Node) {
+func (fake *FakeWriter) WriteArgsForCall(i int) (string, string, []byte, *manifest.Node, []string) {
 	fake.writeMutex.RLock()
 	defer fake.writeMutex.RUnlock()
 	argsForCall := fake.writeArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5
 }
 
 func (fake *FakeWriter) WriteReturns(result1 error) {

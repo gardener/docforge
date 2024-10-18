@@ -12,5 +12,5 @@ import "github.com/gardener/docforge/pkg/manifest"
 //
 //counterfeiter:generate . Writer
 type Writer interface {
-	Write(name, path string, resourceContent []byte, node *manifest.Node) error
+	Write(name, path string, resourceContent []byte, node *manifest.Node, IndexFileNames []string) error
 }

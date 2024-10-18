@@ -68,7 +68,7 @@ func configureFlags(command *cobra.Command) {
 		"Rewrites the relative links of documentation files to root-relative where possible.")
 	_ = vip.BindPFlag("hugo-base-url", command.Flags().Lookup("hugo-base-url"))
 
-	command.Flags().StringSlice("hugo-section-files", []string{"readme.md", "readme", "read.me", "index.md", "index"},
+	command.Flags().StringSlice("hugo-section-files", []string{"readme.md", "README.md"},
 		"When building a Hugo-compliant documentation bundle, files with filename matching one form this list (in that order) will be renamed to _index.md. Only useful with --hugo=true")
 	_ = vip.BindPFlag("hugo-section-files", command.Flags().Lookup("hugo-section-files"))
 

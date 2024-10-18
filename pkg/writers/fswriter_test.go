@@ -59,7 +59,7 @@ func TestWrite(t *testing.T) {
 				}
 			}()
 
-			err := fs.Write(tc.name, tc.path, tc.docBlob, tc.node)
+			err := fs.Write(tc.name, tc.path, tc.docBlob, tc.node, nil)
 
 			if err != tc.wantErr {
 				t.Errorf("expected err %v != %v", tc.wantErr, err)

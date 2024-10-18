@@ -68,7 +68,7 @@ var _ = Describe("Document resolving", func() {
 			}
 			err := dw.ProcessNode(context.TODO(), node)
 			Expect(err).ToNot(HaveOccurred())
-			name, path, cnt, nodegot := w.WriteArgsForCall(0)
+			name, path, cnt, nodegot, _ := w.WriteArgsForCall(0)
 			Expect(name).To(Equal("node"))
 			Expect(path).To(Equal("one"))
 			target, err := manifests.ReadFile("tests/expected_target.md")
@@ -91,7 +91,7 @@ var _ = Describe("Document resolving", func() {
 			}
 			err := dw.ProcessNode(context.TODO(), node)
 			Expect(err).ToNot(HaveOccurred())
-			name, path, cnt, nodegot := w.WriteArgsForCall(0)
+			name, path, cnt, nodegot, _ := w.WriteArgsForCall(0)
 			Expect(name).To(Equal("node"))
 			Expect(path).To(Equal("one"))
 			target, err := manifests.ReadFile("tests/expected_target.md")
