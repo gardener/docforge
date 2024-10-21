@@ -66,7 +66,7 @@ func (w *Worker) WriteGithubInfo(ctx context.Context, node *manifest.Node) error
 	}
 	nodePath := node.Path
 	klog.V(6).Infof("writing git info for node %s/%s\n", nodePath, node.Name())
-	if err = w.writer.Write(node.Name(), nodePath, b.Bytes(), node); err != nil {
+	if err = w.writer.Write(node.Name(), nodePath, b.Bytes(), node, nil); err != nil {
 		return err
 	}
 	return nil

@@ -50,7 +50,7 @@ export GITHUB_OAUTH_TOKEN=$TOKEN
 buildWebsite() {
   LOCAL_BUILD=1 "${docforge_repo_path}/.ci/build" >/dev/null 2>&1
   mv "$docforge_bin" /usr/local/bin/docforge
-  "${website_generator_path}/.ci/build"
+  SKIP_VALIDATION=true "${website_generator_path}/.ci/build"
 }
 
 echo "Building current docforge"

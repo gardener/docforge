@@ -102,7 +102,7 @@ var _ = Describe("Executing Download", func() {
 	It("succeeded", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(writer.WriteCallCount()).To(Equal(1))
-		name, path, content, node := writer.WriteArgsForCall(0)
+		name, path, content, node, _ := writer.WriteArgsForCall(0)
 		Expect(node).To(BeNil())
 		Expect(path).To(Equal(""))
 		Expect(name).To(Equal("fake_target"))

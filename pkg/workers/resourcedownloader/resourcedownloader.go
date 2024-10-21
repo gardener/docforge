@@ -79,7 +79,7 @@ func (d *ResourceDownloadWorker) download(ctx context.Context, Source string, Ta
 	if err != nil {
 		return err
 	}
-	if err = d.writer.Write(Target, "", blob, nil); err != nil {
+	if err = d.writer.Write(Target, "", blob, nil, nil); err != nil {
 		return err
 	}
 	return nil

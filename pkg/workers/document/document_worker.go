@@ -91,7 +91,7 @@ func (d *Worker) ProcessNode(ctx context.Context, node *manifest.Node) error {
 		}
 		cnt = bytesBuff.Bytes()
 	}
-	if err := d.writer.Write(node.Name(), node.Path, cnt, node); err != nil {
+	if err := d.writer.Write(node.Name(), node.Path, cnt, node, d.hugo.IndexFileNames); err != nil {
 		return err
 	}
 	return nil

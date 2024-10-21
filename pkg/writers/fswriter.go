@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 
 	"github.com/gardener/docforge/pkg/manifest"
 	"gopkg.in/yaml.v3"
@@ -21,7 +22,10 @@ type FSWriter struct {
 	Hugo bool
 }
 
-func (f *FSWriter) Write(name, path string, docBlob []byte, node *manifest.Node) error {
+func (f *FSWriter) Write(name, path string, docBlob []byte, node *manifest.Node, IndexFileNames []string) error {
+	if slices.Contains(IndexFileNames, name) {
+		name = "_index.md"
+	}
 	//generate _index.md content
 	if f.Hugo && name == "_index.md" && node != nil && node.Frontmatter != nil && docBlob == nil {
 		buf := bytes.Buffer{}

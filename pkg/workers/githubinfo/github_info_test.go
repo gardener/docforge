@@ -99,7 +99,7 @@ var _ = Describe("Executing WriteGithubInfo", func() {
 		})
 		It("succeeded", func() {
 			Expect(err).NotTo(HaveOccurred())
-			_, _, content, _ := writer.WriteArgsForCall(0)
+			_, _, content, _, _ := writer.WriteArgsForCall(0)
 			Expect(string(content)).To(Equal("repoHost1 source_content\nrepoHost2 multi_source_content\n"))
 		})
 	})
@@ -116,7 +116,7 @@ var _ = Describe("Executing WriteGithubInfo", func() {
 
 	It("succeeded", func() {
 		Expect(err).NotTo(HaveOccurred())
-		name, path, content, node := writer.WriteArgsForCall(0)
+		name, path, content, node, _ := writer.WriteArgsForCall(0)
 		Expect(node).NotTo(BeNil())
 		Expect(node.Name()).To(Equal("README.md"))
 		Expect(node.Source).To(Equal("https://github.com/gardener/docforge/blob/master/README.md"))
