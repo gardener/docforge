@@ -152,10 +152,10 @@ func resolveRelativeLinks(node *Node, _ *Node, manifest *Node, r registry.Interf
 			return nil
 		}
 		if repositoryhost.IsResourceURL(*link) {
-			if _, err := r.ResourceURL(*link); err == nil {
-				return nil
+			if _, err := r.ResourceURL(*link); err != nil {
+				return fmt.Errorf("%s does not exist: %w", *link, err)
 			}
-			return fmt.Errorf("%s does not exist", *link)
+			return nil
 		}
 		newLink, err := r.ResolveRelativeLink(manifest.Manifest, *link)
 		if err != nil {
