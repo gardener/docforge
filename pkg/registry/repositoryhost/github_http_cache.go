@@ -158,6 +158,9 @@ func (p *ghc) Read(ctx context.Context, r URL) ([]byte, error) {
 	if r.GetResourceType() != "blob" && r.GetResourceType() != "raw" {
 		return nil, fmt.Errorf("not a blob/raw url: %s", r.String())
 	}
+	if !slices.ContainsFunc(p.options.ExtractedFilesFormats, func(suffix string) bool { return strings.HasSuffix(r.ResourceURL(), suffix) }) {
+		return []byte{}, fmt.Errorf("file format of %s is not extractable", r.ResourceURL())
+	}
 	refURL := r.ReferenceURL().String()
 	SHA := p.repositoryFiles[refURL][r.ResourceURL()]
 	raw, resp, err := p.git.GetBlobRaw(ctx, r.GetOwner(), r.GetRepo(), SHA)

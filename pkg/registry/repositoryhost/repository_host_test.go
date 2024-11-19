@@ -22,11 +22,11 @@ func testRepositoryHost(ghc repositoryhost.Interface) {
 			Expect(err.Error()).To(ContainSubstring("expected a tree url got https://github.com/gardener/docforge/blob/master/README.md"))
 		})
 
-		It("should list the proper files", func() {
+		It("should list all files", func() {
 			resourceURl, err := ghc.ResourceURL("https://github.com/gardener/docforge/tree/master/pkg")
 			Expect(err).NotTo(HaveOccurred())
 			tree, err := ghc.Tree(*resourceURl)
-			Expect(tree).To(Equal([]string{}))
+			Expect(tree).To(ContainElements("api/type.go", "main.go"))
 			Expect(err).NotTo(HaveOccurred())
 
 		})

@@ -120,7 +120,7 @@ func (d *Worker) process(ctx context.Context, b *bytes.Buffer, n *manifest.Node)
 		return nil
 	}
 
-	if fullContent[0].docAst.Kind() == ast.KindDocument {
+	if fullContent[0].docAst != nil && fullContent[0].docAst.Kind() == ast.KindDocument {
 		firstDoc := fullContent[0].docAst.(*ast.Document)
 		docs := []frontmatter.NodeMeta{}
 		for _, astNode := range fullContent {
@@ -138,9 +138,13 @@ func (d *Worker) process(ctx context.Context, b *bytes.Buffer, n *manifest.Node)
 			n,
 			cnt.docURI,
 		}
-		rnd := markdown.NewLinkModifierRenderer(markdown.WithLinkResolver(lrt.resolveLink))
-		if err := rnd.Render(b, cnt.docCnt, cnt.docAst); err != nil {
-			return err
+		if strings.HasSuffix(cnt.docURI, ".md") {
+			rnd := markdown.NewLinkModifierRenderer(markdown.WithLinkResolver(lrt.resolveLink))
+			if err := rnd.Render(b, cnt.docCnt, cnt.docAst); err != nil {
+				return err
+			}
+		} else {
+			b.Write(cnt.docCnt)
 		}
 	}
 	return nil
@@ -153,9 +157,11 @@ func (d *Worker) processSource(ctx context.Context, sourceType string, source st
 		return nil, fmt.Errorf("reading %s %s from node %s failed: %w", sourceType, source, nodePath, err)
 	}
 	dc = &docContent{docCnt: content, docURI: source}
-	dc.docAst, err = markdown.Parse(content)
-	if err != nil {
-		return nil, fmt.Errorf("fail to parse %s %s from node %s: %w", sourceType, source, nodePath, err)
+	if strings.HasSuffix(source, ".md") {
+		dc.docAst, err = markdown.Parse(content)
+		if err != nil {
+			return nil, fmt.Errorf("fail to parse %s %s from node %s: %w", sourceType, source, nodePath, err)
+		}
 	}
 	return dc, nil
 }

@@ -217,10 +217,6 @@ func constructNodeTree(files []string, node *Node, parent *Node) error {
 	pathToDirNode := map[string]*Node{}
 	pathToDirNode[node.Path] = parent
 	for _, file := range files {
-		extension := path.Ext(file)
-		if extension != ".md" {
-			continue
-		}
 		shouldExclude := false
 		for _, excludeFile := range node.ExcludeFiles {
 			if strings.HasPrefix(file, excludeFile) {

@@ -31,16 +31,16 @@ var _ = Describe("Github cache test", func() {
 	rls := repositoryhostfakes.FakeRateLimitSource{}
 	repositories := repositoryhostfakes.FakeRepositories{}
 	git := repositoryhostfakes.FakeGit{}
-	git.GetBlobRawCalls(func(ctx context.Context, s1, s2, s3 string) ([]byte, *github.Response, error) {
-		if s3 == "1" {
+	git.GetBlobRawCalls(func(ctx context.Context, owner, repo, sha string) ([]byte, *github.Response, error) {
+		if sha == "1" {
 			return []byte("foo"), nil, nil
-		} else if s3 == "2" {
+		} else if sha == "11" {
 			githubResp := &github.Response{Response: &http.Response{StatusCode: http.StatusNotFound}}
 			return nil, githubResp, errors.New("not found")
 		}
 		return nil, nil, errors.New("wrong test file")
 	})
-	ghc := repositoryhost.NewGHC("testing", &rls, &repositories, &git, client, []string{"github.com"}, repositoryhost.ParsingOptions{ExtractedFilesFormats: []string{".md"}, Hugo: true})
+	ghc := repositoryhost.NewGHC("testing", &rls, &repositories, &git, client, []string{"github.com"}, repositoryhost.ParsingOptions{ExtractedFilesFormats: []string{".md", ".go"}, Hugo: true})
 	tree := github.Tree{
 		Entries: []*github.TreeEntry{
 			{
@@ -93,6 +93,11 @@ var _ = Describe("Github cache test", func() {
 				Type: github.String("blob"),
 				SHA:  github.String("10"),
 			},
+			{
+				Path: github.String("contributors.md"),
+				Type: github.String("blob"),
+				SHA:  github.String("11"),
+			},
 		},
 	}
 	git.GetTreeReturns(&tree, nil, nil)
@@ -101,9 +106,9 @@ var _ = Describe("Github cache test", func() {
 	testRepositoryHost(ghc)
 
 	It("repository updated after loading", func() {
-		resourceURl, err := ghc.ResourceURL("https://github.com/gardener/docforge/blob/master/Makefile")
+		resourceURl, err := ghc.ResourceURL("https://github.com/gardener/docforge/blob/master/contributors.md")
 		Expect(err).NotTo(HaveOccurred())
 		_, err = ghc.Read(context.TODO(), *resourceURl)
-		Expect(err).To(Equal(repositoryhost.ErrResourceNotFound("https://github.com/gardener/docforge/blob/master/Makefile")))
+		Expect(err).To(Equal(repositoryhost.ErrResourceNotFound("https://github.com/gardener/docforge/blob/master/contributors.md")))
 	})
 })
