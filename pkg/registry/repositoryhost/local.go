@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	ospkg "os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -21,10 +22,12 @@ type Local struct {
 	os        osshim.Os
 	urlPrefix string
 	localPath string
+
+	extractedFilesFormats []string
 }
 
 // NewLocalTest creates a local repository host used for testing
-func NewLocalTest(localRepo embed.FS, urlPrefix string, localPath string) Interface {
+func NewLocalTest(localRepo embed.FS, urlPrefix string, localPath string, extractedFilesFormats []string) Interface {
 	os := &osshimfakes.FakeOs{}
 	os.ReadFileCalls(localRepo.ReadFile)
 	os.IsNotExistCalls(ospkg.IsNotExist)
@@ -39,12 +42,12 @@ func NewLocalTest(localRepo embed.FS, urlPrefix string, localPath string) Interf
 		}
 		return stat.IsDir(), nil
 	})
-	return &Local{os, urlPrefix, localPath}
+	return &Local{os, urlPrefix, localPath, extractedFilesFormats}
 }
 
 // NewLocal creates a local repository host
-func NewLocal(os osshim.Os, urlPrefix string, localPath string) Interface {
-	return &Local{os, urlPrefix, localPath}
+func NewLocal(os osshim.Os, urlPrefix string, localPath string, extractedFilesFormats []string) Interface {
+	return &Local{os, urlPrefix, localPath, extractedFilesFormats}
 }
 
 // ResourceURL returns a valid resource url object from a string url
@@ -96,7 +99,7 @@ func (l *Local) Tree(resource URL) ([]string, error) {
 	dirPath := filepath.Join(l.localPath, resource.GetResourcePath())
 	files := []string{}
 	filepath.Walk(dirPath, func(path string, info fs.FileInfo, err error) error {
-		if !info.IsDir() && strings.HasSuffix(path, ".md") {
+		if !info.IsDir() && slices.ContainsFunc(l.extractedFilesFormats, func(suffix string) bool { return strings.HasSuffix(path, suffix) }) {
 			files = append(files, strings.TrimPrefix(strings.TrimPrefix(path, dirPath), "/"))
 		}
 		return nil
@@ -121,6 +124,9 @@ func (l *Local) Read(_ context.Context, resource URL) ([]byte, error) {
 			return nil, fmt.Errorf("not a blob/raw url: %s", resource.String())
 		}
 		return nil, fmt.Errorf("reading file %s for uri %s fails: %v", fn, resource.String(), err)
+	}
+	if !slices.ContainsFunc(l.extractedFilesFormats, func(suffix string) bool { return strings.HasSuffix(resource.ResourceURL(), suffix) }) {
+		return []byte{}, fmt.Errorf("file format of %s is not extractable", resource.ResourceURL())
 	}
 	return cnt, nil
 }

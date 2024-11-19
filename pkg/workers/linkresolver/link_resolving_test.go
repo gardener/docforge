@@ -37,7 +37,7 @@ var _ = Describe("Document link resolving", func() {
 
 		BeforeEach(func() {
 			linkResolver = linkresolver.LinkResolver{}
-			registry := registry.NewRegistry(repositoryhost.NewLocalTest(manifests, "https://github.com/gardener/docforge", "tests"))
+			registry := registry.NewRegistry(repositoryhost.NewLocalTest(manifests, "https://github.com/gardener/docforge", "tests", []string{".md", ".html", ".xhtml", ".xml", ".txt", ".yaml"}))
 			linkResolver.Repositoryhosts = registry
 			linkResolver.Hugo = hugo.Hugo{
 				Enabled: true,

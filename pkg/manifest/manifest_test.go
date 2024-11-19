@@ -41,7 +41,7 @@ var _ = Describe("Manifest test", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(yaml.Unmarshal([]byte(resultBytes), &expected)).NotTo(HaveOccurred())
 
-			r := registry.NewRegistry(repositoryhost.NewLocalTest(repo, "https://github.com/gardener/docforge", "tests"))
+			r := registry.NewRegistry(repositoryhost.NewLocalTest(repo, "https://github.com/gardener/docforge", "tests", []string{".md", ".html", ".xhtml", ".xml", ".txt", ".yaml"}))
 
 			url := "https://github.com/gardener/docforge/blob/master/" + exampleFile
 			allNodes, err := manifest.ResolveManifest(url, r)
@@ -73,7 +73,7 @@ var _ = Describe("Manifest test", func() {
 		func(example string, errorMsg string) {
 			exampleFile := fmt.Sprintf("manifests/%s.yaml", example)
 
-			r := registry.NewRegistry(repositoryhost.NewLocalTest(repo, "https://github.com/gardener/docforge", "tests"))
+			r := registry.NewRegistry(repositoryhost.NewLocalTest(repo, "https://github.com/gardener/docforge", "tests", []string{".md", ".html", ".xhtml", ".xml", ".txt", ".yaml"}))
 
 			url := "https://github.com/gardener/docforge/blob/master/" + exampleFile
 			_, err := manifest.ResolveManifest(url, r)

@@ -40,7 +40,7 @@ var _ = Describe("Document resolving", func() {
 		w *writersfakes.FakeWriter
 	)
 	BeforeEach(func() {
-		registry := registry.NewRegistry(repositoryhost.NewLocalTest(manifests, "https://github.com/gardener/docforge", "tests"))
+		registry := registry.NewRegistry(repositoryhost.NewLocalTest(manifests, "https://github.com/gardener/docforge", "tests", []string{".md", ".html", ".xhtml", ".xml", ".txt"}))
 		hugo := hugo.Hugo{
 			Enabled:        true,
 			BaseURL:        "baseURL",
