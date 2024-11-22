@@ -31,7 +31,8 @@ func exec(ctx context.Context) error {
 	klog.Infof("Manifest: %s", options.ManifestPath)
 	localRH := []repositoryhost.Interface{}
 	for resource, mapped := range options.ResourceMappings {
-		localRH = append(localRH, repositoryhost.NewLocal(&osshim.OsShim{}, resource, mapped, []string{".md", ".html", ".xhtml", ".xml", ".txt", ".yaml", ".png"}))
+
+		localRH = append(localRH, repositoryhost.NewLocal(&osshim.OsShim{}, resource, mapped, options.ParsingOptions.ExtractedFilesFormats))
 		klog.Infof("%s -> %s", resource, mapped)
 	}
 	klog.Infof("Output dir: %s", options.DestinationPath)
