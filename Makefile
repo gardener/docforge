@@ -100,3 +100,7 @@ check-manifest:
 .PHONY: generate
 generate:
 	@go generate ./...
+
+.PHONY: task
+task:
+	@./task.sh "$(m)"
