@@ -16,5 +16,5 @@ import (
 var repo embed.FS
 
 var _ = Describe("Local cache test", func() {
-	testRepositoryHost(repositoryhost.NewLocalTest(repo, "https://github.com/gardener/docforge", "internal/local_test", []string{".md", ".html", ".xhtml", ".xml", ".txt", ".yaml", ".go"}))
+	testRepositoryHost(repositoryhost.NewLocalTest(repo, "https://github.com/gardener/docforge", "internal/local_test", []string{".md", ".go"}))
 })

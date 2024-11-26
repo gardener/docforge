@@ -42,7 +42,7 @@ var _ = Describe("Executing Download", func() {
 
 	BeforeEach(func() {
 		writer = &writersfakes.FakeWriter{}
-		r = registry.NewRegistry(repositoryhost.NewLocalTest(repo, "https://github.com/gardener/docforge", "test", []string{".md", ".html", ".xhtml", ".xml", ".txt", ".yaml"}))
+		r = registry.NewRegistry(repositoryhost.NewLocalTest(repo, "https://github.com/gardener/docforge", "test", []string{".md"}))
 		writer.WriteReturns(nil)
 		ctx = context.TODO()
 		source = "https://github.com/gardener/docforge/blob/master/README.md"

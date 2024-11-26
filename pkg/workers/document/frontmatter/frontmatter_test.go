@@ -159,7 +159,7 @@ var _ = Describe("Document frontmatter", func() {
 			err            error
 		)
 		BeforeEach(func() {
-			r := registry.NewRegistry(repositoryhost.NewLocalTest(manifests, "https://github.com/gardener/docforge", "tests", []string{".md", ".html", ".xhtml", ".xml", ".txt", ".yaml"}))
+			r := registry.NewRegistry(repositoryhost.NewLocalTest(manifests, "https://github.com/gardener/docforge", "tests", []string{".md", ".yaml"}))
 			nodes, err = manifest.ResolveManifest("https://github.com/gardener/docforge/blob/master/titles.yaml", r)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(nodes)).To(Equal(6))
