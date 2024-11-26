@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -103,19 +102,14 @@ func getReactorConfig(options Options, hugo hugo.Hugo, rhs []repositoryhost.Inte
 		Hugo:            hugo,
 	}
 
-	if config.DryRun {
-		config.DryRunWriter = writers.NewDryRunWritersFactory(os.Stdout)
-		config.Writer = config.DryRunWriter.GetWriter(config.DestinationPath)
-		config.ResourceDownloadWriter = config.DryRunWriter.GetWriter(filepath.Join(config.DestinationPath, config.ResourcesPath))
-	} else {
-		config.Writer = &writers.FSWriter{
-			Root: config.DestinationPath,
-			Hugo: config.Hugo.Enabled,
-		}
-		config.ResourceDownloadWriter = &writers.FSWriter{
-			Root: filepath.Join(config.DestinationPath, config.ResourcesPath),
-		}
+	config.Writer = &writers.FSWriter{
+		Root: config.DestinationPath,
+		Hugo: config.Hugo.Enabled,
 	}
+	config.ResourceDownloadWriter = &writers.FSWriter{
+		Root: filepath.Join(config.DestinationPath, config.ResourcesPath),
+	}
+
 	if len(config.GhInfoDestination) > 0 {
 		config.GitInfoWriter = &writers.FSWriter{
 			Root: filepath.Join(config.DestinationPath, config.GhInfoDestination),

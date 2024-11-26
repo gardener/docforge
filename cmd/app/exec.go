@@ -55,7 +55,7 @@ func exec(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to resolve manifest %s. %+v", config.ManifestPath, err)
 	}
-	if config.Resolve {
+	if config.DryRun {
 		fmt.Println(documentNodes[0])
 	}
 
@@ -85,13 +85,6 @@ func exec(ctx context.Context) error {
 		qcc.Add(ghInfoTasks)
 	}
 
-	ctx, cancel := context.WithCancel(ctx)
-	defer func() {
-		cancel()
-		if config.DryRun {
-			config.DryRunWriter.Flush()
-		}
-	}()
 	for _, node := range documentNodes {
 		docProcessor.ProcessNode(node)
 	}

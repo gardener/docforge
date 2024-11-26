@@ -22,7 +22,6 @@ type Options struct {
 	ResourceDownloadWorkersCount int      `mapstructure:"download-workers"`
 	GhInfoDestination            string   `mapstructure:"github-info-destination"`
 	DryRun                       bool     `mapstructure:"dry-run"`
-	Resolve                      bool     `mapstructure:"resolve"`
 	ExtractedFilesFormats        []string `mapstructure:"extracted-files-formats"`
 	HostsToReport                []string `mapstructure:"hosts-to-report"`
 	SkipLinkValidation           bool     `mapstructure:"skip-link-validation"`
@@ -33,7 +32,6 @@ type Writers struct {
 	ResourceDownloadWriter writers.Writer
 	GitInfoWriter          writers.Writer
 	Writer                 writers.Writer
-	DryRunWriter           writers.DryRunWriter
 }
 
 // Config configuration of the reactor
