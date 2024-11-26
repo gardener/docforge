@@ -33,7 +33,6 @@ type Writers struct {
 	ResourceDownloadWriter writers.Writer
 	GitInfoWriter          writers.Writer
 	Writer                 writers.Writer
-	DryRunWriter           writers.DryRunWriter
 }
 
 // Config configuration of the reactor
