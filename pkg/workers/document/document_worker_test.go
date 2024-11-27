@@ -57,7 +57,7 @@ var _ = Describe("Document resolving", func() {
 	})
 
 	Context("#ProcessNode", func() {
-		It("returns correct multisource content", func() {
+		It("eturns correct multisource content from md and html files", func() {
 			node := &manifest.Node{
 				FileType: manifest.FileType{
 					File:        "node",
