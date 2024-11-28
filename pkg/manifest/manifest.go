@@ -188,21 +188,17 @@ func resolveRelativeLinks(node *Node, _ *Node, manifest *Node, r registry.Interf
 }
 
 func extractFilesFromNode(node *Node, parent *Node, manifest *Node, r registry.Interface) error {
-	switch node.Type {
-	case "file":
-		if !strings.HasSuffix(node.File, ".md") {
-			node.File += ".md"
-		}
-	case "fileTree":
-		files, err := r.Tree(node.FileTree)
-		if err != nil {
-			return err
-		}
-		if err := constructNodeTree(files, node, parent); err != nil {
-			return err
-		}
-		removeNodeFromParent(node, parent)
+	if node.Type != "fileTree" {
+		return nil
 	}
+	files, err := r.Tree(node.FileTree)
+	if err != nil {
+		return err
+	}
+	if err := constructNodeTree(files, node, parent); err != nil {
+		return err
+	}
+	removeNodeFromParent(node, parent)
 	return nil
 }
 
@@ -222,7 +218,7 @@ func constructNodeTree(files []string, node *Node, parent *Node) error {
 	pathToDirNode[node.Path] = parent
 	for _, file := range files {
 		extension := path.Ext(file)
-		if extension != ".md" && extension != "" {
+		if extension != ".md" {
 			continue
 		}
 		shouldExclude := false
@@ -245,9 +241,6 @@ func constructNodeTree(files []string, node *Node, parent *Node) error {
 			return err
 		}
 		fileName := path.Base(file)
-		if !strings.HasSuffix(fileName, ".md") {
-			fileName = fileName + ".md"
-		}
 		filePath := path.Join(node.Path, path.Dir(file))
 		parentNode := getParrentNode(pathToDirNode, filePath)
 		parentNode.Structure = append(parentNode.Structure, &Node{

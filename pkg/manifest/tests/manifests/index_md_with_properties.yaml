@@ -21,7 +21,7 @@ structure:
       # _index.md with full path
       - file: https://github.com/gardener/docforge/blob/master/contents/website/blog/2024/_index.md
     # renamed _index.md file
-    - file: renamed
+    - file: renamed.md
       source: https://github.com/gardener/docforge/blob/master/contents/website/blog/2024/_index.md
     # importing _index.md from filetree
     - fileTree: /contents/website
