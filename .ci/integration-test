@@ -75,7 +75,6 @@ int_test_expected_tree_dir="${int_test_dir}/expected-tree"
 int_test_expected_metadata_dir="${int_test_dir}/expected-metadata"
 int_test_output_tree_dir="${int_test_dir}/generated-tree"
 int_test_output_metadata_dir="${int_test_dir}/generated-metadata"
-int_test_manifest="https://github.com/gardener/docforge/blob/master/integration-test/manifest.yaml"
 
 rm -rf "${int_test_output_tree_dir}"
 rm -rf "${int_test_output_metadata_dir}"
@@ -85,14 +84,15 @@ echo "Building docforge"
 LOCAL_BUILD=1 "${docforge_repo_path}/.ci/build" >/dev/null 2>&1
 docforge_bin="${docforge_repo_path}/bin/docforge"
 
-echo "Docforge version: $(${docforge_bin} version)"
+echo "Docforge version: $(${docforge_bin} version 2>/dev/null)"
 
 GIT_OAUTH_TOKEN="${GITHUB_OAUTH_TOKEN:-$(getGitHubToken github_com)}"
 test "$GIT_OAUTH_TOKEN" #fail fast
 
 # Run docforge command with Git handler
+echo
 echo "Run ${docforge_bin}"
-${docforge_bin} -f "${int_test_manifest}" -d "${int_test_output_tree_dir}" --hugo --github-oauth-token-map "github.com=${GIT_OAUTH_TOKEN}" --github-info-destination ../generated-metadata
+DOCFORGE_CONFIG="${int_test_dir}/config" ${docforge_bin} -d "${int_test_output_tree_dir}" --github-oauth-token-map "github.com=${GIT_OAUTH_TOKEN}"
 
 #Remove untested metadata keys
 removeUntestedKeysFromMetadata "${int_test_expected_metadata_dir}"

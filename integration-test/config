@@ -1,0 +1,3 @@
+hugo: true
+manifest: https://github.com/gardener/docforge/blob/master/integration-test/manifest.yaml
+github-info-destination: ../generated-metadata
