@@ -17,3 +17,5 @@ structure:
   structure:
   - file: fileY.md
     source: ./testFile.md
+  - file: fileZ.html
+    source: ./testFile.html
