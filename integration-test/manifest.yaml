@@ -36,17 +36,17 @@ structure:
       structure:
       - dir: level3-container-node1
         structure:
-        - file: file1
+        - file: file1.md
           source: ./tested-doc/merge-test/testFile.md
-        - file: file2
+        - file: file2.md
           source: ./tested-doc/merge-test/testFile.md
     - dir: level2-container-node2
       structure:
-      - file: file1
+      - file: file1.md
         source: ./tested-doc/merge-test/testFile.md
   - dir: level1-container-node2
     structure:
-    - file: file1
+    - file: file1.md
       source: ./tested-doc/merge-test/testFile.md
   - manifest: ./tested-doc/merge-test/secondManifest.yaml
 - fileTree: ./tested-doc/merge-test/testDir

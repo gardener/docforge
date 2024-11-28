@@ -5,15 +5,15 @@ structure:
     structure:
     - dir: level3-container-node1
       structure:
-      - file: fileY1
+      - file: fileY1.md
         source: ./testFile.md
-      - file: fileY2
+      - file: fileY2.md
         source: ./testFile.md
   - dir: level2-container-node2
     structure:
-    - file: fileY
+    - file: fileY.md
       source: ./testFile.md
 - dir: level1-container-node2
   structure:
-  - file: fileY
+  - file: fileY.md
     source: ./testFile.md
