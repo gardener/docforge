@@ -141,7 +141,7 @@ func calculatePath(node *Node, parent *Node, _ *Node, _ registry.Interface) erro
 	case "manifest":
 		node.Path = parent.Path
 	default:
-		return fmt.Errorf("parent node \n\n%s\n is not a dir or manifest", node)
+		return fmt.Errorf("parent node \n\n%s\n of node \n\n%s\n is not a dir or manifest", parent, node)
 	}
 	return nil
 }
