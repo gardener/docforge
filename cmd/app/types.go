@@ -22,7 +22,7 @@ type Options struct {
 	ResourceDownloadWorkersCount int      `mapstructure:"download-workers"`
 	GhInfoDestination            string   `mapstructure:"github-info-destination"`
 	DryRun                       bool     `mapstructure:"dry-run"`
-	ExtractedFilesFormats        []string `mapstructure:"extracted-files-formats"`
+	ContentFileFormats           []string `mapstructure:"extracted-files-formats"`
 	HostsToReport                []string `mapstructure:"hosts-to-report"`
 	SkipLinkValidation           bool     `mapstructure:"skip-link-validation"`
 }

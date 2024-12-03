@@ -22,8 +22,8 @@ import (
 
 // ParsingOptions are options when parsing
 type ParsingOptions struct {
-	ExtractedFilesFormats []string `mapstructure:"extracted-files-formats"`
-	Hugo                  bool     `mapstructure:"hugo"`
+	ContentFileFormats []string `mapstructure:"extracted-files-formats"`
+	Hugo               bool     `mapstructure:"hugo"`
 }
 
 type ghc struct {
@@ -119,7 +119,7 @@ func (p *ghc) Tree(r URL) ([]string, error) {
 	}
 	filterString := filter + "/"
 	for url := range p.repositoryFiles[refURL] {
-		extract := slices.ContainsFunc(p.options.ExtractedFilesFormats, func(extention string) bool {
+		extract := slices.ContainsFunc(p.options.ContentFileFormats, func(extention string) bool {
 			return strings.HasSuffix(url, extention)
 		})
 		if extract && strings.HasPrefix(url, filterString) {

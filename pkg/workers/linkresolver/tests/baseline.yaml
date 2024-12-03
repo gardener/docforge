@@ -1,13 +1,13 @@
 structure:
 - dir: one
   structure:
-  - file: node
+  - file: node.md
     multiSource:
     - https://github.com/gardener/docforge/blob/master/target2.md
     - https://github.com/gardener/docforge/blob/master/target.md
   - dir: internal
     structure:
-    - file: linked
+    - file: linked.md
       multiSource:
       - https://github.com/gardener/docforge/blob/master/clickhere2.md
       - https://github.com/gardener/docforge/blob/master/clickhere.md
@@ -16,7 +16,7 @@ structure:
   - dir: internal
     structure:
     - file: https://github.com/gardener/docforge/blob/master/docs/_index.md
-    - file: linked
+    - file: linked.md
       multiSource:
       - https://github.com/gardener/docforge/blob/master/clickhere2.md
       - https://github.com/gardener/docforge/blob/master/clickhere.md
