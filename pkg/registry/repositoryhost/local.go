@@ -96,7 +96,7 @@ func (l *Local) Tree(resource URL) ([]string, error) {
 	dirPath := filepath.Join(l.localPath, resource.GetResourcePath())
 	files := []string{}
 	filepath.Walk(dirPath, func(path string, info fs.FileInfo, err error) error {
-		if !info.IsDir() && strings.HasSuffix(path, ".md") {
+		if !info.IsDir() {
 			files = append(files, strings.TrimPrefix(strings.TrimPrefix(path, dirPath), "/"))
 		}
 		return nil

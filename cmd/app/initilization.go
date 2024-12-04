@@ -23,7 +23,7 @@ import (
 	"golang.org/x/oauth2"
 )
 
-func initRepositoryHosts(ctx context.Context, o repositoryhost.InitOptions, options repositoryhost.ParsingOptions) ([]repositoryhost.Interface, error) {
+func initRepositoryHosts(ctx context.Context, o repositoryhost.InitOptions) ([]repositoryhost.Interface, error) {
 	var rhs []repositoryhost.Interface
 	var errs *multierror.Error
 	for host, oAuthToken := range o.Credentials {
@@ -41,7 +41,7 @@ func initRepositoryHosts(ctx context.Context, o repositoryhost.InitOptions, opti
 		if err != nil {
 			errs = multierror.Append(errs, err)
 		}
-		rh := newRepositoryHost(u.Host, client, httpClient, options)
+		rh := newRepositoryHost(u.Host, client, httpClient)
 		rhs = append(rhs, rh)
 	}
 	if len(rhs) == 0 {
@@ -86,12 +86,12 @@ func buildClient(ctx context.Context, accessToken string, host string, cachePath
 	return client, httpClient, err
 }
 
-func newRepositoryHost(host string, client *github.Client, httpClient *http.Client, options repositoryhost.ParsingOptions) repositoryhost.Interface {
+func newRepositoryHost(host string, client *github.Client, httpClient *http.Client) repositoryhost.Interface {
 	rawHost := "raw." + host
 	if host == "github.com" {
 		rawHost = "raw.githubusercontent.com"
 	}
-	return repositoryhost.NewGHC(host, client, client.Repositories, client.Git, httpClient, []string{host, rawHost}, options)
+	return repositoryhost.NewGHC(host, client, client.Repositories, client.Git, httpClient, []string{host, rawHost})
 }
 
 // NewReactor creates a Reactor from Options

@@ -68,9 +68,9 @@ func configureFlags(command *cobra.Command) {
 		"When building a Hugo-compliant documentation bundle, files with filename matching one form this list (in that order) will be renamed to _index.md. Only useful with --hugo=true")
 	_ = vip.BindPFlag("hugo-section-files", command.Flags().Lookup("hugo-section-files"))
 
-	command.Flags().StringSlice("extracted-files-formats", []string{".md"},
-		"Supported content format extensions (exampel: .md)")
-	_ = vip.BindPFlag("extracted-files-formats", command.Flags().Lookup("extracted-files-formats"))
+	command.Flags().StringSlice("content-files-formats", []string{".md"},
+		"Supported content format extensions (example: .md)")
+	_ = vip.BindPFlag("content-files-formats", command.Flags().Lookup("content-files-formats"))
 
 	command.Flags().Bool("skip-link-validation", false,
 		"Links validation will be skipped")

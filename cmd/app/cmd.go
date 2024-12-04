@@ -28,10 +28,9 @@ const (
 
 // options data structure with all the options for docforge
 type options struct {
-	Options                       `mapstructure:",squash"`
-	hugo.Hugo                     `mapstructure:",squash"`
-	repositoryhost.InitOptions    `mapstructure:",squash"`
-	repositoryhost.ParsingOptions `mapstructure:",squash"`
+	Options                    `mapstructure:",squash"`
+	hugo.Hugo                  `mapstructure:",squash"`
+	repositoryhost.InitOptions `mapstructure:",squash"`
 }
 
 var vip *viper.Viper

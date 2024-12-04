@@ -40,7 +40,7 @@ var _ = Describe("Github cache test", func() {
 		}
 		return nil, nil, errors.New("wrong test file")
 	})
-	ghc := repositoryhost.NewGHC("testing", &rls, &repositories, &git, client, []string{"github.com"}, repositoryhost.ParsingOptions{ContentFileFormats: []string{".md"}, Hugo: true})
+	ghc := repositoryhost.NewGHC("testing", &rls, &repositories, &git, client, []string{"github.com"})
 	tree := github.Tree{
 		Entries: []*github.TreeEntry{
 			{
