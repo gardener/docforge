@@ -194,8 +194,9 @@ func checkFileTypeFormats(node *Node, _ *Node, manifest *Node, r registry.Interf
 	}
 	files := append(node.FileType.MultiSource, node.FileType.Source, node.FileType.File)
 	for _, file := range files {
+		// skip empty fields
 		if !slices.ContainsFunc(contentFileFormats, func(fileFormat string) bool { return strings.HasSuffix(file, fileFormat) || file == "" }) {
-			return fmt.Errorf("file format of %v isn't supported", node.File)
+			return fmt.Errorf("file format of %s isn't supported", node.File)
 		}
 	}
 	return nil

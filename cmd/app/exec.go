@@ -51,7 +51,7 @@ func exec(ctx context.Context) error {
 	reactorWG := &sync.WaitGroup{}
 
 	rhRegistry := registry.NewRegistry(append(localRH, config.RepositoryHosts...)...)
-	documentNodes, err := manifest.ResolveManifest(manifestURL, rhRegistry, []string{".md"})
+	documentNodes, err := manifest.ResolveManifest(manifestURL, rhRegistry, options.Options.ContentFileFormats)
 	if err != nil {
 		return fmt.Errorf("failed to resolve manifest %s. %+v", config.ManifestPath, err)
 	}
