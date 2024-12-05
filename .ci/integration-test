@@ -89,10 +89,25 @@ echo "Docforge version: $(${docforge_bin} version 2>/dev/null)"
 GIT_OAUTH_TOKEN="${GITHUB_OAUTH_TOKEN:-$(getGitHubToken github_com)}"
 test "$GIT_OAUTH_TOKEN" #fail fast
 
+int_test_config_file="${int_test_dir}/config"
+echo "
+hugo: true
+manifest: https://github.com/gardener/docforge/blob/master/integration-test/manifest.yaml
+destination: ${int_test_output_tree_dir}
+github-info-destination: ../generated-metadata
+resourceMappings:
+  'https://github.com/gardener/docforge': ${docforge_repo_path}
+" > "$int_test_config_file"
+trap cleanup EXIT ERR INT TERM
+function cleanup {
+  echo "Deleting config file"
+  rm "$int_test_config_file"
+}
+
 # Run docforge command with Git handler
 echo
 echo "Run ${docforge_bin}"
-DOCFORGE_CONFIG="${int_test_dir}/config" ${docforge_bin} -d "${int_test_output_tree_dir}" --github-oauth-token-map "github.com=${GIT_OAUTH_TOKEN}"
+DOCFORGE_CONFIG="$int_test_config_file" ${docforge_bin} --github-oauth-token-map "github.com=${GIT_OAUTH_TOKEN}"
 
 #Remove untested metadata keys
 removeUntestedKeysFromMetadata "${int_test_expected_metadata_dir}"
