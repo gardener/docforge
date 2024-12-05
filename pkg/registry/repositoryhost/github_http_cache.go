@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"slices"
 	"strings"
 	"time"
 
@@ -20,12 +19,6 @@ import (
 	"k8s.io/klog/v2"
 )
 
-// ParsingOptions are options when parsing
-type ParsingOptions struct {
-	ExtractedFilesFormats []string `mapstructure:"extracted-files-formats"`
-	Hugo                  bool     `mapstructure:"hugo"`
-}
-
 type ghc struct {
 	hostName      string
 	client        httpclient.Client
@@ -33,8 +26,6 @@ type ghc struct {
 	rateLimit     RateLimitSource
 	repositories  Repositories
 	acceptedHosts []string
-
-	options ParsingOptions
 
 	repositoryFiles map[string]map[string]string
 }
@@ -63,7 +54,7 @@ type Git interface {
 }
 
 // NewGHC creates new GHC resource handler
-func NewGHC(hostName string, rateLimit RateLimitSource, repositories Repositories, git Git, client httpclient.Client, acceptedHosts []string, options ParsingOptions) Interface {
+func NewGHC(hostName string, rateLimit RateLimitSource, repositories Repositories, git Git, client httpclient.Client, acceptedHosts []string) Interface {
 	return &ghc{
 		hostName:        hostName,
 		client:          client,
@@ -71,7 +62,6 @@ func NewGHC(hostName string, rateLimit RateLimitSource, repositories Repositorie
 		rateLimit:       rateLimit,
 		repositories:    repositories,
 		acceptedHosts:   acceptedHosts,
-		options:         options,
 		repositoryFiles: map[string]map[string]string{},
 	}
 }
@@ -119,10 +109,7 @@ func (p *ghc) Tree(r URL) ([]string, error) {
 	}
 	filterString := filter + "/"
 	for url := range p.repositoryFiles[refURL] {
-		extract := slices.ContainsFunc(p.options.ExtractedFilesFormats, func(extention string) bool {
-			return strings.HasSuffix(url, extention)
-		})
-		if extract && strings.HasPrefix(url, filterString) {
+		if strings.HasPrefix(url, filterString) {
 			out = append(out, strings.TrimPrefix(url, filterString))
 		}
 	}

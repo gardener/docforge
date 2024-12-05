@@ -38,7 +38,7 @@ func exec(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if rhs, err = initRepositoryHosts(ctx, options.InitOptions, options.ParsingOptions); err != nil {
+	if rhs, err = initRepositoryHosts(ctx, options.InitOptions); err != nil {
 		return err
 	}
 
@@ -51,7 +51,7 @@ func exec(ctx context.Context) error {
 	reactorWG := &sync.WaitGroup{}
 
 	rhRegistry := registry.NewRegistry(append(localRH, config.RepositoryHosts...)...)
-	documentNodes, err := manifest.ResolveManifest(manifestURL, rhRegistry)
+	documentNodes, err := manifest.ResolveManifest(manifestURL, rhRegistry, options.Options.ContentFileFormats)
 	if err != nil {
 		return fmt.Errorf("failed to resolve manifest %s. %+v", config.ManifestPath, err)
 	}
