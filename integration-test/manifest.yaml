@@ -4,6 +4,10 @@
 structure:
 - dir: mainTree
   structure:
+  - file: multiformatMerge.md
+    multiSource:
+    - ./tested-doc/markdown-tests/testedMarkdownFile2.md
+    - ./tested-doc/testedHTMLFile.html
   - dir: markdown-tests
     structure:
     - file: file1.md
