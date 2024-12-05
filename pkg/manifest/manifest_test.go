@@ -84,6 +84,6 @@ var _ = Describe("Manifest test", func() {
 
 		},
 		Entry("when there are dirs with frontmatter collision", "colliding_dir_frontmatters", "there are multiple dirs with name foo and path . that have frontmatter. Please only use one"),
-		Entry("referencing a resource in source that isn't allowed", "unsupported_file_format", "file format of invalid.file isn't supported"),
+		Entry("referencing a resource in source that isn't allowed", "unsupported_file_format", "invalid.file isn't supported"),
 	)
 })

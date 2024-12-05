@@ -57,11 +57,11 @@ var _ = Describe("Document resolving", func() {
 	})
 
 	Context("#ProcessNode", func() {
-		It("returns correct multisource content", func() {
+		It("returns correct multisource content from md and html files", func() {
 			node := &manifest.Node{
 				FileType: manifest.FileType{
 					File:        "node",
-					MultiSource: []string{"https://github.com/gardener/docforge/blob/master/target.md", "https://github.com/gardener/docforge/blob/master/target2.md"},
+					MultiSource: []string{"https://github.com/gardener/docforge/blob/master/target.md", "https://github.com/gardener/docforge/blob/master/target2.md", "https://github.com/gardener/docforge/blob/master/target3.html"},
 				},
 				Type: "file",
 				Path: "one",
@@ -76,7 +76,9 @@ var _ = Describe("Document resolving", func() {
 			target2, err := manifests.ReadFile("tests/expected_target2.md")
 			fmt.Println(string(cnt))
 			Expect(err).NotTo(HaveOccurred())
-			Expect(string(cnt)).To(Equal(string(target) + string(target2) + "\n"))
+			target3, err := manifests.ReadFile("tests/expected_target3.html")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(cnt)).To(Equal(string(target) + string(target2) + string(target3)))
 			Expect(node).To(Equal(nodegot))
 		})
 
