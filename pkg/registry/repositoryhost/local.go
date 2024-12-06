@@ -106,7 +106,7 @@ func (l *Local) Tree(resource URL) ([]string, error) {
 
 // Accept if the link has the same url prefix as defined
 func (l *Local) Accept(link string) bool {
-	return strings.HasPrefix(link, l.urlPrefix)
+	return strings.HasPrefix(link, strings.TrimSuffix(l.urlPrefix, "/")+"/")
 }
 
 // Read a resource content at uri into a byte array from file system
