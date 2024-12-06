@@ -24,6 +24,10 @@ func configureFlags(command *cobra.Command) {
 		"Resources download path.")
 	_ = vip.BindPFlag("resources-download-path", command.Flags().Lookup("resources-download-path"))
 
+	command.Flags().String("resources-website-path", "__resources",
+		"The path in the website where resources will be accessed through.")
+	_ = vip.BindPFlag("resources-website-path", command.Flags().Lookup("resources-website-path"))
+
 	command.Flags().StringToString("github-oauth-token-map", map[string]string{},
 		"GitHub personal tokens authorizing read access from repositories per GitHub instance. Note that if the GitHub token is already provided by `github-oauth-token` it will be overridden by it.")
 	_ = vip.BindPFlag("github-oauth-token-map", command.Flags().Lookup("github-oauth-token-map"))

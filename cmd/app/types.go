@@ -17,7 +17,8 @@ type Options struct {
 	ValidationWorkersCount       int      `mapstructure:"validation-workers"`
 	FailFast                     bool     `mapstructure:"fail-fast"`
 	DestinationPath              string   `mapstructure:"destination"`
-	ResourcesPath                string   `mapstructure:"resources-download-path"`
+	ResourcesDownloadPath        string   `mapstructure:"resources-download-path"`
+	ResourcesWebsitePath         string   `mapstructure:"resources-website-path"`
 	ManifestPath                 string   `mapstructure:"manifest"`
 	ResourceDownloadWorkersCount int      `mapstructure:"download-workers"`
 	GhInfoDestination            string   `mapstructure:"github-info-destination"`
