@@ -1,5 +1,5 @@
 ---
-title: MultiformatMerge
+title: Multiformatmerge
 ---
 
 # Tested markdown file 2

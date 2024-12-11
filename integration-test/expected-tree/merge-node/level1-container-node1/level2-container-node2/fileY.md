@@ -1,5 +1,5 @@
 ---
-title: FileY
+title: Filey
 ---
 
 # Content
