@@ -8,7 +8,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/gardener/docforge/pkg/workers/document/markdown"
@@ -66,7 +66,7 @@ func TestCMarkGFMAfl(t *testing.T) {
 
 func loadSpec(specName string) ([]spec, error) {
 	specFile := "spec/" + specName
-	specBytes, err := ioutil.ReadFile(specFile)
+	specBytes, err := os.ReadFile(specFile)
 	if err != nil {
 		return nil, fmt.Errorf("error reading spec file %s: %v", specFile, err)
 	}
@@ -106,9 +106,9 @@ func (tc *spec) executeSpecTest(t *testing.T) {
 	if err != nil {
 		t.Errorf("convert rendered example %d fails: %v", tc.Example, err)
 	}
-	if bytes.Compare(buf1.Bytes(), buf2.Bytes()) != 0 {
+	if !bytes.Equal(buf1.Bytes(), buf2.Bytes()) {
 		// try with tc HTML
-		if bytes.Compare([]byte(tc.HTML), buf2.Bytes()) != 0 {
+		if !bytes.Equal([]byte(tc.HTML), buf2.Bytes()) {
 			// try to normalize HTMLs
 			var hn1, hn2 *html.Node
 			hn1, err = html.Parse(bytes.NewBuffer([]byte(tc.HTML)))
@@ -128,7 +128,7 @@ func (tc *spec) executeSpecTest(t *testing.T) {
 			if err != nil {
 				t.Errorf("render HTML node for rendered example %d fails: %v", tc.Example, err)
 			}
-			if bytes.Compare(hBuf1.Bytes(), hBuf2.Bytes()) != 0 {
+			if !bytes.Equal(hBuf1.Bytes(), hBuf2.Bytes()) {
 				t.Errorf("compare HTML results for example %d fails", tc.Example)
 			}
 		}

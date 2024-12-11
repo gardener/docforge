@@ -302,7 +302,7 @@ func (r *Renderer) renderFencedCodeBlock(n ast.Node, entering bool) (ast.WalkSta
 			language := fn.Language(r.source)
 			if language != nil {
 				_, _ = r.writer.Write(language)
-				if bytes.Compare(language, []byte("mermaid")) == 0 {
+				if bytes.Equal(language, []byte("mermaid")) {
 					// resolve links in mermaid diagrams
 					modBuf := bufPool.Get().(*bytes.Buffer)
 					defer bufPool.Put(modBuf)
@@ -927,7 +927,7 @@ func isClassicAutolink(link []byte, cnt []byte, trail []byte) bool {
 		return true
 	}
 	if http.Match(link) {
-		if len(cnt) > 0 && (cnt[len(cnt)-1] == '(' || (trail != nil && len(trail) > 0 && trail[0] == ')')) {
+		if len(cnt) > 0 && (cnt[len(cnt)-1] == '(' || (len(trail) > 0 && trail[0] == ')')) {
 			// workaround for using default Linkify URL regex in Hugo
 			// `(https://foo.bar).` will be rendered as classic autolink `(<https://foo.bar>).`
 			return true

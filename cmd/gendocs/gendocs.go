@@ -89,6 +89,8 @@ func NewGenCmdDocs() *cobra.Command {
 		"Specifies the generated documentation format. Must be one of: `md` (for markdown) or `man` (for man pages).")
 	command.Flags().StringVarP(&flags.destination, "destination", "d", "",
 		"Path to directory where the documentation will be generated. If it does not exist, it will be created. Required flag.")
-	command.MarkFlagRequired("destination")
+	if err := command.MarkFlagRequired("destination"); err != nil {
+		return command
+	}
 	return command
 }
