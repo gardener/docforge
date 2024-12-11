@@ -107,7 +107,7 @@ func getReactorConfig(options Options, hugo hugo.Hugo, rhs []repositoryhost.Inte
 		Hugo: config.Hugo.Enabled,
 	}
 	config.ResourceDownloadWriter = &writers.FSWriter{
-		Root: filepath.Join(config.DestinationPath, config.ResourcesPath),
+		Root: filepath.Join(config.DestinationPath, config.ResourcesDownloadPath),
 	}
 
 	if len(config.GhInfoDestination) > 0 {
