@@ -59,8 +59,8 @@ mv "$content" "$PR_content"
 
 echo "Building master docforge"
 pushd "$docforge_repo_path"
-git add VERSION
-git commit -m"version update from pr"
+cp "VERSION" "VERSION_PR" 
+git checkout -- "VERSION"
 current_branch=$(git branch --show-current)
 git checkout master
 popd
@@ -73,4 +73,4 @@ rm -rf "${PR_content}/__resources"
 diff -r "$content" "$PR_content"
 
 git checkout "$current_branch"
-git reset --soft HEAD~1
+mv "${docforge_repo_path}/VERSION_PR" "${docforge_repo_path}/VERSION"
