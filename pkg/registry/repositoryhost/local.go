@@ -101,10 +101,7 @@ func (l *Local) Tree(resource URL) ([]string, error) {
 		}
 		return nil
 	})
-	if err == nil {
-		return files, err
-	}
-	return files, nil
+	return files, err
 }
 
 // Accept if the link has the same url prefix as defined

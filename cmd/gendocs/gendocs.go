@@ -90,6 +90,7 @@ func NewGenCmdDocs() *cobra.Command {
 	command.Flags().StringVarP(&flags.destination, "destination", "d", "",
 		"Path to directory where the documentation will be generated. If it does not exist, it will be created. Required flag.")
 	if err := command.MarkFlagRequired("destination"); err != nil {
+		klog.Error(err)
 		return command
 	}
 	return command
