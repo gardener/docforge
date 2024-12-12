@@ -27,6 +27,7 @@ else
 fi
 
 docforge_repo_path="$(${READLINK_BIN} -f "$(dirname "${0}")/..")"
+cat ${docforge_repo_path}/VERSION
 website_generator_path="${docforge_repo_path}/../website-generator"
 content=${website_generator_path}/hugo/content
 PR_content=${website_generator_path}/hugo/branchContent
