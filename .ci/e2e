@@ -27,7 +27,6 @@ else
 fi
 
 docforge_repo_path="$(${READLINK_BIN} -f "$(dirname "${0}")/..")"
-cat ${docforge_repo_path}/VERSION
 website_generator_path="${docforge_repo_path}/../website-generator"
 content=${website_generator_path}/hugo/content
 PR_content=${website_generator_path}/hugo/branchContent
@@ -60,9 +59,9 @@ mv "$content" "$PR_content"
 
 echo "Building master docforge"
 pushd "$docforge_repo_path"
-git status
-git diff
+git stash
 git checkout master
+git stash pop
 popd
 buildWebsite
 
