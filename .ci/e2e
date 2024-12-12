@@ -59,6 +59,8 @@ mv "$content" "$PR_content"
 
 echo "Building master docforge"
 pushd "$docforge_repo_path"
+git status
+git diff
 git checkout master
 popd
 buildWebsite
