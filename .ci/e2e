@@ -59,9 +59,10 @@ mv "$content" "$PR_content"
 
 echo "Building master docforge"
 pushd "$docforge_repo_path"
-git stash
+git add VERSION
+git commit -m"version update from pr"
+current_branch=$(git branch --show-current)
 git checkout master
-git stash pop
 popd
 buildWebsite
 
@@ -70,3 +71,6 @@ echo "Diff results"
 rm -rf "${content}/__resources" 
 rm -rf "${PR_content}/__resources" 
 diff -r "$content" "$PR_content"
+
+git checkout "$current_branch"
+git reset --soft HEAD~1
