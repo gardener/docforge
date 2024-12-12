@@ -1,5 +1,5 @@
 ---
-title: TestedHTMLFile3
+title: Testedhtmlfile3
 ---
 
 <h1>Tested HTML file 3</h1>

@@ -62,7 +62,7 @@ var _ = Describe("Parser", func() {
 				Expect(rnd.Render(buf, []byte(md), d)).To(Succeed())
 			})
 			It("adds provided frontmatter", func() {
-				Expect(string(buf.Bytes())).To(Equal("---\ntitle: test\n---\n\n## Heading level 2\n\nI really like using Markdown.\n"))
+				Expect(buf.String()).To(Equal("---\ntitle: test\n---\n\n## Heading level 2\n\nI really like using Markdown.\n"))
 			})
 		})
 	})

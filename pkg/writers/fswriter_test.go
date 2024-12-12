@@ -6,7 +6,6 @@ package writers
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -70,7 +69,7 @@ func TestWrite(t *testing.T) {
 			var (
 				b []byte
 			)
-			if b, err = ioutil.ReadFile(fPath); err != nil {
+			if b, err = os.ReadFile(fPath); err != nil {
 				t.Errorf("unexpected error opening file %v", err)
 			}
 			if !reflect.DeepEqual(b, []byte(tc.wantContent)) {

@@ -95,13 +95,13 @@ func (l *Local) Tree(resource URL) ([]string, error) {
 	}
 	dirPath := filepath.Join(l.localPath, resource.GetResourcePath())
 	files := []string{}
-	filepath.Walk(dirPath, func(path string, info fs.FileInfo, err error) error {
+	err := filepath.Walk(dirPath, func(path string, info fs.FileInfo, err error) error {
 		if !info.IsDir() {
 			files = append(files, strings.TrimPrefix(strings.TrimPrefix(path, dirPath), "/"))
 		}
 		return nil
 	})
-	return files, nil
+	return files, err
 }
 
 // Accept if the link has the same url prefix as defined

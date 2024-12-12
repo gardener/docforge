@@ -1,5 +1,5 @@
 ---
-title: TestedMarkdownFile4
+title: Testedmarkdownfile4
 ---
 
 # Tested markdown file 4

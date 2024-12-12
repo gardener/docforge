@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"github.com/gardener/docforge/pkg/manifest"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate -header ../../../../license_prefix.txt
@@ -81,7 +83,7 @@ func ComputeNodeTitle(nodeAst NodeMeta, node *manifest.Node, IndexFileNames []st
 	title = strings.TrimSuffix(title, ".md")
 	title = strings.ReplaceAll(title, "_", " ")
 	title = strings.ReplaceAll(title, "-", " ")
-	title = strings.Title(title)
+	title = cases.Title(language.English).String(title)
 	if _, ok := docFrontmatter["title"]; !ok {
 		docFrontmatter["title"] = title
 	}

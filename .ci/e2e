@@ -59,6 +59,9 @@ mv "$content" "$PR_content"
 
 echo "Building master docforge"
 pushd "$docforge_repo_path"
+cp "VERSION" "VERSION_PR" 
+git checkout -- "VERSION"
+current_branch=$(git branch --show-current)
 git checkout master
 popd
 buildWebsite
@@ -68,3 +71,7 @@ echo "Diff results"
 rm -rf "${content}/__resources" 
 rm -rf "${PR_content}/__resources" 
 diff -r "$content" "$PR_content"
+
+pushd "$docforge_repo_path"
+git checkout "$current_branch"
+mv "VERSION_PR" "VERSION"

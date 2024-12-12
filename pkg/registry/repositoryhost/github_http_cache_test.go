@@ -96,7 +96,7 @@ var _ = Describe("Github cache test", func() {
 		},
 	}
 	git.GetTreeReturns(&tree, nil, nil)
-	ghc.LoadRepository(context.TODO(), "https://github.com/gardener/docforge/blob/master/README.md")
+	Expect(ghc.LoadRepository(context.TODO(), "https://github.com/gardener/docforge/blob/master/README.md")).NotTo(HaveOccurred())
 
 	testRepositoryHost(ghc)
 
