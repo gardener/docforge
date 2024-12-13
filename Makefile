@@ -107,11 +107,11 @@ task:
 
 .PHONY: lint
 lint: golangci-lint ## Run golangci-lint linter & yamllint
-	$(GOLANGCI_LINT) run
+	$(GOLANGCI_LINT) run --enable gochecknoglobals
 
 .PHONY: lint-fix
 lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
-	$(GOLANGCI_LINT) run --fix
+	$(GOLANGCI_LINT) run --fix --enable gochecknoglobals
 
 
 ##@ Dependencies
@@ -122,11 +122,17 @@ $(LOCALBIN):
 
 GOLANGCI_LINT_VERSION ?= v1.61.0
 GOLANGCI_LINT = $(LOCALBIN)/golangci-lint-$(GOLANGCI_LINT_VERSION)
+GOCHECKNOGLOBALS := 4d63.com/gochecknoglobals
 
 .PHONY: golangci-lint
 golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
 $(GOLANGCI_LINT): $(LOCALBIN)
 	$(call go-install-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint,${GOLANGCI_LINT_VERSION})
+
+.PHONY: gochecknoglobals
+gochecknoglobals: $(GOCHECKNOGLOBALS) ## Download gochecknoglobals locally if necessary.
+$(GOCHECKNOGLOBALS): $(LOCALBIN)
+    $(call go-install-tool,$(GOCHECKNOGLOBALS),latest)
 
 define go-install-tool
 @[ -f $(1) ] || { \
