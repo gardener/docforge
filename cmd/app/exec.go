@@ -60,7 +60,7 @@ func exec(ctx context.Context) error {
 		fmt.Println(documentNodes[0])
 	}
 
-	dScheduler, downloadTasks, err := resourcedownloader.New(config.ResourceDownloadWorkersCount, config.FailFast, reactorWG, rhRegistry, config.ResourceDownloadWriter)
+	downloader, err := resourcedownloader.NewDownloader(rhRegistry, config.ResourceDownloadWriter)
 	if err != nil {
 		return err
 	}
@@ -82,9 +82,9 @@ func exec(ctx context.Context) error {
 			}
 		}
 	}
-	worker := document.NewDocumentWorker(config.ResourcesWebsitePath, dScheduler, v, lr, rhRegistry, config.Hugo, config.Writer, config.SkipLinkValidation)
+	worker := document.NewDocumentWorker(config.ResourcesWebsitePath, downloader, v, lr, rhRegistry, config.Hugo, config.Writer, config.SkipLinkValidation)
 
-	qcc := taskqueue.NewQueueControllerCollection(reactorWG, downloadTasks, validatorTasks)
+	qcc := taskqueue.NewQueueControllerCollection(reactorWG, validatorTasks)
 
 	if config.GitInfoWriter != nil {
 		ghInfo, ghInfoTasks, err = githubinfo.New(config.ResourceDownloadWorkersCount, config.FailFast, reactorWG, rhRegistry, config.GitInfoWriter)

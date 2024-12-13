@@ -17,6 +17,16 @@ import (
 	"k8s.io/klog/v2"
 )
 
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate -header ../../../license_prefix.txt
+
+// Interface encapsulates activities for asynchronous and parallel scheduling and download of resources
+//
+//counterfeiter:generate . Interface
+type Interface interface {
+	// Schedule is a typesafe wrapper for enqueuing download tasks. An error is returned if scheduling fails.
+	Download(ctx context.Context, source string, target string, document string) error
+}
+
 // ResourceDownloadWorker is the structure that processes downloads
 type ResourceDownloadWorker struct {
 	registry registry.Interface
