@@ -19,7 +19,7 @@ import (
 	"github.com/gardener/docforge/pkg/workers/document"
 	"github.com/gardener/docforge/pkg/workers/linkresolver/linkresolverfakes"
 	"github.com/gardener/docforge/pkg/workers/linkvalidator/linkvalidatorfakes"
-	"github.com/gardener/docforge/pkg/workers/resourcedownloader/downloaderfakes"
+	"github.com/gardener/docforge/pkg/workers/resourcedownloader/resourcedownloaderfakes"
 	"github.com/gardener/docforge/pkg/writers/writersfakes"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -46,7 +46,7 @@ var _ = Describe("Document resolving", func() {
 			BaseURL:        "baseURL",
 			IndexFileNames: []string{"readme.md", "readme", "read.me", "index.md", "index"},
 		}
-		df := &downloaderfakes.FakeInterface{}
+		df := &resourcedownloaderfakes.FakeInterface{}
 		vf := &linkvalidatorfakes.FakeInterface{}
 		lrf := &linkresolverfakes.FakeInterface{}
 		lrf.ResolveResourceLinkCalls(func(s1 string, n *manifest.Node, s2 string) (string, error) {

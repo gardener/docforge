@@ -15,6 +15,7 @@ import (
 	"github.com/gardener/docforge/pkg/registry/repositoryhost"
 	"github.com/gardener/docforge/pkg/workers/document"
 	"github.com/gardener/docforge/pkg/workers/githubinfo"
+	"github.com/gardener/docforge/pkg/workers/linkresolver"
 	"github.com/gardener/docforge/pkg/workers/linkvalidator"
 	"github.com/gardener/docforge/pkg/workers/resourcedownloader"
 	"github.com/gardener/docforge/pkg/workers/taskqueue"
@@ -59,7 +60,7 @@ func exec(ctx context.Context) error {
 		fmt.Println(documentNodes[0])
 	}
 
-	dScheduler, downloadTasks, err := resourcedownloader.New(config.ResourceDownloadWorkersCount, config.FailFast, reactorWG, rhRegistry, config.ResourceDownloadWriter)
+	downloader, err := resourcedownloader.NewDownloader(rhRegistry, config.ResourceDownloadWriter)
 	if err != nil {
 		return err
 	}
@@ -67,12 +68,23 @@ func exec(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	docProcessor, docTasks, err := document.New(config.DocumentWorkersCount, config.FailFast, reactorWG, documentNodes, config.ResourcesWebsitePath, dScheduler, v, rhRegistry, config.Hugo, config.Writer, config.SkipLinkValidation)
-	if err != nil {
-		return err
+	lr := &linkresolver.LinkResolver{
+		Repositoryhosts: rhRegistry,
+		Hugo:            config.Hugo,
+		SourceToNode:    make(map[string][]*manifest.Node),
 	}
+	for _, node := range documentNodes {
+		if node.Source != "" {
+			lr.SourceToNode[node.Source] = append(lr.SourceToNode[node.Source], node)
+		} else if len(node.MultiSource) > 0 {
+			for _, s := range node.MultiSource {
+				lr.SourceToNode[s] = append(lr.SourceToNode[s], node)
+			}
+		}
+	}
+	worker := document.NewDocumentWorker(config.ResourcesWebsitePath, downloader, v, lr, rhRegistry, config.Hugo, config.Writer, config.SkipLinkValidation)
 
-	qcc := taskqueue.NewQueueControllerCollection(reactorWG, downloadTasks, validatorTasks, docTasks)
+	qcc := taskqueue.NewQueueControllerCollection(reactorWG, validatorTasks)
 
 	if config.GitInfoWriter != nil {
 		ghInfo, ghInfoTasks, err = githubinfo.New(config.ResourceDownloadWorkersCount, config.FailFast, reactorWG, rhRegistry, config.GitInfoWriter)
@@ -86,7 +98,7 @@ func exec(ctx context.Context) error {
 	}
 
 	for _, node := range documentNodes {
-		docProcessor.ProcessNode(node)
+		worker.ProcessNode(ctx, node)
 	}
 
 	qcc.Start(ctx)
