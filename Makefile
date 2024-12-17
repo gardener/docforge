@@ -59,7 +59,7 @@ clean:
 #####################################################################
 
 .PHONY: verify
-verify: check test integration-test e2e lint
+verify: check lint test integration-test e2e
 
 .PHONY: check
 check:
@@ -107,11 +107,11 @@ task:
 
 .PHONY: lint
 lint: golangci-lint ## Run golangci-lint linter & yamllint
-	$(GOLANGCI_LINT) run --enable gochecknoglobals
+	$(GOLANGCI_LINT) run
 
 .PHONY: lint-fix
 lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
-	$(GOLANGCI_LINT) run --fix --enable gochecknoglobals
+	$(GOLANGCI_LINT) run --fix
 
 
 ##@ Dependencies
