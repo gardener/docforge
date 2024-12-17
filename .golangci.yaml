@@ -1,0 +1,8 @@
+linters:
+  enable:
+  - gochecknoglobals
+  - gocyclo
+
+linters-settings:
+  gocyclo:
+    min-complexity: 15
