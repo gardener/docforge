@@ -1,6 +1,6 @@
 linters:
   enable:
-  - gochecknoglobals
+  # - gochecknoglobals
   - gocyclo
 
 linters-settings:

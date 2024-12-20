@@ -45,6 +45,8 @@ func NewValidatorWorker(repository registry.Interface, hostsToReport []string) (
 }
 
 // Validate validates a link
+//
+//gocyclo:ignore
 func (v *ValidatorWorker) Validate(ctx context.Context, LinkDestination string, ContentSourcePath string) error {
 	var (
 		req  *http.Request

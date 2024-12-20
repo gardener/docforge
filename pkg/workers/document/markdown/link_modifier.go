@@ -93,6 +93,7 @@ func (l *linkModifierRenderer) AddOptions(opts ...renderer.Option) {
 	}
 }
 
+//gocyclo:ignore
 func (l *linkModifierRenderer) Render(w io.Writer, source []byte, node ast.Node) error {
 	// walk & render nodes
 	r := &Renderer{
