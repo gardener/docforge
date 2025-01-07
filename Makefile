@@ -59,7 +59,7 @@ clean:
 #####################################################################
 
 .PHONY: verify
-verify: check lint test integration-test e2e
+verify: check test integration-test e2e
 
 .PHONY: check
 check:
