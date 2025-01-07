@@ -39,6 +39,8 @@ if [ -z ${GOPATH+x} ]; then
   fi
 fi
 
+go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.61.0
+
 ###############################################################################
 PACKAGES="$(go list -e ./...)"
 PACKAGES_DIRS="${PACKAGES//github.com\/gardener\/docforge/.}"
@@ -53,6 +55,7 @@ go vet ${PACKAGES}
 gofmt -l -w ${PACKAGES_DIRS}
 
 echo "Executing lint checks"
+golangci-lint run
 for package in ${PACKAGES_DIRS}; do
   # shellcheck disable=SC2046
   $executable -set_exit_status $(find "$package" -maxdepth 1 -name "*.go" | grep -vE '_test.go')
