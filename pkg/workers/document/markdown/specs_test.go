@@ -20,12 +20,6 @@ import (
 	"golang.org/x/net/html"
 )
 
-// Goldmark Markdown with GFM extensions
-var gm = goldmark.New(goldmark.WithRendererOptions(gmhtml.WithUnsafe()), goldmark.WithExtensions(extension.GFM))
-
-// Link modifier renderer
-var lmr = markdown.NewLinkModifierRenderer()
-
 type spec struct {
 	Markdown string `json:"markdown"`
 	HTML     string `json:"html"`
@@ -79,6 +73,10 @@ func loadSpec(specName string) ([]spec, error) {
 }
 
 func (tc *spec) executeSpecTest(t *testing.T) {
+	// Goldmark Markdown with GFM extensions
+	var gm = goldmark.New(goldmark.WithRendererOptions(gmhtml.WithUnsafe()), goldmark.WithExtensions(extension.GFM))
+	// Link modifier renderer
+	var lmr = markdown.NewLinkModifierRenderer()
 	var (
 		doc ast.Node
 		err error
