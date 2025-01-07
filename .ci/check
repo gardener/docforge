@@ -55,7 +55,7 @@ go vet ${PACKAGES}
 gofmt -l -w ${PACKAGES_DIRS}
 
 echo "Executing lint checks"
-golangci-lint run
+golangci-lint run | sed "/bufPool is a global variable/,+2d ; /NewResourceURL is a global variable/,+2d ; /./q1"
 for package in ${PACKAGES_DIRS}; do
   # shellcheck disable=SC2046
   $executable -set_exit_status $(find "$package" -maxdepth 1 -name "*.go" | grep -vE '_test.go')

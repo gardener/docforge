@@ -32,7 +32,7 @@ var _ = Describe("Links modifier", func() {
 		exp = md
 	})
 	JustBeforeEach(func() {
-		doc, err = markdown.Parse([]byte(md))
+		doc, err = markdown.Parse(markdown.New(), []byte(md))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(doc).NotTo(BeNil())
 		buf = &bytes.Buffer{}

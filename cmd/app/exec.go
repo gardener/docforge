@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/gardener/docforge/cmd/hugo"
 	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/osfakes/osshim"
 	"github.com/gardener/docforge/pkg/registry"
@@ -19,10 +20,11 @@ import (
 	"github.com/gardener/docforge/pkg/workers/linkvalidator"
 	"github.com/gardener/docforge/pkg/workers/resourcedownloader"
 	"github.com/gardener/docforge/pkg/workers/taskqueue"
+	"github.com/spf13/viper"
 	"k8s.io/klog/v2"
 )
 
-func exec(ctx context.Context) error {
+func exec(ctx context.Context, vip *viper.Viper) error {
 	var (
 		rhs     []repositoryhost.Interface
 		options options
@@ -68,20 +70,7 @@ func exec(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	lr := &linkresolver.LinkResolver{
-		Repositoryhosts: rhRegistry,
-		Hugo:            config.Hugo,
-		SourceToNode:    make(map[string][]*manifest.Node),
-	}
-	for _, node := range documentNodes {
-		if node.Source != "" {
-			lr.SourceToNode[node.Source] = append(lr.SourceToNode[node.Source], node)
-		} else if len(node.MultiSource) > 0 {
-			for _, s := range node.MultiSource {
-				lr.SourceToNode[s] = append(lr.SourceToNode[s], node)
-			}
-		}
-	}
+	lr := constructLinkResolver(documentNodes, rhRegistry, config.Hugo)
 	worker := document.NewDocumentWorker(config.ResourcesWebsitePath, downloader, v, lr, rhRegistry, config.Hugo, config.Writer, config.SkipLinkValidation)
 
 	qcc := taskqueue.NewQueueControllerCollection(reactorWG, validatorTasks)
@@ -98,7 +87,9 @@ func exec(ctx context.Context) error {
 	}
 
 	for _, node := range documentNodes {
-		worker.ProcessNode(ctx, node)
+		if err := worker.ProcessNode(ctx, node); err != nil {
+			return err
+		}
 	}
 
 	qcc.Start(ctx)
@@ -107,4 +98,22 @@ func exec(ctx context.Context) error {
 	qcc.LogTaskProcessed()
 	rhRegistry.LogRateLimits(ctx)
 	return qcc.GetErrorList().ErrorOrNil()
+}
+
+func constructLinkResolver(documentNodes []*manifest.Node, rhRegistry registry.Interface, hugo hugo.Hugo) *linkresolver.LinkResolver {
+	lr := &linkresolver.LinkResolver{
+		Repositoryhosts: rhRegistry,
+		Hugo:            hugo,
+		SourceToNode:    make(map[string][]*manifest.Node),
+	}
+	for _, node := range documentNodes {
+		if node.Source != "" {
+			lr.SourceToNode[node.Source] = append(lr.SourceToNode[node.Source], node)
+		} else {
+			for _, s := range node.MultiSource {
+				lr.SourceToNode[s] = append(lr.SourceToNode[s], node)
+			}
+		}
+	}
+	return lr
 }

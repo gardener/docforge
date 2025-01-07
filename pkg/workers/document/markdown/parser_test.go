@@ -23,7 +23,7 @@ var _ = Describe("Parser", func() {
 		md = "---\ntitle: test\n---\n\n## Heading level 2\n\nI really like using Markdown.\n"
 	})
 	JustBeforeEach(func() {
-		doc, err = markdown.Parse([]byte(md))
+		doc, err = markdown.Parse(markdown.New(), []byte(md))
 	})
 	When("Parse markdown", func() {
 		It("parse the markdown successfully", func() {

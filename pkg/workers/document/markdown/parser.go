@@ -15,22 +15,23 @@ import (
 	"github.com/yuin/goldmark/text"
 )
 
-var (
+// New creates a markdown parser
+func New() goldmark.Markdown {
 	// extends Linkify regex by excluding trailing whitespaces and punctuations `[^\s<?!.,:*_~]`
-	urlRgx = regexp.MustCompile(`^(?:http|https|ftp)://[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-z]+(?::\d+)?(?:[/#?][-a-zA-Z0-9@:%_+.~#$!?&/=\(\);,'">\^{}\[\]` + "`" + `]*)?[^\s<?!.,:*_~]`)
+	urlRgx := regexp.MustCompile(`^(?:http|https|ftp)://[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-z]+(?::\d+)?(?:[/#?][-a-zA-Z0-9@:%_+.~#$!?&/=\(\);,'">\^{}\[\]` + "`" + `]*)?[^\s<?!.,:*_~]`)
 	// parser extension for GitHub Flavored Markdown & Frontmatter support
-	extensions = []goldmark.Extender{
+	extensions := []goldmark.Extender{
 		extension.GFM,
 		meta.Meta,
 	}
-	gmParser = goldmark.New(goldmark.WithExtensions(extensions...), goldmark.WithParserOptions(extension.WithLinkifyURLRegexp(urlRgx)))
-)
+	return goldmark.New(goldmark.WithExtensions(extensions...), goldmark.WithParserOptions(extension.WithLinkifyURLRegexp(urlRgx)))
+}
 
 // Parse markdown content and returns AST node or error
-func Parse(source []byte) (ast.Node, error) {
+func Parse(markdown goldmark.Markdown, source []byte) (ast.Node, error) {
 	reader := text.NewReader(source)
 	context := parser.NewContext()
-	doc := gmParser.Parser().Parse(reader, parser.WithContext(context))
+	doc := markdown.Parser().Parse(reader, parser.WithContext(context))
 	fmb, err := meta.TryGet(context)
 	if err != nil {
 		return nil, err
