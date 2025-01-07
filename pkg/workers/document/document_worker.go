@@ -25,12 +25,14 @@ import (
 	"github.com/gardener/docforge/pkg/workers/linkvalidator"
 	"github.com/gardener/docforge/pkg/workers/resourcedownloader"
 	"github.com/gardener/docforge/pkg/writers"
+	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
 	"k8s.io/klog/v2"
 )
 
 // Worker represents document worker
 type Worker struct {
+	markdown     goldmark.Markdown
 	linkresolver linkresolver.Interface
 	downloader   resourcedownloader.Interface
 	validator    linkvalidator.Interface
@@ -54,6 +56,7 @@ type docContent struct {
 // NewDocumentWorker creates Worker objects
 func NewDocumentWorker(resourcesRoot string, downloader resourcedownloader.Interface, validator linkvalidator.Interface, linkResolver linkresolver.Interface, rh registry.Interface, hugo hugo.Hugo, writer writers.Writer, skipLinkValidation bool) *Worker {
 	return &Worker{
+		markdown.New(),
 		linkResolver,
 		downloader,
 		validator,
@@ -158,7 +161,7 @@ func (d *Worker) processSource(ctx context.Context, sourceType string, source st
 	}
 	dc = &docContent{docCnt: content, docURI: source}
 	if strings.HasSuffix(source, ".md") {
-		dc.docAst, err = markdown.Parse(content)
+		dc.docAst, err = markdown.Parse(d.markdown, content)
 		if err != nil {
 			return nil, fmt.Errorf("fail to parse %s %s from node %s: %w", sourceType, source, nodePath, err)
 		}
