@@ -137,7 +137,6 @@ func (d *Worker) process(ctx context.Context, b *bytes.Buffer, n *manifest.Node)
 			*d,
 			n,
 			cnt.docURI,
-			ctx,
 		}
 		if strings.HasSuffix(cnt.docURI, ".md") {
 			rnd := markdown.NewLinkModifierRenderer(markdown.WithLinkResolver(lrt.resolveLink))
@@ -171,7 +170,6 @@ type linkResolverTask struct {
 	Worker
 	node   *manifest.Node
 	source string
-	ctx    context.Context
 }
 
 // DownloadURLName create resource name that will be dowloaded from a resource link
@@ -232,7 +230,7 @@ func (d *linkResolverTask) resolveEmbededLink(link string, source string) (strin
 	}
 	// download urls from referenced repositories
 	downloadResourceName := DownloadURLName(*resourceURL)
-	if err = d.downloader.Download(d.ctx, link, downloadResourceName, source); err != nil {
+	if err = d.downloader.Schedule(link, downloadResourceName, source); err != nil {
 		return link, err
 	}
 	return "/" + path.Join(d.hugo.BaseURL, d.resourcesRoot, downloadResourceName), nil
