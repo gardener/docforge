@@ -44,6 +44,10 @@ func configureFlags(command *cobra.Command) {
 		"Runs the command end-to-end but instead of writing files, it will output the projected file/folder hierarchy to the standard output and statistics for the processing of each file.")
 	_ = vip.BindPFlag("dry-run", command.Flags().Lookup("dry-run"))
 
+	command.Flags().Int("document-workers", 25,
+		"Number of parallel workers for document processing.")
+	_ = vip.BindPFlag("document-workers", command.Flags().Lookup("document-workers"))
+
 	command.Flags().Int("validation-workers", 10,
 		"Number of parallel workers to validate the markdown links")
 	_ = vip.BindPFlag("validation-workers", command.Flags().Lookup("validation-workers"))
