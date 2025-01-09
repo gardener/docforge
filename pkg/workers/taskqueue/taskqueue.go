@@ -18,7 +18,7 @@ import (
 const (
 	maxWorkerSize = 100
 	minWorkerSize = 1
-	bufferSize    = 1000
+	bufferSize    = 4000
 )
 
 // Interface can Start/Stop the queue and see its status
