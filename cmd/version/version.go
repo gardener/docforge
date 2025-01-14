@@ -5,6 +5,8 @@
 package version
 
 import (
+	// for reading default version
+	_ "embed"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -26,4 +28,6 @@ func NewVersionCmd() *cobra.Command {
 // Version is a global variable which is set during compile time via -ld-flags in the `go build` process.
 // It stores the version of the Gardener and has either the form <X> or <X.Y>, where <X> denominates
 // the current 'major' version, and <Y> (if present) denominates the current 'hotfix' version.
-var Version = "binary was not built properly"
+//
+//go:embed default_version.txt
+var Version string

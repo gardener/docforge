@@ -288,6 +288,7 @@ func getParrentNode(pathToDirNode map[string]*Node, parentPath string, contentFi
 }
 
 func mergeFolders(node *Node, parent *Node, manifest *Node, _ registry.Interface, _ []string) error {
+	var personaToDir = map[string]string{"Users": "usage", "Operators": "operations", "Developers": "development"}
 	nodeNameToNode := map[string]*Node{}
 	for _, child := range node.Structure {
 		switch child.Type {
@@ -319,9 +320,6 @@ func mergeFolders(node *Node, parent *Node, manifest *Node, _ registry.Interface
 	return nil
 }
 
-var dirToPersona = map[string]string{"usage": "Users", "operations": "Operators", "development": "Developers"}
-var personaToDir = map[string]string{"Users": "usage", "Operators": "operations", "Developers": "development"}
-
 func resolvePersonaFolders(node *Node, parent *Node, manifest *Node, _ registry.Interface, _ []string) error {
 	if node.Type == "dir" && (node.Dir == "development" || node.Dir == "operations" || node.Dir == "usage") {
 		for _, child := range node.Structure {
@@ -334,6 +332,7 @@ func resolvePersonaFolders(node *Node, parent *Node, manifest *Node, _ registry.
 }
 
 func addPersonaAliasesForNode(node *Node, personaDir string, parrentAlias string) {
+	var dirToPersona = map[string]string{"usage": "Users", "operations": "Operators", "development": "Developers"}
 	finalAlias := strings.TrimSuffix(node.Name(), ".md") + "/"
 	if node.Name() == sectionFile {
 		finalAlias = ""

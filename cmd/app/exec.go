@@ -18,10 +18,11 @@ import (
 	"github.com/gardener/docforge/pkg/workers/linkvalidator"
 	"github.com/gardener/docforge/pkg/workers/resourcedownloader"
 	"github.com/gardener/docforge/pkg/workers/taskqueue"
+	"github.com/spf13/viper"
 	"k8s.io/klog/v2"
 )
 
-func exec(ctx context.Context) error {
+func exec(ctx context.Context, vip *viper.Viper) error {
 	var (
 		rhs     []repositoryhost.Interface
 		options options

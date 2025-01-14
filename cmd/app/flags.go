@@ -9,9 +9,10 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
-func configureFlags(command *cobra.Command) {
+func configureFlags(command *cobra.Command, vip *viper.Viper) {
 	command.Flags().StringP("destination", "d", "",
 		"Destination path.")
 	_ = vip.BindPFlag("destination", command.Flags().Lookup("destination"))

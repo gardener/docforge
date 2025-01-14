@@ -33,20 +33,19 @@ type options struct {
 	repositoryhost.InitOptions `mapstructure:",squash"`
 }
 
-var vip *viper.Viper
-
 // NewCommand creates a new root command and propagates
 // the context and cancel function to its Run callback closure
 func NewCommand(ctx context.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "docforge",
 		Short: "Forge a documentation bundle",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			cmd.SilenceUsage = true
-			return exec(ctx)
-		},
 	}
-	configure(cmd)
+
+	vip := configure(cmd)
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		cmd.SilenceUsage = true
+		return exec(ctx, vip)
+	}
 
 	version := version.NewVersionCmd()
 	cmd.AddCommand(version)
@@ -60,9 +59,9 @@ func NewCommand(ctx context.Context) *cobra.Command {
 	return cmd
 }
 
-func configure(command *cobra.Command) {
+func configure(command *cobra.Command) *viper.Viper {
 	//set delimiter to be ::
-	vip = viper.NewWithOptions(viper.KeyDelimiter("::"))
+	vip := viper.NewWithOptions(viper.KeyDelimiter("::"))
 	vip.SetDefault("chart::values", map[string]interface{}{
 		"ingress": map[string]interface{}{
 			"annotations": map[string]interface{}{
@@ -71,11 +70,12 @@ func configure(command *cobra.Command) {
 			},
 		},
 	})
-	configureFlags(command)
-	configureConfigFile()
+	configureFlags(command, vip)
+	configureConfigFile(vip)
+	return vip
 }
 
-func configureConfigFile() {
+func configureConfigFile(vip *viper.Viper) {
 	vip.AutomaticEnv()
 	cfgFile := os.Getenv("DOCFORGE_CONFIG")
 	if cfgFile == "" {
