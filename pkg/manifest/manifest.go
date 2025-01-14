@@ -64,7 +64,8 @@ func loadRepositoriesOfResources(node *Node, parent *Node, manifest *Node, r reg
 	return loadErr
 }
 
-func loadManifestStructure(node *Node, parent *Node, manifest *Node, r registry.Interface, _ []string) error {
+func loadManifestNodes(node *Node, parent *Node, manifest *Node, r registry.Interface, _ []string) error {
+	// skip non-manifest nodes
 	if node.Manifest == "" {
 		return nil
 	}
@@ -306,12 +307,12 @@ func mergeFolders(node *Node, parent *Node, manifest *Node, _ registry.Interface
 				nodeNameToNode[child.Dir] = child
 			}
 		case "file":
-			if _, ok := nodeNameToNode[child.File]; ok {
+			if collidedWith, ok := nodeNameToNode[child.File]; ok {
 				if child.Frontmatter != nil && nodeNameToNode[child.File].Frontmatter != nil && child.Frontmatter["persona"] != nodeNameToNode[child.File].Frontmatter["persona"] {
 					persona, _ := child.Frontmatter["persona"].(string)
 					child.File = strings.ReplaceAll(child.File, ".md", "-"+personaToDir[persona]+".md")
 				} else {
-					return fmt.Errorf("file \n\n%s\nin manifest %s that will be written in %s causes collision", child, manifest.ManifType.Manifest, child.Path)
+					return fmt.Errorf("file \n\n%s\nin manifest %s that will be written in %s causes collision with: \n\n%s", child, manifest.ManifType.Manifest, child.Path, collidedWith)
 				}
 			}
 			nodeNameToNode[child.File] = child
@@ -421,7 +422,7 @@ func ResolveManifest(url string, r registry.Interface, contentFileFormats []stri
 		},
 	}
 	err := processManifest(&manifest, nil, &manifest, r, contentFileFormats,
-		loadManifestStructure,
+		loadManifestNodes,
 		loadRepositoriesOfResources,
 		decideNodeType,
 		calculatePath,
