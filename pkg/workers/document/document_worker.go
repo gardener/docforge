@@ -138,11 +138,7 @@ func (d *Worker) process(ctx context.Context, b *bytes.Buffer, n *manifest.Node)
 		frontmatter.ComputeNodeTitle(firstDoc, n, d.hugo.IndexFileNames, d.hugo.Enabled)
 	}
 	for _, cnt := range fullContent {
-		lrt := linkResolverTask{
-			*d,
-			n,
-			cnt.docURI,
-		}
+		lrt := linkResolverTask{*d, n, cnt.docURI}
 		if strings.HasSuffix(cnt.docURI, ".md") {
 			rnd := markdown.NewLinkModifierRenderer(markdown.WithLinkResolver(lrt.resolveLink))
 			if err := rnd.Render(b, cnt.docCnt, cnt.docAst); err != nil {
