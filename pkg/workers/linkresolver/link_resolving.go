@@ -58,10 +58,24 @@ func (l *LinkResolver) ResolveResourceLink(resourceLink string, node *manifest.N
 		return resourceLink, fmt.Errorf("error when parsing resource link %s in %s : %w", resourceLink, source, err)
 	}
 	destinationResourceURL := destinationResource.ResourceURL()
+	destinationNode, err := l.resolveDestinationNode(destinationResourceURL, node)
+	if destinationNode == nil {
+		return resourceLink, err
+	}
+
+	// construct destination from node path
+	websiteLink := strings.ToLower(destinationNode.NodePath())
+	if l.Hugo.Enabled {
+		websiteLink = strings.ToLower(destinationNode.HugoPrettyPath())
+	}
+	return fmt.Sprintf("/%s/%s", path.Join(l.Hugo.BaseURL, websiteLink), destinationResource.GetResourceSuffix()), nil
+}
+
+func (l *LinkResolver) resolveDestinationNode(destinationResourceURL string, node *manifest.Node) (*manifest.Node, error) {
 	// check if link refers to a node
 	nl, ok := l.SourceToNode[destinationResourceURL]
 	if !ok {
-		return resourceLink, nil
+		return nil, nil
 	}
 	// found nodes with this source -> find the shortest path from l.node to one of nodes
 	destinationNode := slices.MinFunc(nl, func(a, b *manifest.Node) int {
@@ -69,10 +83,17 @@ func (l *LinkResolver) ResolveResourceLink(resourceLink string, node *manifest.N
 		relPathBetweenNodeAndB, _ := filepath.Rel(node.Path, b.NodePath())
 		return cmp.Compare(strings.Count(relPathBetweenNodeAndA, "/"), strings.Count(relPathBetweenNodeAndB, "/"))
 	})
-	// construct destination from node path
-	websiteLink := strings.ToLower(destinationNode.NodePath())
-	if l.Hugo.Enabled {
-		websiteLink = strings.ToLower(destinationNode.HugoPrettyPath())
+
+	desiredPath, ok := node.LinkResolution[destinationResourceURL]
+	if !ok {
+		return destinationNode, nil
 	}
-	return fmt.Sprintf("/%s/%s", path.Join(l.Hugo.BaseURL, websiteLink), destinationResource.GetResourceSuffix()), nil
+	// resolve linkResolution override
+	candidateNodes := slices.DeleteFunc(nl, func(element *manifest.Node) bool {
+		return element.NodePath() != desiredPath
+	})
+	if len(candidateNodes) != 1 {
+		return nil, fmt.Errorf("node with path %s's LinkResolution of %s field maps to %d nodes", node.NodePath(), destinationResourceURL, len(candidateNodes))
+	}
+	return candidateNodes[0], nil
 }

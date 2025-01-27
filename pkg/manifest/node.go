@@ -29,6 +29,8 @@ type Node struct {
 	Type string `yaml:"type,omitempty"`
 	// Path of node
 	Path string `yaml:"path,omitempty"`
+	// LinkResolution describes how links should be resolved when processing the given node
+	LinkResolution map[string]string `yaml:"linkResolution,omitempty"`
 	// Parent of node
 	parent *Node
 }

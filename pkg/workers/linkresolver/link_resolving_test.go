@@ -100,5 +100,33 @@ var _ = Describe("Document link resolving", func() {
 			_, err := linkResolver.ResolveResourceLink("https://gitlab.com/gardener/docforge/blob/master/README.md", node, source)
 			Expect(err.Error()).To(ContainSubstring("no sutiable repository host"))
 		})
+
+		Context("Resolving URL from linkResolution", func() {
+			It("Resolves it correctly", func() {
+				By("Node having no linkResolution should map to closest node")
+				lr := node.LinkResolution
+				node.LinkResolution = map[string]string{}
+				newLink, err := linkResolver.ResolveResourceLink("https://github.com/gardener/docforge/blob/master/linkresolution.md", node, source)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(newLink).To(Equal("/baseURL/one/linkresolution/"))
+
+				By("Node having linkResolution should map to the desired node")
+				node.LinkResolution = lr
+				newLink, err = linkResolver.ResolveResourceLink("https://github.com/gardener/docforge/blob/master/linkresolution.md", node, source)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(newLink).To(Equal("/baseURL/two/internal/far_linkresolution/"))
+			})
+
+			It("Resolves linkResolution correctly", func() {
+				_, err := linkResolver.ResolveResourceLink("https://github.com/gardener/docforge/blob/master/linkresolution2.md", node, source)
+				Expect(err.Error()).To(ContainSubstring("node with path one/node.md's LinkResolution of https://github.com/gardener/docforge/blob/master/linkresolution2.md field maps to 0 nodes"))
+			})
+
+			It("Does not change URL if there is no node with that source", func() {
+				newLink, err := linkResolver.ResolveResourceLink("https://github.com/gardener/docforge/blob/master/linkresolution3.md", node, source)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(newLink).To(Equal("https://github.com/gardener/docforge/blob/master/linkresolution3.md"))
+			})
+		})
 	})
 })
