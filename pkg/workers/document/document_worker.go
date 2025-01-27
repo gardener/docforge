@@ -118,9 +118,11 @@ func (d *Worker) process(ctx context.Context, b *bytes.Buffer, n *manifest.Node)
 			return fmt.Errorf("reading %s from node %s failed: %w", source, nodePath, err)
 		}
 		dc := &docContent{docCnt: content, docURI: source}
-		dc.docAst, err = markdown.Parse(d.markdown, content)
-		if err != nil {
-			return fmt.Errorf("fail to parses %s from node %s: %w", source, nodePath, err)
+		if strings.HasSuffix(source, ".md") {
+			dc.docAst, err = markdown.Parse(d.markdown, content)
+			if err != nil {
+				return fmt.Errorf("fail to parses %s from node %s: %w", source, nodePath, err)
+			}
 		}
 		fullContent = append(fullContent, dc)
 	}
