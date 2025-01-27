@@ -46,13 +46,6 @@ type Worker struct {
 	skipLinkValidation bool
 }
 
-// docContent defines a document content
-type docContent struct {
-	docAst ast.Node
-	docCnt []byte
-	docURI string
-}
-
 // NewDocumentWorker creates Worker objects
 func NewDocumentWorker(resourcesRoot string, downloader resourcedownloader.Interface, validator linkvalidator.Interface, linkResolver linkresolver.Interface, rh registry.Interface, hugo hugo.Hugo, writer writers.Writer, skipLinkValidation bool) *Worker {
 	return &Worker{
@@ -101,29 +94,40 @@ func (d *Worker) ProcessNode(ctx context.Context, node *manifest.Node) error {
 }
 
 func (d *Worker) process(ctx context.Context, b *bytes.Buffer, n *manifest.Node) error {
-	// manifest.Node content by priority
-	var fullContent []*docContent
+	sources := []string{}
 	nodePath := n.NodePath()
 	if len(n.Source) > 0 {
-		nc, err := d.processSource(ctx, "source", n.Source, nodePath)
-		if err != nil {
-			return err
-		}
-		fullContent = append(fullContent, nc)
+		sources = append(sources, n.Source)
 	}
-	for _, src := range n.MultiSource {
-		nc, err := d.processSource(ctx, "multiSource", src, nodePath)
-		if err != nil {
-			return err
-		}
-		fullContent = append(fullContent, nc)
-	}
-	if len(fullContent) == 0 {
+	sources = append(sources, n.MultiSource...)
+	if len(sources) == 0 {
 		klog.Warningf("empty content for node %s\n", nodePath)
 		return nil
 	}
 
-	if fullContent[0].docAst != nil && fullContent[0].docAst.Kind() == ast.KindDocument {
+	type docContent struct {
+		docAst ast.Node
+		docCnt []byte
+		docURI string
+	}
+	var fullContent []*docContent
+
+	for _, source := range sources {
+		content, err := d.repositoryhosts.Read(ctx, source)
+		if err != nil {
+			return fmt.Errorf("reading %s from node %s failed: %w", source, nodePath, err)
+		}
+		dc := &docContent{docCnt: content, docURI: source}
+		if strings.HasSuffix(source, ".md") {
+			dc.docAst, err = markdown.Parse(d.markdown, content)
+			if err != nil {
+				return fmt.Errorf("fail to parses %s from node %s: %w", source, nodePath, err)
+			}
+		}
+		fullContent = append(fullContent, dc)
+	}
+
+	if fullContent[0].docAst.Kind() == ast.KindDocument {
 		firstDoc := fullContent[0].docAst.(*ast.Document)
 		docs := []frontmatter.NodeMeta{}
 		for _, astNode := range fullContent {
@@ -136,11 +140,7 @@ func (d *Worker) process(ctx context.Context, b *bytes.Buffer, n *manifest.Node)
 		frontmatter.ComputeNodeTitle(firstDoc, n, d.hugo.IndexFileNames, d.hugo.Enabled)
 	}
 	for _, cnt := range fullContent {
-		lrt := linkResolverTask{
-			*d,
-			n,
-			cnt.docURI,
-		}
+		lrt := linkResolverTask{*d, n, cnt.docURI}
 		if strings.HasSuffix(cnt.docURI, ".md") {
 			rnd := markdown.NewLinkModifierRenderer(markdown.WithLinkResolver(lrt.resolveLink))
 			if err := rnd.Render(b, cnt.docCnt, cnt.docAst); err != nil {
@@ -151,22 +151,6 @@ func (d *Worker) process(ctx context.Context, b *bytes.Buffer, n *manifest.Node)
 		}
 	}
 	return nil
-}
-
-func (d *Worker) processSource(ctx context.Context, sourceType string, source string, nodePath string) (*docContent, error) {
-	var dc *docContent
-	content, err := d.repositoryhosts.Read(ctx, source)
-	if err != nil {
-		return nil, fmt.Errorf("reading %s %s from node %s failed: %w", sourceType, source, nodePath, err)
-	}
-	dc = &docContent{docCnt: content, docURI: source}
-	if strings.HasSuffix(source, ".md") {
-		dc.docAst, err = markdown.Parse(d.markdown, content)
-		if err != nil {
-			return nil, fmt.Errorf("fail to parse %s %s from node %s: %w", sourceType, source, nodePath, err)
-		}
-	}
-	return dc, nil
 }
 
 type linkResolverTask struct {
@@ -183,7 +167,6 @@ func DownloadURLName(url repositoryhost.URL) string {
 	name := strings.TrimSuffix(path.Base(resourcePath), ext)
 	hash := hex.EncodeToString(mdsum[:])[:6]
 	return fmt.Sprintf("%s_%s%s", name, hash, ext)
-
 }
 
 func (d *linkResolverTask) resolveLink(dest string, isEmbeddable bool) (string, error) {
