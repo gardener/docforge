@@ -127,7 +127,7 @@ func (d *Worker) process(ctx context.Context, b *bytes.Buffer, n *manifest.Node)
 		fullContent = append(fullContent, dc)
 	}
 
-	if fullContent[0].docAst.Kind() == ast.KindDocument {
+	if fullContent[0].docAst != nil && fullContent[0].docAst.Kind() == ast.KindDocument {
 		firstDoc := fullContent[0].docAst.(*ast.Document)
 		docs := []frontmatter.NodeMeta{}
 		for _, astNode := range fullContent {
