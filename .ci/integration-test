@@ -109,7 +109,7 @@ function cleanup {
 # Run docforge command with Git handler
 echo
 echo "Run ${docforge_bin}"
-DOCFORGE_CONFIG="$int_test_config_file" ${docforge_bin} --github-oauth-token-map "github.com=${GIT_OAUTH_TOKEN}"
+TOKEN="$GIT_OAUTH_TOKEN" DOCFORGE_CONFIG="$int_test_config_file" ${docforge_bin} --github-oauth-env-map "github.com=TOKEN"
 
 #Remove untested metadata keys
 removeUntestedKeysFromMetadata "${int_test_expected_metadata_dir}"

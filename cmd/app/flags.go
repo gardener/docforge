@@ -29,9 +29,9 @@ func configureFlags(command *cobra.Command, vip *viper.Viper) {
 		"The path in the website where resources will be accessed through.")
 	_ = vip.BindPFlag("resources-website-path", command.Flags().Lookup("resources-website-path"))
 
-	command.Flags().StringToString("github-oauth-token-map", map[string]string{},
-		"GitHub personal tokens authorizing read access from repositories per GitHub instance. Note that if the GitHub token is already provided by `github-oauth-token` it will be overridden by it.")
-	_ = vip.BindPFlag("github-oauth-token-map", command.Flags().Lookup("github-oauth-token-map"))
+	command.Flags().StringToString("github-oauth-env-map", map[string]string{},
+		"Map between GitHub instances and ENV var names that will be used for access tokens")
+	_ = vip.BindPFlag("github-oauth-env-map", command.Flags().Lookup("github-oauth-env-map"))
 
 	command.Flags().String("github-info-destination", "",
 		"If specified, docforge will download also additional github info for the files from the documentation structure into this destination.")
