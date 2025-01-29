@@ -68,6 +68,9 @@ func (l *LinkResolver) ResolveResourceLink(resourceLink string, node *manifest.N
 	if l.Hugo.Enabled {
 		websiteLink = strings.ToLower(destinationNode.HugoPrettyPath())
 	}
+	for _, structuralDir := range l.Hugo.HugoStructuralDirs {
+		websiteLink = strings.TrimPrefix(websiteLink, structuralDir+"/")
+	}
 	return fmt.Sprintf("/%s/%s", path.Join(l.Hugo.BaseURL, websiteLink), destinationResource.GetResourceSuffix()), nil
 }
 
