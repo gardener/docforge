@@ -28,3 +28,8 @@ structure:
       multiSource:
       - https://github.com/gardener/docforge/blob/master/clickhere2.md
       - https://github.com/gardener/docforge/blob/master/clickhere.md
+- dir: content
+  structure:
+  - dir: docs
+    structure:
+    - file: https://github.com/gardener/docforge/blob/master/file.md

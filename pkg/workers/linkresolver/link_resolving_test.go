@@ -101,6 +101,13 @@ var _ = Describe("Document link resolving", func() {
 			Expect(err.Error()).To(ContainSubstring("no sutiable repository host"))
 		})
 
+		It("Resolves resource links containing hugo structural directory correctly", func() {
+			linkResolver.Hugo.HugoStructuralDirs = []string{"content"}
+			newLink, err := linkResolver.ResolveResourceLink("https://github.com/gardener/docforge/blob/master/file.md", node, source)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(newLink).To(Equal("/baseURL/docs/file/"))
+		})
+
 		Context("Resolving URL from linkResolution", func() {
 			It("Resolves it correctly", func() {
 				By("Node having no linkResolution should map to closest node")

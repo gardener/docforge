@@ -7,6 +7,8 @@ package app
 import (
 	"context"
 	"fmt"
+	"slices"
+	"strings"
 	"sync"
 
 	"github.com/gardener/docforge/pkg/manifest"
@@ -29,6 +31,12 @@ func exec(ctx context.Context, vip *viper.Viper) error {
 	)
 
 	err := vip.Unmarshal(&options)
+	existsPath := slices.ContainsFunc(options.HugoStructuralDirs, func(dir string) bool {
+		return strings.Contains(dir, "/")
+	})
+	if existsPath {
+		return fmt.Errorf("hugo-structural-dirs contains a path instead a directory name")
+	}
 	klog.Infof("Manifest: %s", options.ManifestPath)
 	localRH := []repositoryhost.Interface{}
 	for resource, mapped := range options.ResourceMappings {
