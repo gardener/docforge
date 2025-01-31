@@ -60,7 +60,7 @@ go get github.com/gardener/docforge
 
 ## Usage
 
-> **GitHub API Disclaimer**: The docforge tool can pull material from GitHub and it will use the GitHub API for that. The API has certain usage [rt limits](https://docs.github.com/en/free-pro-team@latest/rest/overview/resources-in-the-rest-api#rt-limiting) and they are very easy to hit for unauthenticated requests - up to 60 requests per hour per originating IP as of the time of this writing. It is highly recommended to create a GitHub personal token ([GitHub Account > Settings > Developer Settings > Personal access tokens](https://github.com/settings/tokens)) and supply it to `docforge` with the `--github-oauth-token-map` flag.
+> **GitHub API Disclaimer**: The docforge tool can pull material from GitHub and it will use the GitHub API for that. The API has certain usage [rt limits](https://docs.github.com/en/free-pro-team@latest/rest/overview/resources-in-the-rest-api#rt-limiting) and they are very easy to hit for unauthenticated requests - up to 60 requests per hour per originating IP as of the time of this writing. It is highly recommended to create a GitHub personal token, export it using an environment variable ([GitHub Account > Settings > Developer Settings > Personal access tokens](https://github.com/settings/tokens)) and supply it to `docforge` with the `--github-oauth-env-map` flag.
 
 
 ### Basics
@@ -81,10 +81,10 @@ To create a documentation material bundle, it is necessary to describe it in a m
 Assuming that:
 - the **destination** where the forged bundle will appear is `/tmp/docforge-docs`, and 
 - the **manifest** file is [example/simple/00.yaml](example/simple/00.yaml), and
-- the **GitHub token map** Comma separated strings in format \<host\>=\<user\>:\<token\> 
+- the **GitHub env map** Comma separated strings in format \<host\>=\<token_env_var\> 
 the command to forge the bundle is:
 ```sh
-docforge -d /tmp/docforge-docs -f example/simple/00.yaml --github-oauth-token-map  github.com=<user>:<token>,...
+docforge -d /tmp/docforge-docs -f example/simple/00.yaml --github-oauth-env-map  github.com=GITHUB_TOKEN,...
 ```
 
 All avaliable flags for the build command can be seen [here](docs/cmd-ref/docforge.md)

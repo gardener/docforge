@@ -53,7 +53,7 @@ type Interface interface {
 // InitOptions options for the resource handler
 type InitOptions struct {
 	CacheHomeDir     string            `mapstructure:"cache-dir"`
-	Credentials      map[string]string `mapstructure:"github-oauth-token-map"`
+	EnvCredentials   map[string]string `mapstructure:"github-oauth-env-map"`
 	ResourceMappings map[string]string `mapstructure:"resourceMappings"`
 	Hugo             bool              `mapstructure:"hugo"`
 }

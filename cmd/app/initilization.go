@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -26,7 +27,12 @@ import (
 func initRepositoryHosts(ctx context.Context, o repositoryhost.InitOptions) ([]repositoryhost.Interface, error) {
 	var rhs []repositoryhost.Interface
 	var errs *multierror.Error
-	for host, oAuthToken := range o.Credentials {
+
+	for host, envVar := range o.EnvCredentials {
+		oAuthToken := os.Getenv(envVar)
+		if oAuthToken == "" {
+			return nil, fmt.Errorf("%s's OAUTH ENV variable is empty", host)
+		}
 		instance := host
 		if !strings.HasPrefix(instance, "https://") && !strings.HasPrefix(instance, "http://") {
 			instance = "https://" + instance
