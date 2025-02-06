@@ -4,41 +4,29 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import pathlib
-import util
 import os
 
-from github.util import GitHubRepositoryHelper
+import ccc.github
 
-VERSION_FILE_NAME='VERSION'
-
-repo_owner_and_name = util.check_env('SOURCE_GITHUB_REPO_OWNER_AND_NAME')
-repo_dir = util.check_env('MAIN_REPO_DIR')
-output_dir = util.check_env('BINARY')
+repo_owner_and_name = os.environ['SOURCE_GITHUB_REPO_OWNER_AND_NAME']
+repo_dir = os.environ['MAIN_REPO_DIR']
+output_dir = os.environ['BINARY']
 
 repo_owner, repo_name = repo_owner_and_name.split('/')
 
-repo_path = pathlib.Path(repo_dir).resolve()
-output_path = pathlib.Path(output_dir).resolve()
-version_file_path = repo_path / VERSION_FILE_NAME
+version_file_path = os.path.join(repo_dir, 'VERSION')
 
-version_file_contents = version_file_path.read_text()
+with open(version_file_path) as f:
+    version_file_contents = f.read()
 
-cfg_factory = util.ctx().cfg_factory()
-github_cfg = cfg_factory.github('github_com')
+github_api = ccc.github.github_api(repo_url=f'github.com/{repo_owner_and_name}')
+repository = github_api.repository(repo_owner, repo_name)
 
-github_repo_helper = GitHubRepositoryHelper(
-    owner=repo_owner,
-    name=repo_name,
-    github_cfg=github_cfg,
-)
+gh_release = repository.release_from_tag(version_file_contents)
 
-gh_release = github_repo_helper.repository.release_from_tag(version_file_contents)
-
-for dir, dirs, files in os.walk(os.path.join(output_path, "bin", "rel")):
+for dir, dirs, files in os.walk(os.path.join(output_dir, 'bin', 'rel')):
     for binName in files:
-        dir_path = pathlib.Path(dir).resolve()
-        binFilePath = dir_path / binName
+        binFilePath = os.path.join(dir, binName)
         gh_release.upload_asset(
             content_type='application/octet-stream',
             name=f'{binName}',
