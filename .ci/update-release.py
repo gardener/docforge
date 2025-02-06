@@ -5,10 +5,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import pathlib
-import util
 import os
 
-from github.util import GitHubRepositoryHelper
+import ccc.github
 
 VERSION_FILE_NAME='VERSION'
 
@@ -24,16 +23,11 @@ version_file_path = repo_path / VERSION_FILE_NAME
 
 version_file_contents = version_file_path.read_text()
 
-cfg_factory = util.ctx().cfg_factory()
-github_cfg = cfg_factory.github('github_com')
+github_api = ccc.github.github_api(repo_url=f'github.com/{repo_owner_and_name}')
+repository = github_api.repository(repo_owner, repo_path)
 
-github_repo_helper = GitHubRepositoryHelper(
-    owner=repo_owner,
-    name=repo_name,
-    github_cfg=github_cfg,
-)
 
-gh_release = github_repo_helper.repository.release_from_tag(version_file_contents)
+gh_release = repository.release_from_tag(version_file_contents)
 
 for dir, dirs, files in os.walk(os.path.join(output_path, "bin", "rel")):
     for binName in files:
