@@ -56,6 +56,9 @@ func (n *Node) NodePath() string {
 // HugoPrettyPath returns hugo pretty path
 func (n *Node) HugoPrettyPath() string {
 	name := n.Name()
+	if !strings.HasSuffix(name, ".md") {
+		return path.Join(n.Path, name)
+	}
 	name = strings.TrimSuffix(name, ".md")
 	name = strings.TrimSuffix(name, "_index")
 	return path.Join(n.Path, name) + "/"
