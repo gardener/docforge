@@ -26,9 +26,9 @@ gh_release = repository.release_from_tag(version_file_contents)
 
 for dir, dirs, files in os.walk(os.path.join(output_dir, 'bin', 'rel')):
     for binName in files:
-        binFilePath = os.path.join(dir, binName)
-        gh_release.upload_asset(
-            content_type='application/octet-stream',
-            name=f'{binName}',
-            asset=binFilePath.open(mode='rb'),
-        )
+        with open(os.path.join(dir, binName), 'rb') as f:
+            gh_release.upload_asset(
+                content_type='application/octet-stream',
+                name=f'{binName}',
+                asset=f,
+            )
