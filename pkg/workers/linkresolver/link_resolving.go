@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/gardener/docforge/cmd/hugo"
+	"github.com/gardener/docforge/pkg/link"
 	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/registry"
 	"github.com/gardener/docforge/pkg/registry/repositoryhost"
@@ -71,7 +72,10 @@ func (l *LinkResolver) ResolveResourceLink(resourceLink string, node *manifest.N
 	for _, structuralDir := range l.Hugo.HugoStructuralDirs {
 		websiteLink = strings.TrimPrefix(websiteLink, structuralDir+"/")
 	}
-	return fmt.Sprintf("/%s/%s", path.Join(l.Hugo.BaseURL, websiteLink), destinationResource.GetResourceSuffix()), nil
+	if destinationResource.GetResourceSuffix() != "" {
+		return fmt.Sprintf("/%s/%s", path.Join(l.Hugo.BaseURL, websiteLink), destinationResource.GetResourceSuffix()), nil
+	}
+	return fmt.Sprintf("/%s", link.MustBuild(l.Hugo.BaseURL, websiteLink)), nil
 }
 
 func (l *LinkResolver) resolveDestinationNode(destinationResourceURL string, node *manifest.Node) (*manifest.Node, error) {
