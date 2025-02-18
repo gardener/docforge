@@ -19,8 +19,8 @@ rm -rf "$PR_hugo"
 
 buildWebsite() {
   LOCAL_BUILD=1 "${docforge_repo_path}/.ci/build" >/dev/null 2>&1
-  sudo mv "$docforge_bin" /usr/local/bin/docforge
-  DOCFORGE_CONFIG="${docforge_repo_path}/test/e2e/docforge_config.yaml" docforge
+#   sudo mv "$docforge_bin" /usr/local/bin/docforge
+  DOCFORGE_CONFIG="${docforge_repo_path}/test/e2e/docforge_config.yaml" "$docforge_bin"
 }
 
 echo "Building current docforge"
