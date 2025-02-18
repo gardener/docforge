@@ -23,3 +23,4 @@ example/hugo/content
 example/hugo/public
 integration-test/generated-metadata/*
 integration-test/generated-tree/*
+test/e2e/hugoPR

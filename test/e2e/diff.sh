@@ -6,20 +6,6 @@
 
 set -e
 
-getGitHubToken() {
-  # Check if gardener-ci is available (in local setup)
-  command -v gardener-ci >/dev/null && gardenci="true" || gardenci=""
-  if [[ $gardenci == "true" ]]; then
-    # Get a (round-robin) random technical GitHub user credentials
-    technicalUser=$(gardener-ci config model_element --cfg-type github --cfg-name "${1}" --key credentials | sed -e "s/^GithubCredentials //" -e "s/'/\"/g")
-    if [[ -n "${technicalUser}" ]]; then
-      # get auth token and strip lead/trail quotes
-      authToken="$(jq -r '.authToken' <<< "$technicalUser")"
-      echo "${authToken}"
-    fi
-  fi
-}
-
 if [[ $(uname) == 'Darwin' ]]; then
   READLINK_BIN="greadlink"
 else
@@ -36,11 +22,6 @@ echo Docforge repo: "$docforge_repo_path"
 echo "Clean old build if done"
 rm -rf "$hugo"
 rm -rf "$PR_hugo"
-
-TOKEN=${GITHUB_OAUTH_TOKEN:-$(getGitHubToken github_com)}
-test "$TOKEN" #fail fast
-echo Token accepted
-export GITHUB_OAUTH_TOKEN=$TOKEN
 
 buildWebsite() {
   LOCAL_BUILD=1 "${docforge_repo_path}/.ci/build" >/dev/null 2>&1
@@ -76,6 +57,3 @@ else
     echo "current_branch is empty"
 fi
 mv "VERSION_PR" "VERSION"
-
-
-
