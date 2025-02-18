@@ -1,0 +1,20 @@
+manifest: https://github.com/gardener/documentation/blob/master/.docforge/hugo.yaml
+destination: test/e2e/hugo
+hugo: true
+hugo-structural-dirs:
+- content
+- static
+content-files-formats:
+- ".md"
+- ".html"
+- ".js"
+- ".scss"
+- ".css"
+- ".toml"
+- ".json"
+- ".png"
+- ".svg"
+resources-download-path: content/__resources
+github-oauth-env-map:
+  "github.com": GITHUB_OAUTH_TOKEN
+skip-link-validation: true
