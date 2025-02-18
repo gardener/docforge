@@ -6,13 +6,7 @@
 
 set -e
 
-if [[ $(uname) == 'Darwin' ]]; then
-  READLINK_BIN="greadlink"
-else
-  READLINK_BIN="readlink"
-fi
-
-docforge_repo_path="$(${READLINK_BIN} -f "$(dirname "${0}")/../..")"
+docforge_repo_path="$(readlink -f "$(dirname "${0}")/../..")"
 hugo=${docforge_repo_path}/test/e2e/hugo
 PR_hugo=${docforge_repo_path}/test/e2e/hugoPR
 docforge_bin="${docforge_repo_path}/bin/docforge"
