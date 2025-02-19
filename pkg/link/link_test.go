@@ -6,6 +6,7 @@ import (
 	_ "embed"
 
 	"github.com/gardener/docforge/pkg/link"
+	"github.com/gardener/docforge/pkg/must"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -19,7 +20,7 @@ func TestLink(t *testing.T) {
 var _ = Describe("Join", func() {
 	DescribeTable("should join link path elements correctly",
 		func(elements []string, expected string) {
-			result := link.MustBuild(elements...)
+			result := must.Succeed(link.Build(elements...))
 			Expect(result).To(Equal(expected))
 		},
 		Entry("joins multiple path elements", []string{"a", "b", "c"}, "a/b/c"),
@@ -34,7 +35,7 @@ var _ = Describe("Join", func() {
 
 	DescribeTable("should join URL elements correctly",
 		func(elements []string, expected string) {
-			result := link.MustBuild(elements...)
+			result := must.Succeed(link.Build(elements...))
 			Expect(result).To(Equal(expected))
 		},
 		Entry("joins URL", []string{"https://", "foo", "bar", "baz"}, "https://foo/bar/baz"),
