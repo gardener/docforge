@@ -18,9 +18,8 @@ getGitHubToken() {
   fi
 }
 
-TOKEN=${GITHUB_OAUTH_TOKEN:-$(getGitHubToken github_com)}
+TOKEN=$(getGitHubToken github_com)
 test "$TOKEN" #fail fast
 echo Token accepted
-# export GITHUB_OAUTH_TOKEN=$TOKEN
 
 GITHUB_OAUTH_TOKEN=$TOKEN test/e2e/diff.sh
