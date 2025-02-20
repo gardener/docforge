@@ -4,4 +4,22 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-echo "NoOP"
+getGitHubToken() {
+  # Check if gardener-ci is available (in local setup)
+  command -v gardener-ci >/dev/null && gardenci="true" || gardenci=""
+  if [[ $gardenci == "true" ]]; then
+    # Get a (round-robin) random technical GitHub user credentials
+    technicalUser=$(gardener-ci config model_element --cfg-type github --cfg-name "${1}" --key credentials | sed -e "s/^GithubCredentials //" -e "s/'/\"/g")
+    if [[ -n "${technicalUser}" ]]; then
+      # get auth token and strip lead/trail quotes
+      authToken="$(jq -r '.authToken' <<< "$technicalUser")"
+      echo "${authToken}"
+    fi
+  fi
+}
+
+TOKEN=$(getGitHubToken github_com)
+test "$TOKEN" #fail fast
+echo Token accepted
+
+GITHUB_OAUTH_TOKEN=$TOKEN test/e2e/diff.sh
