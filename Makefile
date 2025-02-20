@@ -75,7 +75,7 @@ integration-test:
 	
 .PHONY: e2e
 e2e:
-	@.ci/e2e
+	@test/e2e/diff.sh
 
 .PHONY: test-cov
 test-cov:
