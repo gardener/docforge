@@ -6,7 +6,7 @@
 
 set -e
 
-docforge_repo_path="$(readlink -f "$(dirname "${0}")/..")"
+docforge_repo_path="$(readlink -f "$(dirname "${0}")/../..")"
 hugo=${docforge_repo_path}/test/e2e/hugo
 PR_hugo=${docforge_repo_path}/test/e2e/hugoPR
 docforge_bin="${docforge_repo_path}/bin/docforge"
