@@ -7,7 +7,6 @@ package linkresolver
 import (
 	"cmp"
 	"fmt"
-	"path"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -73,7 +72,7 @@ func (l *LinkResolver) ResolveResourceLink(resourceLink string, node *manifest.N
 		websiteLink = strings.TrimPrefix(websiteLink, structuralDir+"/")
 	}
 	if destinationResource.GetResourceSuffix() != "" {
-		return fmt.Sprintf("/%s/%s", path.Join(l.Hugo.BaseURL, websiteLink), destinationResource.GetResourceSuffix()), nil
+		return link.Build("/", l.Hugo.BaseURL, websiteLink, destinationResource.GetResourceSuffix())
 	}
 	return fmt.Sprintf("/%s", link.MustBuild(l.Hugo.BaseURL, websiteLink)), nil
 }
