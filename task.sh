@@ -1,8 +1,9 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -e
 
-if [[ -z "$1" ]]; then
+user_message=$1
+if [[ -z "$user_message" ]]; then
     echo "Please provide a commit message"
     exit 1
 fi
@@ -36,5 +37,21 @@ echo "Running tests:"
 echo "Running integration tests:"
 .ci/integration-test > /dev/null 2>&1
 
-commit_message="[task] $1"
+longest_common_prefix() {
+    prefix=$1
+    for path in "$@"; do
+        while [[ "$path" != "$prefix"* ]]; do
+            if [[ $prefix == ${prefix%/*} ]]; then
+                echo ""
+                return
+            fi
+            prefix=${prefix%/*}
+        done
+    done
+
+    echo "${prefix}: "
+}
+
+prefix=$(longest_common_prefix $(echo "$staged_files" | tr '\n' ' '))
+commit_message="${prefix}${user_message}"
 git commit -m"$commit_message"
