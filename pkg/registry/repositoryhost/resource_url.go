@@ -6,6 +6,8 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+
+	"github.com/gardener/docforge/pkg/link"
 )
 
 var (
@@ -34,7 +36,7 @@ func RawURL(resourceURL string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("https://%s/%s/%s/raw/%s/%s", r.host, r.owner, r.repo, r.ref, r.resourcePath), nil
+	return link.Build("https://", r.host, r.owner, r.repo, "raw", r.ref, r.resourcePath)
 }
 
 // URL represents an repsource url
@@ -99,17 +101,17 @@ func new(resourceURL string) (*URL, error) {
 // String returns the full url
 func (r URL) String() string {
 	if r.resourcePath == "" {
-		return fmt.Sprintf("https://%s/%s/%s/%s/%s", r.host, r.owner, r.repo, r.resourceType, r.ref)
+		return link.MustBuild("https://", r.host, r.owner, r.repo, r.resourceType, r.ref)
 	}
-	return fmt.Sprintf("https://%s/%s/%s/%s/%s/%s%s", r.host, r.owner, r.repo, r.resourceType, r.ref, r.resourcePath, r.resourceSuffix)
+	return link.MustBuild("https://", r.host, r.owner, r.repo, r.resourceType, r.ref, r.resourcePath+r.resourceSuffix)
 }
 
 // ResourceURL returns the resource url without resource suffix
 func (r URL) ResourceURL() string {
 	if r.resourcePath == "" {
-		return fmt.Sprintf("https://%s/%s/%s/%s/%s", r.host, r.owner, r.repo, r.resourceType, r.ref)
+		return link.MustBuild("https://", r.host, r.owner, r.repo, r.resourceType, r.ref)
 	}
-	return fmt.Sprintf("https://%s/%s/%s/%s/%s/%s", r.host, r.owner, r.repo, r.resourceType, r.ref, r.resourcePath)
+	return link.MustBuild("https://", r.host, r.owner, r.repo, r.resourceType, r.ref, r.resourcePath)
 }
 
 // ReferenceURL returns the reference url object
