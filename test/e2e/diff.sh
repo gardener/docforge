@@ -19,7 +19,7 @@ rm -rf "$PR_hugo"
 
 buildWebsite() {
   LOCAL_BUILD=1 "${docforge_repo_path}/.ci/build" >/dev/null 2>&1
-  DOCFORGE_CONFIG="${docforge_repo_path}/test/e2e/docforge_config.yaml" "$docforge_bin"
+  DOCFORGE_CONFIG="${docforge_repo_path}/test/e2e/docforge_config.yaml" "$docforge_bin" -d "$hugo"
 }
 
 echo "Building current docforge"
