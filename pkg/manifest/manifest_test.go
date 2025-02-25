@@ -60,8 +60,8 @@ var _ = Describe("Manifest test", func() {
 				if expected[i].Frontmatter == nil {
 					expected[i].Frontmatter = map[string]interface{}{}
 				}
-				Expect(*files[i]).To(Equal(*expected[i]))
 			}
+			Expect(files).To(ConsistOf(expected))
 		},
 		Entry("covering _index.md use cases", "index_md_with_properties"),
 		Entry("covering directory merges", "merging"),
