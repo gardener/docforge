@@ -3,6 +3,7 @@ package link
 import (
 	"fmt"
 	"net/url"
+	"strings"
 )
 
 // Build builds a link given its elements
@@ -14,5 +15,5 @@ func Build(elem ...string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to join paths: %w", err)
 	}
-	return url.QueryUnescape(jointPath)
+	return strings.ReplaceAll(strings.ReplaceAll(jointPath, "%3F", "?"), "%23", "#"), nil
 }
