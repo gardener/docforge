@@ -16,6 +16,7 @@ import (
 	"sync"
 
 	"github.com/gardener/docforge/cmd/hugo"
+	link "github.com/gardener/docforge/pkg/link"
 	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/registry"
 	"github.com/gardener/docforge/pkg/registry/repositoryhost"
@@ -198,26 +199,26 @@ func (d *linkResolverTask) resolveLink(dest string, isEmbeddable bool) (string, 
 	return d.linkresolver.ResolveResourceLink(dest, d.node, d.source)
 }
 
-func (d *linkResolverTask) resolveEmbededLink(link string, source string) (string, error) {
+func (d *linkResolverTask) resolveEmbededLink(embeddedLink string, source string) (string, error) {
 	var err error
-	if repositoryhost.IsRelative(link) {
-		link, err = d.repositoryhosts.ResolveRelativeLink(source, link)
+	if repositoryhost.IsRelative(embeddedLink) {
+		embeddedLink, err = d.repositoryhosts.ResolveRelativeLink(source, embeddedLink)
 		if err != nil {
-			return link, err
+			return embeddedLink, err
 		}
-	} else if !repositoryhost.IsResourceURL(link) {
-		return link, nil
+	} else if !repositoryhost.IsResourceURL(embeddedLink) {
+		return embeddedLink, nil
 	}
 	// link has format of a resource url
-	resourceURL, err := d.repositoryhosts.ResourceURL(link)
+	resourceURL, err := d.repositoryhosts.ResourceURL(embeddedLink)
 	if err != nil {
 		// convert urls from not referenced repository  to raw
-		return repositoryhost.RawURL(link)
+		return repositoryhost.RawURL(embeddedLink)
 	}
 	// download urls from referenced repositories
 	downloadResourceName := DownloadURLName(*resourceURL)
-	if err = d.downloader.Schedule(link, downloadResourceName, source); err != nil {
-		return link, err
+	if err = d.downloader.Schedule(embeddedLink, downloadResourceName, source); err != nil {
+		return embeddedLink, err
 	}
-	return "/" + path.Join(d.hugo.BaseURL, d.resourcesRoot, downloadResourceName), nil
+	return link.Build("/", d.hugo.BaseURL, d.resourcesRoot, downloadResourceName)
 }
