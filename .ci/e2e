@@ -22,6 +22,6 @@ TOKEN=$(getGitHubToken github_com)
 test "$TOKEN" #fail fast
 echo Token accepted
 
-docforge_repo_path="$(${READLINK_BIN} -f "$(dirname "${0}")/..")"
+docforge_repo_path="$(readlink -f "$(dirname "${0}")/..")"
 
 GITHUB_OAUTH_TOKEN=$TOKEN "${docforge_repo_path}/test/e2e/diff.sh"
