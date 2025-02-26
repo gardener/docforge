@@ -126,6 +126,11 @@ func (r URL) ReferenceURL() URL {
 	}
 }
 
+// RepositoryURLString return the repository url as string
+func (r URL) RepositoryURLString() string {
+	return must.Succeed(link.Build("https://", r.host, r.owner, r.repo))
+}
+
 // ResolveRelativeLink returns the possible blob and tree url string of a given relative link
 func (r URL) ResolveRelativeLink(relativeLink string) (string, string, error) {
 	if !IsRelative(relativeLink) {
