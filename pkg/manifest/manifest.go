@@ -13,7 +13,8 @@ import (
 	"slices"
 	"strings"
 
-	link "github.com/gardener/docforge/pkg/link"
+	"github.com/gardener/docforge/pkg/link"
+	"github.com/gardener/docforge/pkg/must"
 	"github.com/gardener/docforge/pkg/registry"
 	"github.com/gardener/docforge/pkg/registry/repositoryhost"
 	"gopkg.in/yaml.v2"
@@ -328,7 +329,7 @@ func mergeFolders(node *Node, parent *Node, manifest *Node, _ registry.Interface
 func resolvePersonaFolders(node *Node, parent *Node, manifest *Node, _ registry.Interface, _ []string) error {
 	if node.Type == "dir" && (node.Dir == "development" || node.Dir == "operations" || node.Dir == "usage") {
 		for _, child := range node.Structure {
-			addPersonaAliasesForNode(child, node.Dir, link.MustBuild("/", node.HugoPrettyPath()))
+			addPersonaAliasesForNode(child, node.Dir, must.Succeed(link.Build("/", node.HugoPrettyPath())))
 		}
 		parent.Structure = append(parent.Structure, node.Structure...)
 		removeNodeFromParent(node, parent)

@@ -7,7 +7,8 @@ package manifest
 import (
 	"strings"
 
-	link "github.com/gardener/docforge/pkg/link"
+	"github.com/gardener/docforge/pkg/link"
+	"github.com/gardener/docforge/pkg/must"
 	"gopkg.in/yaml.v3"
 )
 
@@ -50,18 +51,18 @@ func (n *Node) Name() string {
 // NodePath returns fully qualified name of this node
 // i.e. Node.Path + Node.Name
 func (n *Node) NodePath() string {
-	return link.MustBuild(n.Path, n.Name())
+	return must.Succeed(link.Build(n.Path, n.Name()))
 }
 
 // HugoPrettyPath returns hugo pretty path
 func (n *Node) HugoPrettyPath() string {
 	name := n.Name()
 	if !strings.HasSuffix(name, ".md") {
-		return link.MustBuild(n.Path, name)
+		return must.Succeed(link.Build(n.Path, name))
 	}
 	name = strings.TrimSuffix(name, ".md")
 	name = strings.TrimSuffix(name, "_index")
-	return link.MustBuild(n.Path, name, "/")
+	return must.Succeed(link.Build(n.Path, name, "/"))
 }
 
 // HasContent returns true if the node is a document node

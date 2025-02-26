@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/gardener/docforge/pkg/link"
+	"github.com/gardener/docforge/pkg/must"
 )
 
 var (
@@ -101,17 +102,17 @@ func new(resourceURL string) (*URL, error) {
 // String returns the full url
 func (r URL) String() string {
 	if r.resourcePath == "" {
-		return link.MustBuild("https://", r.host, r.owner, r.repo, r.resourceType, r.ref)
+		return must.Succeed(link.Build("https://", r.host, r.owner, r.repo, r.resourceType, r.ref))
 	}
-	return link.MustBuild("https://", r.host, r.owner, r.repo, r.resourceType, r.ref, r.resourcePath+r.resourceSuffix)
+	return must.Succeed(link.Build("https://", r.host, r.owner, r.repo, r.resourceType, r.ref, r.resourcePath+r.resourceSuffix))
 }
 
 // ResourceURL returns the resource url without resource suffix
 func (r URL) ResourceURL() string {
 	if r.resourcePath == "" {
-		return link.MustBuild("https://", r.host, r.owner, r.repo, r.resourceType, r.ref)
+		return must.Succeed(link.Build("https://", r.host, r.owner, r.repo, r.resourceType, r.ref))
 	}
-	return link.MustBuild("https://", r.host, r.owner, r.repo, r.resourceType, r.ref, r.resourcePath)
+	return must.Succeed(link.Build("https://", r.host, r.owner, r.repo, r.resourceType, r.ref, r.resourcePath))
 }
 
 // ReferenceURL returns the reference url object
