@@ -14,7 +14,6 @@ import (
 	"github.com/gardener/docforge/cmd/hugo"
 	"github.com/gardener/docforge/pkg/link"
 	"github.com/gardener/docforge/pkg/manifest"
-	"github.com/gardener/docforge/pkg/must"
 	"github.com/gardener/docforge/pkg/registry"
 	"github.com/gardener/docforge/pkg/registry/repositoryhost"
 	"k8s.io/klog/v2"
@@ -75,7 +74,7 @@ func (l *LinkResolver) ResolveResourceLink(resourceLink string, node *manifest.N
 	if destinationResource.GetResourceSuffix() != "" {
 		return link.Build("/", l.Hugo.BaseURL, websiteLink, destinationResource.GetResourceSuffix())
 	}
-	return fmt.Sprintf("/%s", must.Succeed(link.Build(l.Hugo.BaseURL, websiteLink))), nil
+	return link.Build("/", l.Hugo.BaseURL, websiteLink)
 }
 
 func (l *LinkResolver) resolveDestinationNode(destinationResourceURL string, node *manifest.Node) (*manifest.Node, error) {
