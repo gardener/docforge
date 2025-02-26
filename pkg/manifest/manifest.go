@@ -22,7 +22,7 @@ import (
 
 const sectionFile = "_index.md"
 
-type nodeTransformation func(node *Node, parent *Node, r registry.Interface, contentFileFormats []string) (runTreeChangeProcedure bool, err error)
+type NodeTransformation func(node *Node, parent *Node, r registry.Interface, contentFileFormats []string) (runTreeChangeProcedure bool, err error)
 
 type manifestToNodeTreeTransfromation func(node *Node, parent *Node, manifest *Node, r registry.Interface) error
 
@@ -54,7 +54,7 @@ func processManifestToNodeTreeTransfromation(f manifestToNodeTreeTransfromation,
 	return nil
 }
 
-func processNodeTree(manifest *Node, r registry.Interface, contentFileFormats []string, functions ...nodeTransformation) error {
+func processNodeTree(manifest *Node, r registry.Interface, contentFileFormats []string, functions ...NodeTransformation) error {
 	for i := range functions {
 		runTreeChangeProcedure, err := processTransformation(functions[i], manifest, nil, r, contentFileFormats)
 		if err != nil {
@@ -86,7 +86,7 @@ func processNodeTree(manifest *Node, r registry.Interface, contentFileFormats []
 	return nil
 }
 
-func processTransformation(f nodeTransformation, node *Node, parent *Node, r registry.Interface, contentFileFormats []string) (bool, error) {
+func processTransformation(f NodeTransformation, node *Node, parent *Node, r registry.Interface, contentFileFormats []string) (bool, error) {
 	runTreeChangeProcedure, err := f(node, parent, r, contentFileFormats)
 	if err != nil {
 		return runTreeChangeProcedure, err
