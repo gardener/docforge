@@ -5,8 +5,8 @@ import (
 
 	_ "embed"
 
-	"github.com/gardener/docforge/pkg/link"
-	"github.com/gardener/docforge/pkg/must"
+	"github.com/gardener/docforge/pkg/internal/link"
+	"github.com/gardener/docforge/pkg/internal/must"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
