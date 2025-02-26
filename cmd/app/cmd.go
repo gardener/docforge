@@ -70,14 +70,6 @@ func NewCommand(ctx context.Context) *cobra.Command {
 func configure(command *cobra.Command) *viper.Viper {
 	//set delimiter to be ::
 	vip := viper.NewWithOptions(viper.KeyDelimiter("::"))
-	vip.SetDefault("chart::values", map[string]interface{}{
-		"ingress": map[string]interface{}{
-			"annotations": map[string]interface{}{
-				"traefik.frontend.rule.type":                 "PathPrefix",
-				"traefik.ingress.kubernetes.io/ssl-redirect": "true",
-			},
-		},
-	})
 	configureFlags(command, vip)
 	configureConfigFile(vip)
 	return vip
