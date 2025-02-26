@@ -12,6 +12,10 @@ func Build(elem ...string) (string, error) {
 		return "", nil
 	}
 	jointPath, err := url.JoinPath(elem[0], elem[1:]...)
+	// TODO Remove this after improvement in manifest.go
+	if jointPath == "" {
+		return ".", nil
+	}
 	if err != nil {
 		return "", fmt.Errorf("failed to join paths: %w", err)
 	}
