@@ -497,7 +497,7 @@ func setDefaultProcessor(node *Node, parent *Node, _ registry.Interface, _ []str
 }
 
 // ResolveManifest collects files in FileCollector from a given url and resourcehandlers.FileSource
-func ResolveManifest(url string, r registry.Interface, contentFileFormats []string) ([]*Node, error) {
+func ResolveManifest(url string, r registry.Interface, contentFileFormats []string, additionalTransformations ...NodeTransformation) ([]*Node, error) {
 	manifest := &Node{
 		ManifType: ManifType{
 			Manifest: url,
@@ -536,6 +536,10 @@ func ResolveManifest(url string, r registry.Interface, contentFileFormats []stri
 		// alias plugin
 		calculateAliases,
 	)
+	if err != nil {
+		return nil, err
+	}
+	err = processNodeTree(manifest, r, contentFileFormats, additionalTransformations...)
 	if err != nil {
 		return nil, err
 	}
