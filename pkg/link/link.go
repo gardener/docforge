@@ -15,5 +15,9 @@ func Build(elem ...string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to join paths: %w", err)
 	}
-	return strings.ReplaceAll(strings.ReplaceAll(jointPath, "%3F", "?"), "%23", "#"), nil
+	escapedQuery, err := url.QueryUnescape(jointPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to unescape joint path: %w", err)
+	}
+	return strings.ReplaceAll(escapedQuery, " ", "%20"), nil
 }
