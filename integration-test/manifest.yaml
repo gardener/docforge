@@ -4,6 +4,7 @@
 structure:
 - dir: mainTree
   structure:
+  - file: ./tested-doc/images/gardener-docforge-logo.png
   - file: multiformatMerge.md
     multiSource:
     - ./tested-doc/markdown-tests/testedMarkdownFile2.md

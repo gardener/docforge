@@ -11,10 +11,10 @@ title: testedFile1
 [test2](/baseURL/target2/)
 
 ### Link existing image with relative path
-![test4](/baseURL/__resources/gardener-docforge-logo_01e888.png)
+![test4](/baseURL/images/gardener-docforge-logo.png)
 
 ### Link existing image with relative path and title
-![test5](/baseURL/__resources/gardener-docforge-logo_01e888.png "gardener-docforge-logo")
+![test5](/baseURL/images/gardener-docforge-logo.png "gardener-docforge-logo")
 
 ### Link outside image
 ![test6](https://github.com/kubernetes/kubernetes/raw/master/logo/logo.png)

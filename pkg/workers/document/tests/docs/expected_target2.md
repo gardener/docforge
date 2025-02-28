@@ -7,7 +7,7 @@
 [test2](/baseURL/target/)
 
 ### Link existing image with relative path
-![test3](/baseURL/__resources/gardener-docforge-logo_01e888.png)
+![test3](/baseURL/images/gardener-docforge-logo.png)
 
 ### Link existing image with relative path and title
-![test4](/baseURL/__resources/gardener-docforge-logo_01e888.png "gardener-docforge-logo")
+![test4](/baseURL/images/gardener-docforge-logo.png "gardener-docforge-logo")

@@ -16,7 +16,6 @@ import (
 	"sync"
 
 	"github.com/gardener/docforge/cmd/hugo"
-	"github.com/gardener/docforge/pkg/internal/link"
 	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/registry"
 	"github.com/gardener/docforge/pkg/registry/repositoryhost"
@@ -215,10 +214,6 @@ func (d *linkResolverTask) resolveEmbededLink(embeddedLink string, source string
 		// convert urls from not referenced repository  to raw
 		return repositoryhost.RawURL(embeddedLink)
 	}
-	// download urls from referenced repositories
-	downloadResourceName := DownloadURLName(*resourceURL)
-	if err = d.downloader.Schedule(embeddedLink, downloadResourceName, source); err != nil {
-		return embeddedLink, err
-	}
-	return link.Build("/", d.hugo.BaseURL, d.resourcesRoot, downloadResourceName)
+	// resolve urls from referenced repositories
+	return d.linkresolver.ResolveResourceLink(resourceURL.String(), d.node, source)
 }
