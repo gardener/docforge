@@ -1,0 +1,35 @@
+structure:
+- dir: one
+  structure:
+  - file: node.md
+    multiSource:
+    - https://github.com/gardener/docforge/blob/master/target2.md
+    - https://github.com/gardener/docforge/blob/master/target.md
+    linkResolution:
+      "https://github.com/gardener/docforge/blob/master/linkresolution.md": "two/internal/far_linkresolution.md"
+      "https://github.com/gardener/docforge/blob/master/linkresolution2.md": "non/existent/node.md"
+      "https://github.com/gardener/docforge/blob/master/linkresolution3.md": "some/node.md"
+  - file: https://github.com/gardener/docforge/blob/master/linkresolution.md
+  - dir: internal
+    structure:
+    - file: linked.md
+      multiSource:
+      - https://github.com/gardener/docforge/blob/master/clickhere2.md
+      - https://github.com/gardener/docforge/blob/master/clickhere.md
+- dir: two
+  structure:
+  - dir: internal
+    structure:
+    - file: far_linkresolution.md
+      source: https://github.com/gardener/docforge/blob/master/linkresolution.md
+    - file: https://github.com/gardener/docforge/blob/master/linkresolution2.md
+    - file: https://github.com/gardener/docforge/blob/master/docs/_index.md
+    - file: linked.md
+      multiSource:
+      - https://github.com/gardener/docforge/blob/master/clickhere2.md
+      - https://github.com/gardener/docforge/blob/master/clickhere.md
+- dir: content
+  structure:
+  - dir: docs
+    structure:
+    - file: https://github.com/gardener/docforge/blob/master/file.md
