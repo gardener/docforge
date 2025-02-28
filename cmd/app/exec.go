@@ -71,7 +71,7 @@ func exec(ctx context.Context, vip *viper.Viper) error {
 	if err != nil {
 		return err
 	}
-	docProcessor, docTasks, err := document.New(config.DocumentWorkersCount, config.FailFast, reactorWG, documentNodes, config.ResourcesWebsitePath, v, rhRegistry, config.Hugo, config.Writer, config.SkipLinkValidation)
+	docProcessor, docTasks, err := document.New(config.DocumentWorkersCount, config.FailFast, reactorWG, documentNodes, v, rhRegistry, config.Hugo, config.Writer, config.SkipLinkValidation)
 	if err != nil {
 		return err
 	}

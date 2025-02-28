@@ -52,7 +52,7 @@ var _ = Describe("Document resolving", func() {
 		lr := linkresolver.New(nodes, registry, hugo)
 
 		w = &writersfakes.FakeWriter{}
-		dw = document.NewDocumentWorker("__resources", vf, lr, registry, hugo, w, false)
+		dw = document.NewDocumentWorker(vf, lr, registry, hugo, w, false)
 	})
 
 	Context("#ProcessNode", func() {

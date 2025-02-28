@@ -31,9 +31,9 @@ type Processor interface {
 }
 
 // New creates a new Worker
-func New(workerCount int, failFast bool, wg *sync.WaitGroup, structure []*manifest.Node, resourcesRoot string, validator linkvalidator.Interface, rhs registry.Interface, hugo hugo.Hugo, writer writers.Writer, skipLinkValidation bool) (Processor, taskqueue.QueueController, error) {
+func New(workerCount int, failFast bool, wg *sync.WaitGroup, structure []*manifest.Node, validator linkvalidator.Interface, rhs registry.Interface, hugo hugo.Hugo, writer writers.Writer, skipLinkValidation bool) (Processor, taskqueue.QueueController, error) {
 	lr := linkresolver.New(structure, rhs, hugo)
-	worker := NewDocumentWorker(resourcesRoot, validator, lr, rhs, hugo, writer, skipLinkValidation)
+	worker := NewDocumentWorker(validator, lr, rhs, hugo, writer, skipLinkValidation)
 	queue, err := taskqueue.New("Document", workerCount, worker.execute, failFast, wg)
 	if err != nil {
 		return nil, nil, err

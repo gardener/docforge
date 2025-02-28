@@ -34,21 +34,18 @@ type Worker struct {
 
 	writer writers.Writer
 
-	resourcesRoot string
-
 	repositoryhosts    registry.Interface
 	hugo               hugo.Hugo
 	skipLinkValidation bool
 }
 
 // NewDocumentWorker creates Worker objects
-func NewDocumentWorker(resourcesRoot string, validator linkvalidator.Interface, linkResolver linkresolver.Interface, rh registry.Interface, hugo hugo.Hugo, writer writers.Writer, skipLinkValidation bool) *Worker {
+func NewDocumentWorker(validator linkvalidator.Interface, linkResolver linkresolver.Interface, rh registry.Interface, hugo hugo.Hugo, writer writers.Writer, skipLinkValidation bool) *Worker {
 	return &Worker{
 		markdown.New(),
 		linkResolver,
 		validator,
 		writer,
-		resourcesRoot,
 		rh,
 		hugo,
 		skipLinkValidation,
