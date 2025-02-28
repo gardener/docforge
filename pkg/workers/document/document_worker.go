@@ -16,7 +16,7 @@ import (
 	"sync"
 
 	"github.com/gardener/docforge/cmd/hugo"
-	"github.com/gardener/docforge/pkg/link"
+	"github.com/gardener/docforge/pkg/internal/link"
 	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/registry"
 	"github.com/gardener/docforge/pkg/registry/repositoryhost"
