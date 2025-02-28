@@ -1,7 +1,0 @@
-structure:
-- file: file_node-1.md
-- file: _index.md
-- dir: parent_dir
-  structure:
-  - file: file_node-2.md
-  - file: README.md
