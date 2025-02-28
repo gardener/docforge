@@ -21,7 +21,7 @@ import (
 //counterfeiter:generate . Interface
 type Interface interface {
 	// Schedule is a typesafe wrapper for enqueuing download tasks. An error is returned if scheduling fails.
-	Schedule(source string, target string, document string) error
+	Schedule(source string, destinationPath string) error
 }
 
 type downloadScheduler struct {
@@ -47,10 +47,10 @@ func New(workerCount int, failFast bool, wg *sync.WaitGroup, registry registry.I
 }
 
 // Schedule enqueues and resource link for download
-func (ds *downloadScheduler) Schedule(source string, target string, document string) error {
-	task := &downloadTask{source, target, document}
+func (ds *downloadScheduler) Schedule(source string, destinationPath string) error {
+	task := &downloadTask{source, destinationPath}
 	if !ds.queue.AddTask(task) {
-		return fmt.Errorf("scheduling download of %s in document %s failed", task.source, task.document)
+		return fmt.Errorf("scheduling download of %s failed", task.source)
 	}
 	return nil
 }
@@ -60,12 +60,11 @@ func (d *ResourceDownloadWorker) ececute(ctx context.Context, task interface{}) 
 	if !ok {
 		return fmt.Errorf("incorrect download task: %T", task)
 	}
-	return d.Download(ctx, dt.source, dt.target, dt.document)
+	return d.Download(ctx, dt.source, dt.destinationPath)
 }
 
-// DownloadTask holds information for source and target of linked document resources
+// DownloadTask holds information for source and destinationPath of linked document resources
 type downloadTask struct {
-	source   string
-	target   string
-	document string
+	source          string
+	destinationPath string
 }

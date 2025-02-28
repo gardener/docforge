@@ -11,12 +11,11 @@ import (
 )
 
 type FakeInterface struct {
-	ScheduleStub        func(string, string, string) error
+	ScheduleStub        func(string, string) error
 	scheduleMutex       sync.RWMutex
 	scheduleArgsForCall []struct {
 		arg1 string
 		arg2 string
-		arg3 string
 	}
 	scheduleReturns struct {
 		result1 error
@@ -28,20 +27,19 @@ type FakeInterface struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeInterface) Schedule(arg1 string, arg2 string, arg3 string) error {
+func (fake *FakeInterface) Schedule(arg1 string, arg2 string) error {
 	fake.scheduleMutex.Lock()
 	ret, specificReturn := fake.scheduleReturnsOnCall[len(fake.scheduleArgsForCall)]
 	fake.scheduleArgsForCall = append(fake.scheduleArgsForCall, struct {
 		arg1 string
 		arg2 string
-		arg3 string
-	}{arg1, arg2, arg3})
+	}{arg1, arg2})
 	stub := fake.ScheduleStub
 	fakeReturns := fake.scheduleReturns
-	fake.recordInvocation("Schedule", []interface{}{arg1, arg2, arg3})
+	fake.recordInvocation("Schedule", []interface{}{arg1, arg2})
 	fake.scheduleMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2, arg3)
+		return stub(arg1, arg2)
 	}
 	if specificReturn {
 		return ret.result1
@@ -55,17 +53,17 @@ func (fake *FakeInterface) ScheduleCallCount() int {
 	return len(fake.scheduleArgsForCall)
 }
 
-func (fake *FakeInterface) ScheduleCalls(stub func(string, string, string) error) {
+func (fake *FakeInterface) ScheduleCalls(stub func(string, string) error) {
 	fake.scheduleMutex.Lock()
 	defer fake.scheduleMutex.Unlock()
 	fake.ScheduleStub = stub
 }
 
-func (fake *FakeInterface) ScheduleArgsForCall(i int) (string, string, string) {
+func (fake *FakeInterface) ScheduleArgsForCall(i int) (string, string) {
 	fake.scheduleMutex.RLock()
 	defer fake.scheduleMutex.RUnlock()
 	argsForCall := fake.scheduleArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+	return argsForCall.arg1, argsForCall.arg2
 }
 
 func (fake *FakeInterface) ScheduleReturns(result1 error) {

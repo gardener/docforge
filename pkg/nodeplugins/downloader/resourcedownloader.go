@@ -6,72 +6,28 @@ package downloader
 
 import (
 	"context"
-	"errors"
-	"fmt"
-	"reflect"
-	"sync"
 
 	"github.com/gardener/docforge/pkg/registry"
-	"github.com/gardener/docforge/pkg/registry/repositoryhost"
 	"github.com/gardener/docforge/pkg/writers"
-	"k8s.io/klog/v2"
 )
 
 // ResourceDownloadWorker is the structure that processes downloads
 type ResourceDownloadWorker struct {
 	registry registry.Interface
 	writer   writers.Writer
-	// lock for accessing the downloadedResources map
-	mux sync.Mutex
-	// map with downloaded resources
-	downloadedResources map[string]struct{}
 }
 
 // NewDownloader creates new downloader
 func NewDownloader(registry registry.Interface, writer writers.Writer) (*ResourceDownloadWorker, error) {
-	if registry == nil || reflect.ValueOf(registry).IsNil() {
-		return nil, errors.New("invalid argument: reader is nil")
-	}
-	if writer == nil || reflect.ValueOf(writer).IsNil() {
-		return nil, errors.New("invalid argument: writer is nil")
-	}
 	return &ResourceDownloadWorker{
-		registry:            registry,
-		writer:              writer,
-		downloadedResources: make(map[string]struct{}),
+		registry: registry,
+		writer:   writer,
 	}, nil
 }
 
-// Download downloads source as target
-func (d *ResourceDownloadWorker) Download(ctx context.Context, source string, target string, document string) error {
-	if !d.shouldDownload(source) {
-		return nil
-	}
-	if err := d.download(ctx, source, target); err != nil {
-		dErr := fmt.Errorf("downloading %s as %s from document %s failed: %v", source, target, document, err)
-		if _, ok := err.(repositoryhost.ErrResourceNotFound); ok {
-			// for missing resources just log warning
-			klog.Warning(dErr.Error())
-			return nil
-		}
-		return dErr
-	}
-	return nil
-}
-
-// shouldDownload checks whether a download task for the same Source is being processed
-func (d *ResourceDownloadWorker) shouldDownload(Source string) bool {
-	d.mux.Lock()
-	defer d.mux.Unlock()
-	if _, ok := d.downloadedResources[Source]; ok {
-		return false
-	}
-	d.downloadedResources[Source] = struct{}{}
-	return true
-}
-
-func (d *ResourceDownloadWorker) download(ctx context.Context, Source string, Target string) error {
-	reosurceURL, err := d.registry.ResourceURL(Source)
+// Download downloads source in destinationPath
+func (d *ResourceDownloadWorker) Download(ctx context.Context, source string, destinationPath string) error {
+	reosurceURL, err := d.registry.ResourceURL(source)
 	if err != nil {
 		return err
 	}
@@ -79,7 +35,7 @@ func (d *ResourceDownloadWorker) download(ctx context.Context, Source string, Ta
 	if err != nil {
 		return err
 	}
-	if err = d.writer.Write(Target, "", blob, nil, nil); err != nil {
+	if err = d.writer.Write(destinationPath, "", blob, nil, nil); err != nil {
 		return err
 	}
 	return nil

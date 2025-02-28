@@ -34,10 +34,9 @@ var _ = Describe("Executing Download", func() {
 		writer *writersfakes.FakeWriter
 		worker *downloader.ResourceDownloadWorker
 
-		ctx      context.Context
-		source   string
-		target   string
-		document string
+		ctx    context.Context
+		source string
+		target string
 	)
 
 	BeforeEach(func() {
@@ -47,7 +46,6 @@ var _ = Describe("Executing Download", func() {
 		ctx = context.TODO()
 		source = "https://github.com/gardener/docforge/blob/master/README.md"
 		target = "fake_target"
-		document = "fake_document"
 	})
 
 	JustBeforeEach(func() {
@@ -55,18 +53,7 @@ var _ = Describe("Executing Download", func() {
 		Expect(worker).NotTo(BeNil())
 		Expect(err).NotTo(HaveOccurred())
 
-		err = worker.Download(ctx, source, target, document)
-	})
-
-	Context("source is already downloaded", func() {
-		JustBeforeEach(func() {
-			Expect(err).NotTo(HaveOccurred())
-			err = worker.Download(ctx, source, target, document)
-		})
-		It("skips duplicate downloads", func() {
-			Expect(err).NotTo(HaveOccurred())
-			Expect(writer.WriteCallCount()).To(Equal(1))
-		})
+		err = worker.Download(ctx, source, target)
 	})
 
 	Context("no repo host for source repoHost2://fake_source", func() {
@@ -76,16 +63,6 @@ var _ = Describe("Executing Download", func() {
 		It("fails", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("no sutiable repository host for repoHost2://fake_source"))
-		})
-	})
-
-	Context("read does not fail when resource not found", func() {
-		BeforeEach(func() {
-			source = "https://github.com/gardener/docforge/blob/master/Makefile"
-		})
-		It("succeeded", func() {
-			Expect(err).To(Not(HaveOccurred()))
-			Expect(writer.WriteCallCount()).To(Equal(0))
 		})
 	})
 
