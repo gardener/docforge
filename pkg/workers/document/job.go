@@ -33,20 +33,7 @@ type Processor interface {
 
 // New creates a new Worker
 func New(workerCount int, failFast bool, wg *sync.WaitGroup, structure []*manifest.Node, resourcesRoot string, downloadJob resourcedownloader.Interface, validator linkvalidator.Interface, rhs registry.Interface, hugo hugo.Hugo, writer writers.Writer, skipLinkValidation bool) (Processor, taskqueue.QueueController, error) {
-	lr := &linkresolver.LinkResolver{
-		Repositoryhosts: rhs,
-		Hugo:            hugo,
-		SourceToNode:    make(map[string][]*manifest.Node),
-	}
-	for _, node := range structure {
-		if node.Source != "" {
-			lr.SourceToNode[node.Source] = append(lr.SourceToNode[node.Source], node)
-		} else if len(node.MultiSource) > 0 {
-			for _, s := range node.MultiSource {
-				lr.SourceToNode[s] = append(lr.SourceToNode[s], node)
-			}
-		}
-	}
+	lr := linkresolver.New(structure, rhs, hugo)
 	worker := NewDocumentWorker(resourcesRoot, downloadJob, validator, lr, rhs, hugo, writer, skipLinkValidation)
 	queue, err := taskqueue.New("Document", workerCount, worker.execute, failFast, wg)
 	if err != nil {
