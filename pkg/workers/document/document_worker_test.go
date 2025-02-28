@@ -19,7 +19,6 @@ import (
 	"github.com/gardener/docforge/pkg/workers/document"
 	"github.com/gardener/docforge/pkg/workers/linkresolver"
 	"github.com/gardener/docforge/pkg/workers/linkvalidator/linkvalidatorfakes"
-	"github.com/gardener/docforge/pkg/workers/resourcedownloader/downloaderfakes"
 	"github.com/gardener/docforge/pkg/writers/writersfakes"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -46,7 +45,6 @@ var _ = Describe("Document resolving", func() {
 			BaseURL:        "baseURL",
 			IndexFileNames: []string{"readme.md", "readme", "read.me", "index.md", "index"},
 		}
-		df := &downloaderfakes.FakeInterface{}
 		vf := &linkvalidatorfakes.FakeInterface{}
 		nodes, err := manifest.ResolveManifest("https://github.com/gardener/docforge/blob/master/docs/manifest.yaml", registry, []string{".md", ".html", ".png"})
 		Expect(err).NotTo(HaveOccurred())
@@ -54,7 +52,7 @@ var _ = Describe("Document resolving", func() {
 		lr := linkresolver.New(nodes, registry, hugo)
 
 		w = &writersfakes.FakeWriter{}
-		dw = document.NewDocumentWorker("__resources", df, vf, lr, registry, hugo, w, false)
+		dw = document.NewDocumentWorker("__resources", vf, lr, registry, hugo, w, false)
 	})
 
 	Context("#ProcessNode", func() {

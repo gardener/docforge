@@ -23,7 +23,6 @@ import (
 	"github.com/gardener/docforge/pkg/workers/document/markdown"
 	"github.com/gardener/docforge/pkg/workers/linkresolver"
 	"github.com/gardener/docforge/pkg/workers/linkvalidator"
-	"github.com/gardener/docforge/pkg/workers/resourcedownloader"
 	"github.com/gardener/docforge/pkg/writers"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
@@ -34,7 +33,6 @@ import (
 type Worker struct {
 	markdown     goldmark.Markdown
 	linkresolver linkresolver.Interface
-	downloader   resourcedownloader.Interface
 	validator    linkvalidator.Interface
 
 	writer writers.Writer
@@ -47,11 +45,10 @@ type Worker struct {
 }
 
 // NewDocumentWorker creates Worker objects
-func NewDocumentWorker(resourcesRoot string, downloader resourcedownloader.Interface, validator linkvalidator.Interface, linkResolver linkresolver.Interface, rh registry.Interface, hugo hugo.Hugo, writer writers.Writer, skipLinkValidation bool) *Worker {
+func NewDocumentWorker(resourcesRoot string, validator linkvalidator.Interface, linkResolver linkresolver.Interface, rh registry.Interface, hugo hugo.Hugo, writer writers.Writer, skipLinkValidation bool) *Worker {
 	return &Worker{
 		markdown.New(),
 		linkResolver,
-		downloader,
 		validator,
 		writer,
 		resourcesRoot,

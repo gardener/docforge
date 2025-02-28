@@ -18,7 +18,6 @@ import (
 	"github.com/gardener/docforge/pkg/workers/document"
 	"github.com/gardener/docforge/pkg/workers/githubinfo"
 	"github.com/gardener/docforge/pkg/workers/linkvalidator"
-	"github.com/gardener/docforge/pkg/workers/resourcedownloader"
 	"github.com/gardener/docforge/pkg/workers/taskqueue"
 	"github.com/spf13/viper"
 	"k8s.io/klog/v2"
@@ -68,20 +67,16 @@ func exec(ctx context.Context, vip *viper.Viper) error {
 		fmt.Println(documentNodes[0])
 	}
 
-	dScheduler, downloadTasks, err := resourcedownloader.New(config.ResourceDownloadWorkersCount, config.FailFast, reactorWG, rhRegistry, config.ResourceDownloadWriter)
-	if err != nil {
-		return err
-	}
 	v, validatorTasks, err := linkvalidator.New(config.ValidationWorkersCount, config.FailFast, reactorWG, rhRegistry, config.HostsToReport)
 	if err != nil {
 		return err
 	}
-	docProcessor, docTasks, err := document.New(config.DocumentWorkersCount, config.FailFast, reactorWG, documentNodes, config.ResourcesWebsitePath, dScheduler, v, rhRegistry, config.Hugo, config.Writer, config.SkipLinkValidation)
+	docProcessor, docTasks, err := document.New(config.DocumentWorkersCount, config.FailFast, reactorWG, documentNodes, config.ResourcesWebsitePath, v, rhRegistry, config.Hugo, config.Writer, config.SkipLinkValidation)
 	if err != nil {
 		return err
 	}
 
-	qcc := taskqueue.NewQueueControllerCollection(reactorWG, downloadTasks, validatorTasks, docTasks)
+	qcc := taskqueue.NewQueueControllerCollection(reactorWG, validatorTasks, docTasks)
 
 	if config.GitInfoWriter != nil {
 		ghInfo, ghInfoTasks, err = githubinfo.New(config.ResourceDownloadWorkersCount, config.FailFast, reactorWG, rhRegistry, config.GitInfoWriter)
