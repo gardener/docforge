@@ -17,7 +17,7 @@ import (
 	"github.com/gardener/docforge/pkg/registry"
 	"github.com/gardener/docforge/pkg/registry/repositoryhost"
 	"github.com/gardener/docforge/pkg/workers/document"
-	"github.com/gardener/docforge/pkg/workers/linkresolver/linkresolverfakes"
+	"github.com/gardener/docforge/pkg/workers/linkresolver"
 	"github.com/gardener/docforge/pkg/workers/linkvalidator/linkvalidatorfakes"
 	"github.com/gardener/docforge/pkg/workers/resourcedownloader/downloaderfakes"
 	"github.com/gardener/docforge/pkg/writers/writersfakes"
@@ -48,12 +48,13 @@ var _ = Describe("Document resolving", func() {
 		}
 		df := &downloaderfakes.FakeInterface{}
 		vf := &linkvalidatorfakes.FakeInterface{}
-		lrf := &linkresolverfakes.FakeInterface{}
-		lrf.ResolveResourceLinkCalls(func(s1 string, n *manifest.Node, s2 string) (string, error) {
-			return s1, nil
-		})
+		nodes, err := manifest.ResolveManifest("https://github.com/gardener/docforge/blob/master/docs/manifest.yaml", registry, []string{".md", ".html", ".png"})
+		Expect(err).NotTo(HaveOccurred())
+
+		lr := linkresolver.New(nodes, registry, hugo)
+
 		w = &writersfakes.FakeWriter{}
-		dw = document.NewDocumentWorker("__resources", df, vf, lrf, registry, hugo, w, false)
+		dw = document.NewDocumentWorker("__resources", df, vf, lr, registry, hugo, w, false)
 	})
 
 	Context("#ProcessNode", func() {
