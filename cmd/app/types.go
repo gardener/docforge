@@ -17,8 +17,6 @@ type Options struct {
 	ValidationWorkersCount       int      `mapstructure:"validation-workers"`
 	FailFast                     bool     `mapstructure:"fail-fast"`
 	DestinationPath              string   `mapstructure:"destination"`
-	ResourcesDownloadPath        string   `mapstructure:"resources-download-path"`
-	ResourcesWebsitePath         string   `mapstructure:"resources-website-path"`
 	ManifestPath                 string   `mapstructure:"manifest"`
 	ResourceDownloadWorkersCount int      `mapstructure:"download-workers"`
 	GhInfoDestination            string   `mapstructure:"github-info-destination"`
@@ -30,9 +28,8 @@ type Options struct {
 
 // Writers struct that collects all the writesr
 type Writers struct {
-	ResourceDownloadWriter writers.Writer
-	GitInfoWriter          writers.Writer
-	Writer                 writers.Writer
+	GitInfoWriter writers.Writer
+	Writer        writers.Writer
 }
 
 // Config configuration of the reactor

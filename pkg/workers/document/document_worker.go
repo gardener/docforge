@@ -7,16 +7,12 @@ package document
 import (
 	"bytes"
 	"context"
-	"crypto/md5"
-	"encoding/hex"
 	"fmt"
 	"net/url"
-	"path"
 	"strings"
 	"sync"
 
 	"github.com/gardener/docforge/cmd/hugo"
-	"github.com/gardener/docforge/pkg/internal/link"
 	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/registry"
 	"github.com/gardener/docforge/pkg/registry/repositoryhost"
@@ -24,7 +20,6 @@ import (
 	"github.com/gardener/docforge/pkg/workers/document/markdown"
 	"github.com/gardener/docforge/pkg/workers/linkresolver"
 	"github.com/gardener/docforge/pkg/workers/linkvalidator"
-	"github.com/gardener/docforge/pkg/workers/resourcedownloader"
 	"github.com/gardener/docforge/pkg/writers"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
@@ -35,12 +30,9 @@ import (
 type Worker struct {
 	markdown     goldmark.Markdown
 	linkresolver linkresolver.Interface
-	downloader   resourcedownloader.Interface
 	validator    linkvalidator.Interface
 
 	writer writers.Writer
-
-	resourcesRoot string
 
 	repositoryhosts    registry.Interface
 	hugo               hugo.Hugo
@@ -48,14 +40,12 @@ type Worker struct {
 }
 
 // NewDocumentWorker creates Worker objects
-func NewDocumentWorker(resourcesRoot string, downloader resourcedownloader.Interface, validator linkvalidator.Interface, linkResolver linkresolver.Interface, rh registry.Interface, hugo hugo.Hugo, writer writers.Writer, skipLinkValidation bool) *Worker {
+func NewDocumentWorker(validator linkvalidator.Interface, linkResolver linkresolver.Interface, rh registry.Interface, hugo hugo.Hugo, writer writers.Writer, skipLinkValidation bool) *Worker {
 	return &Worker{
 		markdown.New(),
 		linkResolver,
-		downloader,
 		validator,
 		writer,
-		resourcesRoot,
 		rh,
 		hugo,
 		skipLinkValidation,
@@ -160,16 +150,6 @@ type linkResolverTask struct {
 	source string
 }
 
-// DownloadURLName create resource name that will be dowloaded from a resource link
-func DownloadURLName(url repositoryhost.URL) string {
-	resourcePath := url.ResourceURL()
-	mdsum := md5.Sum([]byte(resourcePath))
-	ext := path.Ext(resourcePath)
-	name := strings.TrimSuffix(path.Base(resourcePath), ext)
-	hash := hex.EncodeToString(mdsum[:])[:6]
-	return fmt.Sprintf("%s_%s%s", name, hash, ext)
-}
-
 func (d *linkResolverTask) resolveLink(dest string, isEmbeddable bool) (string, error) {
 	escapedEmoji := strings.ReplaceAll(dest, "/:v:/", "/%3Av%3A/")
 	if escapedEmoji != dest {
@@ -215,10 +195,6 @@ func (d *linkResolverTask) resolveEmbededLink(embeddedLink string, source string
 		// convert urls from not referenced repository  to raw
 		return repositoryhost.RawURL(embeddedLink)
 	}
-	// download urls from referenced repositories
-	downloadResourceName := DownloadURLName(*resourceURL)
-	if err = d.downloader.Schedule(embeddedLink, downloadResourceName, source); err != nil {
-		return embeddedLink, err
-	}
-	return link.Build("/", d.hugo.BaseURL, d.resourcesRoot, downloadResourceName)
+	// resolve urls from referenced repositories
+	return d.linkresolver.ResolveResourceLink(resourceURL.String(), d.node, source)
 }

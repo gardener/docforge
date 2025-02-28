@@ -11,10 +11,10 @@ title: Multiformatmerge
 [test2](/maintree/html-tests/testedhtmlfile2/)
 
 ### Link existing image with relative path
-![test3](/__resources/gardener-docforge-logo.png)
+![test3](/maintree/gardener-docforge-logo.png)
 
 ### Link existing image with relative path and title
-![test4](/__resources/gardener-docforge-logo.png "gardener-docforge-logo")
+![test4](/maintree/gardener-docforge-logo.png "gardener-docforge-logo")
 <!DOCTYPE html>
 <html>
 <body>

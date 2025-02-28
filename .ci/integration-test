@@ -31,14 +31,6 @@ removeUntestedKeysFromMetadata() {
     done
 }
 
-removeHashFromImageName() {
-  image="${2}"
-  imageName="${image%.*}"
-  imageExt="${image##*.}"
-  find "${1}" -type f -print0 | xargs -0 sed -i "s/${imageName}_.*${imageExt}/${imageName}\.${imageExt}/g"
-  find "${1}" -type f -name "*${imageName}_*.${imageExt}" -execdir mv {} "./${imageName}.${imageExt}" \;
-}
-
 diffDirs() {
   if [[ $(uname) == 'Darwin' ]] || [[ $(uname) == *"Linux"* ]]; then
     diff -r "${1}" "${2}"
@@ -97,6 +89,7 @@ destination: ${int_test_output_tree_dir}
 content-files-formats:
 - ".md"
 - ".html"
+- ".png"
 resourceMappings:
   'https://github.com/gardener/docforge': ${docforge_repo_path}
 " > "$int_test_config_file"
@@ -114,8 +107,6 @@ TOKEN="$GIT_OAUTH_TOKEN" DOCFORGE_CONFIG="$int_test_config_file" ${docforge_bin}
 #Remove untested metadata keys
 removeUntestedKeysFromMetadata "${int_test_expected_metadata_dir}"
 # removeUntestedKeysFromMetadata "${int_test_output_metadata_dir}"
-removeHashFromImageName "${int_test_expected_tree_dir}" "gardener-docforge-logo.png"
-removeHashFromImageName "${int_test_output_tree_dir}" "gardener-docforge-logo.png"
 
 echo "Testing Git Handler"
 testGeneratedTrees "${int_test_expected_tree_dir}" "${int_test_output_tree_dir}" "${int_test_expected_metadata_dir}" #"${int_test_output_metadata_dir}"

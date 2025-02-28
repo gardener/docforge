@@ -14,7 +14,7 @@ title: Testedmarkdownfile3
 [test3](https://github.com/gardener/gardener/blob/v1.30.0/README.md)
 
 ### Link existing image with relative path
-![test4](/__resources/gardener-docforge-logo.png)
+![test4](/maintree/gardener-docforge-logo.png)
 
 ### Link existing image with relative path and title
-![test5](/__resources/gardener-docforge-logo.png "gardener-docforge-logo")
+![test5](/maintree/gardener-docforge-logo.png "gardener-docforge-logo")
