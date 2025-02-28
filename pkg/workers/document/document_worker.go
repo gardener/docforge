@@ -7,11 +7,8 @@ package document
 import (
 	"bytes"
 	"context"
-	"crypto/md5"
-	"encoding/hex"
 	"fmt"
 	"net/url"
-	"path"
 	"strings"
 	"sync"
 
@@ -154,16 +151,6 @@ type linkResolverTask struct {
 	Worker
 	node   *manifest.Node
 	source string
-}
-
-// DownloadURLName create resource name that will be dowloaded from a resource link
-func DownloadURLName(url repositoryhost.URL) string {
-	resourcePath := url.ResourceURL()
-	mdsum := md5.Sum([]byte(resourcePath))
-	ext := path.Ext(resourcePath)
-	name := strings.TrimSuffix(path.Base(resourcePath), ext)
-	hash := hex.EncodeToString(mdsum[:])[:6]
-	return fmt.Sprintf("%s_%s%s", name, hash, ext)
 }
 
 func (d *linkResolverTask) resolveLink(dest string, isEmbeddable bool) (string, error) {
