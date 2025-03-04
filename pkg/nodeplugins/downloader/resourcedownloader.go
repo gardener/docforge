@@ -6,6 +6,7 @@ package downloader
 
 import (
 	"context"
+	"path"
 
 	"github.com/gardener/docforge/pkg/registry"
 	"github.com/gardener/docforge/pkg/writers"
@@ -35,7 +36,8 @@ func (d *ResourceDownloadWorker) Download(ctx context.Context, source string, de
 	if err != nil {
 		return err
 	}
-	if err = d.writer.Write(destinationPath, "", blob, nil, nil); err != nil {
+
+	if err = d.writer.Write(path.Base(destinationPath), path.Dir(destinationPath), blob, nil, nil); err != nil {
 		return err
 	}
 	return nil
