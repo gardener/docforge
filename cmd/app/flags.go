@@ -21,14 +21,6 @@ func configureFlags(command *cobra.Command, vip *viper.Viper) {
 		"Manifest path.")
 	_ = vip.BindPFlag("manifest", command.Flags().Lookup("manifest"))
 
-	command.Flags().String("resources-download-path", "__resources",
-		"Resources download path.")
-	_ = vip.BindPFlag("resources-download-path", command.Flags().Lookup("resources-download-path"))
-
-	command.Flags().String("resources-website-path", "__resources",
-		"The path in the website where resources will be accessed through.")
-	_ = vip.BindPFlag("resources-website-path", command.Flags().Lookup("resources-website-path"))
-
 	command.Flags().StringToString("github-oauth-env-map", map[string]string{},
 		"Map between GitHub instances and ENV var names that will be used for access tokens")
 	_ = vip.BindPFlag("github-oauth-env-map", command.Flags().Lookup("github-oauth-env-map"))

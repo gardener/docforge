@@ -37,6 +37,25 @@ type LinkResolver struct {
 	Hugo            hugo.Hugo
 }
 
+// New creates a new linkresolver given the manifest structure and a registry used for working with links
+func New(structure []*manifest.Node, rhs registry.Interface, hugo hugo.Hugo) *LinkResolver {
+	lr := &LinkResolver{
+		Repositoryhosts: rhs,
+		Hugo:            hugo,
+		SourceToNode:    make(map[string][]*manifest.Node),
+	}
+	for _, node := range structure {
+		if node.Source != "" {
+			lr.SourceToNode[node.Source] = append(lr.SourceToNode[node.Source], node)
+		} else if len(node.MultiSource) > 0 {
+			for _, s := range node.MultiSource {
+				lr.SourceToNode[s] = append(lr.SourceToNode[s], node)
+			}
+		}
+	}
+	return lr
+}
+
 // ResolveResourceLink resolves resource link from a given source
 func (l *LinkResolver) ResolveResourceLink(resourceLink string, node *manifest.Node, source string) (string, error) {
 	// handle relative links to resources
