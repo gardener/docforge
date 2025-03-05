@@ -10,19 +10,20 @@ import (
 	"github.com/gardener/docforge/pkg/writers"
 )
 
-type Plugin struct {
+type plugin struct {
 	dScheduler Interface
 }
 
+// NewPlugin creates a new downloader plugin
 func NewPlugin(workerCount int, failFast bool, wg *sync.WaitGroup, registry registry.Interface, writer writers.Writer) (nodeplugins.Interface, taskqueue.QueueController, error) {
 	dScheduler, q, err := New(workerCount, failFast, wg, registry, writer)
-	return &Plugin{dScheduler}, q, err
+	return &plugin{dScheduler}, q, err
 }
 
-func (Plugin) Processor() string {
+func (plugin) Processor() string {
 	return "downloader"
 }
 
-func (p *Plugin) Process(node *manifest.Node) error {
+func (p *plugin) Process(node *manifest.Node) error {
 	return p.dScheduler.Schedule(node.Source, node.NodePath())
 }

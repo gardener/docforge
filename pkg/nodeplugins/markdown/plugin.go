@@ -14,11 +14,12 @@ import (
 	"github.com/gardener/docforge/pkg/writers"
 )
 
-type Plugin struct {
+type plugin struct {
 	docProcessor document.Processor
 	ghInfo       githubinfo.GitHubInfo
 }
 
+// NewPlugin creates a new markdown plugin
 func NewPlugin(workerCount int, failFast bool, wg *sync.WaitGroup, structure []*manifest.Node, rhs registry.Interface, hugo hugo.Hugo, writer writers.Writer, skipLinkValidation bool, validationWorkersCount int, hostsToReport []string, resourceDownloadWorkersCount int, gitInfoWriter writers.Writer) (nodeplugins.Interface, []taskqueue.QueueController, error) {
 	var (
 		ghInfo      githubinfo.GitHubInfo
@@ -38,14 +39,14 @@ func NewPlugin(workerCount int, failFast bool, wg *sync.WaitGroup, structure []*
 		return nil, nil, err
 	}
 	docProcessor, docTasks, err := document.New(workerCount, failFast, wg, structure, validator, rhs, hugo, writer, skipLinkValidation)
-	return &Plugin{docProcessor, ghInfo}, append(queues, validatorTasks, docTasks), err
+	return &plugin{docProcessor, ghInfo}, append(queues, validatorTasks, docTasks), err
 }
 
-func (Plugin) Processor() string {
+func (plugin) Processor() string {
 	return "markdown"
 }
 
-func (p *Plugin) Process(node *manifest.Node) error {
+func (p *plugin) Process(node *manifest.Node) error {
 	p.docProcessor.ProcessNode(node)
 	if p.ghInfo != nil {
 		p.ghInfo.WriteGitHubInfo(node)
