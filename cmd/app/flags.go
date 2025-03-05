@@ -53,6 +53,10 @@ func configureFlags(command *cobra.Command, vip *viper.Viper) {
 		"Build documentation bundle for hugo.")
 	_ = vip.BindPFlag("hugo", command.Flags().Lookup("hugo"))
 
+	command.Flags().Bool("docsy-edit-this-page-enabled", false,
+		"Set this flag when you are using edit this page in the docsy theme")
+	_ = vip.BindPFlag("docsy-edit-this-page-enabled", command.Flags().Lookup("docsy-edit-this-page-enabled"))
+
 	command.Flags().Bool("hugo-pretty-urls", true,
 		"Build documentation bundle for hugo with pretty URLs (./sample.md -> ../sample). Only useful with --hugo=true")
 	_ = vip.BindPFlag("hugo-pretty-urls", command.Flags().Lookup("hugo-pretty-urls"))

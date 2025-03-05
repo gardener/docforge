@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/gardener/docforge/cmd/docsy"
 	"github.com/gardener/docforge/cmd/gendocs"
 	"github.com/gardener/docforge/cmd/hugo"
 	"github.com/gardener/docforge/cmd/version"
@@ -30,6 +31,7 @@ const (
 type options struct {
 	Options                    `mapstructure:",squash"`
 	hugo.Hugo                  `mapstructure:",squash"`
+	docsy.Docsy                `mapstructure:",squash"`
 	repositoryhost.InitOptions `mapstructure:",squash"`
 }
 
