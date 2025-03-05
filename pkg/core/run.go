@@ -19,15 +19,17 @@ func Run(ctx context.Context, nodes []*manifest.Node, reactorWG *sync.WaitGroup,
 		processorToPlugin[plugin.Processor()] = plugin
 
 	}
-	var toReport error
 	for _, node := range nodes {
 		if node.Type != "file" {
 			continue
 		}
 		if processor, ok := processorToPlugin[node.Processor]; ok {
-			processor.Process(node)
+			if err := processor.Process(node); err != nil {
+				return fmt.Errorf("processor %s failed processing node \n%s\n: %w", processor.Processor(), node, err)
+			}
 		} else {
-			toReport = fmt.Errorf("node \n%s\n did not have a processor", node)
+			// TODO may be undesired if we expect multiple core.Run calls
+			return fmt.Errorf("node \n%s\n did not have a processor", node)
 		}
 	}
 
@@ -35,8 +37,5 @@ func Run(ctx context.Context, nodes []*manifest.Node, reactorWG *sync.WaitGroup,
 	qcc.Wait()
 	qcc.Stop()
 	qcc.LogTaskProcessed()
-	if toReport != nil {
-		return toReport
-	}
 	return qcc.GetErrorList().ErrorOrNil()
 }
