@@ -423,6 +423,20 @@ func calculateAliases(node *Node, parent *Node, _ *Node, _ registry.Interface, _
 	return nil
 }
 
+func setMarkdownProcessor(node *Node, parent *Node, _ *Node, _ registry.Interface, _ []string) error {
+	if node.Type == "file" && strings.HasSuffix(node.File, ".md") {
+		node.Processor = "markdown"
+	}
+	return nil
+}
+
+func setDefaultProcessor(node *Node, parent *Node, _ *Node, _ registry.Interface, _ []string) error {
+	if node.Type == "file" {
+		node.Processor = "downloader"
+	}
+	return nil
+}
+
 // ResolveManifest collects files in FileCollector from a given url and resourcehandlers.FileSource
 func ResolveManifest(url string, r registry.Interface, contentFileFormats []string) ([]*Node, error) {
 	manifest := Node{
@@ -446,6 +460,8 @@ func ResolveManifest(url string, r registry.Interface, contentFileFormats []stri
 		mergeFolders,
 		calculatePath,
 		setParent,
+		setDefaultProcessor,
+		setMarkdownProcessor,
 		propagateFrontmatter,
 		propagateSkipValidation,
 		calculateAliases,
