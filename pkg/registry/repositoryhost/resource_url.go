@@ -13,7 +13,7 @@ import (
 
 var (
 	rawPrefixed       = regexp.MustCompile(`https://(github.com|github.tools.sap|raw.github.tools.sap|github.wdf.sap.corp)/raw/([^/]+)/([^/]+)/([^/]+)/([^\?#]*)(.*)`)
-	resource          = regexp.MustCompile(`https://(github.com|github.tools.sap|raw.github.tools.sap|github.wdf.sap.corp)/([^/]+)/([^/]+)/([^/]+)/([^/]+)/([^\?#]*)(.*)`)
+	resource          = regexp.MustCompile(`https://(github.com|github.tools.sap|raw.github.tools.sap|github.wdf.sap.corp)/([^/]+)/([^/]+)/([^/]+)/([^/]+)/?([^\?#]*)(.*)`)
 	githubusercontent = regexp.MustCompile(`https://raw.githubusercontent.com/([^/]+)/([^/]+)/([^/]+)/([^\?#]*)(.*)`)
 )
 

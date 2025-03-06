@@ -12,6 +12,18 @@ var _ = Describe("URL", func() {
 		err error
 	)
 
+	Describe("Root repo directory", func() {
+		BeforeEach(func() {
+			r, err = repositoryhost.NewResourceURL("https://github.com/owner/repo/tree/master")
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should build resource.URL correctly", func() {
+			Expect(r.String()).To(Equal("https://github.com/owner/repo/tree/master"))
+		})
+
+	})
+
 	Describe("anchors with /", func() {
 		BeforeEach(func() {
 			r, err = repositoryhost.NewResourceURL("https://github.com/owner/repo/blob/master/docs/dev/local_setup.md#foo/bar")
