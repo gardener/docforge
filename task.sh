@@ -36,6 +36,15 @@ echo "Running tests:"
 .ci/test > /dev/null 2>&1
 echo "Running integration tests:"
 .ci/integration-test > /dev/null 2>&1
+echo
+echo "Commiting task-changes-for-e2e on current branch."
+echo -e "\033[1;33mNote:\033[0m Revert commit using git reset --soft HEAD~1 if e2e fails"
+echo
+git commit -m"task-changes-for-e2e"
+echo "Running e2e tests:" 
+test/e2e/diff.sh  > /dev/null 2>&1
+echo "Reverting task-changes-for-e2e from current branch:"
+git reset --soft HEAD~1
 
 longest_common_prefix() {
     prefix=$1
