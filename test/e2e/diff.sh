@@ -13,6 +13,22 @@ docforge_bin="${docforge_repo_path}/bin/docforge"
 
 echo Docforge repo: "$docforge_repo_path"
 
+cleanup() {
+  echo "Performing cleanup..."
+  rm -rf "${hugo}"
+  rm -rf "${PR_hugo}"
+  pushd "$docforge_repo_path"
+  if [[ -n "$current_branch" ]]; then
+      git checkout "$current_branch"
+  else
+      echo "current_branch is empty"
+  fi
+  mv "VERSION_PR" "VERSION"
+  popd
+}
+
+trap cleanup EXIT
+
 echo "Clean old build if done"
 rm -rf "$hugo"
 rm -rf "$PR_hugo"
@@ -40,13 +56,5 @@ echo "Diff results"
 rm -rf "${hugo}/content/__resources" 
 rm -rf "${PR_hugo}/content/__resources" 
 diff -r "$hugo" "$PR_hugo"
-rm -rf "${hugo}"
-rm -rf "${PR_hugo}"
 
-pushd "$docforge_repo_path"
-if [[ -n "$current_branch" ]]; then
-    git checkout "$current_branch"
-else
-    echo "current_branch is empty"
-fi
-mv "VERSION_PR" "VERSION"
+# Cleanup will be handled by the trap
