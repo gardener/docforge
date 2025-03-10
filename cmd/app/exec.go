@@ -11,14 +11,14 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/gardener/docforge/pkg/core"
 	"github.com/gardener/docforge/pkg/manifest"
+	"github.com/gardener/docforge/pkg/nodeplugins"
+	"github.com/gardener/docforge/pkg/nodeplugins/downloader"
+	"github.com/gardener/docforge/pkg/nodeplugins/markdown"
 	"github.com/gardener/docforge/pkg/osfakes/osshim"
 	"github.com/gardener/docforge/pkg/registry"
 	"github.com/gardener/docforge/pkg/registry/repositoryhost"
-	"github.com/gardener/docforge/pkg/workers/document"
-	"github.com/gardener/docforge/pkg/workers/githubinfo"
-	"github.com/gardener/docforge/pkg/workers/linkvalidator"
-	"github.com/gardener/docforge/pkg/workers/taskqueue"
 	"github.com/spf13/viper"
 	"k8s.io/klog/v2"
 )
@@ -52,10 +52,6 @@ func exec(ctx context.Context, vip *viper.Viper) error {
 
 	config := getReactorConfig(options.Options, options.Hugo, rhs)
 	manifestURL := options.ManifestPath
-	var (
-		ghInfo      githubinfo.GitHubInfo
-		ghInfoTasks taskqueue.QueueController
-	)
 	reactorWG := &sync.WaitGroup{}
 
 	rhRegistry := registry.NewRegistry(append(localRH, config.RepositoryHosts...)...)
@@ -67,36 +63,15 @@ func exec(ctx context.Context, vip *viper.Viper) error {
 		fmt.Println(documentNodes[0])
 	}
 
-	v, validatorTasks, err := linkvalidator.New(config.ValidationWorkersCount, config.FailFast, reactorWG, rhRegistry, config.HostsToReport)
+	mdPlugin, mdTasks, err := markdown.NewPlugin(config.DocumentWorkersCount, config.FailFast, reactorWG, documentNodes, rhRegistry, config.Hugo, config.Writer, config.SkipLinkValidation, config.ValidationWorkersCount, config.HostsToReport, config.ResourceDownloadWorkersCount, config.GitInfoWriter)
 	if err != nil {
 		return err
 	}
-	docProcessor, docTasks, err := document.New(config.DocumentWorkersCount, config.FailFast, reactorWG, documentNodes, v, rhRegistry, config.Hugo, config.Writer, config.SkipLinkValidation)
+	dPlugin, downloadTasks, err := downloader.NewPlugin(config.ResourceDownloadWorkersCount, config.FailFast, reactorWG, rhRegistry, config.Writer)
 	if err != nil {
 		return err
 	}
-
-	qcc := taskqueue.NewQueueControllerCollection(reactorWG, validatorTasks, docTasks)
-
-	if config.GitInfoWriter != nil {
-		ghInfo, ghInfoTasks, err = githubinfo.New(config.ResourceDownloadWorkersCount, config.FailFast, reactorWG, rhRegistry, config.GitInfoWriter)
-		if err != nil {
-			return err
-		}
-		for _, node := range documentNodes {
-			ghInfo.WriteGitHubInfo(node)
-		}
-		qcc.Add(ghInfoTasks)
-	}
-
-	for _, node := range documentNodes {
-		docProcessor.ProcessNode(node)
-	}
-
-	qcc.Start(ctx)
-	qcc.Wait()
-	qcc.Stop()
-	qcc.LogTaskProcessed()
+	err = core.Run(ctx, documentNodes, reactorWG, []nodeplugins.Interface{mdPlugin, dPlugin}, append(mdTasks, downloadTasks))
 	rhRegistry.LogRateLimits(ctx)
-	return qcc.GetErrorList().ErrorOrNil()
+	return err
 }

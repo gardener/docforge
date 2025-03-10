@@ -22,6 +22,8 @@ type Node struct {
 
 	FilesTreeType `yaml:",inline"`
 
+	// Proccessor determines which node processor to use
+	Processor string `yaml:"processor,omitempty"`
 	// Properties of the node
 	SkipValidation bool `yaml:"skipValidation,omitempty"`
 	// Frontmatter of the node

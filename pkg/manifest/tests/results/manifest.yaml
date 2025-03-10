@@ -1,40 +1,49 @@
 - file: _index.md
+  processor: markdown
   type: file
   source: https://github.com/gardener/docforge/blob/master/contents/website/blog/2024/_index.md
   path: blog/2024
 - file: foo.md
+  processor: markdown
   type: file
   source: https://github.com/gardener/docforge/blob/master/contents/blogs/2024/foo.md
   path: blog/2024
 - file: two.md
+  processor: markdown
   type: file
   source: https://github.com/gardener/docforge/blob/master/contents/blogs/2024/two.md
   path: blog/2024
 - file: foo.md
+  processor: markdown
   type: file
   source: https://github.com/gardener/docforge/blob/master/contents/blogs/2024/foo.md
   path: blog
 - file: _index.md
+  processor: markdown
   type: file
   properties:
     title: Blogs
     aggregate: true
   path: foo/bar/one
 - file: _index.md
+  processor: markdown
   type: file
   source: https://github.com/gardener/docforge/blob/master/contents/website/blog/2024/_index.md
   properties:
     aggregate: false
   path: foo/bar/two
 - file: _index.md
+  processor: markdown
   type: file
   source: https://github.com/gardener/docforge/blob/master/contents/website/blog/2024/_index.md
   path: foo/bar/three
 - file: renamed.md
+  processor: markdown
   type: file
   source: https://github.com/gardener/docforge/blob/master/contents/website/blog/2024/_index.md
   path: foo/bar
 - file: _index.md
+  processor: markdown
   type: file
   source: https://github.com/gardener/docforge/blob/master/contents/website/blog/2024/_index.md
   path: foo/bar/blog/2024
