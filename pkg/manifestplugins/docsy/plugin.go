@@ -9,8 +9,10 @@ import (
 	"github.com/gardener/docforge/pkg/registry"
 )
 
+// Docsy is the object representing the docsy plugin
 type Docsy struct{}
 
+// PluginNodeTransformations returns the node transformations for the docsy plugin
 func (d *Docsy) PluginNodeTransformations() []manifest.NodeTransformation {
 	return []manifest.NodeTransformation{editThisPage}
 }
