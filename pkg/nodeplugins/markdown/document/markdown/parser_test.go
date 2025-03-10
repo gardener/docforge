@@ -37,7 +37,7 @@ var _ = Describe("Parser", func() {
 			BeforeEach(func() {
 				md = "---\na = b\n---\n\n## Heading level 2\n\nI really like using Markdown.\n"
 			})
-			It("should fails", func() {
+			It("should fail", func() {
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("a = b"))
 			})

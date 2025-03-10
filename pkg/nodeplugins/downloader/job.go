@@ -35,7 +35,7 @@ func New(workerCount int, failFast bool, wg *sync.WaitGroup, registry registry.I
 	if err != nil {
 		return nil, nil, err
 	}
-	queue, err := taskqueue.New("Download", workerCount, dWorker.ececute, failFast, wg)
+	queue, err := taskqueue.New("Download", workerCount, dWorker.execute, failFast, wg)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -55,7 +55,7 @@ func (ds *downloadScheduler) Schedule(source string, destinationPath string) err
 	return nil
 }
 
-func (d *ResourceDownloadWorker) ececute(ctx context.Context, task interface{}) error {
+func (d *ResourceDownloadWorker) execute(ctx context.Context, task interface{}) error {
 	dt, ok := task.(*downloadTask)
 	if !ok {
 		return fmt.Errorf("incorrect download task: %T", task)
