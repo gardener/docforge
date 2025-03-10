@@ -22,6 +22,7 @@ import (
 
 const sectionFile = "_index.md"
 
+// NodeTransformation is the way plugins can contribute to the node tree processing
 type NodeTransformation func(node *Node, parent *Node, r registry.Interface, contentFileFormats []string) (runTreeChangeProcedure bool, err error)
 
 type manifestToNodeTreeTransfromation func(node *Node, parent *Node, manifest *Node, r registry.Interface) error
