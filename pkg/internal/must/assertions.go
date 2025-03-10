@@ -12,7 +12,21 @@ import "fmt"
 // Succeed panics on error.
 func Succeed[T any](obj T, err error) T {
 	if err != nil {
-		panic(fmt.Errorf("assertion broken: %w", err))
+		panic(fmt.Errorf("assertion failed: %w", err))
 	}
 	return obj
+}
+
+// BeTrue panics if value is false
+func BeTrue(value bool) {
+	if !value {
+		panic(fmt.Sprintf("assertion failed: expected %t to be true", value))
+	}
+}
+
+// BeFalse panics if value is true
+func BeFalse(value bool) {
+	if value {
+		panic(fmt.Sprintf("assertion failed: expected %t to be false", value))
+	}
 }
