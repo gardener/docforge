@@ -147,7 +147,8 @@ var _ = Describe("Document frontmatter", func() {
 					"node_bar2",
 				},
 				"baz": "node_bazVal",
-			})).To(Equal(true))
+			})).To(BeTrue())
+			Expect(reflect.DeepEqual(setMeta, node.Frontmatter)).To(BeTrue())
 		})
 	})
 	Context("#ComputeNodeTitle", func() {

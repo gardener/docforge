@@ -44,18 +44,24 @@ func MergeDocumentAndNodeFrontmatter(nodeAst NodeMeta, node *manifest.Node) {
 		return
 	}
 	docFrontmatter := nodeAst.Meta()
-	for k, v := range node.Frontmatter {
-		if k == "aliases" && docFrontmatter["aliases"] != nil {
-			asArray1, _ := docFrontmatter["aliases"].([]interface{})
-			asArray2, _ := v.([]interface{})
-			for _, yataa := range asArray1 {
-				asArray2 = append(asArray2, fmt.Sprintf("%s", yataa))
-
+	for frontMatterProperty, frontMatterValue := range node.Frontmatter {
+		if frontMatterProperty == "aliases" && docFrontmatter["aliases"] != nil {
+			docFrontmatterAliases, _ := docFrontmatter["aliases"].([]interface{})
+			nodeFrontmatterAliases, _ := frontMatterValue.([]interface{})
+			for _, docFrontmatterAlias := range docFrontmatterAliases {
+				nodeFrontmatterAliases = append(nodeFrontmatterAliases, fmt.Sprintf("%s", docFrontmatterAlias))
 			}
-			docFrontmatter["aliases"] = asArray2
+			docFrontmatter["aliases"] = nodeFrontmatterAliases
 		} else {
-			docFrontmatter[k] = v
+			docFrontmatter[frontMatterProperty] = frontMatterValue
 		}
+	}
+	// doc frontmatter has been computed. Copy it to node
+	if node.Frontmatter == nil {
+		node.Frontmatter = map[string]interface{}{}
+	}
+	for frontMatterProperty, frontMatterValue := range docFrontmatter {
+		node.Frontmatter[frontMatterProperty] = frontMatterValue
 	}
 	nodeAst.SetMeta(docFrontmatter)
 }
