@@ -59,7 +59,7 @@ var _ = Describe("Document resolving", func() {
 		It("returns correct multisource content from md and html files", func() {
 			node := &manifest.Node{
 				FileType: manifest.FileType{
-					File:        "node",
+					File:        "renamed-document.md",
 					MultiSource: []string{"https://github.com/gardener/docforge/blob/master/docs/target.md", "https://github.com/gardener/docforge/blob/master/docs/target2.md", "https://github.com/gardener/docforge/blob/master/docs/target3.html"},
 				},
 				Type: "file",
@@ -68,7 +68,7 @@ var _ = Describe("Document resolving", func() {
 			err := dw.ProcessNode(context.TODO(), node)
 			Expect(err).ToNot(HaveOccurred())
 			name, path, cnt, nodegot, _ := w.WriteArgsForCall(0)
-			Expect(name).To(Equal("node"))
+			Expect(name).To(Equal("renamed-document.md"))
 			Expect(path).To(Equal("one"))
 			target, err := manifests.ReadFile("tests/docs/expected_target.md")
 			Expect(err).NotTo(HaveOccurred())
@@ -77,6 +77,7 @@ var _ = Describe("Document resolving", func() {
 			Expect(err).NotTo(HaveOccurred())
 			target3, err := manifests.ReadFile("tests/docs/expected_target3.html")
 			Expect(err).NotTo(HaveOccurred())
+			Expect(node.Frontmatter["title"]).To(Equal("Renamed Document"))
 			Expect(string(cnt)).To(Equal(string(target) + string(target2) + string(target3)))
 			Expect(node).To(Equal(nodegot))
 		})
@@ -84,7 +85,7 @@ var _ = Describe("Document resolving", func() {
 		It("returns correct single source content", func() {
 			node := &manifest.Node{
 				FileType: manifest.FileType{
-					File:   "node",
+					File:   "renamed-document.md",
 					Source: "https://github.com/gardener/docforge/blob/master/docs/target.md",
 				},
 				Type: "file",
@@ -93,11 +94,11 @@ var _ = Describe("Document resolving", func() {
 			err := dw.ProcessNode(context.TODO(), node)
 			Expect(err).ToNot(HaveOccurred())
 			name, path, cnt, nodegot, _ := w.WriteArgsForCall(0)
-			Expect(name).To(Equal("node"))
+			Expect(name).To(Equal("renamed-document.md"))
 			Expect(path).To(Equal("one"))
 			target, err := manifests.ReadFile("tests/docs/expected_target.md")
 			Expect(err).NotTo(HaveOccurred())
-
+			Expect(node.Frontmatter["title"]).To(Equal("Renamed Document"))
 			Expect(string(cnt)).To(Equal(string(target)))
 			Expect(node).To(Equal(nodegot))
 		})
