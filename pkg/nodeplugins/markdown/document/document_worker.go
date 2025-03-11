@@ -127,8 +127,8 @@ func (d *Worker) process(ctx context.Context, b *bytes.Buffer, n *manifest.Node)
 			}
 		}
 		frontmatter.MoveMultiSourceFrontmatterToTopDocument(docs)
-		frontmatter.MergeDocumentAndNodeFrontmatter(firstDoc, n)
 		frontmatter.ComputeNodeTitle(firstDoc, n, d.hugo.IndexFileNames, d.hugo.Enabled)
+		frontmatter.MergeDocumentAndNodeFrontmatter(firstDoc, n)
 	}
 	for _, cnt := range fullContent {
 		lrt := linkResolverTask{*d, n, cnt.docURI}

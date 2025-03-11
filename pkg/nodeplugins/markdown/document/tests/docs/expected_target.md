@@ -1,5 +1,5 @@
 ---
-title: testedFile1
+title: Renamed Document
 ---
 
 # Tested markdown file 1
