@@ -1,0 +1,27 @@
+structure:
+- dir: foo
+  structure:
+  - dir: bar
+    structure:
+    - dir: one
+      structure:
+      # create empty _index.md file with only front matters, that doesn't have a set source, so it shouldn't get additional front matters
+      - file: _index.md
+        properties:
+          title: Blogs
+          aggregate: true
+    - dir: two
+      structure:
+      # _index.md with relative path and properties
+      - file: ../contents/website/blog/2024/_index.md
+        properties:
+          aggregate: false
+    - dir: three
+      structure:
+      # _index.md with full path
+      - file: https://github.com/gardener/docforge/blob/master/contents/website/blog/2024/_index.md
+    # renamed _index.md file
+    - file: renamed.md
+      source: https://github.com/gardener/docforge/blob/master/contents/website/blog/2024/_index.md
+    # importing _index.md from filetree
+    - fileTree: /contents/website
