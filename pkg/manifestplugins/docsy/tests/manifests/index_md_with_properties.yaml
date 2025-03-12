@@ -5,14 +5,11 @@ structure:
     structure:
     - dir: one
       structure:
-      # create empty _index.md file with only front matters, that doesn't have a set source, so it shouldn't get additional front matters
+      # create empty _index.md file that doesn't have a set source, so it shouldn't get front matters
       - file: _index.md
-        properties:
-          title: Blogs
-          aggregate: true
     - dir: two
       structure:
-      # _index.md with relative path and properties
+      # _index.md with relative path and frontmatter
       - file: ../contents/website/blog/2024/_index.md
-        properties:
+        frontmatter:
           aggregate: false

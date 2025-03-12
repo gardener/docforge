@@ -1,16 +1,11 @@
 - file: _index.md
   processor: markdown
   type: file
-  properties:
-    title: Blogs
-    aggregate: true
   path: foo/bar/one
 - file: _index.md
   processor: markdown
   type: file
   source: https://github.com/gardener/docforge/blob/master/contents/website/blog/2024/_index.md
-  properties:
-    aggregate: false
   path: foo/bar/two
   frontmatter:
     github_repo: "https://github.com/gardener/docforge"
@@ -20,3 +15,4 @@
       to: "_index.md"
     params:
       github_branch: "master"
+    aggregate: false
