@@ -2,6 +2,9 @@
   processor: markdown
   type: file
   path: foo/bar/one
+  frontmatter:
+    title: Blogs
+    aggregate: true
 - file: _index.md
   processor: markdown
   type: file

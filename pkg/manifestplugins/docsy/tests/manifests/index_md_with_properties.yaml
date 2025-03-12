@@ -5,8 +5,11 @@ structure:
     structure:
     - dir: one
       structure:
-      # create empty _index.md file that doesn't have a set source, so it shouldn't get front matters
+      # create empty _index.md file with only front matters, that doesn't have a set source, so it shouldn't get additional front matters
       - file: _index.md
+        frontmatter:
+          title: Blogs
+          aggregate: true        
     - dir: two
       structure:
       # _index.md with relative path and frontmatter
