@@ -523,8 +523,6 @@ func ResolveManifest(url string, r registry.Interface, contentFileFormats []stri
 		removeFileTreeNodes,
 		// default
 		setDefaultProcessor,
-		// fileTypeFilter plugin
-		checkFileTypeFormats,
 		// persona plugin
 		resolvePersonaFolders,
 		// markdown plugin
