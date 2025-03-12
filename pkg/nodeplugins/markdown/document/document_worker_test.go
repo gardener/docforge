@@ -46,7 +46,7 @@ var _ = Describe("Document resolving", func() {
 			IndexFileNames: []string{"readme.md", "readme", "read.me", "index.md", "index"},
 		}
 		vf := &linkvalidatorfakes.FakeInterface{}
-		nodes, err := manifest.ResolveManifest("https://github.com/gardener/docforge/blob/master/docs/manifest.yaml", registry, []string{".md", ".html", ".png"})
+		nodes, err := manifest.ResolveManifest("https://github.com/gardener/docforge/blob/master/docs/manifest.yaml", registry)
 		Expect(err).NotTo(HaveOccurred())
 
 		lr := linkresolver.New(nodes, registry, hugo)

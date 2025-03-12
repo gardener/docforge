@@ -67,7 +67,7 @@ func exec(ctx context.Context, vip *viper.Viper) error {
 	fileTypeFilterPlugin := filetypefilter.FileTypeFilter{ContentFileFormats: options.Options.ContentFileFormats}
 	pluginTransformations = append(pluginTransformations, fileTypeFilterPlugin.PluginNodeTransformations()...)
 
-	documentNodes, err := manifest.ResolveManifest(manifestURL, rhRegistry, options.Options.ContentFileFormats, pluginTransformations...)
+	documentNodes, err := manifest.ResolveManifest(manifestURL, rhRegistry, pluginTransformations...)
 	if err != nil {
 		return fmt.Errorf("failed to resolve manifest %s. %+v", config.ManifestPath, err)
 	}

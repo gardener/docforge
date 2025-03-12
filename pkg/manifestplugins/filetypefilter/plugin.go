@@ -16,17 +16,17 @@ type FileTypeFilter struct {
 
 // PluginNodeTransformations returns the node transformations for the file type filtering plugin
 func (d *FileTypeFilter) PluginNodeTransformations() []manifest.NodeTransformation {
-	return []manifest.NodeTransformation{checkFileTypeFormats}
+	return []manifest.NodeTransformation{d.checkFileTypeFormats}
 }
 
-func checkFileTypeFormats(node *manifest.Node, _ *manifest.Node, r registry.Interface, contentFileFormats []string) (bool, error) {
+func (d *FileTypeFilter) checkFileTypeFormats(node *manifest.Node, _ *manifest.Node, r registry.Interface) (bool, error) {
 	if node.Type != "file" {
 		return false, nil
 	}
 	files := append(node.FileType.MultiSource, node.FileType.Source, node.FileType.File)
 	for _, file := range files {
 		// we do || file == "" to skip empty fields
-		if !slices.ContainsFunc(contentFileFormats, func(fileFormat string) bool { return strings.HasSuffix(file, fileFormat) || file == "" }) {
+		if !slices.ContainsFunc(d.ContentFileFormats, func(fileFormat string) bool { return strings.HasSuffix(file, fileFormat) || file == "" }) {
 			return false, fmt.Errorf("file format of %s isn't supported", file)
 		}
 	}

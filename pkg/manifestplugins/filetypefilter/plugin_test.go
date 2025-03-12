@@ -38,7 +38,7 @@ var _ = Describe("Docsy test", func() {
 			url := "https://github.com/gardener/docforge/blob/master/" + exampleFile
 			contentFileFormats := []string{".md", ".yaml"}
 			fileTypeFilterPlugin := filetypefilter.FileTypeFilter{ContentFileFormats: contentFileFormats}
-			_, err := manifest.ResolveManifest(url, r, contentFileFormats, fileTypeFilterPlugin.PluginNodeTransformations()...)
+			_, err := manifest.ResolveManifest(url, r, fileTypeFilterPlugin.PluginNodeTransformations()...)
 			Expect(err.Error()).To(ContainSubstring(errorMsg))
 
 		},
