@@ -1,0 +1,31 @@
+- file: foo.md
+  processor: markdown
+  type: file
+  source: https://github.com/gardener/docforge/blob/master/contents/blogs/2024/foo.md
+  properties:
+    aggregate: false
+  path: foo
+  frontmatter:
+    github_repo: "https://github.com/gardener/docforge"
+    github_subdir: "contents/blogs/2024"
+    path_base_for_github_subdir:
+      from: "foo/foo.md"
+      to: "foo.md"
+    params:
+      github_branch: "master"
+    title: "foo test"
+- file: two.md
+  processor: markdown
+  type: file
+  source: https://github.com/gardener/docforge/blob/master/contents/website/blog/2024/_index.md
+  properties:
+    aggregate: false
+  path: foo
+  frontmatter:
+    github_repo: "https://github.com/gardener/docforge"
+    github_subdir: "contents/blogs/2024"
+    path_base_for_github_subdir:
+      from: "foo/two.md"
+      to: "two.md"
+    params:
+      github_branch: "master"

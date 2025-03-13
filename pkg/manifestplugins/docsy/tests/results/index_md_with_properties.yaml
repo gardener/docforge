@@ -1,0 +1,21 @@
+- file: _index.md
+  processor: markdown
+  type: file
+  path: foo/bar/one
+  frontmatter:
+    title: Blogs
+    aggregate: true
+- file: _index.md
+  processor: markdown
+  type: file
+  source: https://github.com/gardener/docforge/blob/master/contents/website/blog/2024/_index.md
+  path: foo/bar/two
+  frontmatter:
+    github_repo: "https://github.com/gardener/docforge"
+    github_subdir: "contents/website/blog/2024"
+    path_base_for_github_subdir:
+      from: "foo/bar/two/_index.md"
+      to: "_index.md"
+    params:
+      github_branch: "master"
+    aggregate: false

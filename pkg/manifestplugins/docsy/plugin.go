@@ -32,11 +32,11 @@ func editThisPage(node *manifest.Node, _ *manifest.Node, r registry.Interface, _
 	}
 	node.Frontmatter["github_repo"] = url.RepositoryURLString()
 	node.Frontmatter["github_subdir"] = path.Dir(url.GetResourcePath())
-	pathBaseGithubSubdir := map[string]interface{}{}
+	pathBaseGithubSubdir := map[interface{}]interface{}{}
 	pathBaseGithubSubdir["from"] = strings.TrimPrefix(node.NodePath(), "hugo/")
 	pathBaseGithubSubdir["to"] = path.Base(url.GetResourcePath())
 	node.Frontmatter["path_base_for_github_subdir"] = pathBaseGithubSubdir
-	params := map[string]interface{}{}
+	params := map[interface{}]interface{}{}
 	params["github_branch"] = url.GetRef()
 	node.Frontmatter["params"] = params
 	return false, nil
