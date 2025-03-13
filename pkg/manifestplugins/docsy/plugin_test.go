@@ -45,10 +45,9 @@ var _ = Describe("Docsy test", func() {
 			r := registry.NewRegistry(repositoryhost.NewLocalTest(repo, "https://github.com/gardener/docforge", "tests"))
 
 			url := "https://github.com/gardener/docforge/blob/master/" + exampleFile
-			contentFileFormats := []string{".md", ".yaml"}
 			docsyPlugin := docsy.Docsy{}
 			additionalTransformations := docsyPlugin.PluginNodeTransformations()
-			allNodes, err := manifest.ResolveManifest(url, r, contentFileFormats, additionalTransformations...)
+			allNodes, err := manifest.ResolveManifest(url, r, additionalTransformations...)
 			Expect(err).ToNot(HaveOccurred())
 			files := []*manifest.Node{}
 			for _, node := range allNodes {
