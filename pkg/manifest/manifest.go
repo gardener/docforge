@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"net/url"
 	"path"
-	"slices"
 	"strings"
 
 	"github.com/gardener/docforge/pkg/internal/link"
@@ -247,20 +246,6 @@ func resolveManifestLinks(node *Node, _ *Node, manifest *Node, r registry.Interf
 		return resolveLink(&node.FileTree)
 	}
 	return nil
-}
-
-func checkFileTypeFormats(node *Node, _ *Node, r registry.Interface, contentFileFormats []string) (bool, error) {
-	if node.Type != "file" {
-		return false, nil
-	}
-	files := append(node.FileType.MultiSource, node.FileType.Source, node.FileType.File)
-	for _, file := range files {
-		// we do || file == "" to skip empty fields
-		if !slices.ContainsFunc(contentFileFormats, func(fileFormat string) bool { return strings.HasSuffix(file, fileFormat) || file == "" }) {
-			return false, fmt.Errorf("file format of %s isn't supported", file)
-		}
-	}
-	return false, nil
 }
 
 func removeFileTreeNodes(node *Node, parent *Node, r registry.Interface) (bool, error) {
