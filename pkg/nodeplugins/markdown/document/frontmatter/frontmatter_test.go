@@ -77,8 +77,7 @@ var _ = Describe("Document frontmatter", func() {
 		)
 		BeforeEach(func() {
 			r := registry.NewRegistry(repositoryhost.NewLocalTest(manifests, "https://github.com/gardener/docforge", "tests"))
-			contentFileFormats := []string{".md"}
-			nodes, err = manifest.ResolveManifest("https://github.com/gardener/docforge/blob/master/frontmatter.yaml", r, contentFileFormats)
+			nodes, err = manifest.ResolveManifest("https://github.com/gardener/docforge/blob/master/frontmatter.yaml", r)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(nodes)).To(Equal(3))
 			Expect(nodes[1].Name()).To(Equal("foo.md"))
@@ -162,8 +161,7 @@ var _ = Describe("Document frontmatter", func() {
 		)
 		BeforeEach(func() {
 			r := registry.NewRegistry(repositoryhost.NewLocalTest(manifests, "https://github.com/gardener/docforge", "tests"))
-			contentFileFormats := []string{".md"}
-			nodes, err = manifest.ResolveManifest("https://github.com/gardener/docforge/blob/master/titles.yaml", r, contentFileFormats)
+			nodes, err = manifest.ResolveManifest("https://github.com/gardener/docforge/blob/master/titles.yaml", r)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(nodes)).To(Equal(6))
 			Expect(nodes[1].Name()).To(Equal("file_node-1.md"))

@@ -17,7 +17,7 @@ func (d *Docsy) PluginNodeTransformations() []manifest.NodeTransformation {
 	return []manifest.NodeTransformation{editThisPage}
 }
 
-func editThisPage(node *manifest.Node, _ *manifest.Node, r registry.Interface, _ []string) (bool, error) {
+func editThisPage(node *manifest.Node, _ *manifest.Node, r registry.Interface) (bool, error) {
 	if node.Type != "file" ||
 		(node.File == "_index.md" && node.Source == "") ||
 		(len(node.MultiSource) > 0) {

@@ -44,8 +44,7 @@ var _ = Describe("Document link resolving", func() {
 				BaseURL: "baseURL",
 			}
 			linkResolver.SourceToNode = make(map[string][]*manifest.Node)
-			contentFileFormats := []string{".md"}
-			nodes, err := manifest.ResolveManifest("https://github.com/gardener/docforge/blob/master/baseline.yaml", linkResolver.Repositoryhosts, contentFileFormats)
+			nodes, err := manifest.ResolveManifest("https://github.com/gardener/docforge/blob/master/baseline.yaml", linkResolver.Repositoryhosts)
 			Expect(err).NotTo(HaveOccurred())
 			for _, node := range nodes {
 				if node.Source != "" {

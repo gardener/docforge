@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"net/url"
 	"path"
-	"slices"
 	"strings"
 
 	"github.com/gardener/docforge/pkg/internal/link"
@@ -23,7 +22,7 @@ import (
 const sectionFile = "_index.md"
 
 // NodeTransformation is the way plugins can contribute to the node tree processing
-type NodeTransformation func(node *Node, parent *Node, r registry.Interface, contentFileFormats []string) (runTreeChangeProcedure bool, err error)
+type NodeTransformation func(node *Node, parent *Node, r registry.Interface) (runTreeChangeProcedure bool, err error)
 
 type manifestToNodeTreeTransfromation func(node *Node, parent *Node, manifest *Node, r registry.Interface) error
 
@@ -55,29 +54,29 @@ func processManifestToNodeTreeTransfromation(f manifestToNodeTreeTransfromation,
 	return nil
 }
 
-func processNodeTree(manifest *Node, r registry.Interface, contentFileFormats []string, functions ...NodeTransformation) error {
+func processNodeTree(manifest *Node, r registry.Interface, functions ...NodeTransformation) error {
 	for i := range functions {
-		runTreeChangeProcedure, err := processTransformation(functions[i], manifest, nil, r, contentFileFormats)
+		runTreeChangeProcedure, err := processTransformation(functions[i], manifest, nil, r)
 		if err != nil {
 			return err
 		}
 		if runTreeChangeProcedure {
-			runTCP, err := processTransformation(calculatePath, manifest, nil, r, nil)
+			runTCP, err := processTransformation(calculatePath, manifest, nil, r)
 			if err != nil {
 				return err
 			}
 			must.BeFalse(runTCP)
-			runTCP, err = processTransformation(mergeFolders, manifest, nil, r, nil)
+			runTCP, err = processTransformation(mergeFolders, manifest, nil, r)
 			if err != nil {
 				return err
 			}
 			must.BeFalse(runTCP)
-			runTCP, err = processTransformation(calculatePath, manifest, nil, r, nil)
+			runTCP, err = processTransformation(calculatePath, manifest, nil, r)
 			if err != nil {
 				return err
 			}
 			must.BeFalse(runTCP)
-			runTCP, err = processTransformation(setParent, manifest, nil, r, nil)
+			runTCP, err = processTransformation(setParent, manifest, nil, r)
 			if err != nil {
 				return err
 			}
@@ -87,14 +86,14 @@ func processNodeTree(manifest *Node, r registry.Interface, contentFileFormats []
 	return nil
 }
 
-func processTransformation(f NodeTransformation, node *Node, parent *Node, r registry.Interface, contentFileFormats []string) (bool, error) {
-	runTreeChangeProcedure, err := f(node, parent, r, contentFileFormats)
+func processTransformation(f NodeTransformation, node *Node, parent *Node, r registry.Interface) (bool, error) {
+	runTreeChangeProcedure, err := f(node, parent, r)
 	if err != nil {
 		return runTreeChangeProcedure, err
 	}
 
 	for _, nodeChild := range node.Structure {
-		childRunTreeChangeProcedure, err := processTransformation(f, nodeChild, node, r, contentFileFormats)
+		childRunTreeChangeProcedure, err := processTransformation(f, nodeChild, node, r)
 		if err != nil {
 			if node.Manifest != "" {
 				return runTreeChangeProcedure, fmt.Errorf("manifest %s -> %w", node.Manifest, err)
@@ -158,7 +157,7 @@ func removeManifestNodes(node *Node, parent *Node, _ *Node, r registry.Interface
 	return nil
 }
 
-func decideNodeType(node *Node, _ *Node, _ registry.Interface, _ []string) (bool, error) {
+func decideNodeType(node *Node, _ *Node, _ registry.Interface) (bool, error) {
 	node.Type = ""
 	candidateType := []string{}
 	if node.Manifest != "" {
@@ -184,11 +183,11 @@ func decideNodeType(node *Node, _ *Node, _ registry.Interface, _ []string) (bool
 	}
 }
 
-func validateTreeAfterManifestToNodeTree(_ *Node, _ *Node, _ registry.Interface, _ []string) (bool, error) {
+func validateTreeAfterManifestToNodeTree(_ *Node, _ *Node, _ registry.Interface) (bool, error) {
 	return true, nil
 }
 
-func calculatePath(node *Node, parent *Node, _ registry.Interface, _ []string) (bool, error) {
+func calculatePath(node *Node, parent *Node, _ registry.Interface) (bool, error) {
 	if parent == nil {
 		return false, nil
 	}
@@ -249,21 +248,7 @@ func resolveManifestLinks(node *Node, _ *Node, manifest *Node, r registry.Interf
 	return nil
 }
 
-func checkFileTypeFormats(node *Node, _ *Node, r registry.Interface, contentFileFormats []string) (bool, error) {
-	if node.Type != "file" {
-		return false, nil
-	}
-	files := append(node.FileType.MultiSource, node.FileType.Source, node.FileType.File)
-	for _, file := range files {
-		// we do || file == "" to skip empty fields
-		if !slices.ContainsFunc(contentFileFormats, func(fileFormat string) bool { return strings.HasSuffix(file, fileFormat) || file == "" }) {
-			return false, fmt.Errorf("file format of %s isn't supported", file)
-		}
-	}
-	return false, nil
-}
-
-func removeFileTreeNodes(node *Node, parent *Node, r registry.Interface, contentFileFormats []string) (bool, error) {
+func removeFileTreeNodes(node *Node, parent *Node, r registry.Interface) (bool, error) {
 	if node.Type != "fileTree" {
 		return false, nil
 	}
@@ -271,7 +256,7 @@ func removeFileTreeNodes(node *Node, parent *Node, r registry.Interface, content
 	if err != nil {
 		return false, err
 	}
-	changed, err := constructNodeTree(files, node, parent, contentFileFormats)
+	changed, err := constructNodeTree(files, node, parent)
 	if err != nil {
 		return changed, err
 	}
@@ -290,14 +275,11 @@ func removeNodeFromParent(node *Node, parent *Node) {
 	}
 }
 
-func constructNodeTree(files []string, node *Node, parent *Node, contentFileFormats []string) (bool, error) {
+func constructNodeTree(files []string, node *Node, parent *Node) (bool, error) {
 	changed := false
 	pathToDirNode := map[string]*Node{}
 	pathToDirNode[node.Path] = parent
 	for _, file := range files {
-		if !slices.ContainsFunc(contentFileFormats, func(fileFormat string) bool { return strings.HasSuffix(file, fileFormat) }) {
-			continue
-		}
 		shouldExclude := false
 		for _, excludeFile := range node.ExcludeFiles {
 			if strings.HasPrefix(file, excludeFile) {
@@ -354,7 +336,7 @@ func getParrentNode(pathToDirNode map[string]*Node, parentPath string) *Node {
 	return out
 }
 
-func mergeFolders(node *Node, parent *Node, _ registry.Interface, _ []string) (bool, error) {
+func mergeFolders(node *Node, parent *Node, _ registry.Interface) (bool, error) {
 	nodeNameToNode := map[string]*Node{}
 	for _, child := range node.Structure {
 		switch child.Type {
@@ -385,7 +367,7 @@ func mergeFolders(node *Node, parent *Node, _ registry.Interface, _ []string) (b
 	return false, nil
 }
 
-func resolvePersonaFolders(node *Node, parent *Node, _ registry.Interface, _ []string) (bool, error) {
+func resolvePersonaFolders(node *Node, parent *Node, _ registry.Interface) (bool, error) {
 	if node.Type == "dir" && (node.Dir == "development" || node.Dir == "operations" || node.Dir == "usage") {
 		for _, child := range node.Structure {
 			addPersonaAliasesForNode(child, node.Dir, must.Succeed(link.Build("/", node.HugoPrettyPath())))
@@ -415,7 +397,7 @@ func addPersonaAliasesForNode(node *Node, personaDir string, parrentAlias string
 	}
 }
 
-func propagateFrontmatter(node *Node, parent *Node, _ registry.Interface, _ []string) (bool, error) {
+func propagateFrontmatter(node *Node, parent *Node, _ registry.Interface) (bool, error) {
 	if parent != nil {
 		newFM := map[string]interface{}{}
 		for k, v := range parent.Frontmatter {
@@ -431,19 +413,19 @@ func propagateFrontmatter(node *Node, parent *Node, _ registry.Interface, _ []st
 	return false, nil
 }
 
-func propagateSkipValidation(node *Node, parent *Node, _ registry.Interface, _ []string) (bool, error) {
+func propagateSkipValidation(node *Node, parent *Node, _ registry.Interface) (bool, error) {
 	if parent != nil && parent.SkipValidation {
 		node.SkipValidation = parent.SkipValidation
 	}
 	return false, nil
 }
 
-func setParent(node *Node, parent *Node, _ registry.Interface, _ []string) (bool, error) {
+func setParent(node *Node, parent *Node, _ registry.Interface) (bool, error) {
 	node.parent = parent
 	return false, nil
 }
 
-func calculateAliases(node *Node, parent *Node, _ registry.Interface, _ []string) (bool, error) {
+func calculateAliases(node *Node, parent *Node, _ registry.Interface) (bool, error) {
 	var (
 		nodeAliases  []interface{}
 		childAliases []interface{}
@@ -482,14 +464,14 @@ func calculateAliases(node *Node, parent *Node, _ registry.Interface, _ []string
 	return false, nil
 }
 
-func setMarkdownProcessor(node *Node, parent *Node, _ registry.Interface, _ []string) (bool, error) {
+func setMarkdownProcessor(node *Node, parent *Node, _ registry.Interface) (bool, error) {
 	if node.Type == "file" && strings.HasSuffix(node.File, ".md") {
 		node.Processor = "markdown"
 	}
 	return false, nil
 }
 
-func setDefaultProcessor(node *Node, parent *Node, _ registry.Interface, _ []string) (bool, error) {
+func setDefaultProcessor(node *Node, parent *Node, _ registry.Interface) (bool, error) {
 	if node.Type == "file" {
 		node.Processor = "downloader"
 	}
@@ -497,7 +479,7 @@ func setDefaultProcessor(node *Node, parent *Node, _ registry.Interface, _ []str
 }
 
 // ResolveManifest collects files in FileCollector from a given url and resourcehandlers.FileSource
-func ResolveManifest(url string, r registry.Interface, contentFileFormats []string, additionalTransformations ...NodeTransformation) ([]*Node, error) {
+func ResolveManifest(url string, r registry.Interface, additionalTransformations ...NodeTransformation) ([]*Node, error) {
 	manifest := &Node{
 		ManifType: ManifType{
 			Manifest: url,
@@ -514,7 +496,7 @@ func ResolveManifest(url string, r registry.Interface, contentFileFormats []stri
 		return nil, err
 	}
 
-	err = processNodeTree(manifest, r, contentFileFormats,
+	err = processNodeTree(manifest, r,
 		// default
 		decideNodeType,
 		// default
@@ -523,8 +505,6 @@ func ResolveManifest(url string, r registry.Interface, contentFileFormats []stri
 		removeFileTreeNodes,
 		// default
 		setDefaultProcessor,
-		// fileTypeFilter plugin
-		checkFileTypeFormats,
 		// persona plugin
 		resolvePersonaFolders,
 		// markdown plugin
@@ -539,7 +519,7 @@ func ResolveManifest(url string, r registry.Interface, contentFileFormats []stri
 	if err != nil {
 		return nil, err
 	}
-	err = processNodeTree(manifest, r, contentFileFormats, additionalTransformations...)
+	err = processNodeTree(manifest, r, additionalTransformations...)
 	if err != nil {
 		return nil, err
 	}
