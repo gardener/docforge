@@ -153,7 +153,7 @@ func removeManifestNodes(node *Node, parent *Node, _ *Node, r registry.Interface
 	}
 	parent.Structure = append(parent.Structure, node.Structure...)
 	node.Structure = nil
-	removeNodeFromParent(node, parent)
+	RemoveNodeFromParent(node, parent)
 	return nil
 }
 
@@ -260,11 +260,11 @@ func removeFileTreeNodes(node *Node, parent *Node, r registry.Interface) (bool, 
 	if err != nil {
 		return changed, err
 	}
-	removeNodeFromParent(node, parent)
+	RemoveNodeFromParent(node, parent)
 	return changed, nil
 }
 
-func removeNodeFromParent(node *Node, parent *Node) {
+func RemoveNodeFromParent(node *Node, parent *Node) {
 	for i, child := range parent.Structure {
 		if child == node {
 			size := len(parent.Structure)
@@ -346,7 +346,7 @@ func mergeFolders(node *Node, parent *Node, _ registry.Interface) (bool, error) 
 					return false, fmt.Errorf("there is a file \n\n%s\n colliding with directory \n\n%s", mergeIntoNode, child)
 				}
 				mergeIntoNode.Structure = append(mergeIntoNode.Structure, child.Structure...)
-				removeNodeFromParent(child, node)
+				RemoveNodeFromParent(child, node)
 				// TODO should be removed?
 				if len(child.Frontmatter) > 0 {
 					if len(nodeNameToNode[child.Dir].Frontmatter) > 0 {
@@ -365,36 +365,6 @@ func mergeFolders(node *Node, parent *Node, _ registry.Interface) (bool, error) 
 		}
 	}
 	return false, nil
-}
-
-func resolvePersonaFolders(node *Node, parent *Node, _ registry.Interface) (bool, error) {
-	if node.Type == "dir" && (node.Dir == "development" || node.Dir == "operations" || node.Dir == "usage") {
-		for _, child := range node.Structure {
-			addPersonaAliasesForNode(child, node.Dir, must.Succeed(link.Build("/", node.HugoPrettyPath())))
-		}
-		parent.Structure = append(parent.Structure, node.Structure...)
-		removeNodeFromParent(node, parent)
-	}
-	return true, nil
-}
-
-func addPersonaAliasesForNode(node *Node, personaDir string, parrentAlias string) {
-	var dirToPersona = map[string]string{"usage": "Users", "operations": "Operators", "development": "Developers"}
-	finalAlias := strings.TrimSuffix(node.Name(), ".md") + "/"
-	if node.Name() == sectionFile {
-		finalAlias = ""
-	}
-	childAlias := parrentAlias + finalAlias
-	if node.Type == "file" {
-		if node.Frontmatter == nil {
-			node.Frontmatter = map[string]interface{}{}
-		}
-		node.Frontmatter["persona"] = dirToPersona[personaDir]
-		node.Frontmatter["aliases"] = []interface{}{childAlias}
-	}
-	for _, child := range node.Structure {
-		addPersonaAliasesForNode(child, personaDir, childAlias)
-	}
 }
 
 func propagateFrontmatter(node *Node, parent *Node, _ registry.Interface) (bool, error) {
@@ -505,8 +475,6 @@ func ResolveManifest(url string, r registry.Interface, additionalTransformations
 		removeFileTreeNodes,
 		// default
 		setDefaultProcessor,
-		// persona plugin
-		resolvePersonaFolders,
 		// markdown plugin
 		setMarkdownProcessor,
 		// markdown plugin

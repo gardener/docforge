@@ -1,0 +1,27 @@
+- file: random.md
+  processor: markdown
+  type: file
+  path: foo
+  frontmatter:
+    title: Foo
+    # file in development dir
+- file: README.md
+  source: https://github.com/gardener/docforge/blob/master/contents/README.md
+  processor: markdown
+  type: file
+  path: foo
+  frontmatter:
+    aliases:
+        - /foo/developmentREADME/
+    persona: Developers
+    title: For Development
+    # section file case in development dir
+- file: _index.md
+  processor: markdown
+  type: file
+  path: foo
+  frontmatter:
+    aliases:
+        - /foo/development
+    persona: Developers
+    title: Blog

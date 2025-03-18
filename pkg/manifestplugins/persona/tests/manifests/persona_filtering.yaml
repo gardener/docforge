@@ -1,0 +1,14 @@
+structure:
+- dir: foo
+  structure:
+  - file: random.md
+    frontmatter:
+      title: Foo
+  - dir: development
+    structure:
+    - file: _index.md
+      frontmatter:
+        title: Blog
+    - file: ../contents/README.md
+      frontmatter:
+        title: For Development
