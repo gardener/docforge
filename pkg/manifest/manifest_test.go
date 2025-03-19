@@ -68,4 +68,12 @@ var _ = Describe("Manifest test", func() {
 		Entry("covering aliases", "aliases"),
 		Entry("covering fileTree filtering", "fileTree_filtering"),
 	)
+
+	Describe("When there are dirs with frontmatter collision", func() {
+		r := registry.NewRegistry(repositoryhost.NewLocalTest(repo, "https://github.com/gardener/docforge", "tests"))
+
+		url := "https://github.com/gardener/docforge/blob/master/manifests/colliding_dir_frontmatters.yaml"
+		_, err := manifest.ResolveManifest(url, r)
+		Expect(err.Error()).To(ContainSubstring("there are multiple dirs with name foo and path . that have frontmatter. Please only use one"))
+	})
 })
