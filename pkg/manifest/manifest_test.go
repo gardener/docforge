@@ -44,8 +44,7 @@ var _ = Describe("Manifest test", func() {
 			r := registry.NewRegistry(repositoryhost.NewLocalTest(repo, "https://github.com/gardener/docforge", "tests"))
 
 			url := "https://github.com/gardener/docforge/blob/master/" + exampleFile
-			contentFileFormats := []string{".md", ".yaml"}
-			allNodes, err := manifest.ResolveManifest(url, r, contentFileFormats)
+			allNodes, err := manifest.ResolveManifest(url, r)
 			Expect(err).ToNot(HaveOccurred())
 			files := []*manifest.Node{}
 			for _, node := range allNodes {
@@ -54,7 +53,6 @@ var _ = Describe("Manifest test", func() {
 					files = append(files, node)
 				}
 			}
-
 			Expect(len(files)).To(Equal(len(expected)))
 			for i := range files {
 				if expected[i].Frontmatter == nil {
@@ -71,19 +69,11 @@ var _ = Describe("Manifest test", func() {
 		Entry("covering fileTree filtering", "fileTree_filtering"),
 	)
 
-	DescribeTable("Errors",
-		func(example string, errorMsg string) {
-			exampleFile := fmt.Sprintf("manifests/%s.yaml", example)
+	Describe("When there are dirs with frontmatter collision", func() {
+		r := registry.NewRegistry(repositoryhost.NewLocalTest(repo, "https://github.com/gardener/docforge", "tests"))
 
-			r := registry.NewRegistry(repositoryhost.NewLocalTest(repo, "https://github.com/gardener/docforge", "tests"))
-
-			url := "https://github.com/gardener/docforge/blob/master/" + exampleFile
-			contentFileFormats := []string{".md", ".yaml"}
-			_, err := manifest.ResolveManifest(url, r, contentFileFormats)
-			Expect(err.Error()).To(ContainSubstring(errorMsg))
-
-		},
-		Entry("when there are dirs with frontmatter collision", "colliding_dir_frontmatters", "there are multiple dirs with name foo and path . that have frontmatter. Please only use one"),
-		Entry("referencing a resource in source that isn't allowed", "unsupported_file_format", "invalid.file isn't supported"),
-	)
+		url := "https://github.com/gardener/docforge/blob/master/manifests/colliding_dir_frontmatters.yaml"
+		_, err := manifest.ResolveManifest(url, r)
+		Expect(err.Error()).To(ContainSubstring("there are multiple dirs with name foo and path . that have frontmatter. Please only use one"))
+	})
 })

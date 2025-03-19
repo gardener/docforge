@@ -14,6 +14,7 @@ import (
 	"github.com/gardener/docforge/pkg/core"
 	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/manifestplugins/docsy"
+	"github.com/gardener/docforge/pkg/manifestplugins/filetypefilter"
 	"github.com/gardener/docforge/pkg/nodeplugins"
 	"github.com/gardener/docforge/pkg/nodeplugins/downloader"
 	"github.com/gardener/docforge/pkg/nodeplugins/markdown"
@@ -62,7 +63,10 @@ func exec(ctx context.Context, vip *viper.Viper) error {
 		pluginTransformations = append(pluginTransformations, docsyPlugin.PluginNodeTransformations()...)
 	}
 
-	documentNodes, err := manifest.ResolveManifest(manifestURL, rhRegistry, options.Options.ContentFileFormats, pluginTransformations...)
+	fileTypeFilterPlugin := filetypefilter.FileTypeFilter{ContentFileFormats: options.Options.ContentFileFormats}
+	pluginTransformations = append(pluginTransformations, fileTypeFilterPlugin.PluginNodeTransformations()...)
+
+	documentNodes, err := manifest.ResolveManifest(manifestURL, rhRegistry, pluginTransformations...)
 	if err != nil {
 		return fmt.Errorf("failed to resolve manifest %s. %+v", config.ManifestPath, err)
 	}
