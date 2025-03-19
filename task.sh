@@ -51,7 +51,7 @@ longest_common_prefix() {
     for path in "$@"; do
         while [[ "$path" != "$prefix"* ]]; do
             if [[ $prefix == ${prefix%/*} ]]; then
-                echo ""
+                echo "[tested] "
                 return
             fi
             prefix=${prefix%/*}
