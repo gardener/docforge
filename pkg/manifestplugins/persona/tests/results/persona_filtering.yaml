@@ -12,7 +12,7 @@
   path: foo
   frontmatter:
     aliases:
-        - /foo/developmentREADME/
+        - /foo/development/README/
     persona: Developers
     title: For Development
     # section file case in development dir
