@@ -47,8 +47,7 @@ var _ = Describe("Persona test", func() {
 			url := "https://github.com/gardener/docforge/blob/master/" + exampleFile
 			personaPlugin := persona.Persona{}
 			additionalTransformations := personaPlugin.PluginNodeTransformations()
-			contentFileFormats := []string{".md", ".yaml"}
-			allNodes, err := manifest.ResolveManifest(url, r, contentFileFormats, additionalTransformations...)
+			allNodes, err := manifest.ResolveManifest(url, r, additionalTransformations...)
 			Expect(err).ToNot(HaveOccurred())
 			files := []*manifest.Node{}
 			for _, node := range allNodes {
