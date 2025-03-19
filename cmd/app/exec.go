@@ -53,7 +53,6 @@ func exec(ctx context.Context, vip *viper.Viper) error {
 
 	config := getReactorConfig(options.Options, options.Hugo, rhs)
 	manifestURL := options.ManifestPath
-	reactorWG := &sync.WaitGroup{}
 
 	rhRegistry := registry.NewRegistry(append(localRH, config.RepositoryHosts...)...)
 
@@ -71,15 +70,21 @@ func exec(ctx context.Context, vip *viper.Viper) error {
 		fmt.Println(documentNodes[0])
 	}
 
-	mdPlugin, mdTasks, err := markdown.NewPlugin(config.DocumentWorkersCount, config.FailFast, reactorWG, documentNodes, rhRegistry, config.Hugo, config.Writer, config.SkipLinkValidation, config.ValidationWorkersCount, config.HostsToReport, config.ResourceDownloadWorkersCount, config.GitInfoWriter)
+	// Stage 1
+	reactorWGStage1 := &sync.WaitGroup{}
+	mdPlugin, mdTasks, err := markdown.NewPlugin(config.DocumentWorkersCount, config.FailFast, reactorWGStage1, documentNodes, rhRegistry, config.Hugo, config.Writer, config.SkipLinkValidation, config.ValidationWorkersCount, config.HostsToReport, config.ResourceDownloadWorkersCount, config.GitInfoWriter)
 	if err != nil {
 		return err
 	}
-	dPlugin, downloadTasks, err := downloader.NewPlugin(config.ResourceDownloadWorkersCount, config.FailFast, reactorWG, rhRegistry, config.Writer)
+	dPlugin, downloadTasks, err := downloader.NewPlugin(config.ResourceDownloadWorkersCount, config.FailFast, reactorWGStage1, rhRegistry, config.Writer)
 	if err != nil {
 		return err
 	}
-	err = core.Run(ctx, documentNodes, reactorWG, []nodeplugins.Interface{mdPlugin, dPlugin}, append(mdTasks, downloadTasks))
+	if err := core.Run(ctx, documentNodes, reactorWGStage1, []nodeplugins.Interface{mdPlugin, dPlugin}, append(mdTasks, downloadTasks)); err != nil {
+		return err
+	}
+	// Stage 2 ...
+
 	rhRegistry.LogRateLimits(ctx)
-	return err
+	return nil
 }
