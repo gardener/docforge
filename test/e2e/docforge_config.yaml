@@ -33,3 +33,4 @@ resources-download-path: content/__resources
 github-oauth-env-map:
   "github.com": GITHUB_OAUTH_TOKEN
 skip-link-validation: true
+persona-filter-enabled: true

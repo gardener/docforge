@@ -11,7 +11,7 @@ import (
 
 const sectionFile = "_index.md"
 
-// Persone is the object representing the persona filtering plugin
+// Persona is the object representing the persona filtering plugin
 type Persona struct{}
 
 // PluginNodeTransformations returns the node transformations for the persona filtering plugin

@@ -15,6 +15,7 @@ import (
 	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/manifestplugins/docsy"
 	"github.com/gardener/docforge/pkg/manifestplugins/filetypefilter"
+	"github.com/gardener/docforge/pkg/manifestplugins/persona"
 	"github.com/gardener/docforge/pkg/nodeplugins"
 	"github.com/gardener/docforge/pkg/nodeplugins/downloader"
 	"github.com/gardener/docforge/pkg/nodeplugins/markdown"
@@ -61,6 +62,10 @@ func exec(ctx context.Context, vip *viper.Viper) error {
 	if options.Docsy.EditThisPageEnabled {
 		docsyPlugin := docsy.Docsy{}
 		pluginTransformations = append(pluginTransformations, docsyPlugin.PluginNodeTransformations()...)
+	}
+	if options.Persona.PersonaFilterEnabled {
+		personaPlugin := persona.Persona{}
+		pluginTransformations = append(pluginTransformations, personaPlugin.PluginNodeTransformations()...)
 	}
 
 	fileTypeFilterPlugin := filetypefilter.FileTypeFilter{ContentFileFormats: options.Options.ContentFileFormats}
