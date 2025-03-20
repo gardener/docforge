@@ -77,6 +77,10 @@ func configureFlags(command *cobra.Command, vip *viper.Viper) {
 		"Supported content format extensions (example: .md)")
 	_ = vip.BindPFlag("content-files-formats", command.Flags().Lookup("content-files-formats"))
 
+	command.Flags().Bool("persona-filter-enabled", false,
+		"Set this flag when you want to filter content by personas.")
+	_ = vip.BindPFlag("persona-filter-enabled", command.Flags().Lookup("persona-filter-enabled"))
+
 	command.Flags().Bool("skip-link-validation", false,
 		"Links validation will be skipped")
 	_ = vip.BindPFlag("skip-link-validation", command.Flags().Lookup("skip-link-validation"))
