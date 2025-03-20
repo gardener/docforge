@@ -31,7 +31,7 @@ var results embed.FS
 var repo embed.FS
 
 var _ = Describe("Alias test", func() {
-	Describe("Alias calculateALiases", func() {
+	It("Processes calculateALiases", func() {
 		var expected []*manifest.Node
 		resultFile := "tests/results/aliases.yaml"
 		resultBytes, err := results.ReadFile(resultFile)
