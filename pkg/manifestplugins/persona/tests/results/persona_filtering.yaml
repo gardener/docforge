@@ -11,8 +11,6 @@
   type: file
   path: foo
   frontmatter:
-    aliases:
-        - /foo/development/README/
     persona: Developers
     title: For Development
     # section file case in development dir
@@ -21,7 +19,5 @@
   type: file
   path: foo
   frontmatter:
-    aliases:
-        - /foo/development
     persona: Developers
     title: Blog

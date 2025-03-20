@@ -5,8 +5,6 @@ import (
 	"github.com/gardener/docforge/pkg/registry"
 )
 
-const sectionFile = "_index.md"
-
 // Persona is the object representing the persona filtering plugin
 type Persona struct{}
 
