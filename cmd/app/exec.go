@@ -13,6 +13,7 @@ import (
 
 	"github.com/gardener/docforge/pkg/core"
 	"github.com/gardener/docforge/pkg/manifest"
+	"github.com/gardener/docforge/pkg/manifestplugins/alias"
 	"github.com/gardener/docforge/pkg/manifestplugins/docsy"
 	"github.com/gardener/docforge/pkg/manifestplugins/filetypefilter"
 	"github.com/gardener/docforge/pkg/manifestplugins/persona"
@@ -66,6 +67,10 @@ func exec(ctx context.Context, vip *viper.Viper) error {
 	if options.Persona.PersonaFilterEnabled {
 		personaPlugin := persona.Persona{}
 		pluginTransformations = append(pluginTransformations, personaPlugin.PluginNodeTransformations()...)
+	}
+	if options.Alias.AliasesEnabled {
+		aliasPlugin := alias.Alias{}
+		pluginTransformations = append(pluginTransformations, aliasPlugin.PluginNodeTransformations()...)
 	}
 
 	fileTypeFilterPlugin := filetypefilter.FileTypeFilter{ContentFileFormats: options.Options.ContentFileFormats}

@@ -27,7 +27,7 @@ func TestFileTypeFilterPlugin(t *testing.T) {
 var repo embed.FS
 
 var _ = Describe("Docsy test", func() {
-	Describe("Referencing a resource in source that isn't allowed", func() {
+	It("References a resource in source that isn't allowed", func() {
 		exampleFile := "manifests/unsupported_file_format.yaml"
 
 		r := registry.NewRegistry(repositoryhost.NewLocalTest(repo, "https://github.com/gardener/docforge", "tests"))

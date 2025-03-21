@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/gardener/docforge/cmd/alias"
 	"github.com/gardener/docforge/cmd/docsy"
 	"github.com/gardener/docforge/cmd/gendocs"
 	"github.com/gardener/docforge/cmd/hugo"
@@ -34,6 +35,7 @@ type options struct {
 	hugo.Hugo                  `mapstructure:",squash"`
 	docsy.Docsy                `mapstructure:",squash"`
 	persona.Persona            `mapstructure:",squash"`
+	alias.Alias                `mapstructure:",squash"`
 	repositoryhost.InitOptions `mapstructure:",squash"`
 }
 

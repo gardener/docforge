@@ -1,4 +1,4 @@
-package persona_test
+package alias_test
 
 // SPDX-FileCopyrightText: 2020 SAP SE or an SAP affiliate company and Gardener contributors
 //
@@ -11,7 +11,7 @@ import (
 	_ "embed"
 
 	"github.com/gardener/docforge/pkg/manifest"
-	"github.com/gardener/docforge/pkg/manifestplugins/persona"
+	"github.com/gardener/docforge/pkg/manifestplugins/alias"
 	"github.com/gardener/docforge/pkg/registry"
 	"github.com/gardener/docforge/pkg/registry/repositoryhost"
 	. "github.com/onsi/ginkgo"
@@ -19,9 +19,9 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-func TestPersonaPlugin(t *testing.T) {
+func TestAliasPlugin(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Persona Suite")
+	RunSpecs(t, "Alias Suite")
 }
 
 //go:embed tests/results/*
@@ -30,19 +30,19 @@ var results embed.FS
 //go:embed all:tests/*
 var repo embed.FS
 
-var _ = Describe("Persona test", func() {
-	It("Processes resolvePersonaFolders", func() {
+var _ = Describe("Alias test", func() {
+	It("Processes calculateALiases", func() {
 		var expected []*manifest.Node
-		resultFile := "tests/results/persona_filtering.yaml"
+		resultFile := "tests/results/aliases.yaml"
 		resultBytes, err := results.ReadFile(resultFile)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(yaml.Unmarshal([]byte(resultBytes), &expected)).NotTo(HaveOccurred())
 
 		r := registry.NewRegistry(repositoryhost.NewLocalTest(repo, "https://github.com/gardener/docforge", "tests"))
 
-		url := "https://github.com/gardener/docforge/blob/master/manifests/persona_filtering.yaml"
-		personaPlugin := persona.Persona{}
-		additionalTransformations := personaPlugin.PluginNodeTransformations()
+		url := "https://github.com/gardener/docforge/blob/master/manifests/aliases.yaml"
+		aliasPlugin := alias.Alias{}
+		additionalTransformations := aliasPlugin.PluginNodeTransformations()
 		allNodes, err := manifest.ResolveManifest(url, r, additionalTransformations...)
 		Expect(err).ToNot(HaveOccurred())
 		files := []*manifest.Node{}

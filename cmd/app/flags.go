@@ -81,6 +81,10 @@ func configureFlags(command *cobra.Command, vip *viper.Viper) {
 		"Set this flag when you want to filter content by personas.")
 	_ = vip.BindPFlag("persona-filter-enabled", command.Flags().Lookup("persona-filter-enabled"))
 
+	command.Flags().Bool("aliases-enabled", false,
+		"Set this flag when you want to enable aliases for files.")
+	_ = vip.BindPFlag("aliases-enabled", command.Flags().Lookup("aliases-enabled"))
+
 	command.Flags().Bool("skip-link-validation", false,
 		"Links validation will be skipped")
 	_ = vip.BindPFlag("skip-link-validation", command.Flags().Lookup("skip-link-validation"))
