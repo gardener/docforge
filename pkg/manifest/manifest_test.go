@@ -55,9 +55,6 @@ var _ = Describe("Manifest test", func() {
 			}
 			Expect(len(files)).To(Equal(len(expected)))
 			for i := range files {
-				if expected[i].Frontmatter == nil {
-					expected[i].Frontmatter = map[string]interface{}{}
-				}
 				Expect(*files[i]).To(Equal(*expected[i]))
 			}
 		},

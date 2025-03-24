@@ -92,6 +92,7 @@ content-files-formats:
 - ".png"
 resourceMappings:
   'https://github.com/gardener/docforge': ${docforge_repo_path}
+markdown-enabled: true
 " > "$int_test_config_file"
 trap cleanup EXIT ERR INT TERM
 function cleanup {

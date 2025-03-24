@@ -1,0 +1,2 @@
+# Using `Markdown`
+Since Docforge can construct the content bundle from multiple repository sources and there could be a need for specific processing of md files, you can add it by using the `markdown-enabled` flag.

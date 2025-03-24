@@ -1,5 +1,5 @@
 - file: README.md
-  processor: markdown
+  processor: downloader
   type: file
   source: https://github.com/gardener/docforge/blob/master/contents/README.md
   path: root/topic/new_section_1
@@ -8,7 +8,7 @@
     - "/root2/rebase/README/"
     - "/root3/rebase_slash/README/"
 - file: _index.md
-  processor: markdown
+  processor: downloader
   type: file
   source: https://github.com/gardener/docforge/blob/master/contents/website/blog/2024/_index.md
   path: root/topic/new_section_1/subsection
@@ -17,7 +17,7 @@
     - "/root2/rebase/subsection/"
     - "/root3/rebase_slash/subsection/"
 - file: foo.md
-  processor: markdown
+  processor: downloader
   type: file
   source: https://github.com/gardener/docforge/blob/master/contents/blogs/2024/foo.md
   path: root/topic/new_section_1/subsection
@@ -27,7 +27,7 @@
     - "/root2/rebase/subsection/foo/"
     - "/root3/rebase_slash/subsection/foo/"
 - file: two.md
-  processor: markdown
+  processor: downloader
   type: file
   source: https://github.com/gardener/docforge/blob/master/contents/blogs/2024/two.md
   path: root
@@ -35,7 +35,7 @@
     aliases:
     - "/root4/normal/alias/"
 - file: _index.md
-  processor: markdown
+  processor: downloader
   type: file
   source: https://github.com/gardener/docforge/blob/master/contents/docs/architecture/_index.md
   path: root/architecture
@@ -43,7 +43,7 @@
     aliases:
     - "/root/"
 - file: concept.md
-  processor: markdown
+  processor: downloader
   type: file
   source: https://github.com/gardener/docforge/blob/master/contents/docs/architecture/concept.md
   path: root/architecture

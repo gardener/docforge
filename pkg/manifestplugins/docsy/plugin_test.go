@@ -58,9 +58,6 @@ var _ = Describe("Docsy test", func() {
 
 			Expect(len(files)).To(Equal(len(expected)))
 			for i := range files {
-				if expected[i].Frontmatter == nil {
-					expected[i].Frontmatter = map[string]interface{}{}
-				}
 				Expect(files[i].Frontmatter).To(Equal(expected[i].Frontmatter))
 			}
 		},
