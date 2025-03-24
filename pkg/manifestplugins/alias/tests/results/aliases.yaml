@@ -1,52 +1,52 @@
-- file: README.md
+- file: README.txt
   processor: downloader
   type: file
-  source: https://github.com/gardener/docforge/blob/master/contents/README.md
+  source: https://github.com/gardener/docforge/blob/master/contents/README.txt
   path: root/topic/new_section_1
   frontmatter:
     aliases:
-    - "/root2/rebase/README/"
-    - "/root3/rebase_slash/README/"
-- file: _index.md
+    - "/root2/rebase/README.txt/"
+    - "/root3/rebase_slash/README.txt/"
+- file: README.txt
   processor: downloader
   type: file
-  source: https://github.com/gardener/docforge/blob/master/contents/website/blog/2024/_index.md
+  source: https://github.com/gardener/docforge/blob/master/contents/website/blog/2024/README.txt
   path: root/topic/new_section_1/subsection
   frontmatter:
     aliases:
-    - "/root2/rebase/subsection/"
-    - "/root3/rebase_slash/subsection/"
-- file: foo.md
+    - "/root2/rebase/subsection/README.txt/"
+    - "/root3/rebase_slash/subsection/README.txt/"
+- file: foo.txt
   processor: downloader
   type: file
-  source: https://github.com/gardener/docforge/blob/master/contents/blogs/2024/foo.md
+  source: https://github.com/gardener/docforge/blob/master/contents/blogs/2024/foo.txt
   path: root/topic/new_section_1/subsection
   frontmatter:
     aliases:
     - "/root4/alias/"
-    - "/root2/rebase/subsection/foo/"
-    - "/root3/rebase_slash/subsection/foo/"
-- file: two.md
+    - "/root2/rebase/subsection/foo.txt/"
+    - "/root3/rebase_slash/subsection/foo.txt/"
+- file: two.txt
   processor: downloader
   type: file
-  source: https://github.com/gardener/docforge/blob/master/contents/blogs/2024/two.md
+  source: https://github.com/gardener/docforge/blob/master/contents/blogs/2024/two.txt
   path: root
   frontmatter:
     aliases:
     - "/root4/normal/alias/"
-- file: _index.md
+- file: README.txt
   processor: downloader
   type: file
-  source: https://github.com/gardener/docforge/blob/master/contents/docs/architecture/_index.md
+  source: https://github.com/gardener/docforge/blob/master/contents/docs/architecture/README.txt
   path: root/architecture
   frontmatter:
     aliases:
-    - "/root/"
-- file: concept.md
+    - "/root/README.txt/"
+- file: concept.txt
   processor: downloader
   type: file
-  source: https://github.com/gardener/docforge/blob/master/contents/docs/architecture/concept.md
+  source: https://github.com/gardener/docforge/blob/master/contents/docs/architecture/concept.txt
   path: root/architecture
   frontmatter:
     aliases:
-    - "/root/concept/"
+    - "/root/concept.txt/"

@@ -1,25 +1,25 @@
-- file: _index.md
+- file: README.txt
   processor: downloader
   type: file
-  source: https://github.com/gardener/docforge/blob/master/contents/website/blog/2024/_index.md
+  source: https://github.com/gardener/docforge/blob/master/contents/website/blog/2024/README.txt
   path: blog/2024
-- file: foo.md
+- file: foo.txt
   processor: downloader
   type: file
-  source: https://github.com/gardener/docforge/blob/master/contents/blogs/2024/foo.md
+  source: https://github.com/gardener/docforge/blob/master/contents/blogs/2024/foo.txt
   path: blog/2024
 - file: one
   processor: downloader
   type: file
   source: https://github.com/gardener/docforge/blob/master/contents/blogs/2024/one
   path: blog/2024
-- file: two.md
+- file: two.txt
   processor: downloader
   type: file
-  source: https://github.com/gardener/docforge/blob/master/contents/blogs/2024/two.md
+  source: https://github.com/gardener/docforge/blob/master/contents/blogs/2024/two.txt
   path: blog/2024
-- file: foo.md
+- file: foo.txt
   processor: downloader
   type: file
-  source: https://github.com/gardener/docforge/blob/master/contents/blogs/2024/foo.md
+  source: https://github.com/gardener/docforge/blob/master/contents/blogs/2024/foo.txt
   path: blog

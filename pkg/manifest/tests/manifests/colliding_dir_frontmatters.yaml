@@ -3,7 +3,7 @@ structure:
   frontmatter:
     title: foo
   structure:
-  - file: /contents/README.md
+  - file: /contents/README.txt
 - fileTree: /contents
 - dir: foo
   frontmatter:
