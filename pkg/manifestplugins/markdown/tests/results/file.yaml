@@ -1,0 +1,16 @@
+- file: foo.md
+  processor: markdown
+  type: file
+  source: https://github.com/gardener/docforge/blob/master/contents/blogs/2024/foo.md
+  properties:
+    aggregate: false
+  path: foo
+  frontmatter:
+    title: "foo test"
+- file: two.md
+  processor: markdown
+  type: file
+  source: https://github.com/gardener/docforge/blob/master/contents/blogs/2024/two.md
+  properties:
+    aggregate: false
+  path: foo
