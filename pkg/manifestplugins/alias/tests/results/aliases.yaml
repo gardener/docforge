@@ -1,52 +1,52 @@
-- file: README.txt
-  processor: downloader
+- file: README.md
+  processor: markdown
   type: file
-  source: https://github.com/gardener/docforge/blob/master/contents/README.txt
+  source: https://github.com/gardener/docforge/blob/master/contents/README.md
   path: root/topic/new_section_1
   frontmatter:
     aliases:
-    - "/root2/rebase/README.txt/"
-    - "/root3/rebase_slash/README.txt/"
-- file: README.txt
-  processor: downloader
+    - "/root2/rebase/README/"
+    - "/root3/rebase_slash/README/"
+- file: _index.md
+  processor: markdown
   type: file
-  source: https://github.com/gardener/docforge/blob/master/contents/website/blog/2024/README.txt
+  source: https://github.com/gardener/docforge/blob/master/contents/website/blog/2024/_index.md
   path: root/topic/new_section_1/subsection
   frontmatter:
     aliases:
-    - "/root2/rebase/subsection/README.txt/"
-    - "/root3/rebase_slash/subsection/README.txt/"
-- file: foo.txt
-  processor: downloader
+    - "/root2/rebase/subsection/"
+    - "/root3/rebase_slash/subsection/"
+- file: foo.md
+  processor: markdown
   type: file
-  source: https://github.com/gardener/docforge/blob/master/contents/blogs/2024/foo.txt
+  source: https://github.com/gardener/docforge/blob/master/contents/blogs/2024/foo.md
   path: root/topic/new_section_1/subsection
   frontmatter:
     aliases:
     - "/root4/alias/"
-    - "/root2/rebase/subsection/foo.txt/"
-    - "/root3/rebase_slash/subsection/foo.txt/"
-- file: two.txt
-  processor: downloader
+    - "/root2/rebase/subsection/foo/"
+    - "/root3/rebase_slash/subsection/foo/"
+- file: two.md
+  processor: markdown
   type: file
-  source: https://github.com/gardener/docforge/blob/master/contents/blogs/2024/two.txt
+  source: https://github.com/gardener/docforge/blob/master/contents/blogs/2024/two.md
   path: root
   frontmatter:
     aliases:
     - "/root4/normal/alias/"
-- file: README.txt
-  processor: downloader
+- file: _index.md
+  processor: markdown
   type: file
-  source: https://github.com/gardener/docforge/blob/master/contents/docs/architecture/README.txt
+  source: https://github.com/gardener/docforge/blob/master/contents/docs/architecture/_index.md
   path: root/architecture
   frontmatter:
     aliases:
-    - "/root/README.txt/"
-- file: concept.txt
-  processor: downloader
+    - "/root/"
+- file: concept.md
+  processor: markdown
   type: file
-  source: https://github.com/gardener/docforge/blob/master/contents/docs/architecture/concept.txt
+  source: https://github.com/gardener/docforge/blob/master/contents/docs/architecture/concept.md
   path: root/architecture
   frontmatter:
     aliases:
-    - "/root/concept.txt/"
+    - "/root/concept/"
