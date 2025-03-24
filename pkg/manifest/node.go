@@ -77,6 +77,7 @@ func (n *Node) Parent() *Node {
 	return n.parent
 }
 
+// RemoveParent removes parent of node
 func (n *Node) RemoveParent() {
 	n.parent = nil
 }
