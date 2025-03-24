@@ -10,7 +10,7 @@ import (
 // Markdown is the object representing the markdown plugin
 type Markdown struct{}
 
-// PluginNodeTransformations returns the node transformations for the alias plugin
+// PluginNodeTransformations returns the node transformations for the markdown plugin
 func (d *Markdown) PluginNodeTransformations() []manifest.NodeTransformation {
 	return []manifest.NodeTransformation{setMarkdownProcessor, propagateFrontmatter, propagateSkipValidation}
 }
