@@ -77,6 +77,10 @@ func (n *Node) Parent() *Node {
 	return n.parent
 }
 
+func (n *Node) RemoveParent() {
+	n.parent = nil
+}
+
 func (n *Node) String() string {
 	node, err := yaml.Marshal(n)
 	if err != nil {
