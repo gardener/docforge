@@ -67,6 +67,5 @@ var _ = Describe("Docsy test", func() {
 		Entry("covering _index.md use cases", "index_md_with_properties"),
 		Entry("covering type file", "file"),
 		Entry("covering type dir", "dir"),
-		Entry("covering multisource", "multisource"),
 	)
 })

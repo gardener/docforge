@@ -16,6 +16,7 @@ import (
 	"github.com/gardener/docforge/pkg/manifestplugins/alias"
 	"github.com/gardener/docforge/pkg/manifestplugins/docsy"
 	"github.com/gardener/docforge/pkg/manifestplugins/filetypefilter"
+	manifestmarkdown "github.com/gardener/docforge/pkg/manifestplugins/markdown"
 	"github.com/gardener/docforge/pkg/manifestplugins/persona"
 	"github.com/gardener/docforge/pkg/nodeplugins"
 	"github.com/gardener/docforge/pkg/nodeplugins/downloader"
@@ -71,6 +72,10 @@ func exec(ctx context.Context, vip *viper.Viper) error {
 	if options.Alias.AliasesEnabled {
 		aliasPlugin := alias.Alias{}
 		pluginTransformations = append(pluginTransformations, aliasPlugin.PluginNodeTransformations()...)
+	}
+	if options.Markdown.MarkdownEnabled {
+		markdownPlugin := manifestmarkdown.Markdown{}
+		pluginTransformations = append(pluginTransformations, markdownPlugin.PluginNodeTransformations()...)
 	}
 
 	fileTypeFilterPlugin := filetypefilter.FileTypeFilter{ContentFileFormats: options.Options.ContentFileFormats}

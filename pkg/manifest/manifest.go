@@ -368,38 +368,8 @@ func mergeFolders(node *Node, parent *Node, _ registry.Interface) (bool, error) 
 	return false, nil
 }
 
-func propagateFrontmatter(node *Node, parent *Node, _ registry.Interface) (bool, error) {
-	if parent != nil {
-		newFM := map[string]interface{}{}
-		for k, v := range parent.Frontmatter {
-			if k != "aliases" {
-				newFM[k] = v
-			}
-		}
-		for k, v := range node.Frontmatter {
-			newFM[k] = v
-		}
-		node.Frontmatter = newFM
-	}
-	return false, nil
-}
-
-func propagateSkipValidation(node *Node, parent *Node, _ registry.Interface) (bool, error) {
-	if parent != nil && parent.SkipValidation {
-		node.SkipValidation = parent.SkipValidation
-	}
-	return false, nil
-}
-
 func setParent(node *Node, parent *Node, _ registry.Interface) (bool, error) {
 	node.parent = parent
-	return false, nil
-}
-
-func setMarkdownProcessor(node *Node, parent *Node, _ registry.Interface) (bool, error) {
-	if node.Type == "file" && strings.HasSuffix(node.File, ".md") {
-		node.Processor = "markdown"
-	}
 	return false, nil
 }
 
@@ -437,12 +407,6 @@ func ResolveManifest(url string, r registry.Interface, additionalTransformations
 		removeFileTreeNodes,
 		// default
 		setDefaultProcessor,
-		// markdown plugin
-		setMarkdownProcessor,
-		// markdown plugin
-		propagateFrontmatter,
-		// markdown plugin
-		propagateSkipValidation,
 	)
 	if err != nil {
 		return nil, err

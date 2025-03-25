@@ -5,23 +5,23 @@ structure:
     structure:
     - dir: one
       structure:
-      # create empty _index.md file with only front matters
-      - file: _index.md
+      # create empty README.txt file with only front matters
+      - file: README.txt
         properties:
           title: Blogs
           aggregate: true
     - dir: two
       structure:
-      # _index.md with relative path and properties
-      - file: ../contents/website/blog/2024/_index.md
+      # README.txt with relative path and properties
+      - file: ../contents/website/blog/2024/README.txt
         properties:
           aggregate: false
     - dir: three
       structure:
-      # _index.md with full path
-      - file: https://github.com/gardener/docforge/blob/master/contents/website/blog/2024/_index.md
-    # renamed _index.md file
+      # README.txt with full path
+      - file: https://github.com/gardener/docforge/blob/master/contents/website/blog/2024/README.txt
+    # renamed README.txt file
     - file: renamed.md
-      source: https://github.com/gardener/docforge/blob/master/contents/website/blog/2024/_index.md
-    # importing _index.md from filetree
+      source: https://github.com/gardener/docforge/blob/master/contents/website/blog/2024/README.txt
+    # importing README.txt from filetree
     - fileTree: /contents/website

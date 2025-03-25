@@ -6,4 +6,4 @@ structure:
   # merging content into root level
   - fileTree: /contents/blogs
   # auto adding md suffix
-  - file: /contents/blogs/2024/foo.md
+  - file: /contents/blogs/2024/foo.txt

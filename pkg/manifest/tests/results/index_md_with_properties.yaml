@@ -1,29 +1,29 @@
-- file: _index.md
-  processor: markdown
+- file: README.txt
+  processor: downloader
   type: file
   properties:
     title: Blogs
     aggregate: true
   path: foo/bar/one
-- file: _index.md
-  processor: markdown
+- file: README.txt
+  processor: downloader
   type: file
-  source: https://github.com/gardener/docforge/blob/master/contents/website/blog/2024/_index.md
+  source: https://github.com/gardener/docforge/blob/master/contents/website/blog/2024/README.txt
   properties:
     aggregate: false
   path: foo/bar/two
-- file: _index.md
-  processor: markdown
+- file: README.txt
+  processor: downloader
   type: file
-  source: https://github.com/gardener/docforge/blob/master/contents/website/blog/2024/_index.md
+  source: https://github.com/gardener/docforge/blob/master/contents/website/blog/2024/README.txt
   path: foo/bar/three
 - file: renamed.md
-  processor: markdown
+  processor: downloader
   type: file
-  source: https://github.com/gardener/docforge/blob/master/contents/website/blog/2024/_index.md
+  source: https://github.com/gardener/docforge/blob/master/contents/website/blog/2024/README.txt
   path: foo/bar
-- file: _index.md
-  processor: markdown
+- file: README.txt
+  processor: downloader
   type: file
-  source: https://github.com/gardener/docforge/blob/master/contents/website/blog/2024/_index.md
+  source: https://github.com/gardener/docforge/blob/master/contents/website/blog/2024/README.txt
   path: foo/bar/blog/2024

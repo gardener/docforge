@@ -1,0 +1,11 @@
+structure:
+- dir: foo
+  frontmatter:
+    title: "foo dir"
+  skipValidation: true
+  structure:
+  # with additional front matter
+  - file: ../contents/blogs/2024/foo.md
+    frontmatter:
+      title: "foo test"
+  - file: ../contents/blogs/2024/two.md

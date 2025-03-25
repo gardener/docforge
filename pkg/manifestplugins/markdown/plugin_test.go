@@ -1,4 +1,4 @@
-package manifest_test
+package markdown_test
 
 // SPDX-FileCopyrightText: 2020 SAP SE or an SAP affiliate company and Gardener contributors
 //
@@ -12,6 +12,7 @@ import (
 	_ "embed"
 
 	"github.com/gardener/docforge/pkg/manifest"
+	"github.com/gardener/docforge/pkg/manifestplugins/markdown"
 	"github.com/gardener/docforge/pkg/registry"
 	"github.com/gardener/docforge/pkg/registry/repositoryhost"
 	. "github.com/onsi/ginkgo"
@@ -20,9 +21,9 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-func TestManifest(t *testing.T) {
+func TestMarkdownPlugin(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Manifest Suite")
+	RunSpecs(t, "Markdown Suite")
 }
 
 //go:embed tests/results/*
@@ -31,8 +32,8 @@ var results embed.FS
 //go:embed all:tests/*
 var repo embed.FS
 
-var _ = Describe("Manifest test", func() {
-	DescribeTable("Testing manifest file",
+var _ = Describe("Markdown test", func() {
+	DescribeTable("Process editThisPage",
 		func(example string) {
 			var expected []*manifest.Node
 			exampleFile := fmt.Sprintf("manifests/%s.yaml", example)
@@ -44,31 +45,26 @@ var _ = Describe("Manifest test", func() {
 			r := registry.NewRegistry(repositoryhost.NewLocalTest(repo, "https://github.com/gardener/docforge", "tests"))
 
 			url := "https://github.com/gardener/docforge/blob/master/" + exampleFile
-			allNodes, err := manifest.ResolveManifest(url, r)
+			markdownPlugin := markdown.Markdown{}
+			additionalTransformations := markdownPlugin.PluginNodeTransformations()
+			allNodes, err := manifest.ResolveManifest(url, r, additionalTransformations...)
 			Expect(err).ToNot(HaveOccurred())
 			files := []*manifest.Node{}
 			for _, node := range allNodes {
 				if node.Type == "file" {
-					node.RemoveParent()
 					files = append(files, node)
 				}
 			}
+
 			Expect(len(files)).To(Equal(len(expected)))
 			for i := range files {
-				Expect(*files[i]).To(Equal(*expected[i]))
+				if expected[i].Frontmatter == nil {
+					expected[i].Frontmatter = map[string]interface{}{}
+				}
+				Expect(files[i].Frontmatter).To(Equal(expected[i].Frontmatter))
 			}
 		},
-		Entry("covering _index.md use cases", "index_md_with_properties"),
-		Entry("covering directory merges", "merging"),
-		Entry("covering manifest use cases", "manifest"),
-		Entry("covering fileTree filtering", "fileTree_filtering"),
+		Entry("covering type file", "file"),
+		Entry("covering multisource", "multisource"),
 	)
-
-	Describe("When there are dirs with frontmatter collision", func() {
-		r := registry.NewRegistry(repositoryhost.NewLocalTest(repo, "https://github.com/gardener/docforge", "tests"))
-
-		url := "https://github.com/gardener/docforge/blob/master/manifests/colliding_dir_frontmatters.yaml"
-		_, err := manifest.ResolveManifest(url, r)
-		Expect(err.Error()).To(ContainSubstring("there are multiple dirs with name foo and path . that have frontmatter. Please only use one"))
-	})
 })
