@@ -52,6 +52,7 @@ func NewCommand(ctx context.Context) *cobra.Command {
 	vip := configure(cmd)
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
+		vip.WriteConfigTo(os.Stdout)
 		return exec(ctx, vip)
 	}
 
