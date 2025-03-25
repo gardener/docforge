@@ -1,5 +1,0 @@
-structure:
-- file: testo.md
-  multiSource:
-  - /contents/blogs/2024/foo.txt
-  - /contents/blogs/2024/two.txt

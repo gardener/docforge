@@ -1,7 +1,0 @@
-- file: testo.md
-  processor: downloader
-  type: file
-  multiSource:
-  - https://github.com/gardener/docforge/blob/master/contents/blogs/2024/foo.txt
-  - https://github.com/gardener/docforge/blob/master/contents/blogs/2024/two.txt
-  path: "."

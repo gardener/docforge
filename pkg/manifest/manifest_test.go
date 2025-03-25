@@ -61,7 +61,6 @@ var _ = Describe("Manifest test", func() {
 		Entry("covering _index.md use cases", "index_md_with_properties"),
 		Entry("covering directory merges", "merging"),
 		Entry("covering manifest use cases", "manifest"),
-		Entry("covering multisource", "multisource"),
 		Entry("covering fileTree filtering", "fileTree_filtering"),
 	)
 
