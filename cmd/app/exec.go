@@ -25,7 +25,6 @@ import (
 	"github.com/gardener/docforge/pkg/registry"
 	"github.com/gardener/docforge/pkg/registry/repositoryhost"
 	"github.com/spf13/viper"
-	"k8s.io/klog/v2"
 )
 
 func exec(ctx context.Context, vip *viper.Viper) error {
@@ -41,13 +40,10 @@ func exec(ctx context.Context, vip *viper.Viper) error {
 	if existsPath {
 		return fmt.Errorf("hugo-structural-dirs contains a path instead a directory name")
 	}
-	klog.Infof("Manifest: %s", options.ManifestPath)
 	localRH := []repositoryhost.Interface{}
 	for resource, mapped := range options.ResourceMappings {
 		localRH = append(localRH, repositoryhost.NewLocal(&osshim.OsShim{}, resource, mapped))
-		klog.Infof("%s -> %s", resource, mapped)
 	}
-	klog.Infof("Output dir: %s", options.DestinationPath)
 	if err != nil {
 		return err
 	}
