@@ -59,6 +59,9 @@ func (n *Node) NodePath() string {
 // HugoPrettyPath returns hugo pretty path
 func (n *Node) HugoPrettyPath() string {
 	name := n.Name()
+	if n.Type == "dir" {
+		return must.Succeed(link.Build(n.Path, name, "/"))
+	}
 	if !strings.HasSuffix(name, ".md") {
 		return must.Succeed(link.Build(n.Path, name))
 	}
