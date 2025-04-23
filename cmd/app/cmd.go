@@ -7,6 +7,7 @@ package app
 import (
 	"context"
 	"flag"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -52,6 +53,9 @@ func NewCommand(ctx context.Context) *cobra.Command {
 	vip := configure(cmd)
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
+		if err := vip.WriteConfigTo(os.Stdout); err != nil {
+			return fmt.Errorf("failed writing config to stdout: %w", err)
+		}
 		return exec(ctx, vip)
 	}
 
@@ -70,14 +74,6 @@ func NewCommand(ctx context.Context) *cobra.Command {
 func configure(command *cobra.Command) *viper.Viper {
 	//set delimiter to be ::
 	vip := viper.NewWithOptions(viper.KeyDelimiter("::"))
-	vip.SetDefault("chart::values", map[string]interface{}{
-		"ingress": map[string]interface{}{
-			"annotations": map[string]interface{}{
-				"traefik.frontend.rule.type":                 "PathPrefix",
-				"traefik.ingress.kubernetes.io/ssl-redirect": "true",
-			},
-		},
-	})
 	configureFlags(command, vip)
 	configureConfigFile(vip)
 	return vip
