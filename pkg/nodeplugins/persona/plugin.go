@@ -2,6 +2,7 @@ package persona
 
 import (
 	"bytes"
+	// for loading persona-filtering.json.tpl
 	_ "embed"
 	"html/template"
 	"log"
@@ -15,17 +16,20 @@ import (
 //go:embed persona-filtering.json.tpl
 var jsTemplate string
 
+// Plugin is the node plugin object
 type Plugin struct {
 	Root   *manifest.Node
 	Writer writers.Writer
 }
 
+// Processor returns the persona processor
 func (Plugin) Processor() string {
 	return "persona"
 }
 
+// Process processes the node that will be constructed as the js file
 func (p *Plugin) Process(node *manifest.Node) error {
-	linkToPersonaMap := UrlToPersonas(p.Root, map[string]string{})
+	linkToPersonaMap := urlToPersonas(p.Root, map[string]string{})
 	t, err := template.New("webpage").Parse(jsTemplate)
 	if err != nil {
 		log.Fatalf("Error parsing template: %v", err)
@@ -40,7 +44,7 @@ func (p *Plugin) Process(node *manifest.Node) error {
 	return p.Writer.Write(node.Name(), node.Path, renderedTemplate.Bytes(), node, []string{})
 }
 
-func UrlToPersonas(node *manifest.Node, res map[string]string) map[string]string {
+func urlToPersonas(node *manifest.Node, res map[string]string) map[string]string {
 	if node.Frontmatter["persona"] != nil {
 		// bubble persona up
 		persona, ok := node.Frontmatter["persona"].(string)
@@ -62,7 +66,7 @@ func UrlToPersonas(node *manifest.Node, res map[string]string) map[string]string
 		}
 	}
 	for _, child := range node.Structure {
-		UrlToPersonas(child, res)
+		urlToPersonas(child, res)
 	}
 	return res
 }

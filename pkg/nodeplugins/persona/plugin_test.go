@@ -56,7 +56,7 @@ var _ = Describe("Persona test", func() {
 		}
 		writer := writersfakes.FakeWriter{}
 		p := nodepersona.Plugin{Root: allNodes[0], Writer: &writer}
-		p.Process(allNodes[0])
+		Expect(p.Process(allNodes[0])).NotTo(HaveOccurred())
 		Expect(len(files)).To(Equal(len(expected)))
 		for i := range files {
 			if expected[i].Frontmatter == nil {
