@@ -21,6 +21,7 @@ import (
 	"github.com/gardener/docforge/pkg/nodeplugins"
 	"github.com/gardener/docforge/pkg/nodeplugins/downloader"
 	"github.com/gardener/docforge/pkg/nodeplugins/markdown"
+	personanodeplugin "github.com/gardener/docforge/pkg/nodeplugins/persona"
 	"github.com/gardener/docforge/pkg/osfakes/osshim"
 	"github.com/gardener/docforge/pkg/registry"
 	"github.com/gardener/docforge/pkg/registry/repositoryhost"
@@ -60,6 +61,8 @@ func exec(ctx context.Context, vip *viper.Viper) error {
 
 	rhRegistry := registry.NewRegistry(append(localRH, config.RepositoryHosts...)...)
 
+	additionalNodePlugins := []nodeplugins.Interface{}
+
 	pluginTransformations := []manifest.NodeTransformation{}
 	if options.Docsy.EditThisPageEnabled {
 		docsyPlugin := docsy.Docsy{}
@@ -89,6 +92,9 @@ func exec(ctx context.Context, vip *viper.Viper) error {
 		fmt.Println(documentNodes[0])
 	}
 
+	if options.Persona.PersonaFilterEnabled {
+		additionalNodePlugins = append(additionalNodePlugins, &personanodeplugin.Plugin{Root: documentNodes[0], Writer: config.Writer})
+	}
 	// Stage 1
 	reactorWGStage1 := &sync.WaitGroup{}
 	mdPlugin, mdTasks, err := markdown.NewPlugin(config.DocumentWorkersCount, config.FailFast, reactorWGStage1, documentNodes, rhRegistry, config.Hugo, config.Writer, config.SkipLinkValidation, config.ValidationWorkersCount, config.HostsToReport, config.ResourceDownloadWorkersCount, config.GitInfoWriter)
@@ -99,7 +105,7 @@ func exec(ctx context.Context, vip *viper.Viper) error {
 	if err != nil {
 		return err
 	}
-	if err := core.Run(ctx, documentNodes, reactorWGStage1, []nodeplugins.Interface{mdPlugin, dPlugin}, append(mdTasks, downloadTasks)); err != nil {
+	if err := core.Run(ctx, documentNodes, reactorWGStage1, append([]nodeplugins.Interface{mdPlugin, dPlugin}, additionalNodePlugins...), append(mdTasks, downloadTasks)); err != nil {
 		return err
 	}
 	// Stage 2 ...
