@@ -1,0 +1,19 @@
+structure:
+- dir: content
+  structure:
+  - dir: docs
+    structure:
+    - dir: getting-started
+      structure:
+      - file: _index.md
+        source: ../contents/README.md
+        frontmatter:
+          persona: Developer
+          title: For Development
+    - dir: operations
+      structure:
+      - file: _index.md
+        frontmatter:
+          title: Blog
+      - file: foo.md
+        source: ../contents/README.md
