@@ -7,6 +7,7 @@ package app
 import (
 	"context"
 	"flag"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -52,7 +53,9 @@ func NewCommand(ctx context.Context) *cobra.Command {
 	vip := configure(cmd)
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		vip.WriteConfigTo(os.Stdout)
+		if err := vip.WriteConfigTo(os.Stdout); err != nil {
+			return fmt.Errorf("failed writing config to stdout: %w", err)
+		}
 		return exec(ctx, vip)
 	}
 
