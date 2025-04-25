@@ -1,0 +1,22 @@
+- file: _index.md
+  source: https://github.com/gardener/docforge/blob/master/contents/README.md
+  processor: downloader
+  type: file
+  path: content/docs/getting-started
+  frontmatter:
+    persona: Developer
+    title: For Development
+- file: foo.md
+  source: https://github.com/gardener/docforge/blob/master/contents/README.md
+  processor: downloader
+  type: file
+  path: content/docs
+  frontmatter:
+    persona: Operators
+- file: _index.md
+  processor: downloader
+  type: file
+  path: content/docs
+  frontmatter:
+    persona: Operators
+    title: Blog

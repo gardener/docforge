@@ -374,7 +374,7 @@ func setParent(node *Node, parent *Node, _ registry.Interface) (bool, error) {
 }
 
 func setDefaultProcessor(node *Node, parent *Node, _ registry.Interface) (bool, error) {
-	if node.Type == "file" {
+	if node.Type == "file" && node.Processor == "" {
 		node.Processor = "downloader"
 	}
 	return false, nil
