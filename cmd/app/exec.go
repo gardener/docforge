@@ -61,8 +61,6 @@ func exec(ctx context.Context, vip *viper.Viper) error {
 
 	rhRegistry := registry.NewRegistry(append(localRH, config.RepositoryHosts...)...)
 
-	additionalNodePlugins := []nodeplugins.Interface{}
-
 	pluginTransformations := []manifest.NodeTransformation{}
 	if options.Docsy.EditThisPageEnabled {
 		docsyPlugin := docsy.Docsy{}
@@ -92,6 +90,7 @@ func exec(ctx context.Context, vip *viper.Viper) error {
 		fmt.Println(documentNodes[0])
 	}
 
+	additionalNodePlugins := []nodeplugins.Interface{}
 	if options.Persona.PersonaFilterEnabled {
 		additionalNodePlugins = append(additionalNodePlugins, &personanodeplugin.Plugin{Root: documentNodes[0], Writer: config.Writer})
 	}
