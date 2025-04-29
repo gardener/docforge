@@ -2,11 +2,14 @@ package persona
 
 import (
 	"bytes"
+	"path"
+	"slices"
+
 	// for loading persona-filtering.json.tpl
 	_ "embed"
-	"html/template"
 	"log"
 	"strings"
+	"text/template"
 
 	"github.com/gardener/docforge/pkg/internal/must"
 	"github.com/gardener/docforge/pkg/manifest"
@@ -40,7 +43,6 @@ func (p *Plugin) Process(node *manifest.Node) error {
 	if err != nil {
 		log.Fatalf("Error executing template: %v", err)
 	}
-
 	return p.Writer.Write(node.Name(), node.Path, renderedTemplate.Bytes(), node, []string{})
 }
 
@@ -49,20 +51,30 @@ func urlToPersonas(node *manifest.Node, res map[string]string) map[string]string
 		// bubble persona up
 		persona, ok := node.Frontmatter["persona"].(string)
 		must.BeTrue(ok)
-		for current := node; current != nil && strings.HasPrefix(current.HugoPrettyPath(), "content"); current = current.Parent() {
-			if current.Type == "manifest" || (current.Processor != "markdown" && current.Type == "file") {
-				continue
-			}
-			url := current.HugoPrettyPath()
-			currentPersonas := res[strings.TrimPrefix(url, "content")]
-			if !strings.Contains(currentPersonas, persona) {
-				personas := []string{currentPersonas, persona}
-				if currentPersonas == "" {
-					personas = []string{persona}
-				}
-				res[strings.TrimPrefix(url, "content")] = strings.Join(personas, ",")
-			}
 
+		if node.Type == "manifest" || (node.Processor != "markdown" && node.Type == "file") {
+			return res
+		}
+
+		if strings.HasPrefix(node.HugoPrettyPath(), "content") {
+			url := node.HugoPrettyPath()
+			trimmedPath := strings.TrimPrefix(url, "content")
+			components := strings.Split(trimmedPath, "/")
+			var subpaths []string
+			for i := 1; i < len(components); i++ {
+				subpath := "/" + path.Join(components[:i+1]...) + "/"
+				if !slices.Contains(subpaths, subpath) {
+					subpaths = append(subpaths, subpath)
+					currentPersonas := []string{}
+					if res[subpath] != "" {
+						currentPersonas = strings.Split(res[subpath], ",")
+					}
+					if !slices.Contains(currentPersonas, persona) {
+						currentPersonas = append(currentPersonas, persona)
+					}
+					res[subpath] = strings.Join(currentPersonas, ",")
+				}
+			}
 		}
 	}
 	for _, child := range node.Structure {

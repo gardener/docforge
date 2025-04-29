@@ -6,14 +6,29 @@ structure:
     - dir: getting-started
       structure:
       - file: _index.md
+        processor: markdown
         source: ../contents/README.md
         frontmatter:
-          persona: Developer
+          persona: Developers
           title: For Development
+      - file: users-content.md
+        processor: markdown
+        source: ../contents/README.md
+        frontmatter:
+          persona: Users
+          title: For use
     - dir: operations
       structure:
       - file: _index.md
+        processor: markdown
         frontmatter:
           title: Blog
       - file: foo.md
+        processor: markdown
         source: ../contents/README.md
+- dir: static
+  structure:
+  - dir: js
+    structure:
+    - file: persona-filtering.js
+      processor: persona

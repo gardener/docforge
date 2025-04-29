@@ -61,8 +61,11 @@ taxonomyTerms
     .filter(tt => tt.innerHTML.includes(window.sessionStorage.getItem("role_selected")))
     .map(tt => tt.setAttribute("class","taxonomy-term selectedTaxonomy"))
 
-linkToPersona = { {{- range $key, $value := . }}
-    "{{ $key }}": "{{ $value }}",{{- end }}
+linkToPersona = {
+    "/docs/": "Developers,Users,Operators",
+    "/docs/foo/": "Operators",
+    "/docs/getting-started/": "Developers,Users",
+    "/docs/getting-started/users-content/": "Users",
 }
 
 const selectedPersona = window.sessionStorage.getItem("role_selected")
