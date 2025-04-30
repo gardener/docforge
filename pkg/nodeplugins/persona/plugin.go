@@ -11,6 +11,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/gardener/docforge/pkg/internal/link"
 	"github.com/gardener/docforge/pkg/internal/must"
 	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/writers"
@@ -47,7 +48,7 @@ func (p *Plugin) Process(node *manifest.Node) error {
 }
 
 func urlToPersonas(node *manifest.Node, res map[string]string) map[string]string {
-	if node.Frontmatter["persona"] != nil {
+	if node.Frontmatter["persona"] != nil && strings.HasPrefix(node.HugoPrettyPath(), "content") {
 		// bubble persona up
 		persona, ok := node.Frontmatter["persona"].(string)
 		must.BeTrue(ok)
@@ -56,24 +57,22 @@ func urlToPersonas(node *manifest.Node, res map[string]string) map[string]string
 			return res
 		}
 
-		if strings.HasPrefix(node.HugoPrettyPath(), "content") {
-			url := node.HugoPrettyPath()
-			trimmedPath := strings.TrimPrefix(url, "content")
-			components := strings.Split(trimmedPath, "/")
-			var subpaths []string
-			for i := 1; i < len(components); i++ {
-				subpath := "/" + path.Join(components[:i+1]...) + "/"
-				if !slices.Contains(subpaths, subpath) {
-					subpaths = append(subpaths, subpath)
-					currentPersonas := []string{}
-					if res[subpath] != "" {
-						currentPersonas = strings.Split(res[subpath], ",")
-					}
-					if !slices.Contains(currentPersonas, persona) {
-						currentPersonas = append(currentPersonas, persona)
-					}
-					res[subpath] = strings.Join(currentPersonas, ",")
+		url := node.HugoPrettyPath()
+		trimmedPath := strings.TrimPrefix(url, "content")
+		components := strings.Split(trimmedPath, "/")
+		var subpaths []string
+		for i := 1; i < len(components); i++ {
+			subpath := must.Succeed(link.Build("/", path.Join(components[:i+1]...), "/"))
+			if !slices.Contains(subpaths, subpath) {
+				subpaths = append(subpaths, subpath)
+				currentPersonas := []string{}
+				if res[subpath] != "" {
+					currentPersonas = strings.Split(res[subpath], ",")
 				}
+				if !slices.Contains(currentPersonas, persona) {
+					currentPersonas = append(currentPersonas, persona)
+				}
+				res[subpath] = strings.Join(currentPersonas, ",")
 			}
 		}
 	}
