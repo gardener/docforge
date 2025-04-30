@@ -91,6 +91,9 @@ func processTransformation(f NodeTransformation, node *Node, parent *Node, r reg
 	if err != nil {
 		return runTreeChangeProcedure, err
 	}
+	if node == nil {
+		return false, nil
+	}
 
 	for _, nodeChild := range node.Structure {
 		childRunTreeChangeProcedure, err := processTransformation(f, nodeChild, node, r)

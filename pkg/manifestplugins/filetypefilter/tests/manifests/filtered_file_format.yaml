@@ -1,0 +1,5 @@
+structure:
+- dir: invalid
+  structure:
+  - file: /contents/blogs/2024/invalid.file
+  - file: /contents/blogs/2024/valid.yaml

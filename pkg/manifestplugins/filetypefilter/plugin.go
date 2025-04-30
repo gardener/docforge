@@ -19,15 +19,45 @@ func (d *FileTypeFilter) PluginNodeTransformations() []manifest.NodeTransformati
 	return []manifest.NodeTransformation{d.checkFileTypeFormats}
 }
 
-func (d *FileTypeFilter) checkFileTypeFormats(node *manifest.Node, _ *manifest.Node, r registry.Interface) (bool, error) {
-	if node.Type != "file" {
+func (d *FileTypeFilter) checkFileTypeFormats(node *manifest.Node, parent *manifest.Node, r registry.Interface) (bool, error) {
+	if node == nil || node.Type != "file" {
 		return false, nil
 	}
-	files := append(node.FileType.MultiSource, node.FileType.Source, node.FileType.File)
-	for _, file := range files {
-		// we do || file == "" to skip empty fields
-		if !slices.ContainsFunc(d.ContentFileFormats, func(fileFormat string) bool { return strings.HasSuffix(file, fileFormat) || file == "" }) {
-			return false, fmt.Errorf("file format of %s isn't supported", file)
+
+	changed := false
+	for _, file := range node.FileType.MultiSource {
+		if !slices.ContainsFunc(d.ContentFileFormats, func(fileFormat string) bool { return strings.HasSuffix(file, fileFormat) || file == "" }) && parent != nil {
+			if idx := slices.Index(parent.Structure, node); idx != -1 {
+				parent.Structure[idx] = nil
+				changed = true
+			}
+		}
+	}
+
+	if !slices.ContainsFunc(d.ContentFileFormats, func(fileFormat string) bool {
+		return strings.HasSuffix(node.FileType.Source, fileFormat) || node.FileType.Source == ""
+	}) && parent != nil {
+		if idx := slices.Index(parent.Structure, node); idx != -1 {
+			parent.Structure[idx] = nil
+			changed = true
+		}
+	}
+
+	if !slices.ContainsFunc(d.ContentFileFormats, func(fileFormat string) bool {
+		return strings.HasSuffix(node.FileType.File, fileFormat) || node.FileType.File == ""
+	}) && parent != nil {
+		if idx := slices.Index(parent.Structure, node); idx != -1 {
+			parent.Structure[idx] = nil
+			changed = true
+		}
+	}
+
+	if parent != nil {
+		parent.Structure = slices.DeleteFunc(parent.Structure, func(ptr *manifest.Node) bool {
+			return ptr == nil
+		})
+		if changed && len(parent.Structure) == 0 {
+			return false, fmt.Errorf("node\n %v\n has no files with supported formats: %v", parent.String(), d.ContentFileFormats)
 		}
 	}
 	return false, nil
