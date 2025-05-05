@@ -75,8 +75,10 @@ func exec(ctx context.Context, vip *viper.Viper) error {
 		pluginTransformations = append(pluginTransformations, markdownPlugin.PluginNodeTransformations()...)
 	}
 
-	fileTypeFilterPlugin := filetypefilter.FileTypeFilter{ContentFileFormats: options.Options.ContentFileFormats}
-	pluginTransformations = append(pluginTransformations, fileTypeFilterPlugin.PluginNodeTransformations()...)
+	if len(options.Options.ContentFileFormats) > 0 {
+		fileTypeFilterPlugin := filetypefilter.FileTypeFilter{ContentFileFormats: options.Options.ContentFileFormats}
+		pluginTransformations = append(pluginTransformations, fileTypeFilterPlugin.PluginNodeTransformations()...)
+	}
 
 	documentNodes, err := manifest.ResolveManifest(manifestURL, rhRegistry, pluginTransformations...)
 	if err != nil {
