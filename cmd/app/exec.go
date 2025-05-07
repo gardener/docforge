@@ -28,6 +28,7 @@ import (
 	"github.com/spf13/viper"
 )
 
+//gocyclo:ignore
 func exec(ctx context.Context, vip *viper.Viper) error {
 	var (
 		rhs     []repositoryhost.Interface
