@@ -32,6 +32,8 @@ if [[ -z "$staged_files" ]]; then
     exit 1
 fi
 
+echo "Running check:"
+.ci/check > /dev/null 2>&1
 echo "Running tests:"
 .ci/test > /dev/null 2>&1
 echo "Running integration tests:"
