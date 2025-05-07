@@ -25,8 +25,10 @@ func (d *FileTypeFilter) checkFileTypeFormats(node *manifest.Node, parent *manif
 	}
 
 	changed := false
-	for _, file := range node.FileType.MultiSource {
-		if !slices.ContainsFunc(d.ContentFileFormats, func(fileFormat string) bool { return strings.HasSuffix(file, fileFormat) || file == "" }) && parent != nil {
+	checkAndUpdateNode := func(file string) {
+		if !slices.ContainsFunc(d.ContentFileFormats, func(fileFormat string) bool {
+			return strings.HasSuffix(file, fileFormat) || file == ""
+		}) && parent != nil {
 			if idx := slices.Index(parent.Structure, node); idx != -1 {
 				parent.Structure[idx] = nil
 				changed = true
@@ -34,23 +36,11 @@ func (d *FileTypeFilter) checkFileTypeFormats(node *manifest.Node, parent *manif
 		}
 	}
 
-	if !slices.ContainsFunc(d.ContentFileFormats, func(fileFormat string) bool {
-		return strings.HasSuffix(node.FileType.Source, fileFormat) || node.FileType.Source == ""
-	}) && parent != nil {
-		if idx := slices.Index(parent.Structure, node); idx != -1 {
-			parent.Structure[idx] = nil
-			changed = true
-		}
+	for _, file := range node.FileType.MultiSource {
+		checkAndUpdateNode(file)
 	}
-
-	if !slices.ContainsFunc(d.ContentFileFormats, func(fileFormat string) bool {
-		return strings.HasSuffix(node.FileType.File, fileFormat) || node.FileType.File == ""
-	}) && parent != nil {
-		if idx := slices.Index(parent.Structure, node); idx != -1 {
-			parent.Structure[idx] = nil
-			changed = true
-		}
-	}
+	checkAndUpdateNode(node.FileType.Source)
+	checkAndUpdateNode(node.FileType.File)
 
 	if parent != nil {
 		parent.Structure = slices.DeleteFunc(parent.Structure, func(ptr *manifest.Node) bool {
