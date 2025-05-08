@@ -16,19 +16,7 @@ content-files-formats:
 - ".svg"
 - ".jpg"
 - ".jpeg" 
-- ".sketch" #remove everything from this row down, when cleanup of repos is done
 - ".gif"
-- ".afphoto"
-- ".pptx"
-- ".yaml"
-- ".dot"
-- ".mmd"
-- ".txt"
-- ".drawio"
-- ".ico"
-- ".ttf"
-- ".woff"
-- ".woff2"
 resources-download-path: content/__resources
 github-oauth-env-map:
   "github.com": GITHUB_OAUTH_TOKEN
