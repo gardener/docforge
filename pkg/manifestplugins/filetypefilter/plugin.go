@@ -20,35 +20,30 @@ func (d *FileTypeFilter) PluginNodeTransformations() []manifest.NodeTransformati
 }
 
 func (d *FileTypeFilter) checkFileTypeFormats(node *manifest.Node, parent *manifest.Node, r registry.Interface) (bool, error) {
-	if node == nil || node.Type != "file" {
+	if node.Type != "file" || parent == nil {
 		return false, nil
 	}
 
-	changed := false
-	checkAndUpdateNode := func(file string) {
-		if !slices.ContainsFunc(d.ContentFileFormats, func(fileFormat string) bool {
-			return strings.HasSuffix(file, fileFormat) || file == ""
-		}) && parent != nil {
-			if idx := slices.Index(parent.Structure, node); idx != -1 {
-				parent.Structure[idx] = nil
-				changed = true
-			}
+	checkAndUpdateNodeParent := func(file string) {
+		if file != "" && !slices.ContainsFunc(d.ContentFileFormats, func(fileFormat string) bool {
+			return strings.HasSuffix(file, fileFormat)
+		}) {
+			// node needs to be removed as it contains a file with unsupported format
+			parent.Structure = slices.DeleteFunc(parent.Structure, func(ptr *manifest.Node) bool {
+				return ptr == node
+			})
 		}
 	}
 
 	for _, file := range node.FileType.MultiSource {
-		checkAndUpdateNode(file)
+		checkAndUpdateNodeParent(file)
 	}
-	checkAndUpdateNode(node.FileType.Source)
-	checkAndUpdateNode(node.FileType.File)
+	checkAndUpdateNodeParent(node.FileType.Source)
+	checkAndUpdateNodeParent(node.FileType.File)
 
-	if parent != nil {
-		parent.Structure = slices.DeleteFunc(parent.Structure, func(ptr *manifest.Node) bool {
-			return ptr == nil
-		})
-		if changed && len(parent.Structure) == 0 {
-			return false, fmt.Errorf("node\n %v\n has no files with supported formats: %v", parent.String(), d.ContentFileFormats)
-		}
+	if len(parent.Structure) == 0 {
+		return false, fmt.Errorf("node\n %v\n has no files with supported formats: %v", parent.String(), d.ContentFileFormats)
 	}
+
 	return false, nil
 }

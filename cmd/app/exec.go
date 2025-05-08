@@ -28,6 +28,8 @@ import (
 	"github.com/spf13/viper"
 )
 
+// TODO remove the ignore
+//
 //gocyclo:ignore
 func exec(ctx context.Context, vip *viper.Viper) error {
 	var (

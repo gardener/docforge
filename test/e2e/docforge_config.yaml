@@ -17,9 +17,6 @@ content-files-formats:
 - ".jpg"
 - ".jpeg" 
 - ".gif"
-- ".txt"
-- ".woff"
-- ".woff2"
 resources-download-path: content/__resources
 github-oauth-env-map:
   "github.com": GITHUB_OAUTH_TOKEN
