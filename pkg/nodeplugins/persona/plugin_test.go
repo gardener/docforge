@@ -40,6 +40,10 @@ var _ = Describe("Persona test", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(yaml.Unmarshal([]byte(resultBytes), &expected)).NotTo(HaveOccurred())
 
+		resultTPLFile := "tests/results/persona-filtering.js"
+		resultTPLBytes, err := results.ReadFile(resultTPLFile)
+		Expect(err).ToNot(HaveOccurred())
+
 		r := registry.NewRegistry(repositoryhost.NewLocalTest(repo, "https://github.com/gardener/docforge", "tests"))
 
 		url := "https://github.com/gardener/docforge/blob/master/manifests/persona_filtering.yaml"
@@ -57,11 +61,10 @@ var _ = Describe("Persona test", func() {
 		writer := writersfakes.FakeWriter{}
 		p := nodepersona.Plugin{Root: allNodes[0], Writer: &writer}
 		Expect(p.Process(allNodes[0])).NotTo(HaveOccurred())
+		_, _, data, _, _ := writer.WriteArgsForCall(0)
+		Expect(string(data)).To(Equal(string(resultTPLBytes)))
 		Expect(len(files)).To(Equal(len(expected)))
 		for i := range files {
-			if expected[i].Frontmatter == nil {
-				expected[i].Frontmatter = map[string]interface{}{}
-			}
 			Expect(files[i]).To(Equal(expected[i]))
 		}
 
