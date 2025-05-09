@@ -97,9 +97,12 @@ func removeNilNodes(node *Node) error {
 	node.Structure = slices.DeleteFunc(node.Structure, func(child *Node) bool {
 		return child == nil
 	})
-	if node.Type == "dir" && len(node.Structure) == 0 {
-		return fmt.Errorf("there is an empty directory with path %s", node.NodePath())
-	}
+
+	// TODO: implement this logic after manifests have been cleaned up from empty dirs
+	// if node.Type == "dir" && len(node.Structure) == 0 {
+	// 	return fmt.Errorf("there is an empty directory with path %s", node.NodePath())
+	// }
+
 	for _, child := range node.Structure {
 		if err := removeNilNodes(child); err != nil {
 			return err
