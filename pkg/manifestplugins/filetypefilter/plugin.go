@@ -1,7 +1,6 @@
 package filetypefilter
 
 import (
-	"fmt"
 	"slices"
 	"strings"
 
@@ -28,10 +27,13 @@ func (d *FileTypeFilter) checkFileTypeFormats(node *manifest.Node, parent *manif
 		if file != "" && !slices.ContainsFunc(d.ContentFileFormats, func(fileFormat string) bool {
 			return strings.HasSuffix(file, fileFormat)
 		}) {
-			// node needs to be removed as it contains a file with unsupported format
-			parent.Structure = slices.DeleteFunc(parent.Structure, func(ptr *manifest.Node) bool {
+			// node needs to be removed by setting it to nil as it contains a file with unsupported format
+			i := slices.IndexFunc(parent.Structure, func(ptr *manifest.Node) bool {
 				return ptr == node
 			})
+			if i >= 0 {
+				parent.Structure[i] = nil
+			}
 		}
 	}
 
@@ -40,10 +42,6 @@ func (d *FileTypeFilter) checkFileTypeFormats(node *manifest.Node, parent *manif
 	}
 	checkAndUpdateNodeParent(node.FileType.Source)
 	checkAndUpdateNodeParent(node.FileType.File)
-
-	if len(parent.Structure) == 0 {
-		return false, fmt.Errorf("node\n %v\n has no files with supported formats: %v", parent.String(), d.ContentFileFormats)
-	}
 
 	return false, nil
 }

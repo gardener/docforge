@@ -32,18 +32,6 @@ var results embed.FS
 var repo embed.FS
 
 var _ = Describe("Docsy test", func() {
-	It("References only resources that aren't allowed", func() {
-		exampleFile := "manifests/unsupported_file_format.yaml"
-
-		r := registry.NewRegistry(repositoryhost.NewLocalTest(repo, "https://github.com/gardener/docforge", "tests"))
-
-		url := "https://github.com/gardener/docforge/blob/master/" + exampleFile
-		contentFileFormats := []string{".md", ".yaml"}
-		fileTypeFilterPlugin := filetypefilter.FileTypeFilter{ContentFileFormats: contentFileFormats}
-		_, err := manifest.ResolveManifest(url, r, fileTypeFilterPlugin.PluginNodeTransformations()...)
-		Expect(err.Error()).To(ContainSubstring("no files with supported formats: [.md .yaml]"))
-	})
-
 	It("References a resource that isn't allowed", func() {
 		var expected []*manifest.Node
 		exampleFile := "manifests/filtered_file_format.yaml"

@@ -8,3 +8,5 @@ structure:
 - dir: foo
   frontmatter:
     weight: 1
+  structure:
+  - file: /contents/docs/architecture/README.txt

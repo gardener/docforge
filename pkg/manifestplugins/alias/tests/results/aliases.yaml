@@ -34,6 +34,14 @@
   frontmatter:
     aliases:
     - "/root4/normal/alias/"
+- file: two.md
+  processor: markdown
+  type: file
+  source: https://github.com/gardener/docforge/blob/master//contents/blogs/2024/two.md
+  path: root/architecture
+  frontmatter:
+    aliases:
+    - "/root/two/"  
 - file: _index.md
   processor: markdown
   type: file
