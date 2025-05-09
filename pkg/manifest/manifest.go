@@ -55,7 +55,7 @@ func processManifestToNodeTreeTransfromation(f manifestToNodeTreeTransfromation,
 	return nil
 }
 
-func processNodeTree(manifest *Node, r registry.Interface, functions ...NodeTransformation) error {
+func processNodeTree(manifest *Node, r registry.Interface, shouldRemoveNilNodes bool, functions ...NodeTransformation) error {
 	for i := range functions {
 		runTreeChangeProcedure, err := processTransformation(functions[i], manifest, nil, r)
 		if err != nil {
@@ -83,9 +83,11 @@ func processNodeTree(manifest *Node, r registry.Interface, functions ...NodeTran
 			}
 			must.BeFalse(runTCP)
 		}
-		// remove nil nodes after each nodeTransformation
-		if err := removeNilNodes(manifest); err != nil {
-			return err
+		if shouldRemoveNilNodes {
+			// remove nil nodes after each nodeTransformation
+			if err := removeNilNodes(manifest); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -417,20 +419,16 @@ func ResolveManifest(url string, r registry.Interface, additionalTransformations
 		return nil, err
 	}
 
-	err = processNodeTree(manifest, r,
-		// default
+	err = processNodeTree(manifest, r, false,
 		decideNodeType,
-		// default
 		validateTreeAfterManifestToNodeTree,
-		// default
 		removeFileTreeNodes,
-		// default
 		setDefaultProcessor,
 	)
 	if err != nil {
 		return nil, err
 	}
-	err = processNodeTree(manifest, r, additionalTransformations...)
+	err = processNodeTree(manifest, r, true, additionalTransformations...)
 	if err != nil {
 		return nil, err
 	}
