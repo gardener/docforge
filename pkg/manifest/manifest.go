@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/url"
 	"path"
+	"slices"
 	"strings"
 
 	"github.com/gardener/docforge/pkg/internal/link"
@@ -82,6 +83,25 @@ func processNodeTree(manifest *Node, r registry.Interface, functions ...NodeTran
 			}
 			must.BeFalse(runTCP)
 		}
+		// remove nil nodes after each nodeTransformation
+		if err := removeNilNodes(manifest); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func removeNilNodes(node *Node) error {
+	node.Structure = slices.DeleteFunc(node.Structure, func(child *Node) bool {
+		return child == nil
+	})
+	if node.Type == "dir" && len(node.Structure) == 0 {
+		return fmt.Errorf("there is an empty directory with path %s", node.NodePath())
+	}
+	for _, child := range node.Structure {
+		if err := removeNilNodes(child); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -91,9 +111,8 @@ func processTransformation(f NodeTransformation, node *Node, parent *Node, r reg
 	if err != nil {
 		return runTreeChangeProcedure, err
 	}
-	// using this kind of looping as f may change node.Structure
-	for i := 0; i < len(node.Structure); i++ {
-		childRunTreeChangeProcedure, err := processTransformation(f, node.Structure[i], node, r)
+	for _, child := range node.Structure {
+		childRunTreeChangeProcedure, err := processTransformation(f, child, node, r)
 		if err != nil {
 			if node.Manifest != "" {
 				return runTreeChangeProcedure, fmt.Errorf("manifest %s -> %w", node.Manifest, err)
