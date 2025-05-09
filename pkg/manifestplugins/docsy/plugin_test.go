@@ -13,6 +13,7 @@ import (
 
 	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/manifestplugins/docsy"
+	"github.com/gardener/docforge/pkg/manifestplugins/markdown"
 	"github.com/gardener/docforge/pkg/registry"
 	"github.com/gardener/docforge/pkg/registry/repositoryhost"
 	. "github.com/onsi/ginkgo"
@@ -45,8 +46,10 @@ var _ = Describe("Docsy test", func() {
 			r := registry.NewRegistry(repositoryhost.NewLocalTest(repo, "https://github.com/gardener/docforge", "tests"))
 
 			url := "https://github.com/gardener/docforge/blob/master/" + exampleFile
+			markdownPlugin := markdown.Markdown{}
+			additionalTransformations := markdownPlugin.PluginNodeTransformations()
 			docsyPlugin := docsy.Docsy{}
-			additionalTransformations := docsyPlugin.PluginNodeTransformations()
+			additionalTransformations = append(additionalTransformations, docsyPlugin.PluginNodeTransformations()...)
 			allNodes, err := manifest.ResolveManifest(url, r, additionalTransformations...)
 			Expect(err).ToNot(HaveOccurred())
 			files := []*manifest.Node{}
