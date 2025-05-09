@@ -20,7 +20,8 @@ func (d *Docsy) PluginNodeTransformations() []manifest.NodeTransformation {
 func editThisPage(node *manifest.Node, _ *manifest.Node, r registry.Interface) (bool, error) {
 	if node.Type != "file" ||
 		(node.File == "_index.md" && node.Source == "") ||
-		(len(node.MultiSource) > 0) {
+		(len(node.MultiSource) > 0) ||
+		node.Processor != "markdown" {
 		return false, nil
 	}
 	url, err := r.ResourceURL(node.Source)
