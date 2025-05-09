@@ -61,10 +61,6 @@ func exec(ctx context.Context, vip *viper.Viper) error {
 	rhRegistry := registry.NewRegistry(append(localRH, config.RepositoryHosts...)...)
 
 	pluginTransformations := []manifest.NodeTransformation{}
-	if options.Docsy.EditThisPageEnabled {
-		docsyPlugin := docsy.Docsy{}
-		pluginTransformations = append(pluginTransformations, docsyPlugin.PluginNodeTransformations()...)
-	}
 	if options.Persona.PersonaFilterEnabled {
 		personaPlugin := persona.Persona{}
 		pluginTransformations = append(pluginTransformations, personaPlugin.PluginNodeTransformations()...)
@@ -76,6 +72,10 @@ func exec(ctx context.Context, vip *viper.Viper) error {
 	if options.Markdown.MarkdownEnabled {
 		markdownPlugin := manifestmarkdown.Markdown{}
 		pluginTransformations = append(pluginTransformations, markdownPlugin.PluginNodeTransformations()...)
+	}
+	if options.Docsy.EditThisPageEnabled {
+		docsyPlugin := docsy.Docsy{}
+		pluginTransformations = append(pluginTransformations, docsyPlugin.PluginNodeTransformations()...)
 	}
 
 	if len(options.Options.ContentFileFormats) > 0 {
