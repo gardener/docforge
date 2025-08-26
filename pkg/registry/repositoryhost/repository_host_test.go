@@ -23,12 +23,11 @@ func testRepositoryHost(ghc repositoryhost.Interface) {
 		})
 
 		It("should list all files", func() {
-			resourceURl, err := ghc.ResourceURL("https://github.com/gardener/docforge/tree/master/pkg")
+			resourceURl, err := ghc.ResourceURL("https://github.com/gardener/docforge/tree/master")
 			Expect(err).NotTo(HaveOccurred())
 			tree, err := ghc.Tree(*resourceURl)
-			Expect(tree).To(ContainElements([]string{"main.go", "api/type.go"}))
+			Expect(tree).To(ContainElements([]string{"pkg/main.go", "pkg/api/type.go"}))
 			Expect(err).NotTo(HaveOccurred())
-
 		})
 		It("should list the proper files", func() {
 			resourceURl, err := ghc.ResourceURL("https://github.com/gardener/docforge/tree/master/docs")

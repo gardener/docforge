@@ -17,6 +17,7 @@ import (
 	"github.com/gardener/docforge/pkg/osfakes/httpclient"
 	"github.com/google/go-github/v43/github"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/ptr"
 )
 
 type ghc struct {
@@ -79,6 +80,10 @@ func (p *ghc) LoadRepository(ctx context.Context, resourceURL string) error {
 	if err != nil {
 		return err
 	}
+
+	// Ensure the root directory is included in the list of repository entries to be able to include the entire repo tree.
+	dirContents.Entries = append(dirContents.Entries, &github.TreeEntry{Path: ptr.To(""), Type: ptr.To("tree")})
+
 	repoContent := map[string]string{}
 	for _, entry := range dirContents.Entries {
 		if strings.HasPrefix(entry.GetPath(), "vendor") {
@@ -89,7 +94,7 @@ func (p *ghc) LoadRepository(ctx context.Context, resourceURL string) error {
 			klog.Infof("failed processing %s when loading repository: %s. Skipping it", entry.GetPath(), err.Error())
 			continue
 		}
-		resourceURL := fmt.Sprintf("%s/%s", resource, entry.GetPath())
+		resourceURL := strings.TrimSuffix(fmt.Sprintf("%s/%s", resource, entry.GetPath()), "/")
 		repoContent[resourceURL] = entry.GetSHA()
 	}
 	p.repositoryFiles[refURL.String()] = repoContent
