@@ -8,13 +8,13 @@ title: Multiformatmerge
 [test1](https://github.com/gardener/gardener/blob/v1.30.0/README.md)
 
 ### Link file with root path
-[test2](/maintree/html-tests/testedhtmlfile2/)
+[test2](/mainTree/html-tests/testedHTMLFile2/)
 
 ### Link existing image with relative path
-![test3](/maintree/gardener-docforge-logo.png)
+![test3](/mainTree/gardener-docforge-logo.png)
 
 ### Link existing image with relative path and title
-![test4](/maintree/gardener-docforge-logo.png "gardener-docforge-logo")
+![test4](/mainTree/gardener-docforge-logo.png "gardener-docforge-logo")
 <!DOCTYPE html>
 <html>
 <body>
