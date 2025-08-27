@@ -10,7 +10,6 @@ import (
 	"github.com/gardener/docforge/pkg/nodeplugins/markdown/document"
 	"github.com/gardener/docforge/pkg/nodeplugins/markdown/linkresolver"
 	"github.com/gardener/docforge/pkg/registry"
-	"github.com/gardener/docforge/pkg/workers/taskqueue"
 	"github.com/gardener/docforge/pkg/writers"
 )
 
@@ -19,9 +18,7 @@ type plugin struct {
 }
 
 // NewPlugin creates a new markdown plugin
-func NewPlugin(workerCount int, failFast bool, wg *sync.WaitGroup, structure []*manifest.Node, rhs registry.Interface, hugo hugo.Hugo, writer writers.Writer, skipLinkValidation bool, validationWorkersCount int, hostsToReport []string, resourceDownloadWorkersCount int) (nodeplugins.Interface, []taskqueue.QueueController, error) {
-	queues := []taskqueue.QueueController{}
-
+func NewPlugin(workerCount int, failFast bool, wg *sync.WaitGroup, structure []*manifest.Node, rhs registry.Interface, hugo hugo.Hugo, writer writers.Writer, skipLinkValidation bool, validationWorkersCount int, hostsToReport []string, resourceDownloadWorkersCount int) (nodeplugins.Interface, error) {
 	// No longer creating validator - using deferred validation instead
 	// validator, validatorTasks, err := linkvalidator.New(validationWorkersCount, failFast, wg, rhs, hostsToReport)
 	// if err != nil {
@@ -34,7 +31,7 @@ func NewPlugin(workerCount int, failFast bool, wg *sync.WaitGroup, structure []*
 
 	return &plugin{
 		documentWorker: documentWorker,
-	}, queues, nil
+	}, nil
 }
 
 func (plugin) Processor() string {

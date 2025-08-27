@@ -9,14 +9,11 @@ import (
 	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/nodeplugins"
 	"github.com/gardener/docforge/pkg/registry"
-	"github.com/gardener/docforge/pkg/workers/taskqueue"
 	"k8s.io/klog/v2"
 )
 
 // Run is the method that constructs the website bundle
-func Run(ctx context.Context, nodes []*manifest.Node, reactorWG *sync.WaitGroup, plugins []nodeplugins.Interface, pluginQC []taskqueue.QueueController, deferredValidation bool, registry registry.Interface, hostsToReport []string, validationWorkersCount int) error {
-	qcc := taskqueue.NewQueueControllerCollection(reactorWG, pluginQC...)
-
+func Run(ctx context.Context, nodes []*manifest.Node, reactorWG *sync.WaitGroup, plugins []nodeplugins.Interface, deferredValidation bool, registry registry.Interface, hostsToReport []string, validationWorkersCount int) error {
 	processorToPlugin := map[string]nodeplugins.Interface{}
 	for _, plugin := range plugins {
 		processorToPlugin[plugin.Processor()] = plugin
@@ -80,11 +77,7 @@ func Run(ctx context.Context, nodes []*manifest.Node, reactorWG *sync.WaitGroup,
 		klog.V(1).Infof("Deferred validation disabled - using immediate validation for %d unique URLs", len(linkMap))
 	}
 
-	qcc.Start(ctx)
-	qcc.Wait()
-	qcc.Stop()
-	qcc.LogTaskProcessed()
-	return qcc.GetErrorList().ErrorOrNil()
+	return nil
 }
 
 func logCollectedLinksFromStatus(allLinks []manifest.ExternalLink) {
