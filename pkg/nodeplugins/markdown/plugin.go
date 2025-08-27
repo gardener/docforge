@@ -1,6 +1,7 @@
 package markdown
 
 import (
+	"context"
 	"sync"
 
 	"github.com/gardener/docforge/cmd/hugo"
@@ -8,6 +9,7 @@ import (
 	"github.com/gardener/docforge/pkg/nodeplugins"
 	"github.com/gardener/docforge/pkg/nodeplugins/markdown/document"
 	"github.com/gardener/docforge/pkg/nodeplugins/markdown/githubinfo"
+	"github.com/gardener/docforge/pkg/nodeplugins/markdown/linkresolver"
 	"github.com/gardener/docforge/pkg/nodeplugins/markdown/linkvalidator"
 	"github.com/gardener/docforge/pkg/registry"
 	"github.com/gardener/docforge/pkg/workers/taskqueue"
@@ -15,8 +17,8 @@ import (
 )
 
 type plugin struct {
-	docProcessor document.Processor
-	ghInfo       githubinfo.GitHubInfo
+	documentWorker *document.Worker // Direct access for channels
+	ghInfo         githubinfo.GitHubInfo
 }
 
 // NewPlugin creates a new markdown plugin
@@ -38,8 +40,15 @@ func NewPlugin(workerCount int, failFast bool, wg *sync.WaitGroup, structure []*
 	if err != nil {
 		return nil, nil, err
 	}
-	docProcessor, docTasks, err := document.New(workerCount, failFast, wg, structure, validator, rhs, hugo, writer, skipLinkValidation)
-	return &plugin{docProcessor, ghInfo}, append(queues, validatorTasks, docTasks), err
+
+	// Create document worker directly for channel processing
+	lr := linkresolver.New(structure, rhs, hugo)
+	documentWorker := document.NewDocumentWorker(validator, lr, rhs, hugo, writer, skipLinkValidation)
+
+	return &plugin{
+		documentWorker: documentWorker,
+		ghInfo:         ghInfo,
+	}, append(queues, validatorTasks), nil
 }
 
 func (plugin) Processor() string {
@@ -47,13 +56,29 @@ func (plugin) Processor() string {
 }
 
 func (p *plugin) Process(node *manifest.Node) error {
-	p.docProcessor.ProcessNode(node)
-	if p.ghInfo != nil {
-		p.ghInfo.WriteGitHubInfo(node)
-	}
+	// Legacy method - not used since we're using ProcessNew() for channels
+	// This is kept for interface compatibility but does nothing
 	return nil
 }
 
 func (p *plugin) ProcessNew(node *manifest.Node) []chan nodeplugins.Status {
-	return nil
+	out := make(chan nodeplugins.Status)
+	go func() {
+		defer close(out)
+
+		// Process document using Worker directly
+		err := p.documentWorker.ProcessNode(context.TODO(), node)
+		if err != nil {
+			out <- nodeplugins.NewStatus(err)
+			return
+		}
+
+		// Process GitHub info synchronously within same goroutine
+		if p.ghInfo != nil {
+			p.ghInfo.WriteGitHubInfo(node)
+		}
+
+		out <- nodeplugins.NewStatus(nil) // Success
+	}()
+	return []chan nodeplugins.Status{out}
 }

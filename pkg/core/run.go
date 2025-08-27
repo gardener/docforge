@@ -28,7 +28,7 @@ func Run(ctx context.Context, nodes []*manifest.Node, reactorWG *sync.WaitGroup,
 			continue
 		}
 		if processor, ok := processorToPlugin[node.Processor]; ok {
-			if node.Processor == "downloader" {
+			if node.Processor == "downloader" || node.Processor == "markdown" {
 				channels := processor.ProcessNew(node)
 				allChannels = append(allChannels, channels...)
 			} else {
