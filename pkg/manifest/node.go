@@ -12,6 +12,12 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// ExternalLink represents an external link collected during document processing
+type ExternalLink struct {
+	URL        string
+	SourceFile string
+}
+
 // Node represents a generic mnifest node
 type Node struct {
 	ManifType `yaml:",inline"`

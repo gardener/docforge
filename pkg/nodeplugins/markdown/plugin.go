@@ -66,8 +66,8 @@ func (p *plugin) ProcessNew(node *manifest.Node) []chan nodeplugins.Status {
 	go func() {
 		defer close(out)
 
-		// Process document using Worker directly
-		err := p.documentWorker.ProcessNode(context.TODO(), node)
+		// Process document using Worker directly - now returns links
+		links, err := p.documentWorker.ProcessNode(context.TODO(), node)
 		if err != nil {
 			out <- nodeplugins.NewStatus(err)
 			return
@@ -78,7 +78,8 @@ func (p *plugin) ProcessNew(node *manifest.Node) []chan nodeplugins.Status {
 			p.ghInfo.WriteGitHubInfo(node)
 		}
 
-		out <- nodeplugins.NewStatus(nil) // Success
+		// Send status with collected external links
+		out <- nodeplugins.NewStatusWithLinks(nil, links) // Success
 	}()
 	return []chan nodeplugins.Status{out}
 }

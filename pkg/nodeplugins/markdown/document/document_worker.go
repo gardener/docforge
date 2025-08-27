@@ -61,30 +61,35 @@ var (
 	}
 )
 
-// ProcessNode processes a node and writes its content
-func (d *Worker) ProcessNode(ctx context.Context, node *manifest.Node) error {
+// ProcessNode processes a node and writes its content, returning collected external links
+func (d *Worker) ProcessNode(ctx context.Context, node *manifest.Node) ([]manifest.ExternalLink, error) {
 	var cnt []byte
+	var allLinks []manifest.ExternalLink
+
 	if node.HasContent() {
 		// Process the node
 		bytesBuff := bufPool.Get().(*bytes.Buffer)
 		defer bufPool.Put(bytesBuff)
 		bytesBuff.Reset()
-		if err := d.process(ctx, bytesBuff, node); err != nil {
-			return err
+		links, err := d.process(ctx, bytesBuff, node)
+		if err != nil {
+			return nil, err
 		}
+		allLinks = append(allLinks, links...)
 		if bytesBuff.Len() == 0 {
 			klog.Warningf("document node processing halted: no content assigned to document node %s/%s", node.Path, node.Name())
-			return nil
+			return allLinks, nil
 		}
 		cnt = bytesBuff.Bytes()
 	}
 	if err := d.writer.Write(node.Name(), node.Path, cnt, node, d.hugo.IndexFileNames); err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return allLinks, nil
 }
 
-func (d *Worker) process(ctx context.Context, b *bytes.Buffer, n *manifest.Node) error {
+func (d *Worker) process(ctx context.Context, b *bytes.Buffer, n *manifest.Node) ([]manifest.ExternalLink, error) {
+	var allLinks []manifest.ExternalLink
 	sources := []string{}
 	nodePath := n.NodePath()
 	if len(n.Source) > 0 {
@@ -93,7 +98,7 @@ func (d *Worker) process(ctx context.Context, b *bytes.Buffer, n *manifest.Node)
 	sources = append(sources, n.MultiSource...)
 	if len(sources) == 0 {
 		klog.Warningf("empty content for node %s\n", nodePath)
-		return nil
+		return nil, nil
 	}
 
 	type docContent struct {
@@ -106,13 +111,13 @@ func (d *Worker) process(ctx context.Context, b *bytes.Buffer, n *manifest.Node)
 	for _, source := range sources {
 		content, err := d.repositoryhosts.Read(ctx, source)
 		if err != nil {
-			return fmt.Errorf("reading %s from node %s failed: %w", source, nodePath, err)
+			return nil, fmt.Errorf("reading %s from node %s failed: %w", source, nodePath, err)
 		}
 		dc := &docContent{docCnt: content, docURI: source}
 		if strings.HasSuffix(source, ".md") {
 			dc.docAst, err = markdown.Parse(d.markdown, content)
 			if err != nil {
-				return fmt.Errorf("fail to parses %s from node %s: %w", source, nodePath, err)
+				return nil, fmt.Errorf("fail to parses %s from node %s: %w", source, nodePath, err)
 			}
 		}
 		fullContent = append(fullContent, dc)
@@ -131,23 +136,31 @@ func (d *Worker) process(ctx context.Context, b *bytes.Buffer, n *manifest.Node)
 		frontmatter.MergeDocumentAndNodeFrontmatter(firstDoc, n)
 	}
 	for _, cnt := range fullContent {
-		lrt := linkResolverTask{*d, n, cnt.docURI}
+		lrt := linkResolverTask{
+			Worker:         *d,
+			node:           n,
+			source:         cnt.docURI,
+			collectedLinks: []manifest.ExternalLink{},
+		}
 		if strings.HasSuffix(cnt.docURI, ".md") {
 			rnd := markdown.NewLinkModifierRenderer(markdown.WithLinkResolver(lrt.resolveLink))
 			if err := rnd.Render(b, cnt.docCnt, cnt.docAst); err != nil {
-				return err
+				return nil, err
 			}
 		} else {
 			b.Write(cnt.docCnt)
 		}
+		// Collect links from this content piece
+		allLinks = append(allLinks, lrt.collectedLinks...)
 	}
-	return nil
+	return allLinks, nil
 }
 
 type linkResolverTask struct {
 	Worker
-	node   *manifest.Node
-	source string
+	node           *manifest.Node
+	source         string
+	collectedLinks []manifest.ExternalLink
 }
 
 func (d *linkResolverTask) resolveLink(dest string, isEmbeddable bool) (string, error) {
@@ -171,6 +184,13 @@ func (d *linkResolverTask) resolveLink(dest string, isEmbeddable bool) (string, 
 		if _, err = d.repositoryhosts.ResourceURL(dest); err != nil {
 			// absolute link that is not referencing any documentation page
 			if !d.node.SkipValidation && !d.skipLinkValidation {
+				// Collect the external link for deferred validation
+				d.collectedLinks = append(d.collectedLinks, manifest.ExternalLink{
+					URL:        dest,
+					SourceFile: d.source,
+				})
+
+				// Continue with current validation behavior (unchanged for now)
 				d.validator.ValidateLink(dest, d.source)
 			}
 			return dest, nil

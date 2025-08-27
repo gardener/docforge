@@ -65,7 +65,7 @@ var _ = Describe("Document resolving", func() {
 				Type: "file",
 				Path: "one",
 			}
-			err := dw.ProcessNode(context.TODO(), node)
+			_, err := dw.ProcessNode(context.TODO(), node)
 			Expect(err).ToNot(HaveOccurred())
 			name, path, cnt, nodegot, _ := w.WriteArgsForCall(0)
 			Expect(name).To(Equal("renamed-document.md"))
@@ -91,7 +91,7 @@ var _ = Describe("Document resolving", func() {
 				Type: "file",
 				Path: "one",
 			}
-			err := dw.ProcessNode(context.TODO(), node)
+			_, err := dw.ProcessNode(context.TODO(), node)
 			Expect(err).ToNot(HaveOccurred())
 			name, path, cnt, nodegot, _ := w.WriteArgsForCall(0)
 			Expect(name).To(Equal("renamed-document.md"))
