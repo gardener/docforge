@@ -4,7 +4,7 @@
 
 package writers
 
-import "github.com/gardener/docforge/pkg/manifest"
+import "github.com/gardener/docforge/pkg/core/manifest"
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate -header ../../license_prefix.txt
 

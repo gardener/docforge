@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/gardener/docforge/cmd/hugo"
-	"github.com/gardener/docforge/pkg/manifest"
+	"github.com/gardener/docforge/pkg/core/manifest"
 	"github.com/gardener/docforge/pkg/plugins"
 	"github.com/gardener/docforge/pkg/plugins/markdown/linkresolver"
 	"github.com/gardener/docforge/pkg/registry"

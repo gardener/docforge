@@ -7,7 +7,7 @@ package plugins
 import (
 	"fmt"
 
-	"github.com/gardener/docforge/pkg/manifest"
+	"github.com/gardener/docforge/pkg/core/manifest"
 )
 
 // Registry manages the collection of unified plugins

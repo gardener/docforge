@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"slices"
 
-	"github.com/gardener/docforge/pkg/manifest"
+	"github.com/gardener/docforge/pkg/core/manifest"
 	"gopkg.in/yaml.v3"
 )
 

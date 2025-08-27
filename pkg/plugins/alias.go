@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/gardener/docforge/pkg/core/manifest"
 	"github.com/gardener/docforge/pkg/internal/link"
-	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/registry"
 )
 

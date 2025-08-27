@@ -13,7 +13,7 @@ import (
 	_ "embed"
 
 	"github.com/gardener/docforge/cmd/hugo"
-	"github.com/gardener/docforge/pkg/manifest"
+	"github.com/gardener/docforge/pkg/core/manifest"
 	document "github.com/gardener/docforge/pkg/plugins/markdown"
 	"github.com/gardener/docforge/pkg/plugins/markdown/linkresolver"
 	"github.com/gardener/docforge/pkg/registry"

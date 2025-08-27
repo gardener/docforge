@@ -11,7 +11,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/gardener/docforge/pkg/manifest"
+	"github.com/gardener/docforge/pkg/core/manifest"
 	"github.com/google/uuid"
 )
 

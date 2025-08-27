@@ -7,7 +7,7 @@ package linkresolverfakes
 import (
 	"sync"
 
-	"github.com/gardener/docforge/pkg/manifest"
+	"github.com/gardener/docforge/pkg/core/manifest"
 	"github.com/gardener/docforge/pkg/plugins/markdown/linkresolver"
 )
 

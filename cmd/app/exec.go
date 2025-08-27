@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/gardener/docforge/pkg/core"
-	"github.com/gardener/docforge/pkg/manifest"
+	"github.com/gardener/docforge/pkg/core/manifest"
 	"github.com/gardener/docforge/pkg/osfakes/osshim"
 	"github.com/gardener/docforge/pkg/plugins"
 	"github.com/gardener/docforge/pkg/plugins/downloader"

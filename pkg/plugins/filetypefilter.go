@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"slices"
 
-	"github.com/gardener/docforge/pkg/manifest"
+	"github.com/gardener/docforge/pkg/core/manifest"
 	"github.com/gardener/docforge/pkg/registry"
 )
 

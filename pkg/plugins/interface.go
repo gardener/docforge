@@ -5,7 +5,7 @@
 package plugins
 
 import (
-	"github.com/gardener/docforge/pkg/manifest"
+	"github.com/gardener/docforge/pkg/core/manifest"
 )
 
 // Status represents processing status with error and external links

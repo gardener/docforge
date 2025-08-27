@@ -15,9 +15,9 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/gardener/docforge/pkg/core/manifest"
 	"github.com/gardener/docforge/pkg/internal/link"
 	"github.com/gardener/docforge/pkg/internal/must"
-	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/plugins"
 	"github.com/gardener/docforge/pkg/registry"
 	"github.com/gardener/docforge/pkg/writers"

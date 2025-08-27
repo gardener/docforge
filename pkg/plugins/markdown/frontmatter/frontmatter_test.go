@@ -11,7 +11,7 @@ import (
 
 	_ "embed"
 
-	"github.com/gardener/docforge/pkg/manifest"
+	"github.com/gardener/docforge/pkg/core/manifest"
 	"github.com/gardener/docforge/pkg/plugins/markdown/frontmatter"
 	"github.com/gardener/docforge/pkg/plugins/markdown/frontmatter/frontmatterfakes"
 	"github.com/gardener/docforge/pkg/registry"

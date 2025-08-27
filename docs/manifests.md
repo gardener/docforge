@@ -1,6 +1,6 @@
 # Documentation Manifests
 
-Manifests are yaml configuration files that describe the structure of a documentation bundle and the rules how to construct it. This document specifies the options for designing a manifest. All manifests start with `structure:`. All related code can be found in [the manifest package](../pkg/manifest)
+Manifests are yaml configuration files that describe the structure of a documentation bundle and the rules how to construct it. This document specifies the options for designing a manifest. All manifests start with `structure:`. All related code can be found in [the manifest package](../pkg/core/manifest)
 
 ## Structural elements
 

@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/gardener/docforge/pkg/manifest"
+	"github.com/gardener/docforge/pkg/core/manifest"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )
