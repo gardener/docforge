@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	"github.com/gardener/docforge/pkg/manifest"
-	"github.com/gardener/docforge/pkg/nodeplugins"
 )
 
 // Registry manages the collection of unified plugins
@@ -51,33 +50,16 @@ func (r *Registry) SetFinalNodeStructure(documentNodes []*manifest.Node) error {
 	return nil
 }
 
-// GetNodeProcessors returns node processor interfaces for plugins that process nodes
-func (r *Registry) GetNodeProcessors() []nodeplugins.Interface {
-	var processors []nodeplugins.Interface
+// GetNodeProcessors returns unified plugins that have node processing capabilities
+func (r *Registry) GetNodeProcessors() []Interface {
+	var processors []Interface
 
 	for _, plugin := range r.plugins {
 		// Only include plugins that have a processor
 		if plugin.Processor() != "" {
-			processors = append(processors, &nodePluginAdapter{plugin})
+			processors = append(processors, plugin)
 		}
 	}
 
 	return processors
-}
-
-// nodePluginAdapter adapts a unified plugin to the nodeplugins.Interface
-type nodePluginAdapter struct {
-	plugin Interface
-}
-
-func (a *nodePluginAdapter) Processor() string {
-	return a.plugin.Processor()
-}
-
-func (a *nodePluginAdapter) Process(node *manifest.Node) error {
-	return a.plugin.Process(node)
-}
-
-func (a *nodePluginAdapter) ProcessNew(node *manifest.Node) []chan nodeplugins.Status {
-	return a.plugin.ProcessNew(node)
 }

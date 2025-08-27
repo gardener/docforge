@@ -8,11 +8,9 @@ import (
 	"embed"
 	"testing"
 
-	_ "embed"
-
 	"github.com/gardener/docforge/pkg/manifest"
-	"github.com/gardener/docforge/pkg/manifestplugins/persona"
 	nodepersona "github.com/gardener/docforge/pkg/nodeplugins/persona"
+	"github.com/gardener/docforge/pkg/plugins"
 	"github.com/gardener/docforge/pkg/registry"
 	"github.com/gardener/docforge/pkg/registry/repositoryhost"
 	"github.com/gardener/docforge/pkg/writers/writersfakes"
@@ -47,9 +45,13 @@ var _ = Describe("Persona test", func() {
 		r := registry.NewRegistry(repositoryhost.NewLocalTest(repo, "https://github.com/gardener/docforge", "tests"))
 
 		url := "https://github.com/gardener/docforge/blob/master/manifests/persona_filtering.yaml"
-		personaPlugin := persona.Persona{}
-		additionalTransformations := personaPlugin.PluginNodeTransformations()
-		allNodes, err := manifest.ResolveManifest(url, r, additionalTransformations...)
+
+		// Use unified persona plugin for manifest transformations
+		writer := writersfakes.FakeWriter{}
+		personaPlugin := plugins.NewPersonaPlugin(&writer)
+		personaTransformations := personaPlugin.ManifestTransformations()
+
+		allNodes, err := manifest.ResolveManifest(url, r, personaTransformations...)
 		Expect(err).ToNot(HaveOccurred())
 		files := []*manifest.Node{}
 		for _, node := range allNodes {
@@ -58,7 +60,6 @@ var _ = Describe("Persona test", func() {
 				files = append(files, node)
 			}
 		}
-		writer := writersfakes.FakeWriter{}
 		p := nodepersona.Plugin{Root: allNodes[0], Writer: &writer}
 		Expect(p.Process(allNodes[0])).NotTo(HaveOccurred())
 		_, _, data, _, _ := writer.WriteArgsForCall(0)
