@@ -93,6 +93,11 @@ var _ = Describe("Github cache test", func() {
 				Type: github.String("blob"),
 				SHA:  github.String("10"),
 			},
+			{
+				Path: github.String(""),
+				Type: github.String("tree"),
+				SHA:  github.String("0"),
+			},
 		},
 	}
 	git.GetTreeReturns(&tree, nil, nil)
