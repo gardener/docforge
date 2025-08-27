@@ -8,7 +8,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/gardener/docforge/pkg/registry/repositoryhost"
+	"github.com/gardener/docforge/pkg/core/registry/repositoryhost"
 	"github.com/google/go-github/v43/github"
 )
 

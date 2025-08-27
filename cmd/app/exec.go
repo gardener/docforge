@@ -12,13 +12,13 @@ import (
 
 	"github.com/gardener/docforge/pkg/core"
 	"github.com/gardener/docforge/pkg/core/manifest"
+	"github.com/gardener/docforge/pkg/core/registry"
+	"github.com/gardener/docforge/pkg/core/registry/repositoryhost"
 	"github.com/gardener/docforge/pkg/osfakes/osshim"
 	"github.com/gardener/docforge/pkg/plugins"
 	"github.com/gardener/docforge/pkg/plugins/downloader"
 	"github.com/gardener/docforge/pkg/plugins/markdown"
 	"github.com/gardener/docforge/pkg/plugins/persona"
-	"github.com/gardener/docforge/pkg/registry"
-	"github.com/gardener/docforge/pkg/registry/repositoryhost"
 	"github.com/spf13/viper"
 )
 

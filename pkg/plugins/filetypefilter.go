@@ -9,7 +9,7 @@ import (
 	"slices"
 
 	"github.com/gardener/docforge/pkg/core/manifest"
-	"github.com/gardener/docforge/pkg/registry"
+	"github.com/gardener/docforge/pkg/core/registry"
 )
 
 // FileTypeFilterPlugin filters content by file types

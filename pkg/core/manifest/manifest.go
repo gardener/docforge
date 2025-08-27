@@ -13,10 +13,10 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/gardener/docforge/pkg/core/registry"
+	"github.com/gardener/docforge/pkg/core/registry/repositoryhost"
 	"github.com/gardener/docforge/pkg/internal/link"
 	"github.com/gardener/docforge/pkg/internal/must"
-	"github.com/gardener/docforge/pkg/registry"
-	"github.com/gardener/docforge/pkg/registry/repositoryhost"
 	"gopkg.in/yaml.v2"
 )
 

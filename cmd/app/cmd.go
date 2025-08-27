@@ -18,7 +18,7 @@ import (
 	"github.com/gardener/docforge/cmd/markdown"
 	"github.com/gardener/docforge/cmd/persona"
 	"github.com/gardener/docforge/cmd/version"
-	"github.com/gardener/docforge/pkg/registry/repositoryhost"
+	"github.com/gardener/docforge/pkg/core/registry/repositoryhost"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"k8s.io/klog/v2"

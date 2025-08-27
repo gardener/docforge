@@ -14,7 +14,7 @@ import (
 	"strings"
 
 	"github.com/gardener/docforge/cmd/hugo"
-	"github.com/gardener/docforge/pkg/registry/repositoryhost"
+	"github.com/gardener/docforge/pkg/core/registry/repositoryhost"
 	"github.com/gardener/docforge/pkg/writers"
 	"github.com/google/go-github/v43/github"
 	"github.com/gregjones/httpcache"

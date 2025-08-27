@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/gardener/docforge/pkg/core/manifest"
-	"github.com/gardener/docforge/pkg/registry"
+	"github.com/gardener/docforge/pkg/core/registry"
 )
 
 // DocsyPlugin handles docsy-specific metadata generation

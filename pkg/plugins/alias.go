@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"github.com/gardener/docforge/pkg/core/manifest"
+	"github.com/gardener/docforge/pkg/core/registry"
 	"github.com/gardener/docforge/pkg/internal/link"
-	"github.com/gardener/docforge/pkg/registry"
 )
 
 // AliasPlugin handles alias generation for nodes

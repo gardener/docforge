@@ -6,7 +6,7 @@ package app
 
 import (
 	"github.com/gardener/docforge/cmd/hugo"
-	"github.com/gardener/docforge/pkg/registry/repositoryhost"
+	"github.com/gardener/docforge/pkg/core/registry/repositoryhost"
 	"github.com/gardener/docforge/pkg/writers"
 )
 

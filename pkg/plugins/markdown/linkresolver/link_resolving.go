@@ -13,9 +13,9 @@ import (
 
 	"github.com/gardener/docforge/cmd/hugo"
 	"github.com/gardener/docforge/pkg/core/manifest"
+	"github.com/gardener/docforge/pkg/core/registry"
+	"github.com/gardener/docforge/pkg/core/registry/repositoryhost"
 	"github.com/gardener/docforge/pkg/internal/link"
-	"github.com/gardener/docforge/pkg/registry"
-	"github.com/gardener/docforge/pkg/registry/repositoryhost"
 	"k8s.io/klog/v2"
 )
 

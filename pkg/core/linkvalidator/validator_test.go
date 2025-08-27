@@ -13,8 +13,8 @@ import (
 	"testing"
 
 	"github.com/gardener/docforge/pkg/core/linkvalidator"
+	"github.com/gardener/docforge/pkg/core/registry/registryfakes"
 	"github.com/gardener/docforge/pkg/osfakes/httpclient/httpclientfakes"
-	"github.com/gardener/docforge/pkg/registry/registryfakes"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

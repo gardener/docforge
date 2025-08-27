@@ -12,8 +12,8 @@ import (
 	_ "embed"
 
 	"github.com/gardener/docforge/pkg/core/manifest"
-	"github.com/gardener/docforge/pkg/registry"
-	"github.com/gardener/docforge/pkg/registry/repositoryhost"
+	"github.com/gardener/docforge/pkg/core/registry"
+	"github.com/gardener/docforge/pkg/core/registry/repositoryhost"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"

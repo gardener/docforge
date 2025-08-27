@@ -10,8 +10,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/gardener/docforge/pkg/core/registry/repositoryhost"
 	"github.com/gardener/docforge/pkg/osfakes/httpclient"
-	"github.com/gardener/docforge/pkg/registry/repositoryhost"
 	"k8s.io/klog/v2"
 )
 

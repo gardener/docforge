@@ -1,7 +1,7 @@
 package repositoryhost_test
 
 import (
-	"github.com/gardener/docforge/pkg/registry/repositoryhost"
+	"github.com/gardener/docforge/pkg/core/registry/repositoryhost"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
