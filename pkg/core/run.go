@@ -19,17 +19,34 @@ func Run(ctx context.Context, nodes []*manifest.Node, reactorWG *sync.WaitGroup,
 		processorToPlugin[plugin.Processor()] = plugin
 
 	}
+
+	// Collect all channels from ProcessNew calls
+	var allChannels []chan nodeplugins.Status
+
 	for _, node := range nodes {
 		if node.Type != "file" {
 			continue
 		}
 		if processor, ok := processorToPlugin[node.Processor]; ok {
-			if err := processor.Process(node); err != nil {
-				return fmt.Errorf("processor %s failed processing node \n%s\n: %w", processor.Processor(), node, err)
+			if node.Processor == "downloader" {
+				channels := processor.ProcessNew(node)
+				allChannels = append(allChannels, channels...)
+			} else {
+				if err := processor.Process(node); err != nil {
+					return fmt.Errorf("processor %s failed processing node \n%s\n: %w", processor.Processor(), node, err)
+				}
 			}
 		} else {
 			// TODO may be undesired if we expect multiple core.Run calls
 			return fmt.Errorf("node \n%s\n did not have a processor", node)
+		}
+	}
+
+	// Wait for all channels to complete
+	for _, ch := range allChannels {
+		status := <-ch
+		if status.Error() != nil {
+			return fmt.Errorf("channel processing failed: %w", status.Error())
 		}
 	}
 

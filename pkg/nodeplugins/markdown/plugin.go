@@ -53,3 +53,7 @@ func (p *plugin) Process(node *manifest.Node) error {
 	}
 	return nil
 }
+
+func (p *plugin) ProcessNew(node *manifest.Node) []chan nodeplugins.Status {
+	return nil
+}

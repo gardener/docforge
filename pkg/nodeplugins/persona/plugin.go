@@ -14,6 +14,7 @@ import (
 	"github.com/gardener/docforge/pkg/internal/link"
 	"github.com/gardener/docforge/pkg/internal/must"
 	"github.com/gardener/docforge/pkg/manifest"
+	"github.com/gardener/docforge/pkg/nodeplugins"
 	"github.com/gardener/docforge/pkg/writers"
 )
 
@@ -80,4 +81,9 @@ func urlToPersonas(node *manifest.Node, res map[string]string) map[string]string
 		urlToPersonas(child, res)
 	}
 	return res
+}
+
+// ProcessNew foo
+func (p *Plugin) ProcessNew(node *manifest.Node) []chan nodeplugins.Status {
+	return nil
 }

@@ -1,6 +1,7 @@
 package downloader
 
 import (
+	"context"
 	"sync"
 
 	"github.com/gardener/docforge/pkg/manifest"
@@ -11,13 +12,13 @@ import (
 )
 
 type plugin struct {
-	dScheduler Interface
+	dWorkerd ResourceDownloadWorker
 }
 
 // NewPlugin creates a new downloader plugin
 func NewPlugin(workerCount int, failFast bool, wg *sync.WaitGroup, registry registry.Interface, writer writers.Writer) (nodeplugins.Interface, taskqueue.QueueController, error) {
-	dScheduler, q, err := New(workerCount, failFast, wg, registry, writer)
-	return &plugin{dScheduler}, q, err
+	dWorkerd, err := NewDownloader(registry, writer)
+	return &plugin{dWorkerd: *dWorkerd}, nil, err
 }
 
 func (plugin) Processor() string {
@@ -25,5 +26,15 @@ func (plugin) Processor() string {
 }
 
 func (p *plugin) Process(node *manifest.Node) error {
-	return p.dScheduler.Schedule(node.Source, node.NodePath())
+	return nil
+}
+
+func (p *plugin) ProcessNew(node *manifest.Node) []chan nodeplugins.Status {
+	out := make(chan nodeplugins.Status)
+	go func() {
+		defer close(out)
+		err := p.dWorkerd.Download(context.TODO(), node.Source, node.NodePath())
+		out <- nodeplugins.NewStatus(err)
+	}()
+	return []chan nodeplugins.Status{out}
 }
