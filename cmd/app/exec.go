@@ -105,7 +105,7 @@ func exec(ctx context.Context, vip *viper.Viper) error {
 	if err != nil {
 		return err
 	}
-	if err := core.Run(ctx, documentNodes, reactorWGStage1, append([]nodeplugins.Interface{mdPlugin, dPlugin}, additionalNodePlugins...), mdTasks); err != nil {
+	if err := core.Run(ctx, documentNodes, reactorWGStage1, append([]nodeplugins.Interface{mdPlugin, dPlugin}, additionalNodePlugins...), mdTasks, options.DeferredLinkValidation, rhRegistry, config.HostsToReport, config.ValidationWorkersCount); err != nil {
 		return err
 	}
 	// Stage 2 ...

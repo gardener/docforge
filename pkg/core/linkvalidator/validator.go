@@ -15,7 +15,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/gardener/docforge/pkg/osfakes/httpclient"
@@ -23,10 +22,9 @@ import (
 	"k8s.io/klog/v2"
 )
 
-// ValidatorWorker holds nessesary objects ti validate URl
+// ValidatorWorker holds necessary objects to validate URLs
 type ValidatorWorker struct {
 	repository    registry.Interface
-	validated     *linkSet
 	hostsToReport []string
 }
 
@@ -37,9 +35,6 @@ func NewValidatorWorker(repository registry.Interface, hostsToReport []string) (
 	}
 	return &ValidatorWorker{
 		repository,
-		&linkSet{
-			set: make(map[string]struct{}),
-		},
 		hostsToReport,
 	}, nil
 }
@@ -64,17 +59,9 @@ func (v *ValidatorWorker) Validate(ctx context.Context, LinkDestination string, 
 	if slices.Contains(v.hostsToReport, LinkURL.Host) {
 		return fmt.Errorf("%s has link %s with host to report", ContentSourcePath, LinkDestination)
 	}
-	// unify links destination by excluding query, fragment & user info
-	u := &url.URL{
-		Scheme: LinkURL.Scheme,
-		Host:   LinkURL.Host,
-		Path:   LinkURL.Path,
-	}
-	unifiedURL := u.String()
-	if v.validated.exist(unifiedURL) {
-		return nil
-	}
 
+	// For deferred validation, we validate each URL directly since deduplication
+	// is already handled at the collection level
 	absLinkDestination := LinkURL.String()
 	client := v.repository.Client(absLinkDestination)
 
@@ -101,7 +88,6 @@ func (v *ValidatorWorker) Validate(ctx context.Context, LinkDestination string, 
 			klog.Warningf("failed to validate absolute link for %s from source %s: %v\n", LinkDestination, ContentSourcePath, fmt.Errorf("HTTP Status %s", resp.Status))
 		}
 	}
-	v.validated.add(unifiedURL)
 	return nil
 }
 
@@ -133,24 +119,4 @@ func doValidation(req *http.Request, client httpclient.Client) (*http.Response, 
 		attempts++
 	}
 	return resp, err
-}
-
-// linkSet holds link destinations that have been successfully validated
-// used to avoid redundant checks & HTTP Status 429
-type linkSet struct {
-	set map[string]struct{}
-	mux sync.RWMutex
-}
-
-func (l *linkSet) exist(dest string) bool {
-	l.mux.RLock()
-	defer l.mux.RUnlock()
-	_, ok := l.set[dest]
-	return ok
-}
-
-func (l *linkSet) add(dest string) {
-	l.mux.Lock()
-	defer l.mux.Unlock()
-	l.set[dest] = struct{}{}
 }

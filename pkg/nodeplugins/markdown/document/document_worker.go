@@ -17,7 +17,6 @@ import (
 	"github.com/gardener/docforge/pkg/nodeplugins/markdown/document/frontmatter"
 	"github.com/gardener/docforge/pkg/nodeplugins/markdown/document/markdown"
 	"github.com/gardener/docforge/pkg/nodeplugins/markdown/linkresolver"
-	"github.com/gardener/docforge/pkg/nodeplugins/markdown/linkvalidator"
 	"github.com/gardener/docforge/pkg/registry"
 	"github.com/gardener/docforge/pkg/registry/repositoryhost"
 	"github.com/gardener/docforge/pkg/writers"
@@ -30,7 +29,6 @@ import (
 type Worker struct {
 	markdown     goldmark.Markdown
 	linkresolver linkresolver.Interface
-	validator    linkvalidator.Interface
 
 	writer writers.Writer
 
@@ -40,11 +38,10 @@ type Worker struct {
 }
 
 // NewDocumentWorker creates Worker objects
-func NewDocumentWorker(validator linkvalidator.Interface, linkResolver linkresolver.Interface, rh registry.Interface, hugo hugo.Hugo, writer writers.Writer, skipLinkValidation bool) *Worker {
+func NewDocumentWorker(linkResolver linkresolver.Interface, rh registry.Interface, hugo hugo.Hugo, writer writers.Writer, skipLinkValidation bool) *Worker {
 	return &Worker{
 		markdown.New(),
 		linkResolver,
-		validator,
 		writer,
 		rh,
 		hugo,
@@ -190,8 +187,8 @@ func (d *linkResolverTask) resolveLink(dest string, isEmbeddable bool) (string, 
 					SourceFile: d.source,
 				})
 
-				// Continue with current validation behavior (unchanged for now)
-				d.validator.ValidateLink(dest, d.source)
+				// Let validator decide whether to validate immediately or defer
+				//d.validator.ValidateLink(dest, d.source)
 			}
 			return dest, nil
 		}

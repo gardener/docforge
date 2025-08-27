@@ -89,6 +89,10 @@ func configureFlags(command *cobra.Command, vip *viper.Viper) {
 		"Links validation will be skipped")
 	_ = vip.BindPFlag("skip-link-validation", command.Flags().Lookup("skip-link-validation"))
 
+	command.Flags().Bool("deferred-link-validation", false,
+		"Validate external links in batch after document processing")
+	_ = vip.BindPFlag("deferred-link-validation", command.Flags().Lookup("deferred-link-validation"))
+
 	command.Flags().StringSlice("hosts-to-report", []string{},
 		"When a link has a host from the given array it will get reported")
 	_ = vip.BindPFlag("hosts-to-report", command.Flags().Lookup("hosts-to-report"))

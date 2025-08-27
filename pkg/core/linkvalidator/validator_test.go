@@ -12,7 +12,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/gardener/docforge/pkg/nodeplugins/markdown/linkvalidator"
+	"github.com/gardener/docforge/pkg/core/linkvalidator"
 	"github.com/gardener/docforge/pkg/osfakes/httpclient/httpclientfakes"
 	"github.com/gardener/docforge/pkg/registry/registryfakes"
 	. "github.com/onsi/ginkgo"

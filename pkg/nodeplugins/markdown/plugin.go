@@ -10,7 +10,6 @@ import (
 	"github.com/gardener/docforge/pkg/nodeplugins/markdown/document"
 	"github.com/gardener/docforge/pkg/nodeplugins/markdown/githubinfo"
 	"github.com/gardener/docforge/pkg/nodeplugins/markdown/linkresolver"
-	"github.com/gardener/docforge/pkg/nodeplugins/markdown/linkvalidator"
 	"github.com/gardener/docforge/pkg/registry"
 	"github.com/gardener/docforge/pkg/workers/taskqueue"
 	"github.com/gardener/docforge/pkg/writers"
@@ -36,19 +35,20 @@ func NewPlugin(workerCount int, failFast bool, wg *sync.WaitGroup, structure []*
 		}
 		queues = append(queues, ghInfoTasks)
 	}
-	validator, validatorTasks, err := linkvalidator.New(validationWorkersCount, failFast, wg, rhs, hostsToReport)
-	if err != nil {
-		return nil, nil, err
-	}
+	// No longer creating validator - using deferred validation instead
+	// validator, validatorTasks, err := linkvalidator.New(validationWorkersCount, failFast, wg, rhs, hostsToReport)
+	// if err != nil {
+	//	return nil, nil, err
+	// }
 
 	// Create document worker directly for channel processing
 	lr := linkresolver.New(structure, rhs, hugo)
-	documentWorker := document.NewDocumentWorker(validator, lr, rhs, hugo, writer, skipLinkValidation)
+	documentWorker := document.NewDocumentWorker(lr, rhs, hugo, writer, skipLinkValidation)
 
 	return &plugin{
 		documentWorker: documentWorker,
 		ghInfo:         ghInfo,
-	}, append(queues, validatorTasks), nil
+	}, queues, nil
 }
 
 func (plugin) Processor() string {

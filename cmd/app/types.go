@@ -24,6 +24,7 @@ type Options struct {
 	ContentFileFormats           []string `mapstructure:"content-files-formats"`
 	HostsToReport                []string `mapstructure:"hosts-to-report"`
 	SkipLinkValidation           bool     `mapstructure:"skip-link-validation"`
+	DeferredLinkValidation       bool     `mapstructure:"deferred-link-validation"`
 }
 
 // Writers struct that collects all the writesr
