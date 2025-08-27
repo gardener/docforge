@@ -43,6 +43,7 @@ func (r *Registry) GetManifestTransformations() []manifest.NodeTransformation {
 // This should be called after manifest resolution but before node processing
 func (r *Registry) SetFinalNodeStructure(documentNodes []*manifest.Node) error {
 	for _, plugin := range r.plugins {
+		// TODO: pass deep copy to prevent race conditions
 		if err := plugin.FinalNodeStructure(documentNodes); err != nil {
 			return fmt.Errorf("plugin %s failed to initialize with final node structure: %w", plugin.Name(), err)
 		}
