@@ -12,16 +12,8 @@ import (
 
 	"github.com/gardener/docforge/pkg/core"
 	"github.com/gardener/docforge/pkg/manifest"
-	"github.com/gardener/docforge/pkg/manifestplugins/alias"
-	"github.com/gardener/docforge/pkg/manifestplugins/docsy"
-	"github.com/gardener/docforge/pkg/manifestplugins/filetypefilter"
-	manifestmarkdown "github.com/gardener/docforge/pkg/manifestplugins/markdown"
-	"github.com/gardener/docforge/pkg/manifestplugins/persona"
-	"github.com/gardener/docforge/pkg/nodeplugins"
-	"github.com/gardener/docforge/pkg/nodeplugins/downloader"
-	"github.com/gardener/docforge/pkg/nodeplugins/markdown"
-	personanodeplugin "github.com/gardener/docforge/pkg/nodeplugins/persona"
 	"github.com/gardener/docforge/pkg/osfakes/osshim"
+	"github.com/gardener/docforge/pkg/plugins"
 	"github.com/gardener/docforge/pkg/registry"
 	"github.com/gardener/docforge/pkg/registry/repositoryhost"
 	"github.com/spf13/viper"
@@ -59,29 +51,31 @@ func exec(ctx context.Context, vip *viper.Viper) error {
 
 	rhRegistry := registry.NewRegistry(append(localRH, config.RepositoryHosts...)...)
 
-	pluginTransformations := []manifest.NodeTransformation{}
-	if options.Persona.PersonaFilterEnabled {
-		personaPlugin := persona.Persona{}
-		pluginTransformations = append(pluginTransformations, personaPlugin.PluginNodeTransformations()...)
-	}
+	// Create unified plugin registry and register all plugins upfront
+	pluginRegistry := plugins.NewRegistry()
+
+	// Register downloader plugin
+	pluginRegistry.Register(plugins.NewDownloaderPlugin(rhRegistry, config.Writer))
+
+	// Register all plugins based on configuration
 	if options.Alias.AliasesEnabled {
-		aliasPlugin := alias.Alias{}
-		pluginTransformations = append(pluginTransformations, aliasPlugin.PluginNodeTransformations()...)
+		pluginRegistry.Register(&plugins.AliasPlugin{})
 	}
 	if options.Markdown.MarkdownEnabled {
-		markdownPlugin := manifestmarkdown.Markdown{}
-		pluginTransformations = append(pluginTransformations, markdownPlugin.PluginNodeTransformations()...)
+		pluginRegistry.Register(plugins.NewMarkdownPlugin(rhRegistry, config.Hugo, config.Writer, config.SkipLinkValidation))
 	}
 	if options.Docsy.EditThisPageEnabled {
-		docsyPlugin := docsy.Docsy{}
-		pluginTransformations = append(pluginTransformations, docsyPlugin.PluginNodeTransformations()...)
+		pluginRegistry.Register(&plugins.DocsyPlugin{})
 	}
-
 	if len(options.Options.ContentFileFormats) > 0 {
-		fileTypeFilterPlugin := filetypefilter.FileTypeFilter{ContentFileFormats: options.Options.ContentFileFormats}
-		pluginTransformations = append(pluginTransformations, fileTypeFilterPlugin.PluginNodeTransformations()...)
+		pluginRegistry.Register(plugins.NewFileTypeFilterPlugin(options.Options.ContentFileFormats))
+	}
+	if options.Persona.PersonaFilterEnabled {
+		pluginRegistry.Register(plugins.NewPersonaPlugin(config.Writer))
 	}
 
+	// Phase 1: Get manifest transformations and resolve manifest
+	pluginTransformations := pluginRegistry.GetManifestTransformations()
 	documentNodes, err := manifest.ResolveManifest(manifestURL, rhRegistry, pluginTransformations...)
 	if err != nil {
 		return fmt.Errorf("failed to resolve manifest %s. %+v", config.ManifestPath, err)
@@ -90,23 +84,16 @@ func exec(ctx context.Context, vip *viper.Viper) error {
 		fmt.Println(documentNodes[0])
 	}
 
-	additionalNodePlugins := []nodeplugins.Interface{}
-	if options.Persona.PersonaFilterEnabled {
-		additionalNodePlugins = append(additionalNodePlugins, &personanodeplugin.Plugin{Root: documentNodes[0], Writer: config.Writer})
-	}
-	// Stage 1
-	mdPlugin, err := markdown.NewPlugin(documentNodes, rhRegistry, config.Hugo, config.Writer, config.SkipLinkValidation)
-	if err != nil {
+	// Phase 2: Set final node structure for all plugins
+	if err := pluginRegistry.SetFinalNodeStructure(documentNodes); err != nil {
 		return err
 	}
-	dPlugin, err := downloader.NewPlugin(rhRegistry, config.Writer)
-	if err != nil {
+
+	// Phase 3: Get node processors and run processing
+	nodeProcessors := pluginRegistry.GetNodeProcessors()
+	if err := core.Run(ctx, documentNodes, nodeProcessors, options.DeferredLinkValidation, rhRegistry, config.HostsToReport, config.ValidationWorkersCount); err != nil {
 		return err
 	}
-	if err := core.Run(ctx, documentNodes, append([]nodeplugins.Interface{mdPlugin, dPlugin}, additionalNodePlugins...), options.DeferredLinkValidation, rhRegistry, config.HostsToReport, config.ValidationWorkersCount); err != nil {
-		return err
-	}
-	// Stage 2 ...
 
 	rhRegistry.LogRateLimits(ctx)
 	return nil

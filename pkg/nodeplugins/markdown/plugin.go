@@ -16,7 +16,7 @@ type plugin struct {
 }
 
 // NewPlugin creates a new markdown plugin
-func NewPlugin(structure []*manifest.Node, rhs registry.Interface, hugo hugo.Hugo, writer writers.Writer, skipLinkValidation bool) (nodeplugins.Interface, error) {
+func NewPlugin(structure []*manifest.Node, rhs registry.Interface, hugo hugo.Hugo, writer writers.Writer, skipLinkValidation bool) nodeplugins.Interface {
 	// No longer creating validator - using deferred validation instead
 	// validator, validatorTasks, err := linkvalidator.New(validationWorkersCount, failFast, wg, rhs, hostsToReport)
 	// if err != nil {
@@ -29,7 +29,7 @@ func NewPlugin(structure []*manifest.Node, rhs registry.Interface, hugo hugo.Hug
 
 	return &plugin{
 		documentWorker: documentWorker,
-	}, nil
+	}
 }
 
 func (plugin) Processor() string {

@@ -14,9 +14,9 @@ type plugin struct {
 }
 
 // NewPlugin creates a new downloader plugin
-func NewPlugin(registry registry.Interface, writer writers.Writer) (nodeplugins.Interface, error) {
-	dWorkerd, err := NewDownloader(registry, writer)
-	return &plugin{dWorkerd: *dWorkerd}, err
+func NewPlugin(registry registry.Interface, writer writers.Writer) nodeplugins.Interface {
+
+	return &plugin{dWorkerd: NewDownloader(registry, writer)}
 }
 
 func (plugin) Processor() string {

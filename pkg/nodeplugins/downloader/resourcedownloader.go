@@ -19,11 +19,11 @@ type ResourceDownloadWorker struct {
 }
 
 // NewDownloader creates new downloader
-func NewDownloader(registry registry.Interface, writer writers.Writer) (*ResourceDownloadWorker, error) {
-	return &ResourceDownloadWorker{
+func NewDownloader(registry registry.Interface, writer writers.Writer) ResourceDownloadWorker {
+	return ResourceDownloadWorker{
 		registry: registry,
 		writer:   writer,
-	}, nil
+	}
 }
 
 // Download downloads source in destinationPath

@@ -32,7 +32,7 @@ var _ = Describe("Executing Download", func() {
 		err    error
 		r      registry.Interface
 		writer *writersfakes.FakeWriter
-		worker *downloader.ResourceDownloadWorker
+		worker downloader.ResourceDownloadWorker
 
 		ctx    context.Context
 		source string
@@ -49,9 +49,8 @@ var _ = Describe("Executing Download", func() {
 	})
 
 	JustBeforeEach(func() {
-		worker, err = downloader.NewDownloader(r, writer)
+		worker = downloader.NewDownloader(r, writer)
 		Expect(worker).NotTo(BeNil())
-		Expect(err).NotTo(HaveOccurred())
 
 		err = worker.Download(ctx, source, target)
 	})
