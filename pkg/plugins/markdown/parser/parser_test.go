@@ -7,7 +7,7 @@ package parser_test
 import (
 	"bytes"
 
-	"github.com/gardener/docforge/pkg/nodeplugins/markdown/parser"
+	"github.com/gardener/docforge/pkg/plugins/markdown/parser"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/yuin/goldmark/ast"

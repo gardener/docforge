@@ -12,7 +12,7 @@ import (
 
 	"github.com/gardener/docforge/cmd/hugo"
 	"github.com/gardener/docforge/pkg/manifest"
-	"github.com/gardener/docforge/pkg/nodeplugins/markdown/linkresolver"
+	"github.com/gardener/docforge/pkg/plugins/markdown/linkresolver"
 	"github.com/gardener/docforge/pkg/registry"
 	"github.com/gardener/docforge/pkg/registry/repositoryhost"
 	. "github.com/onsi/ginkgo"

@@ -7,7 +7,6 @@ import (
 
 	"github.com/gardener/docforge/pkg/core/linkvalidator"
 	"github.com/gardener/docforge/pkg/manifest"
-	"github.com/gardener/docforge/pkg/nodeplugins"
 	"github.com/gardener/docforge/pkg/plugins"
 	"github.com/gardener/docforge/pkg/registry"
 	"k8s.io/klog/v2"
@@ -22,7 +21,7 @@ func Run(ctx context.Context, nodes []*manifest.Node, pluginList []plugins.Inter
 	}
 
 	// Collect all channels from ProcessNew calls
-	var allChannels []chan nodeplugins.Status
+	var allChannels []chan plugins.Status
 
 	for _, node := range nodes {
 		if node.Type != "file" {

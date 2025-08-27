@@ -14,6 +14,9 @@ import (
 	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/osfakes/osshim"
 	"github.com/gardener/docforge/pkg/plugins"
+	"github.com/gardener/docforge/pkg/plugins/downloader"
+	"github.com/gardener/docforge/pkg/plugins/markdown"
+	"github.com/gardener/docforge/pkg/plugins/persona"
 	"github.com/gardener/docforge/pkg/registry"
 	"github.com/gardener/docforge/pkg/registry/repositoryhost"
 	"github.com/spf13/viper"
@@ -55,14 +58,14 @@ func exec(ctx context.Context, vip *viper.Viper) error {
 	pluginRegistry := plugins.NewRegistry()
 
 	// Register downloader plugin
-	pluginRegistry.Register(plugins.NewDownloaderPlugin(rhRegistry, config.Writer))
+	pluginRegistry.Register(downloader.New(rhRegistry, config.Writer))
 
 	// Register all plugins based on configuration
 	if options.Alias.AliasesEnabled {
 		pluginRegistry.Register(&plugins.AliasPlugin{})
 	}
 	if options.Markdown.MarkdownEnabled {
-		pluginRegistry.Register(plugins.NewMarkdownPlugin(rhRegistry, config.Hugo, config.Writer, config.SkipLinkValidation))
+		pluginRegistry.Register(markdown.New(rhRegistry, config.Hugo, config.Writer, config.SkipLinkValidation))
 	}
 	if options.Docsy.EditThisPageEnabled {
 		pluginRegistry.Register(&plugins.DocsyPlugin{})
@@ -71,7 +74,7 @@ func exec(ctx context.Context, vip *viper.Viper) error {
 		pluginRegistry.Register(plugins.NewFileTypeFilterPlugin(options.Options.ContentFileFormats))
 	}
 	if options.Persona.PersonaFilterEnabled {
-		pluginRegistry.Register(plugins.NewPersonaPlugin(config.Writer))
+		pluginRegistry.Register(persona.New(config.Writer))
 	}
 
 	// Phase 1: Get manifest transformations and resolve manifest

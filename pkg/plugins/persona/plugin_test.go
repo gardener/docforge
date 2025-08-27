@@ -9,8 +9,7 @@ import (
 	"testing"
 
 	"github.com/gardener/docforge/pkg/manifest"
-	nodepersona "github.com/gardener/docforge/pkg/nodeplugins/persona"
-	"github.com/gardener/docforge/pkg/plugins"
+	"github.com/gardener/docforge/pkg/plugins/persona"
 	"github.com/gardener/docforge/pkg/registry"
 	"github.com/gardener/docforge/pkg/registry/repositoryhost"
 	"github.com/gardener/docforge/pkg/writers/writersfakes"
@@ -48,7 +47,7 @@ var _ = Describe("Persona test", func() {
 
 		// Use unified persona plugin for manifest transformations
 		writer := writersfakes.FakeWriter{}
-		personaPlugin := plugins.NewPersonaPlugin(&writer)
+		personaPlugin := persona.New(&writer)
 		personaTransformations := personaPlugin.ManifestTransformations()
 
 		allNodes, err := manifest.ResolveManifest(url, r, personaTransformations...)
@@ -60,8 +59,13 @@ var _ = Describe("Persona test", func() {
 				files = append(files, node)
 			}
 		}
-		p := nodepersona.Plugin{Root: allNodes[0], Writer: &writer}
-		Expect(p.Process(allNodes[0])).NotTo(HaveOccurred())
+
+		// Set the final node structure for processing
+		Expect(personaPlugin.FinalNodeStructure(allNodes)).NotTo(HaveOccurred())
+
+		// Process the root node to generate the JavaScript file
+		Expect(personaPlugin.Process(allNodes[0])).NotTo(HaveOccurred())
+
 		_, _, data, _, _ := writer.WriteArgsForCall(0)
 		Expect(string(data)).To(Equal(string(resultTPLBytes)))
 		Expect(len(files)).To(Equal(len(expected)))

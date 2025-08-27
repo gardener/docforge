@@ -7,7 +7,7 @@ package frontmatterfakes
 import (
 	"sync"
 
-	"github.com/gardener/docforge/pkg/nodeplugins/markdown/frontmatter"
+	"github.com/gardener/docforge/pkg/plugins/markdown/frontmatter"
 )
 
 type FakeNodeMeta struct {

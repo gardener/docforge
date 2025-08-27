@@ -9,7 +9,6 @@ import (
 	"slices"
 
 	"github.com/gardener/docforge/pkg/manifest"
-	"github.com/gardener/docforge/pkg/nodeplugins"
 	"github.com/gardener/docforge/pkg/registry"
 )
 
@@ -51,7 +50,7 @@ func (p *FileTypeFilterPlugin) Process(*manifest.Node) error {
 }
 
 // ProcessNew processes a node using the new channel-based method
-func (p *FileTypeFilterPlugin) ProcessNew(*manifest.Node) []chan nodeplugins.Status {
+func (p *FileTypeFilterPlugin) ProcessNew(*manifest.Node) []chan Status {
 	return nil // Not used
 }
 

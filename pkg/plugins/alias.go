@@ -10,7 +10,6 @@ import (
 
 	"github.com/gardener/docforge/pkg/internal/link"
 	"github.com/gardener/docforge/pkg/manifest"
-	"github.com/gardener/docforge/pkg/nodeplugins"
 	"github.com/gardener/docforge/pkg/registry"
 )
 
@@ -44,7 +43,7 @@ func (p *AliasPlugin) Process(node *manifest.Node) error {
 }
 
 // ProcessNew processes a node using the new channel-based method
-func (p *AliasPlugin) ProcessNew(node *manifest.Node) []chan nodeplugins.Status {
+func (p *AliasPlugin) ProcessNew(node *manifest.Node) []chan Status {
 	return nil
 }
 

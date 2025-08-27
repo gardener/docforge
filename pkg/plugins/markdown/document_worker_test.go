@@ -14,8 +14,8 @@ import (
 
 	"github.com/gardener/docforge/cmd/hugo"
 	"github.com/gardener/docforge/pkg/manifest"
-	document "github.com/gardener/docforge/pkg/nodeplugins/markdown"
-	"github.com/gardener/docforge/pkg/nodeplugins/markdown/linkresolver"
+	document "github.com/gardener/docforge/pkg/plugins/markdown"
+	"github.com/gardener/docforge/pkg/plugins/markdown/linkresolver"
 	"github.com/gardener/docforge/pkg/registry"
 	"github.com/gardener/docforge/pkg/registry/repositoryhost"
 	"github.com/gardener/docforge/pkg/writers/writersfakes"

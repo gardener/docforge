@@ -11,7 +11,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/gardener/docforge/pkg/nodeplugins/downloader"
+	"github.com/gardener/docforge/pkg/plugins/downloader"
 	"github.com/gardener/docforge/pkg/registry"
 	"github.com/gardener/docforge/pkg/registry/repositoryhost"
 	"github.com/gardener/docforge/pkg/writers/writersfakes"
@@ -32,7 +32,7 @@ var _ = Describe("Executing Download", func() {
 		err    error
 		r      registry.Interface
 		writer *writersfakes.FakeWriter
-		worker downloader.ResourceDownloadWorker
+		worker *downloader.Plugin
 
 		ctx    context.Context
 		source string
@@ -49,7 +49,7 @@ var _ = Describe("Executing Download", func() {
 	})
 
 	JustBeforeEach(func() {
-		worker = downloader.NewDownloader(r, writer)
+		worker = downloader.New(r, writer)
 		Expect(worker).NotTo(BeNil())
 
 		err = worker.Download(ctx, source, target)

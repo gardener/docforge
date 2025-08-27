@@ -13,7 +13,7 @@ import (
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/renderer"
 
-	"github.com/gardener/docforge/pkg/nodeplugins/markdown/parser"
+	"github.com/gardener/docforge/pkg/plugins/markdown/parser"
 )
 
 var _ = Describe("Links modifier", func() {

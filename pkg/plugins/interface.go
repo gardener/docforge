@@ -6,8 +6,33 @@ package plugins
 
 import (
 	"github.com/gardener/docforge/pkg/manifest"
-	"github.com/gardener/docforge/pkg/nodeplugins"
 )
+
+// Status represents processing status with error and external links
+type Status struct {
+	err           error
+	externalLinks []manifest.ExternalLink
+}
+
+// NewStatus creates a new Status with the given error
+func NewStatus(err error) Status {
+	return Status{err: err, externalLinks: nil}
+}
+
+// NewStatusWithLinks creates a new Status with error and external links
+func NewStatusWithLinks(err error, links []manifest.ExternalLink) Status {
+	return Status{err: err, externalLinks: links}
+}
+
+// Error returns the error from the status
+func (s Status) Error() error {
+	return s.err
+}
+
+// ExternalLinks returns the external links collected during processing
+func (s Status) ExternalLinks() []manifest.ExternalLink {
+	return s.externalLinks
+}
 
 // Interface defines the unified plugin interface that combines both
 // manifest transformation and node processing capabilities
@@ -34,5 +59,5 @@ type Interface interface {
 
 	// ProcessNew processes a node using the new channel-based method
 	// Return empty slice if plugin doesn't use channel processing
-	ProcessNew(*manifest.Node) []chan nodeplugins.Status
+	ProcessNew(*manifest.Node) []chan Status
 }

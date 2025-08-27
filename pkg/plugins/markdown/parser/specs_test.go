@@ -11,7 +11,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/gardener/docforge/pkg/nodeplugins/markdown/parser"
+	"github.com/gardener/docforge/pkg/plugins/markdown/parser"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/extension"
