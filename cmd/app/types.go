@@ -19,7 +19,6 @@ type Options struct {
 	DestinationPath              string   `mapstructure:"destination"`
 	ManifestPath                 string   `mapstructure:"manifest"`
 	ResourceDownloadWorkersCount int      `mapstructure:"download-workers"`
-	GhInfoDestination            string   `mapstructure:"github-info-destination"`
 	DryRun                       bool     `mapstructure:"dry-run"`
 	ContentFileFormats           []string `mapstructure:"content-files-formats"`
 	HostsToReport                []string `mapstructure:"hosts-to-report"`
@@ -29,8 +28,7 @@ type Options struct {
 
 // Writers struct that collects all the writesr
 type Writers struct {
-	GitInfoWriter writers.Writer
-	Writer        writers.Writer
+	Writer writers.Writer
 }
 
 // Config configuration of the reactor

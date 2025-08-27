@@ -29,8 +29,6 @@ type Interface interface {
 	Tree(resourceURL string) ([]string, error)
 	// Read a resource content at uri into a byte array
 	Read(ctx context.Context, resourceURL string) ([]byte, error)
-	// ReadGitInfo reads the git info for a given resource URL
-	ReadGitInfo(ctx context.Context, resourceURL string) ([]byte, error)
 	// Client returns an HTTP client for accessing the given url
 	Client(url string) httpclient.Client
 	// ResourceURL returns a valid resource url object from a string url
@@ -80,14 +78,6 @@ func (r *registry) ResolveRelativeLink(source string, relativeLink string) (stri
 	return rh.ResolveRelativeLink(*url, relativeLink)
 }
 
-func (r *registry) ReadGitInfo(ctx context.Context, resourceURL string) ([]byte, error) {
-	rh, url, err := r.githubRepositoryHost(resourceURL)
-	if err != nil {
-		return []byte{}, err
-	}
-	return repositoryhost.ReadGitInfo(ctx, rh.Repositories(), *url)
-}
-
 func (r *registry) LoadRepository(ctx context.Context, resourceURL string) error {
 	rh, err := r.acceptGithubRH(resourceURL)
 	if err != nil {
@@ -114,19 +104,6 @@ func (r *registry) anyRepositoryHost(resourceURL string) (repositoryhost.Interfa
 func (r *registry) ResourceURL(resourceURL string) (*repositoryhost.URL, error) {
 	_, url, err := r.anyRepositoryHost(resourceURL)
 	return url, err
-}
-
-func (r *registry) githubRepositoryHost(resourceURL string) (repositoryhost.Interface, *repositoryhost.URL, error) {
-	rh, err := r.acceptGithubRH(resourceURL)
-	if err != nil {
-		return nil, nil, err
-	}
-	//rh.LoadRepository(context.TODO(),resourceURL)
-	url, err := rh.ResourceURL(resourceURL)
-	if err != nil {
-		return nil, nil, err
-	}
-	return rh, url, nil
 }
 
 func (r *registry) acceptAnyRH(uri string) (repositoryhost.Interface, error) {

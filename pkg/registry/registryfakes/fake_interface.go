@@ -56,20 +56,6 @@ type FakeInterface struct {
 		result1 []byte
 		result2 error
 	}
-	ReadGitInfoStub        func(context.Context, string) ([]byte, error)
-	readGitInfoMutex       sync.RWMutex
-	readGitInfoArgsForCall []struct {
-		arg1 context.Context
-		arg2 string
-	}
-	readGitInfoReturns struct {
-		result1 []byte
-		result2 error
-	}
-	readGitInfoReturnsOnCall map[int]struct {
-		result1 []byte
-		result2 error
-	}
 	ResolveRelativeLinkStub        func(string, string) (string, error)
 	resolveRelativeLinkMutex       sync.RWMutex
 	resolveRelativeLinkArgsForCall []struct {
@@ -334,71 +320,6 @@ func (fake *FakeInterface) ReadReturnsOnCall(i int, result1 []byte, result2 erro
 	}{result1, result2}
 }
 
-func (fake *FakeInterface) ReadGitInfo(arg1 context.Context, arg2 string) ([]byte, error) {
-	fake.readGitInfoMutex.Lock()
-	ret, specificReturn := fake.readGitInfoReturnsOnCall[len(fake.readGitInfoArgsForCall)]
-	fake.readGitInfoArgsForCall = append(fake.readGitInfoArgsForCall, struct {
-		arg1 context.Context
-		arg2 string
-	}{arg1, arg2})
-	stub := fake.ReadGitInfoStub
-	fakeReturns := fake.readGitInfoReturns
-	fake.recordInvocation("ReadGitInfo", []interface{}{arg1, arg2})
-	fake.readGitInfoMutex.Unlock()
-	if stub != nil {
-		return stub(arg1, arg2)
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fakeReturns.result1, fakeReturns.result2
-}
-
-func (fake *FakeInterface) ReadGitInfoCallCount() int {
-	fake.readGitInfoMutex.RLock()
-	defer fake.readGitInfoMutex.RUnlock()
-	return len(fake.readGitInfoArgsForCall)
-}
-
-func (fake *FakeInterface) ReadGitInfoCalls(stub func(context.Context, string) ([]byte, error)) {
-	fake.readGitInfoMutex.Lock()
-	defer fake.readGitInfoMutex.Unlock()
-	fake.ReadGitInfoStub = stub
-}
-
-func (fake *FakeInterface) ReadGitInfoArgsForCall(i int) (context.Context, string) {
-	fake.readGitInfoMutex.RLock()
-	defer fake.readGitInfoMutex.RUnlock()
-	argsForCall := fake.readGitInfoArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
-}
-
-func (fake *FakeInterface) ReadGitInfoReturns(result1 []byte, result2 error) {
-	fake.readGitInfoMutex.Lock()
-	defer fake.readGitInfoMutex.Unlock()
-	fake.ReadGitInfoStub = nil
-	fake.readGitInfoReturns = struct {
-		result1 []byte
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *FakeInterface) ReadGitInfoReturnsOnCall(i int, result1 []byte, result2 error) {
-	fake.readGitInfoMutex.Lock()
-	defer fake.readGitInfoMutex.Unlock()
-	fake.ReadGitInfoStub = nil
-	if fake.readGitInfoReturnsOnCall == nil {
-		fake.readGitInfoReturnsOnCall = make(map[int]struct {
-			result1 []byte
-			result2 error
-		})
-	}
-	fake.readGitInfoReturnsOnCall[i] = struct {
-		result1 []byte
-		result2 error
-	}{result1, result2}
-}
-
 func (fake *FakeInterface) ResolveRelativeLink(arg1 string, arg2 string) (string, error) {
 	fake.resolveRelativeLinkMutex.Lock()
 	ret, specificReturn := fake.resolveRelativeLinkReturnsOnCall[len(fake.resolveRelativeLinkArgsForCall)]
@@ -603,8 +524,6 @@ func (fake *FakeInterface) Invocations() map[string][][]interface{} {
 	defer fake.logRateLimitsMutex.RUnlock()
 	fake.readMutex.RLock()
 	defer fake.readMutex.RUnlock()
-	fake.readGitInfoMutex.RLock()
-	defer fake.readGitInfoMutex.RUnlock()
 	fake.resolveRelativeLinkMutex.RLock()
 	defer fake.resolveRelativeLinkMutex.RUnlock()
 	fake.resourceURLMutex.RLock()

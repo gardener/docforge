@@ -25,10 +25,6 @@ func configureFlags(command *cobra.Command, vip *viper.Viper) {
 		"Map between GitHub instances and ENV var names that will be used for access tokens")
 	_ = vip.BindPFlag("github-oauth-env-map", command.Flags().Lookup("github-oauth-env-map"))
 
-	command.Flags().String("github-info-destination", "",
-		"If specified, docforge will download also additional github info for the files from the documentation structure into this destination.")
-	_ = vip.BindPFlag("github-info-destination", command.Flags().Lookup("github-info-destination"))
-
 	command.Flags().Bool("fail-fast", false,
 		"Fail-fast vs fault tolerant operation.")
 	_ = vip.BindPFlag("fail-fast", command.Flags().Lookup("fail-fast"))

@@ -113,12 +113,5 @@ func getReactorConfig(options Options, hugo hugo.Hugo, rhs []repositoryhost.Inte
 		Hugo: config.Hugo.Enabled,
 	}
 
-	if len(config.GhInfoDestination) > 0 {
-		config.GitInfoWriter = &writers.FSWriter{
-			Root: filepath.Join(config.DestinationPath, config.GhInfoDestination),
-			Ext:  "json",
-		}
-	}
-
 	return config
 }

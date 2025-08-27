@@ -8,7 +8,6 @@ import (
 	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/nodeplugins"
 	"github.com/gardener/docforge/pkg/nodeplugins/markdown/document"
-	"github.com/gardener/docforge/pkg/nodeplugins/markdown/githubinfo"
 	"github.com/gardener/docforge/pkg/nodeplugins/markdown/linkresolver"
 	"github.com/gardener/docforge/pkg/registry"
 	"github.com/gardener/docforge/pkg/workers/taskqueue"
@@ -17,24 +16,12 @@ import (
 
 type plugin struct {
 	documentWorker *document.Worker // Direct access for channels
-	ghInfo         githubinfo.GitHubInfo
 }
 
 // NewPlugin creates a new markdown plugin
-func NewPlugin(workerCount int, failFast bool, wg *sync.WaitGroup, structure []*manifest.Node, rhs registry.Interface, hugo hugo.Hugo, writer writers.Writer, skipLinkValidation bool, validationWorkersCount int, hostsToReport []string, resourceDownloadWorkersCount int, gitInfoWriter writers.Writer) (nodeplugins.Interface, []taskqueue.QueueController, error) {
-	var (
-		ghInfo      githubinfo.GitHubInfo
-		ghInfoTasks taskqueue.QueueController
-		err         error
-	)
+func NewPlugin(workerCount int, failFast bool, wg *sync.WaitGroup, structure []*manifest.Node, rhs registry.Interface, hugo hugo.Hugo, writer writers.Writer, skipLinkValidation bool, validationWorkersCount int, hostsToReport []string, resourceDownloadWorkersCount int) (nodeplugins.Interface, []taskqueue.QueueController, error) {
 	queues := []taskqueue.QueueController{}
-	if gitInfoWriter != nil {
-		ghInfo, ghInfoTasks, err = githubinfo.New(resourceDownloadWorkersCount, failFast, wg, rhs, gitInfoWriter)
-		if err != nil {
-			return nil, nil, err
-		}
-		queues = append(queues, ghInfoTasks)
-	}
+
 	// No longer creating validator - using deferred validation instead
 	// validator, validatorTasks, err := linkvalidator.New(validationWorkersCount, failFast, wg, rhs, hostsToReport)
 	// if err != nil {
@@ -47,7 +34,6 @@ func NewPlugin(workerCount int, failFast bool, wg *sync.WaitGroup, structure []*
 
 	return &plugin{
 		documentWorker: documentWorker,
-		ghInfo:         ghInfo,
 	}, queues, nil
 }
 
@@ -71,11 +57,6 @@ func (p *plugin) ProcessNew(node *manifest.Node) []chan nodeplugins.Status {
 		if err != nil {
 			out <- nodeplugins.NewStatus(err)
 			return
-		}
-
-		// Process GitHub info synchronously within same goroutine
-		if p.ghInfo != nil {
-			p.ghInfo.WriteGitHubInfo(node)
 		}
 
 		// Send status with collected external links
