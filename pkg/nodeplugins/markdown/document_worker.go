@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-package document
+package markdown
 
 import (
 	"bytes"
@@ -14,9 +14,9 @@ import (
 
 	"github.com/gardener/docforge/cmd/hugo"
 	"github.com/gardener/docforge/pkg/manifest"
-	"github.com/gardener/docforge/pkg/nodeplugins/markdown/document/frontmatter"
-	"github.com/gardener/docforge/pkg/nodeplugins/markdown/document/markdown"
+	"github.com/gardener/docforge/pkg/nodeplugins/markdown/frontmatter"
 	"github.com/gardener/docforge/pkg/nodeplugins/markdown/linkresolver"
+	"github.com/gardener/docforge/pkg/nodeplugins/markdown/parser"
 	"github.com/gardener/docforge/pkg/registry"
 	"github.com/gardener/docforge/pkg/registry/repositoryhost"
 	"github.com/gardener/docforge/pkg/writers"
@@ -40,7 +40,7 @@ type Worker struct {
 // NewDocumentWorker creates Worker objects
 func NewDocumentWorker(linkResolver linkresolver.Interface, rh registry.Interface, hugo hugo.Hugo, writer writers.Writer, skipLinkValidation bool) *Worker {
 	return &Worker{
-		markdown.New(),
+		parser.New(),
 		linkResolver,
 		writer,
 		rh,
@@ -112,7 +112,7 @@ func (d *Worker) process(ctx context.Context, b *bytes.Buffer, n *manifest.Node)
 		}
 		dc := &docContent{docCnt: content, docURI: source}
 		if strings.HasSuffix(source, ".md") {
-			dc.docAst, err = markdown.Parse(d.markdown, content)
+			dc.docAst, err = parser.Parse(d.markdown, content)
 			if err != nil {
 				return nil, fmt.Errorf("fail to parses %s from node %s: %w", source, nodePath, err)
 			}
@@ -140,7 +140,7 @@ func (d *Worker) process(ctx context.Context, b *bytes.Buffer, n *manifest.Node)
 			collectedLinks: []manifest.ExternalLink{},
 		}
 		if strings.HasSuffix(cnt.docURI, ".md") {
-			rnd := markdown.NewLinkModifierRenderer(markdown.WithLinkResolver(lrt.resolveLink))
+			rnd := parser.NewLinkModifierRenderer(parser.WithLinkResolver(lrt.resolveLink))
 			if err := rnd.Render(b, cnt.docCnt, cnt.docAst); err != nil {
 				return nil, err
 			}

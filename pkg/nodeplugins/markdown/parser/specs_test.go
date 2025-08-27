@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-package markdown_test
+package parser_test
 
 import (
 	"bytes"
@@ -11,7 +11,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/gardener/docforge/pkg/nodeplugins/markdown/document/markdown"
+	"github.com/gardener/docforge/pkg/nodeplugins/markdown/parser"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/extension"
@@ -76,7 +76,7 @@ func (tc *spec) executeSpecTest(t *testing.T) {
 	// Goldmark Markdown with GFM extensions
 	var gm = goldmark.New(goldmark.WithRendererOptions(gmhtml.WithUnsafe()), goldmark.WithExtensions(extension.GFM))
 	// Link modifier renderer
-	var lmr = markdown.NewLinkModifierRenderer()
+	var lmr = parser.NewLinkModifierRenderer()
 	var (
 		doc ast.Node
 		err error

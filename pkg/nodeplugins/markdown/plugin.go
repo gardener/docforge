@@ -7,14 +7,13 @@ import (
 	"github.com/gardener/docforge/cmd/hugo"
 	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/nodeplugins"
-	"github.com/gardener/docforge/pkg/nodeplugins/markdown/document"
 	"github.com/gardener/docforge/pkg/nodeplugins/markdown/linkresolver"
 	"github.com/gardener/docforge/pkg/registry"
 	"github.com/gardener/docforge/pkg/writers"
 )
 
 type plugin struct {
-	documentWorker *document.Worker // Direct access for channels
+	documentWorker *Worker // Direct access for channels
 }
 
 // NewPlugin creates a new markdown plugin
@@ -27,7 +26,7 @@ func NewPlugin(workerCount int, failFast bool, wg *sync.WaitGroup, structure []*
 
 	// Create document worker directly for channel processing
 	lr := linkresolver.New(structure, rhs, hugo)
-	documentWorker := document.NewDocumentWorker(lr, rhs, hugo, writer, skipLinkValidation)
+	documentWorker := NewDocumentWorker(lr, rhs, hugo, writer, skipLinkValidation)
 
 	return &plugin{
 		documentWorker: documentWorker,

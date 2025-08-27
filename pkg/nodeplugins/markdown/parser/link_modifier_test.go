@@ -2,17 +2,18 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-package markdown_test
+package parser_test
 
 import (
 	"bytes"
 	"errors"
 
-	"github.com/gardener/docforge/pkg/nodeplugins/markdown/document/markdown"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/renderer"
+
+	"github.com/gardener/docforge/pkg/nodeplugins/markdown/parser"
 )
 
 var _ = Describe("Links modifier", func() {
@@ -27,12 +28,12 @@ var _ = Describe("Links modifier", func() {
 	)
 	BeforeEach(func() {
 		lr = &linkResolver{}
-		rnd = markdown.NewLinkModifierRenderer(markdown.WithLinkResolver(lr.fakeLink))
+		rnd = parser.NewLinkModifierRenderer(parser.WithLinkResolver(lr.fakeLink))
 		md = "## Heading level 2\n\nI really like using Markdown.\n"
 		exp = md
 	})
 	JustBeforeEach(func() {
-		doc, err = markdown.Parse(markdown.New(), []byte(md))
+		doc, err = parser.Parse(parser.New(), []byte(md))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(doc).NotTo(BeNil())
 		buf = &bytes.Buffer{}

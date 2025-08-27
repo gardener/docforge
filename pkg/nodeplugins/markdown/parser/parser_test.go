@@ -2,12 +2,12 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-package markdown_test
+package parser_test
 
 import (
 	"bytes"
 
-	"github.com/gardener/docforge/pkg/nodeplugins/markdown/document/markdown"
+	"github.com/gardener/docforge/pkg/nodeplugins/markdown/parser"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/yuin/goldmark/ast"
@@ -23,7 +23,7 @@ var _ = Describe("Parser", func() {
 		md = "---\ntitle: test\n---\n\n## Heading level 2\n\nI really like using Markdown.\n"
 	})
 	JustBeforeEach(func() {
-		doc, err = markdown.Parse(markdown.New(), []byte(md))
+		doc, err = parser.Parse(parser.New(), []byte(md))
 	})
 	When("Parse markdown", func() {
 		It("parse the markdown successfully", func() {
@@ -58,7 +58,7 @@ var _ = Describe("Parser", func() {
 				d, ok := doc.(*ast.Document)
 				Expect(ok).To(BeTrue())
 				d.SetMeta(m)
-				rnd := markdown.NewLinkModifierRenderer()
+				rnd := parser.NewLinkModifierRenderer()
 				Expect(rnd.Render(buf, []byte(md), d)).To(Succeed())
 			})
 			It("adds provided frontmatter", func() {
