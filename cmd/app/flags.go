@@ -25,25 +25,13 @@ func configureFlags(command *cobra.Command, vip *viper.Viper) {
 		"Map between GitHub instances and ENV var names that will be used for access tokens")
 	_ = vip.BindPFlag("github-oauth-env-map", command.Flags().Lookup("github-oauth-env-map"))
 
-	command.Flags().Bool("fail-fast", false,
-		"Fail-fast vs fault tolerant operation.")
-	_ = vip.BindPFlag("fail-fast", command.Flags().Lookup("fail-fast"))
-
 	command.Flags().Bool("dry-run", false,
 		"Runs the command end-to-end but instead of writing files, it will output the projected file/folder hierarchy to the standard output and statistics for the processing of each file.")
 	_ = vip.BindPFlag("dry-run", command.Flags().Lookup("dry-run"))
 
-	command.Flags().Int("document-workers", 25,
-		"Number of parallel workers for document processing.")
-	_ = vip.BindPFlag("document-workers", command.Flags().Lookup("document-workers"))
-
 	command.Flags().Int("validation-workers", 10,
 		"Number of parallel workers to validate the markdown links")
 	_ = vip.BindPFlag("validation-workers", command.Flags().Lookup("validation-workers"))
-
-	command.Flags().Int("download-workers", 10,
-		"Number of workers downloading document resources in parallel.")
-	_ = vip.BindPFlag("download-workers", command.Flags().Lookup("download-workers"))
 
 	command.Flags().Bool("hugo", false,
 		"Build documentation bundle for hugo.")

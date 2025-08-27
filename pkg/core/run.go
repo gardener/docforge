@@ -13,7 +13,7 @@ import (
 )
 
 // Run is the method that constructs the website bundle
-func Run(ctx context.Context, nodes []*manifest.Node, reactorWG *sync.WaitGroup, plugins []nodeplugins.Interface, deferredValidation bool, registry registry.Interface, hostsToReport []string, validationWorkersCount int) error {
+func Run(ctx context.Context, nodes []*manifest.Node, plugins []nodeplugins.Interface, deferredValidation bool, registry registry.Interface, hostsToReport []string, validationWorkersCount int) error {
 	processorToPlugin := map[string]nodeplugins.Interface{}
 	for _, plugin := range plugins {
 		processorToPlugin[plugin.Processor()] = plugin

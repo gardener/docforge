@@ -13,17 +13,14 @@ import (
 // Options encapsulates the parameters for creating
 // new Reactor objects
 type Options struct {
-	DocumentWorkersCount         int      `mapstructure:"document-workers"`
-	ValidationWorkersCount       int      `mapstructure:"validation-workers"`
-	FailFast                     bool     `mapstructure:"fail-fast"`
-	DestinationPath              string   `mapstructure:"destination"`
-	ManifestPath                 string   `mapstructure:"manifest"`
-	ResourceDownloadWorkersCount int      `mapstructure:"download-workers"`
-	DryRun                       bool     `mapstructure:"dry-run"`
-	ContentFileFormats           []string `mapstructure:"content-files-formats"`
-	HostsToReport                []string `mapstructure:"hosts-to-report"`
-	SkipLinkValidation           bool     `mapstructure:"skip-link-validation"`
-	DeferredLinkValidation       bool     `mapstructure:"deferred-link-validation"`
+	ValidationWorkersCount int      `mapstructure:"validation-workers"`
+	DestinationPath        string   `mapstructure:"destination"`
+	ManifestPath           string   `mapstructure:"manifest"`
+	DryRun                 bool     `mapstructure:"dry-run"`
+	ContentFileFormats     []string `mapstructure:"content-files-formats"`
+	HostsToReport          []string `mapstructure:"hosts-to-report"`
+	SkipLinkValidation     bool     `mapstructure:"skip-link-validation"`
+	DeferredLinkValidation bool     `mapstructure:"deferred-link-validation"`
 }
 
 // Writers struct that collects all the writesr

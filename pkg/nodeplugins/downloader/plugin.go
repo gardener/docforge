@@ -2,7 +2,6 @@ package downloader
 
 import (
 	"context"
-	"sync"
 
 	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/nodeplugins"
@@ -15,7 +14,7 @@ type plugin struct {
 }
 
 // NewPlugin creates a new downloader plugin
-func NewPlugin(workerCount int, failFast bool, wg *sync.WaitGroup, registry registry.Interface, writer writers.Writer) (nodeplugins.Interface, error) {
+func NewPlugin(registry registry.Interface, writer writers.Writer) (nodeplugins.Interface, error) {
 	dWorkerd, err := NewDownloader(registry, writer)
 	return &plugin{dWorkerd: *dWorkerd}, err
 }

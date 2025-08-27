@@ -2,7 +2,6 @@ package markdown
 
 import (
 	"context"
-	"sync"
 
 	"github.com/gardener/docforge/cmd/hugo"
 	"github.com/gardener/docforge/pkg/manifest"
@@ -17,7 +16,7 @@ type plugin struct {
 }
 
 // NewPlugin creates a new markdown plugin
-func NewPlugin(workerCount int, failFast bool, wg *sync.WaitGroup, structure []*manifest.Node, rhs registry.Interface, hugo hugo.Hugo, writer writers.Writer, skipLinkValidation bool, validationWorkersCount int, hostsToReport []string, resourceDownloadWorkersCount int) (nodeplugins.Interface, error) {
+func NewPlugin(structure []*manifest.Node, rhs registry.Interface, hugo hugo.Hugo, writer writers.Writer, skipLinkValidation bool) (nodeplugins.Interface, error) {
 	// No longer creating validator - using deferred validation instead
 	// validator, validatorTasks, err := linkvalidator.New(validationWorkersCount, failFast, wg, rhs, hostsToReport)
 	// if err != nil {

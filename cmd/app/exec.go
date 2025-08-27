@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"slices"
 	"strings"
-	"sync"
 
 	"github.com/gardener/docforge/pkg/core"
 	"github.com/gardener/docforge/pkg/manifest"
@@ -96,16 +95,15 @@ func exec(ctx context.Context, vip *viper.Viper) error {
 		additionalNodePlugins = append(additionalNodePlugins, &personanodeplugin.Plugin{Root: documentNodes[0], Writer: config.Writer})
 	}
 	// Stage 1
-	reactorWGStage1 := &sync.WaitGroup{}
-	mdPlugin, err := markdown.NewPlugin(config.DocumentWorkersCount, config.FailFast, reactorWGStage1, documentNodes, rhRegistry, config.Hugo, config.Writer, config.SkipLinkValidation, config.ValidationWorkersCount, config.HostsToReport, config.ResourceDownloadWorkersCount)
+	mdPlugin, err := markdown.NewPlugin(documentNodes, rhRegistry, config.Hugo, config.Writer, config.SkipLinkValidation)
 	if err != nil {
 		return err
 	}
-	dPlugin, err := downloader.NewPlugin(config.ResourceDownloadWorkersCount, config.FailFast, reactorWGStage1, rhRegistry, config.Writer)
+	dPlugin, err := downloader.NewPlugin(rhRegistry, config.Writer)
 	if err != nil {
 		return err
 	}
-	if err := core.Run(ctx, documentNodes, reactorWGStage1, append([]nodeplugins.Interface{mdPlugin, dPlugin}, additionalNodePlugins...), options.DeferredLinkValidation, rhRegistry, config.HostsToReport, config.ValidationWorkersCount); err != nil {
+	if err := core.Run(ctx, documentNodes, append([]nodeplugins.Interface{mdPlugin, dPlugin}, additionalNodePlugins...), options.DeferredLinkValidation, rhRegistry, config.HostsToReport, config.ValidationWorkersCount); err != nil {
 		return err
 	}
 	// Stage 2 ...
