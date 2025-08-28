@@ -61,8 +61,13 @@ clean:
 .PHONY: verify
 verify: check test integration-test e2e
 
+.PHONY: check-core-deps
+check-core-deps:
+	@echo "Checking core package dependencies..."
+	@./scripts/check-core-deps.sh
+
 .PHONY: check
-check:
+check: check-core-deps
 	@.ci/check
 
 .PHONY: test

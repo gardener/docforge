@@ -1,0 +1,37 @@
+# scripts/core-deps-whitelist.txt
+# Whitelisted dependencies for pkg/core packages
+# Lines starting with # are comments
+#
+# This file controls what external dependencies the core package can import.
+# Any dependency not listed here will cause the build to fail.
+
+# Standard Library - Safe Core Dependencies
+context
+errors
+fmt
+math/rand
+net/http
+net/url
+path
+reflect
+regexp
+slices
+strconv
+strings
+sync
+time
+
+# Internal Safe Dependencies - Project packages that are safe for core to use
+github.com/gardener/docforge/pkg/internal/link
+github.com/gardener/docforge/pkg/internal/must
+github.com/gardener/docforge/pkg/osshim/filesystem
+github.com/gardener/docforge/pkg/osshim/httpclient
+
+# Plugin Interface - Core can define and use plugin interfaces
+github.com/gardener/docforge/pkg/plugins
+
+# Vetted External Dependencies - Third-party packages approved for core use
+github.com/google/go-github/v43/github
+gopkg.in/yaml.v2
+gopkg.in/yaml.v3
+k8s.io/klog/v2
