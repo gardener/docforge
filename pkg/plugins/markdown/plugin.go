@@ -7,26 +7,28 @@ import (
 	"github.com/gardener/docforge/cmd/hugo"
 	"github.com/gardener/docforge/pkg/core/manifest"
 	"github.com/gardener/docforge/pkg/core/registry"
+	"github.com/gardener/docforge/pkg/osfakes/osshim"
 	"github.com/gardener/docforge/pkg/plugins"
 	"github.com/gardener/docforge/pkg/plugins/markdown/linkresolver"
-	"github.com/gardener/docforge/pkg/writers"
 )
 
 // Plugin handles both manifest transformations and node processing for markdown files
 type Plugin struct {
 	registry           registry.Interface
 	hugo               hugo.Hugo
-	writer             writers.Writer
+	fs                 osshim.Os
+	rootPath           string
 	skipLinkValidation bool
 	documentWorker     *Worker // Created in FinalNodeStructure
 }
 
 // New creates a new markdown plugin
-func New(registry registry.Interface, hugo hugo.Hugo, writer writers.Writer, skipLinkValidation bool) *Plugin {
+func New(registry registry.Interface, hugo hugo.Hugo, fs osshim.Os, rootPath string, skipLinkValidation bool) *Plugin {
 	return &Plugin{
 		registry:           registry,
 		hugo:               hugo,
-		writer:             writer,
+		fs:                 fs,
+		rootPath:           rootPath,
 		skipLinkValidation: skipLinkValidation,
 	}
 }
@@ -49,7 +51,7 @@ func (p *Plugin) ManifestTransformations() []manifest.NodeTransformation {
 func (p *Plugin) FinalNodeStructure(documentNodes []*manifest.Node) error {
 	// Create document worker with the final document structure
 	lr := linkresolver.New(documentNodes, p.registry, p.hugo)
-	p.documentWorker = NewDocumentWorker(lr, p.registry, p.hugo, p.writer, p.skipLinkValidation)
+	p.documentWorker = NewDocumentWorker(lr, p.registry, p.hugo, p.fs, p.rootPath, p.skipLinkValidation)
 	return nil
 }
 

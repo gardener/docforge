@@ -6,18 +6,39 @@ package downloader
 
 import (
 	"context"
+	"fmt"
 	"path"
+	"path/filepath"
 
 	"github.com/gardener/docforge/pkg/core/manifest"
 	"github.com/gardener/docforge/pkg/core/registry"
+	"github.com/gardener/docforge/pkg/osfakes/osshim"
 	"github.com/gardener/docforge/pkg/plugins"
-	"github.com/gardener/docforge/pkg/writers"
 )
+
+// writeFile writes a simple file to the filesystem
+func writeFile(fs osshim.Os, rootPath, name, path string, content []byte) error {
+	if len(content) == 0 {
+		return nil
+	}
+
+	p := filepath.Join(rootPath, path)
+	if err := fs.MkdirAll(p, 0755); err != nil {
+		return err
+	}
+
+	filePath := filepath.Join(p, name)
+	if err := fs.WriteFile(filePath, content, 0644); err != nil {
+		return fmt.Errorf("error writing %s: %v", filePath, err)
+	}
+	return nil
+}
 
 // ResourceDownloadWorker is the structure that processes downloads
 type ResourceDownloadWorker struct {
 	registry registry.Interface
-	writer   writers.Writer
+	fs       osshim.Os
+	rootPath string
 }
 
 // Plugin handles resource downloading
@@ -26,11 +47,12 @@ type Plugin struct {
 }
 
 // New creates a new downloader plugin
-func New(registry registry.Interface, writer writers.Writer) *Plugin {
+func New(registry registry.Interface, fs osshim.Os, rootPath string) *Plugin {
 	return &Plugin{
 		downloader: ResourceDownloadWorker{
 			registry: registry,
-			writer:   writer,
+			fs:       fs,
+			rootPath: rootPath,
 		},
 	}
 }
@@ -82,7 +104,7 @@ func (d *ResourceDownloadWorker) Download(ctx context.Context, source string, de
 		return err
 	}
 
-	if err = d.writer.Write(path.Base(destinationPath), path.Dir(destinationPath), blob, nil, nil); err != nil {
+	if err = writeFile(d.fs, d.rootPath, path.Base(destinationPath), path.Dir(destinationPath), blob); err != nil {
 		return err
 	}
 	return nil

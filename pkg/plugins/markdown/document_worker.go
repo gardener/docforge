@@ -16,10 +16,10 @@ import (
 	"github.com/gardener/docforge/pkg/core/manifest"
 	"github.com/gardener/docforge/pkg/core/registry"
 	"github.com/gardener/docforge/pkg/core/registry/repositoryhost"
+	"github.com/gardener/docforge/pkg/osfakes/osshim"
 	"github.com/gardener/docforge/pkg/plugins/markdown/frontmatter"
 	"github.com/gardener/docforge/pkg/plugins/markdown/linkresolver"
 	"github.com/gardener/docforge/pkg/plugins/markdown/parser"
-	"github.com/gardener/docforge/pkg/writers"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
 	"k8s.io/klog/v2"
@@ -30,7 +30,8 @@ type Worker struct {
 	markdown     goldmark.Markdown
 	linkresolver linkresolver.Interface
 
-	writer writers.Writer
+	fs       osshim.Os
+	rootPath string
 
 	repositoryhosts    registry.Interface
 	hugo               hugo.Hugo
@@ -38,11 +39,12 @@ type Worker struct {
 }
 
 // NewDocumentWorker creates Worker objects
-func NewDocumentWorker(linkResolver linkresolver.Interface, rh registry.Interface, hugo hugo.Hugo, writer writers.Writer, skipLinkValidation bool) *Worker {
+func NewDocumentWorker(linkResolver linkresolver.Interface, rh registry.Interface, hugo hugo.Hugo, fs osshim.Os, rootPath string, skipLinkValidation bool) *Worker {
 	return &Worker{
 		parser.New(),
 		linkResolver,
-		writer,
+		fs,
+		rootPath,
 		rh,
 		hugo,
 		skipLinkValidation,
@@ -79,7 +81,7 @@ func (d *Worker) ProcessNode(ctx context.Context, node *manifest.Node) ([]manife
 		}
 		cnt = bytesBuff.Bytes()
 	}
-	if err := d.writer.Write(node.Name(), node.Path, cnt, node, d.hugo.IndexFileNames); err != nil {
+	if err := writeDocument(d.fs, d.rootPath, d.hugo.Enabled, node.Name(), node.Path, cnt, node, d.hugo.IndexFileNames); err != nil {
 		return nil, err
 	}
 	return allLinks, nil

@@ -6,13 +6,14 @@ package persona_test
 
 import (
 	"embed"
+	"path/filepath"
 	"testing"
 
 	"github.com/gardener/docforge/pkg/core/manifest"
 	"github.com/gardener/docforge/pkg/core/registry"
 	"github.com/gardener/docforge/pkg/core/registry/repositoryhost"
+	"github.com/gardener/docforge/pkg/osfakes/osshim/osshimfakes"
 	"github.com/gardener/docforge/pkg/plugins/persona"
-	"github.com/gardener/docforge/pkg/writers/writersfakes"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gopkg.in/yaml.v2"
@@ -45,9 +46,19 @@ var _ = Describe("Persona test", func() {
 
 		url := "https://github.com/gardener/docforge/blob/master/manifests/persona_filtering.yaml"
 
-		// Use unified persona plugin for manifest transformations
-		writer := writersfakes.FakeWriter{}
-		personaPlugin := persona.New(&writer)
+		// Setup fake filesystem with in-memory storage
+		fakeFs := &osshimfakes.FakeOs{}
+		fileStore := make(map[string][]byte)
+
+		// Stub filesystem operations to use in-memory storage
+		fakeFs.WriteFileCalls(func(path string, data []byte, perm int) error {
+			fileStore[path] = data
+			return nil
+		})
+
+		// Use fake filesystem with a mock root path
+		tempDir := "/mock/temp/dir"
+		personaPlugin := persona.New(fakeFs, tempDir)
 		personaTransformations := personaPlugin.ManifestTransformations()
 
 		allNodes, err := manifest.ResolveManifest(url, r, personaTransformations...)
@@ -63,11 +74,27 @@ var _ = Describe("Persona test", func() {
 		// Set the final node structure for processing
 		Expect(personaPlugin.FinalNodeStructure(allNodes)).NotTo(HaveOccurred())
 
-		// Process the root node to generate the JavaScript file
-		Expect(personaPlugin.Process(allNodes[0])).NotTo(HaveOccurred())
+		// Create a test node for the JavaScript file to be written
+		testNode := &manifest.Node{
+			Type: "file",
+			Path: "js",
+			FileType: manifest.FileType{
+				File: "persona-filtering.js",
+			},
+		}
 
-		_, _, data, _, _ := writer.WriteArgsForCall(0)
-		Expect(string(data)).To(Equal(string(resultTPLBytes)))
+		// Process the test node to generate the JavaScript file
+		Expect(personaPlugin.Process(testNode)).NotTo(HaveOccurred())
+
+		// Verify filesystem operations were called correctly
+		expectedPath := filepath.Join(tempDir, testNode.Path, testNode.Name())
+		Expect(fakeFs.WriteFileCallCount()).To(Equal(1))
+		writtenPath, writtenData, writtenPerm := fakeFs.WriteFileArgsForCall(0)
+		Expect(writtenPath).To(Equal(expectedPath))
+		Expect(string(writtenData)).To(Equal(string(resultTPLBytes)))
+		Expect(writtenPerm).To(Equal(0644))
+
+		// Verify manifest processing results
 		Expect(len(files)).To(Equal(len(expected)))
 		for i := range files {
 			Expect(files[i]).To(Equal(expected[i]))

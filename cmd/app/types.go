@@ -7,7 +7,7 @@ package app
 import (
 	"github.com/gardener/docforge/cmd/hugo"
 	"github.com/gardener/docforge/pkg/core/registry/repositoryhost"
-	"github.com/gardener/docforge/pkg/writers"
+	"github.com/gardener/docforge/pkg/osfakes/osshim"
 )
 
 // Options encapsulates the parameters for creating
@@ -23,9 +23,10 @@ type Options struct {
 	DeferredLinkValidation bool     `mapstructure:"deferred-link-validation"`
 }
 
-// Writers struct that collects all the writesr
+// Writers struct that collects filesystem interface and path
 type Writers struct {
-	Writer writers.Writer
+	FS       osshim.Os
+	RootPath string
 }
 
 // Config configuration of the reactor

@@ -6,7 +6,9 @@ package persona
 
 import (
 	"bytes"
+	"fmt"
 	"path"
+	"path/filepath"
 	"slices"
 
 	// for loading persona-filtering.json.tpl
@@ -19,23 +21,43 @@ import (
 	"github.com/gardener/docforge/pkg/core/registry"
 	"github.com/gardener/docforge/pkg/internal/link"
 	"github.com/gardener/docforge/pkg/internal/must"
+	"github.com/gardener/docforge/pkg/osfakes/osshim"
 	"github.com/gardener/docforge/pkg/plugins"
-	"github.com/gardener/docforge/pkg/writers"
 )
 
 //go:embed persona-filtering.json.tpl
 var jsTemplate string
 
+// writeFile writes a simple file to the filesystem
+func writeFile(fs osshim.Os, rootPath, name, path string, content []byte) error {
+	if len(content) == 0 {
+		return nil
+	}
+
+	p := filepath.Join(rootPath, path)
+	if err := fs.MkdirAll(p, 0755); err != nil {
+		return err
+	}
+
+	filePath := filepath.Join(p, name)
+	if err := fs.WriteFile(filePath, content, 0644); err != nil {
+		return fmt.Errorf("error writing %s: %v", filePath, err)
+	}
+	return nil
+}
+
 // Plugin handles both manifest transformations and node processing for persona filtering
 type Plugin struct {
-	writer writers.Writer
-	root   *manifest.Node // Document root for processing
+	fs       osshim.Os
+	rootPath string
+	root     *manifest.Node // Document root for processing
 }
 
 // New creates a new persona plugin
-func New(writer writers.Writer) *Plugin {
+func New(fs osshim.Os, rootPath string) *Plugin {
 	return &Plugin{
-		writer: writer,
+		fs:       fs,
+		rootPath: rootPath,
 	}
 }
 
@@ -76,7 +98,7 @@ func (p *Plugin) Process(node *manifest.Node) error {
 	if err != nil {
 		log.Fatalf("Error executing template: %v", err)
 	}
-	return p.writer.Write(node.Name(), node.Path, renderedTemplate.Bytes(), node, []string{})
+	return writeFile(p.fs, p.rootPath, node.Name(), node.Path, renderedTemplate.Bytes())
 }
 
 // ProcessNew processes a node using the new channel-based method

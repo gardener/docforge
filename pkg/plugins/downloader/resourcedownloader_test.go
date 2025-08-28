@@ -9,12 +9,13 @@ import (
 	"embed"
 	_ "embed"
 	"errors"
+	"path/filepath"
 	"testing"
 
 	"github.com/gardener/docforge/pkg/core/registry"
 	"github.com/gardener/docforge/pkg/core/registry/repositoryhost"
+	"github.com/gardener/docforge/pkg/osfakes/osshim/osshimfakes"
 	"github.com/gardener/docforge/pkg/plugins/downloader"
-	"github.com/gardener/docforge/pkg/writers/writersfakes"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -29,10 +30,12 @@ var repo embed.FS
 
 var _ = Describe("Executing Download", func() {
 	var (
-		err    error
-		r      registry.Interface
-		writer *writersfakes.FakeWriter
-		worker *downloader.Plugin
+		err       error
+		r         registry.Interface
+		fakeFs    *osshimfakes.FakeOs
+		fileStore map[string][]byte
+		tempDir   string
+		worker    *downloader.Plugin
 
 		ctx    context.Context
 		source string
@@ -40,16 +43,25 @@ var _ = Describe("Executing Download", func() {
 	)
 
 	BeforeEach(func() {
-		writer = &writersfakes.FakeWriter{}
+		// Setup fake filesystem with in-memory storage
+		fakeFs = &osshimfakes.FakeOs{}
+		fileStore = make(map[string][]byte)
+
+		// Stub filesystem operations to use in-memory storage
+		fakeFs.WriteFileCalls(func(path string, data []byte, perm int) error {
+			fileStore[path] = data
+			return nil
+		})
+
+		tempDir = "/mock/temp/dir"
 		r = registry.NewRegistry(repositoryhost.NewLocalTest(repo, "https://github.com/gardener/docforge", "test"))
-		writer.WriteReturns(nil)
 		ctx = context.TODO()
 		source = "https://github.com/gardener/docforge/blob/master/README.md"
 		target = "fake_target"
 	})
 
 	JustBeforeEach(func() {
-		worker = downloader.New(r, writer)
+		worker = downloader.New(r, fakeFs, tempDir)
 		Expect(worker).NotTo(BeNil())
 
 		err = worker.Download(ctx, source, target)
@@ -67,21 +79,24 @@ var _ = Describe("Executing Download", func() {
 
 	Context("write fails", func() {
 		BeforeEach(func() {
-			writer.WriteReturns(errors.New("fake_write_err"))
+			// Simulate write failure using fake filesystem
+			fakeFs.WriteFileReturns(errors.New("permission denied"))
 		})
 		It("fails", func() {
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("fake_write_err"))
+			Expect(err.Error()).To(ContainSubstring("permission denied"))
 		})
 	})
 
 	It("succeeded", func() {
 		Expect(err).NotTo(HaveOccurred())
-		Expect(writer.WriteCallCount()).To(Equal(1))
-		name, path, content, node, _ := writer.WriteArgsForCall(0)
-		Expect(node).To(BeNil())
-		Expect(path).To(Equal("."))
-		Expect(name).To(Equal("fake_target"))
-		Expect(string(content)).To(Equal("readme content"))
+
+		// Verify filesystem operations
+		expectedFile := filepath.Join(tempDir, "fake_target")
+		Expect(fakeFs.WriteFileCallCount()).To(Equal(1))
+		writtenPath, writtenData, writtenPerm := fakeFs.WriteFileArgsForCall(0)
+		Expect(writtenPath).To(Equal(expectedFile))
+		Expect(string(writtenData)).To(Equal("readme content"))
+		Expect(writtenPerm).To(Equal(0644))
 	})
 })

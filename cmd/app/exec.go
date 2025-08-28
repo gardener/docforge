@@ -58,14 +58,14 @@ func exec(ctx context.Context, vip *viper.Viper) error {
 	pluginRegistry := plugins.NewRegistry()
 
 	// Register downloader plugin
-	pluginRegistry.Register(downloader.New(rhRegistry, config.Writer))
+	pluginRegistry.Register(downloader.New(rhRegistry, config.FS, config.RootPath))
 
 	// Register all plugins based on configuration
 	if options.Alias.AliasesEnabled {
 		pluginRegistry.Register(&plugins.AliasPlugin{})
 	}
 	if options.Markdown.MarkdownEnabled {
-		pluginRegistry.Register(markdown.New(rhRegistry, config.Hugo, config.Writer, config.SkipLinkValidation))
+		pluginRegistry.Register(markdown.New(rhRegistry, config.Hugo, config.FS, config.RootPath, config.SkipLinkValidation))
 	}
 	if options.Docsy.EditThisPageEnabled {
 		pluginRegistry.Register(&plugins.DocsyPlugin{})
@@ -74,7 +74,7 @@ func exec(ctx context.Context, vip *viper.Viper) error {
 		pluginRegistry.Register(plugins.NewFileTypeFilterPlugin(options.Options.ContentFileFormats))
 	}
 	if options.Persona.PersonaFilterEnabled {
-		pluginRegistry.Register(persona.New(config.Writer))
+		pluginRegistry.Register(persona.New(config.FS, config.RootPath))
 	}
 
 	// Phase 1: Get manifest transformations and resolve manifest
