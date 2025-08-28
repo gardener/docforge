@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gardener/docforge/pkg/osfakes/httpclient"
+	"github.com/gardener/docforge/pkg/osshim/httpclient"
 )
 
 // ErrResourceNotFound indicated that a resource was not found

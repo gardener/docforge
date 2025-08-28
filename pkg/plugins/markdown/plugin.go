@@ -7,7 +7,7 @@ import (
 	"github.com/gardener/docforge/cmd/hugo"
 	"github.com/gardener/docforge/pkg/core/manifest"
 	"github.com/gardener/docforge/pkg/core/registry"
-	"github.com/gardener/docforge/pkg/osfakes/osshim"
+	"github.com/gardener/docforge/pkg/osshim/filesystem"
 	"github.com/gardener/docforge/pkg/plugins"
 	"github.com/gardener/docforge/pkg/plugins/markdown/linkresolver"
 )
@@ -16,14 +16,14 @@ import (
 type Plugin struct {
 	registry           registry.Interface
 	hugo               hugo.Hugo
-	fs                 osshim.Os
+	fs                 filesystem.Interface
 	rootPath           string
 	skipLinkValidation bool
 	documentWorker     *Worker // Created in FinalNodeStructure
 }
 
 // New creates a new markdown plugin
-func New(registry registry.Interface, hugo hugo.Hugo, fs osshim.Os, rootPath string, skipLinkValidation bool) *Plugin {
+func New(registry registry.Interface, hugo hugo.Hugo, fs filesystem.Interface, rootPath string, skipLinkValidation bool) *Plugin {
 	return &Plugin{
 		registry:           registry,
 		hugo:               hugo,

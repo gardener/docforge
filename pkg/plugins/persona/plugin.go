@@ -21,7 +21,7 @@ import (
 	"github.com/gardener/docforge/pkg/core/registry"
 	"github.com/gardener/docforge/pkg/internal/link"
 	"github.com/gardener/docforge/pkg/internal/must"
-	"github.com/gardener/docforge/pkg/osfakes/osshim"
+	"github.com/gardener/docforge/pkg/osshim/filesystem"
 	"github.com/gardener/docforge/pkg/plugins"
 )
 
@@ -29,7 +29,7 @@ import (
 var jsTemplate string
 
 // writeFile writes a simple file to the filesystem
-func writeFile(fs osshim.Os, rootPath, name, path string, content []byte) error {
+func writeFile(fs filesystem.Interface, rootPath, name, path string, content []byte) error {
 	if len(content) == 0 {
 		return nil
 	}
@@ -48,13 +48,13 @@ func writeFile(fs osshim.Os, rootPath, name, path string, content []byte) error 
 
 // Plugin handles both manifest transformations and node processing for persona filtering
 type Plugin struct {
-	fs       osshim.Os
+	fs       filesystem.Interface
 	rootPath string
 	root     *manifest.Node // Document root for processing
 }
 
 // New creates a new persona plugin
-func New(fs osshim.Os, rootPath string) *Plugin {
+func New(fs filesystem.Interface, rootPath string) *Plugin {
 	return &Plugin{
 		fs:       fs,
 		rootPath: rootPath,

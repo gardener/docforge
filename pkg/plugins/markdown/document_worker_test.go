@@ -7,6 +7,7 @@ package markdown_test
 import (
 	"context"
 	"embed"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -14,7 +15,7 @@ import (
 	"github.com/gardener/docforge/pkg/core/manifest"
 	"github.com/gardener/docforge/pkg/core/registry"
 	"github.com/gardener/docforge/pkg/core/registry/repositoryhost"
-	"github.com/gardener/docforge/pkg/osfakes/osshim/osshimfakes"
+	"github.com/gardener/docforge/pkg/osshim/filesystem"
 	document "github.com/gardener/docforge/pkg/plugins/markdown"
 	"github.com/gardener/docforge/pkg/plugins/markdown/linkresolver"
 	. "github.com/onsi/ginkgo"
@@ -31,24 +32,12 @@ var manifests embed.FS
 
 var _ = Describe("Document resolving", func() {
 	var (
-		dw        *document.Worker
-		fakeFs    *osshimfakes.FakeOs
-		fileStore map[string][]byte
-		tempDir   string
+		dw      *document.Worker
+		tempDir string
 	)
 	BeforeEach(func() {
-		// Setup fake filesystem with in-memory storage
-		fakeFs = &osshimfakes.FakeOs{}
-		fileStore = make(map[string][]byte)
-
-		// Stub filesystem operations to use in-memory storage
-		fakeFs.WriteFileCalls(func(path string, data []byte, perm int) error {
-			fileStore[path] = data
-			return nil
-		})
-
-		tempDir = "/mock/temp/dir"
-		registry := registry.NewRegistry(repositoryhost.NewLocalTest(manifests, "https://github.com/gardener/docforge", "tests"))
+		tempDir = "/tmp/docforge_test_markdown"
+		registry := registry.NewRegistry(repositoryhost.NewLocal("https://github.com/gardener/docforge", "tests"))
 		hugo := hugo.Hugo{
 			Enabled:        true,
 			BaseURL:        "baseURL",
@@ -59,7 +48,7 @@ var _ = Describe("Document resolving", func() {
 
 		lr := linkresolver.New(nodes, registry, hugo)
 
-		dw = document.NewDocumentWorker(lr, registry, hugo, fakeFs, tempDir, false)
+		dw = document.NewDocumentWorker(lr, registry, hugo, &filesystem.Local{}, tempDir, false)
 	})
 
 	Context("#ProcessNode", func() {
@@ -86,7 +75,14 @@ var _ = Describe("Document resolving", func() {
 			expectedPath := filepath.Join(tempDir, "one", "renamed-document.md")
 			expectedContent := string(target) + string(target2) + string(target3)
 			Expect(node.Frontmatter["title"]).To(Equal("Renamed Document"))
-			Expect(string(fileStore[expectedPath])).To(Equal(expectedContent))
+
+			// Read the actual file that was written
+			writtenContent, err := os.ReadFile(expectedPath)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(writtenContent)).To(Equal(expectedContent))
+
+			// Clean up test files
+			os.RemoveAll(tempDir)
 		})
 
 		It("returns correct single source content", func() {
@@ -107,7 +103,14 @@ var _ = Describe("Document resolving", func() {
 			expectedPath := filepath.Join(tempDir, "one", "renamed-document.md")
 			expectedContent := string(target)
 			Expect(node.Frontmatter["title"]).To(Equal("Renamed Document"))
-			Expect(string(fileStore[expectedPath])).To(Equal(expectedContent))
+
+			// Read the actual file that was written
+			writtenContent, err := os.ReadFile(expectedPath)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(writtenContent)).To(Equal(expectedContent))
+
+			// Clean up test files
+			os.RemoveAll(tempDir)
 		})
 
 	})

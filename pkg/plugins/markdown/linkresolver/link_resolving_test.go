@@ -5,7 +5,6 @@
 package linkresolver_test
 
 import (
-	"embed"
 	"testing"
 
 	_ "embed"
@@ -24,9 +23,6 @@ func TestJobs(t *testing.T) {
 	RunSpecs(t, "Frontmatter Suite")
 }
 
-//go:embed all:tests/*
-var manifests embed.FS
-
 var _ = Describe("Document link resolving", func() {
 	Context("#ResolveResourceLink", func() {
 		var (
@@ -37,7 +33,7 @@ var _ = Describe("Document link resolving", func() {
 
 		BeforeEach(func() {
 			linkResolver = linkresolver.LinkResolver{}
-			registry := registry.NewRegistry(repositoryhost.NewLocalTest(manifests, "https://github.com/gardener/docforge", "tests"))
+			registry := registry.NewRegistry(repositoryhost.NewLocal("https://github.com/gardener/docforge", "tests"))
 			linkResolver.Repositoryhosts = registry
 			linkResolver.Hugo = hugo.Hugo{
 				Enabled: true,

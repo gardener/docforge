@@ -12,12 +12,12 @@ import (
 
 	"github.com/gardener/docforge/pkg/core/manifest"
 	"github.com/gardener/docforge/pkg/core/registry"
-	"github.com/gardener/docforge/pkg/osfakes/osshim"
+	"github.com/gardener/docforge/pkg/osshim/filesystem"
 	"github.com/gardener/docforge/pkg/plugins"
 )
 
 // writeFile writes a simple file to the filesystem
-func writeFile(fs osshim.Os, rootPath, name, path string, content []byte) error {
+func writeFile(fs filesystem.Interface, rootPath, name, path string, content []byte) error {
 	if len(content) == 0 {
 		return nil
 	}
@@ -37,7 +37,7 @@ func writeFile(fs osshim.Os, rootPath, name, path string, content []byte) error 
 // ResourceDownloadWorker is the structure that processes downloads
 type ResourceDownloadWorker struct {
 	registry registry.Interface
-	fs       osshim.Os
+	fs       filesystem.Interface
 	rootPath string
 }
 
@@ -47,7 +47,7 @@ type Plugin struct {
 }
 
 // New creates a new downloader plugin
-func New(registry registry.Interface, fs osshim.Os, rootPath string) *Plugin {
+func New(registry registry.Interface, fs filesystem.Interface, rootPath string) *Plugin {
 	return &Plugin{
 		downloader: ResourceDownloadWorker{
 			registry: registry,

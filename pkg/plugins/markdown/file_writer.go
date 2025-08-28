@@ -7,12 +7,12 @@ import (
 	"slices"
 
 	"github.com/gardener/docforge/pkg/core/manifest"
-	"github.com/gardener/docforge/pkg/osfakes/osshim"
+	"github.com/gardener/docforge/pkg/osshim/filesystem"
 	"gopkg.in/yaml.v3"
 )
 
 // writeDocument writes a document to the filesystem with Hugo-specific logic
-func writeDocument(fs osshim.Os, rootPath string, hugo bool, name, path string, docBlob []byte, node *manifest.Node, indexFileNames []string) error {
+func writeDocument(fs filesystem.Interface, rootPath string, hugo bool, name, path string, docBlob []byte, node *manifest.Node, indexFileNames []string) error {
 	if slices.Contains(indexFileNames, name) {
 		name = "_index.md"
 	}

@@ -9,8 +9,6 @@ import (
 	"fmt"
 	"testing"
 
-	_ "embed"
-
 	"github.com/gardener/docforge/pkg/core/manifest"
 	"github.com/gardener/docforge/pkg/core/registry"
 	"github.com/gardener/docforge/pkg/core/registry/repositoryhost"
@@ -28,9 +26,6 @@ func TestManifest(t *testing.T) {
 //go:embed tests/results/*
 var results embed.FS
 
-//go:embed all:tests/*
-var repo embed.FS
-
 var _ = Describe("Manifest test", func() {
 	DescribeTable("Testing manifest file",
 		func(example string) {
@@ -41,7 +36,7 @@ var _ = Describe("Manifest test", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(yaml.Unmarshal([]byte(resultBytes), &expected)).NotTo(HaveOccurred())
 
-			r := registry.NewRegistry(repositoryhost.NewLocalTest(repo, "https://github.com/gardener/docforge", "tests"))
+			r := registry.NewRegistry(repositoryhost.NewLocal("https://github.com/gardener/docforge", "tests"))
 
 			url := "https://github.com/gardener/docforge/blob/master/" + exampleFile
 			allNodes, err := manifest.ResolveManifest(url, r)
@@ -66,7 +61,7 @@ var _ = Describe("Manifest test", func() {
 
 	Describe("When there are dirs with frontmatter collision", func() {
 		It("should fail", func() {
-			r := registry.NewRegistry(repositoryhost.NewLocalTest(repo, "https://github.com/gardener/docforge", "tests"))
+			r := registry.NewRegistry(repositoryhost.NewLocal("https://github.com/gardener/docforge", "tests"))
 			url := "https://github.com/gardener/docforge/blob/master/manifests/colliding_dir_frontmatters.yaml"
 
 			_, err := manifest.ResolveManifest(url, r)

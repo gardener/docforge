@@ -16,7 +16,7 @@ import (
 	"github.com/gardener/docforge/pkg/core/manifest"
 	"github.com/gardener/docforge/pkg/core/registry"
 	"github.com/gardener/docforge/pkg/core/registry/repositoryhost"
-	"github.com/gardener/docforge/pkg/osfakes/osshim"
+	"github.com/gardener/docforge/pkg/osshim/filesystem"
 	"github.com/gardener/docforge/pkg/plugins/markdown/frontmatter"
 	"github.com/gardener/docforge/pkg/plugins/markdown/linkresolver"
 	"github.com/gardener/docforge/pkg/plugins/markdown/parser"
@@ -30,7 +30,7 @@ type Worker struct {
 	markdown     goldmark.Markdown
 	linkresolver linkresolver.Interface
 
-	fs       osshim.Os
+	fs       filesystem.Interface
 	rootPath string
 
 	repositoryhosts    registry.Interface
@@ -39,7 +39,7 @@ type Worker struct {
 }
 
 // NewDocumentWorker creates Worker objects
-func NewDocumentWorker(linkResolver linkresolver.Interface, rh registry.Interface, hugo hugo.Hugo, fs osshim.Os, rootPath string, skipLinkValidation bool) *Worker {
+func NewDocumentWorker(linkResolver linkresolver.Interface, rh registry.Interface, hugo hugo.Hugo, fs filesystem.Interface, rootPath string, skipLinkValidation bool) *Worker {
 	return &Worker{
 		parser.New(),
 		linkResolver,

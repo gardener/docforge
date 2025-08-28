@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/gardener/docforge/pkg/osfakes/httpclient"
+	"github.com/gardener/docforge/pkg/osshim/httpclient"
 )
 
 type FakeClient struct {

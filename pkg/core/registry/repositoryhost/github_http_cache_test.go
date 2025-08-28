@@ -12,7 +12,7 @@ import (
 
 	"github.com/gardener/docforge/pkg/core/registry/repositoryhost"
 	"github.com/gardener/docforge/pkg/core/registry/repositoryhost/repositoryhostfakes"
-	"github.com/gardener/docforge/pkg/osfakes/httpclient"
+	"github.com/gardener/docforge/pkg/osshim/httpclient"
 	"github.com/google/go-github/v43/github"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

@@ -5,7 +5,6 @@
 package frontmatter_test
 
 import (
-	"embed"
 	"reflect"
 	"testing"
 
@@ -25,9 +24,6 @@ func TestJobs(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Frontmatter Suite")
 }
-
-//go:embed tests/*
-var manifests embed.FS
 
 var _ = Describe("Document frontmatter", func() {
 
@@ -76,7 +72,7 @@ var _ = Describe("Document frontmatter", func() {
 			err     error
 		)
 		BeforeEach(func() {
-			r := registry.NewRegistry(repositoryhost.NewLocalTest(manifests, "https://github.com/gardener/docforge", "tests"))
+			r := registry.NewRegistry(repositoryhost.NewLocal("https://github.com/gardener/docforge", "tests"))
 			nodes, err = manifest.ResolveManifest("https://github.com/gardener/docforge/blob/master/frontmatter.yaml", r)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(nodes)).To(Equal(3))
@@ -160,7 +156,7 @@ var _ = Describe("Document frontmatter", func() {
 			err            error
 		)
 		BeforeEach(func() {
-			r := registry.NewRegistry(repositoryhost.NewLocalTest(manifests, "https://github.com/gardener/docforge", "tests"))
+			r := registry.NewRegistry(repositoryhost.NewLocal("https://github.com/gardener/docforge", "tests"))
 			nodes, err = manifest.ResolveManifest("https://github.com/gardener/docforge/blob/master/titles.yaml", r)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(nodes)).To(Equal(6))

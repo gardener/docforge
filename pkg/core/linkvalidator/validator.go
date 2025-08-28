@@ -18,7 +18,7 @@ import (
 	"time"
 
 	"github.com/gardener/docforge/pkg/core/registry"
-	"github.com/gardener/docforge/pkg/osfakes/httpclient"
+	"github.com/gardener/docforge/pkg/osshim/httpclient"
 	"k8s.io/klog/v2"
 )
 

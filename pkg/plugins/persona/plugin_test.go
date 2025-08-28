@@ -6,13 +6,14 @@ package persona_test
 
 import (
 	"embed"
+	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/gardener/docforge/pkg/core/manifest"
 	"github.com/gardener/docforge/pkg/core/registry"
 	"github.com/gardener/docforge/pkg/core/registry/repositoryhost"
-	"github.com/gardener/docforge/pkg/osfakes/osshim/osshimfakes"
+	"github.com/gardener/docforge/pkg/osshim/filesystem"
 	"github.com/gardener/docforge/pkg/plugins/persona"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -27,9 +28,6 @@ func TestPersonaPlugin(t *testing.T) {
 //go:embed tests/results/*
 var results embed.FS
 
-//go:embed all:tests/*
-var repo embed.FS
-
 var _ = Describe("Persona test", func() {
 	It("Processes resolvePersonaFolders", func() {
 		var expected []*manifest.Node
@@ -42,23 +40,15 @@ var _ = Describe("Persona test", func() {
 		resultTPLBytes, err := results.ReadFile(resultTPLFile)
 		Expect(err).ToNot(HaveOccurred())
 
-		r := registry.NewRegistry(repositoryhost.NewLocalTest(repo, "https://github.com/gardener/docforge", "tests"))
+		r := registry.NewRegistry(repositoryhost.NewLocal("https://github.com/gardener/docforge", "tests"))
 
 		url := "https://github.com/gardener/docforge/blob/master/manifests/persona_filtering.yaml"
 
-		// Setup fake filesystem with in-memory storage
-		fakeFs := &osshimfakes.FakeOs{}
-		fileStore := make(map[string][]byte)
+		// Create a temporary directory for test output
+		tempDir := "/tmp/docforge_test_persona"
 
-		// Stub filesystem operations to use in-memory storage
-		fakeFs.WriteFileCalls(func(path string, data []byte, perm int) error {
-			fileStore[path] = data
-			return nil
-		})
-
-		// Use fake filesystem with a mock root path
-		tempDir := "/mock/temp/dir"
-		personaPlugin := persona.New(fakeFs, tempDir)
+		// Create persona plugin with real filesystem (writes to temp dir)
+		personaPlugin := persona.New(&filesystem.Local{}, tempDir)
 		personaTransformations := personaPlugin.ManifestTransformations()
 
 		allNodes, err := manifest.ResolveManifest(url, r, personaTransformations...)
@@ -86,13 +76,14 @@ var _ = Describe("Persona test", func() {
 		// Process the test node to generate the JavaScript file
 		Expect(personaPlugin.Process(testNode)).NotTo(HaveOccurred())
 
-		// Verify filesystem operations were called correctly
+		// Verify the JavaScript file was written correctly
 		expectedPath := filepath.Join(tempDir, testNode.Path, testNode.Name())
-		Expect(fakeFs.WriteFileCallCount()).To(Equal(1))
-		writtenPath, writtenData, writtenPerm := fakeFs.WriteFileArgsForCall(0)
-		Expect(writtenPath).To(Equal(expectedPath))
+		writtenData, err := os.ReadFile(expectedPath)
+		Expect(err).NotTo(HaveOccurred())
 		Expect(string(writtenData)).To(Equal(string(resultTPLBytes)))
-		Expect(writtenPerm).To(Equal(0644))
+
+		// Clean up test files
+		os.RemoveAll(tempDir)
 
 		// Verify manifest processing results
 		Expect(len(files)).To(Equal(len(expected)))

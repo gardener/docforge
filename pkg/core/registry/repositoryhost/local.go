@@ -2,49 +2,25 @@ package repositoryhost
 
 import (
 	"context"
-	"embed"
 	"errors"
 	"fmt"
-	"io/fs"
-	ospkg "os"
-	"path/filepath"
 	"strings"
 	"time"
 
-	"github.com/gardener/docforge/pkg/osfakes/httpclient"
-	"github.com/gardener/docforge/pkg/osfakes/osshim"
-	"github.com/gardener/docforge/pkg/osfakes/osshim/osshimfakes"
+	"github.com/gardener/docforge/pkg/osshim/filesystem"
+	"github.com/gardener/docforge/pkg/osshim/httpclient"
 )
 
 // Local represents a local repository defined by respurce mapping
 type Local struct {
-	os        osshim.Os
-	urlPrefix string
-	localPath string
-}
-
-// NewLocalTest creates a local repository host used for testing
-func NewLocalTest(localRepo embed.FS, urlPrefix string, localPath string) Interface {
-	os := &osshimfakes.FakeOs{}
-	os.ReadFileCalls(localRepo.ReadFile)
-	os.IsNotExistCalls(ospkg.IsNotExist)
-	os.IsDirCalls(func(path string) (bool, error) {
-		file, err := localRepo.Open(path)
-		if err != nil {
-			return false, err
-		}
-		stat, err := file.Stat()
-		if err != nil {
-			return false, err
-		}
-		return stat.IsDir(), nil
-	})
-	return &Local{os, urlPrefix, localPath}
+	filesystem filesystem.Interface
+	urlPrefix  string
+	localPath  string
 }
 
 // NewLocal creates a local repository host
-func NewLocal(os osshim.Os, urlPrefix string, localPath string) Interface {
-	return &Local{os, urlPrefix, localPath}
+func NewLocal(urlPrefix string, localPath string) Interface {
+	return &Local{&filesystem.Local{}, urlPrefix, localPath}
 }
 
 // ResourceURL returns a valid resource url object from a string url
@@ -53,10 +29,10 @@ func (l *Local) ResourceURL(resourceURL string) (*URL, error) {
 	if err != nil {
 		return nil, err
 	}
-	fn := filepath.Join(l.localPath, resource.GetResourcePath())
-	isDir, err := l.os.IsDir(fn)
+	fn := l.filesystem.Join(l.localPath, resource.GetResourcePath())
+	isDir, err := l.filesystem.IsDir(fn)
 	if err != nil {
-		if l.os.IsNotExist(err) {
+		if l.filesystem.IsNotExist(err) {
 			return nil, ErrResourceNotFound(resourceURL)
 		}
 		return nil, err
@@ -93,15 +69,8 @@ func (l *Local) Tree(resource URL) ([]string, error) {
 	if resource.GetResourceType() != "tree" {
 		return nil, fmt.Errorf("expected a tree url got %s", resource.String())
 	}
-	dirPath := filepath.Join(l.localPath, resource.GetResourcePath())
-	files := []string{}
-	err := filepath.Walk(dirPath, func(path string, info fs.FileInfo, err error) error {
-		if !info.IsDir() {
-			files = append(files, strings.TrimPrefix(strings.TrimPrefix(path, dirPath), "/"))
-		}
-		return nil
-	})
-	return files, err
+	dirPath := l.filesystem.Join(l.localPath, resource.GetResourcePath())
+	return l.filesystem.FilePathsInDir(dirPath)
 }
 
 // Accept if the link has the same url prefix as defined
@@ -111,13 +80,13 @@ func (l *Local) Accept(link string) bool {
 
 // Read a resource content at uri into a byte array from file system
 func (l *Local) Read(_ context.Context, resource URL) ([]byte, error) {
-	fn := filepath.Join(l.localPath, resource.GetResourcePath())
-	cnt, err := l.os.ReadFile(fn)
+	fn := l.filesystem.Join(l.localPath, resource.GetResourcePath())
+	cnt, err := l.filesystem.ReadFile(fn)
 	if err != nil {
-		if l.os.IsNotExist(err) {
+		if l.filesystem.IsNotExist(err) {
 			return nil, ErrResourceNotFound(resource.String())
 		}
-		if isDir, err := l.os.IsDir(fn); err == nil && isDir {
+		if isDir, err := l.filesystem.IsDir(fn); err == nil && isDir {
 			return nil, fmt.Errorf("not a blob/raw url: %s", resource.String())
 		}
 		return nil, fmt.Errorf("reading file %s for uri %s fails: %v", fn, resource.String(), err)

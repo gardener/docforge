@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gardener/docforge/pkg/osfakes/httpclient"
+	"github.com/gardener/docforge/pkg/osshim/httpclient"
 	"github.com/google/go-github/v43/github"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"

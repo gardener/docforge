@@ -15,7 +15,7 @@ import (
 
 	"github.com/gardener/docforge/cmd/hugo"
 	"github.com/gardener/docforge/pkg/core/registry/repositoryhost"
-	"github.com/gardener/docforge/pkg/osfakes/osshim"
+	"github.com/gardener/docforge/pkg/osshim/filesystem"
 	"github.com/google/go-github/v43/github"
 	"github.com/gregjones/httpcache"
 	"github.com/gregjones/httpcache/diskcache"
@@ -108,7 +108,7 @@ func getReactorConfig(options Options, hugo hugo.Hugo, rhs []repositoryhost.Inte
 		Hugo:            hugo,
 	}
 
-	config.FS = &osshim.OsShim{}
+	config.FS = &filesystem.Local{}
 	config.RootPath = config.DestinationPath
 
 	return config

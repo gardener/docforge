@@ -7,7 +7,7 @@ package app
 import (
 	"github.com/gardener/docforge/cmd/hugo"
 	"github.com/gardener/docforge/pkg/core/registry/repositoryhost"
-	"github.com/gardener/docforge/pkg/osfakes/osshim"
+	"github.com/gardener/docforge/pkg/osshim/filesystem"
 )
 
 // Options encapsulates the parameters for creating
@@ -25,7 +25,7 @@ type Options struct {
 
 // Writers struct that collects filesystem interface and path
 type Writers struct {
-	FS       osshim.Os
+	FS       filesystem.Interface
 	RootPath string
 }
 
