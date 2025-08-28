@@ -15,6 +15,7 @@ import (
 
 	"github.com/gardener/docforge/cmd/hugo"
 	"github.com/gardener/docforge/pkg/core/registry/repositoryhost"
+	"github.com/gardener/docforge/pkg/osfakes/osshim"
 	"github.com/gardener/docforge/pkg/writers"
 	"github.com/google/go-github/v43/github"
 	"github.com/gregjones/httpcache"
@@ -111,6 +112,7 @@ func getReactorConfig(options Options, hugo hugo.Hugo, rhs []repositoryhost.Inte
 	config.Writer = &writers.FSWriter{
 		Root: config.DestinationPath,
 		Hugo: config.Hugo.Enabled,
+		FS:   &osshim.OsShim{},
 	}
 
 	return config

@@ -17,6 +17,8 @@ type Os interface {
 	ReadFile(name string) ([]byte, error)
 	IsNotExist(err error) bool
 	IsDir(path string) (bool, error)
+	MkdirAll(path string, perm int) error
+	WriteFile(name string, data []byte, perm int) error
 }
 
 // OsShim is default Os implementation
@@ -39,4 +41,14 @@ func (sh *OsShim) IsDir(path string) (bool, error) {
 		return false, err
 	}
 	return lstat.IsDir(), nil
+}
+
+// MkdirAll creates a directory named path, along with any necessary parents
+func (sh *OsShim) MkdirAll(path string, perm int) error {
+	return os.MkdirAll(path, os.FileMode(perm))
+}
+
+// WriteFile writes data to the named file
+func (sh *OsShim) WriteFile(name string, data []byte, perm int) error {
+	return os.WriteFile(name, data, os.FileMode(perm))
 }

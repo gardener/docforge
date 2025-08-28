@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/gardener/docforge/pkg/core/manifest"
+	"github.com/gardener/docforge/pkg/osfakes/osshim"
 	"github.com/google/uuid"
 )
 
@@ -50,6 +51,7 @@ func TestWrite(t *testing.T) {
 			testPath := filepath.Join(os.TempDir(), testFolder)
 			fs := &FSWriter{
 				Root: testPath,
+				FS:   &osshim.OsShim{},
 			}
 			fPath := filepath.Join(fs.Root, tc.path, tc.wantFileName)
 			defer func() {
