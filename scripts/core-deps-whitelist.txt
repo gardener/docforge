@@ -27,9 +27,6 @@ github.com/gardener/docforge/pkg/internal/must
 github.com/gardener/docforge/pkg/osshim/filesystem
 github.com/gardener/docforge/pkg/osshim/httpclient
 
-# Plugin Interface - Core can define and use plugin interfaces
-github.com/gardener/docforge/pkg/plugins
-
 # Vetted External Dependencies - Third-party packages approved for core use
 github.com/google/go-github/v43/github
 gopkg.in/yaml.v2

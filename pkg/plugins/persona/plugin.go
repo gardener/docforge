@@ -17,12 +17,12 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/gardener/docforge/pkg/core"
 	"github.com/gardener/docforge/pkg/core/manifest"
 	"github.com/gardener/docforge/pkg/core/registry"
 	"github.com/gardener/docforge/pkg/internal/link"
 	"github.com/gardener/docforge/pkg/internal/must"
 	"github.com/gardener/docforge/pkg/osshim/filesystem"
-	"github.com/gardener/docforge/pkg/plugins"
 )
 
 //go:embed persona-filtering.json.tpl
@@ -102,7 +102,7 @@ func (p *Plugin) Process(node *manifest.Node) error {
 }
 
 // ProcessNew processes a node using the new channel-based method
-func (p *Plugin) ProcessNew(node *manifest.Node) []chan plugins.Status {
+func (p *Plugin) ProcessNew(node *manifest.Node) []chan core.Status {
 	return nil // Persona plugin only uses synchronous processing
 }
 

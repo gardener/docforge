@@ -10,10 +10,10 @@ import (
 	"path"
 	"path/filepath"
 
+	"github.com/gardener/docforge/pkg/core"
 	"github.com/gardener/docforge/pkg/core/manifest"
 	"github.com/gardener/docforge/pkg/core/registry"
 	"github.com/gardener/docforge/pkg/osshim/filesystem"
-	"github.com/gardener/docforge/pkg/plugins"
 )
 
 // writeFile writes a simple file to the filesystem
@@ -83,14 +83,14 @@ func (p *Plugin) Process(node *manifest.Node) error {
 }
 
 // ProcessNew processes a node using the new channel-based method
-func (p *Plugin) ProcessNew(node *manifest.Node) []chan plugins.Status {
-	out := make(chan plugins.Status)
+func (p *Plugin) ProcessNew(node *manifest.Node) []chan core.Status {
+	out := make(chan core.Status)
 	go func() {
 		defer close(out)
 		err := p.downloader.Download(context.TODO(), node.Source, node.NodePath())
-		out <- plugins.NewStatus(err)
+		out <- core.NewStatus(err)
 	}()
-	return []chan plugins.Status{out}
+	return []chan core.Status{out}
 }
 
 // Download downloads source to destinationPath

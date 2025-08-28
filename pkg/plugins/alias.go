@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/gardener/docforge/pkg/core"
 	"github.com/gardener/docforge/pkg/core/manifest"
 	"github.com/gardener/docforge/pkg/core/registry"
 	"github.com/gardener/docforge/pkg/internal/link"
@@ -43,7 +44,7 @@ func (p *AliasPlugin) Process(node *manifest.Node) error {
 }
 
 // ProcessNew processes a node using the new channel-based method
-func (p *AliasPlugin) ProcessNew(node *manifest.Node) []chan Status {
+func (p *AliasPlugin) ProcessNew(node *manifest.Node) []chan core.Status {
 	return nil
 }
 

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-package plugins
+package core
 
 import (
 	"github.com/gardener/docforge/pkg/core/manifest"
@@ -34,9 +34,9 @@ func (s Status) ExternalLinks() []manifest.ExternalLink {
 	return s.externalLinks
 }
 
-// Interface defines the unified plugin interface that combines both
+// Plugin defines the unified plugin interface that combines both
 // manifest transformation and node processing capabilities
-type Interface interface {
+type Plugin interface {
 	// Name returns the plugin name for identification
 	Name() string
 

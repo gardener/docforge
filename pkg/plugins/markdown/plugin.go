@@ -5,10 +5,10 @@ import (
 	"strings"
 
 	"github.com/gardener/docforge/cmd/hugo"
+	"github.com/gardener/docforge/pkg/core"
 	"github.com/gardener/docforge/pkg/core/manifest"
 	"github.com/gardener/docforge/pkg/core/registry"
 	"github.com/gardener/docforge/pkg/osshim/filesystem"
-	"github.com/gardener/docforge/pkg/plugins"
 	"github.com/gardener/docforge/pkg/plugins/markdown/linkresolver"
 )
 
@@ -67,22 +67,22 @@ func (p *Plugin) Process(node *manifest.Node) error {
 }
 
 // ProcessNew processes a node using the new channel-based method
-func (p *Plugin) ProcessNew(node *manifest.Node) []chan plugins.Status {
-	out := make(chan plugins.Status)
+func (p *Plugin) ProcessNew(node *manifest.Node) []chan core.Status {
+	out := make(chan core.Status)
 	go func() {
 		defer close(out)
 
 		// Process document using Worker directly - now returns links
 		links, err := p.documentWorker.ProcessNode(context.TODO(), node)
 		if err != nil {
-			out <- plugins.NewStatus(err)
+			out <- core.NewStatus(err)
 			return
 		}
 
 		// Send status with collected external links
-		out <- plugins.NewStatusWithLinks(nil, links) // Success
+		out <- core.NewStatusWithLinks(nil, links) // Success
 	}()
-	return []chan plugins.Status{out}
+	return []chan core.Status{out}
 }
 
 // setMarkdownProcessor sets the processor for markdown files

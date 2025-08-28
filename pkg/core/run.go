@@ -8,20 +8,19 @@ import (
 	"github.com/gardener/docforge/pkg/core/linkvalidator"
 	"github.com/gardener/docforge/pkg/core/manifest"
 	"github.com/gardener/docforge/pkg/core/registry"
-	"github.com/gardener/docforge/pkg/plugins"
 	"k8s.io/klog/v2"
 )
 
 // Run is the method that constructs the website bundle
-func Run(ctx context.Context, nodes []*manifest.Node, pluginList []plugins.Interface, deferredValidation bool, registry registry.Interface, hostsToReport []string, validationWorkersCount int) error {
-	processorToPlugin := map[string]plugins.Interface{}
+func Run(ctx context.Context, nodes []*manifest.Node, pluginList []Plugin, deferredValidation bool, registry registry.Interface, hostsToReport []string, validationWorkersCount int) error {
+	processorToPlugin := map[string]Plugin{}
 	for _, plugin := range pluginList {
 		processorToPlugin[plugin.Processor()] = plugin
 
 	}
 
 	// Collect all channels from ProcessNew calls
-	var allChannels []chan plugins.Status
+	var allChannels []chan Status
 
 	for _, node := range nodes {
 		if node.Type != "file" {

@@ -7,23 +7,24 @@ package plugins
 import (
 	"fmt"
 
+	"github.com/gardener/docforge/pkg/core"
 	"github.com/gardener/docforge/pkg/core/manifest"
 )
 
 // Registry manages the collection of unified plugins
 type Registry struct {
-	plugins []Interface
+	plugins []core.Plugin
 }
 
 // NewRegistry creates a new plugin registry
 func NewRegistry() *Registry {
 	return &Registry{
-		plugins: make([]Interface, 0),
+		plugins: make([]core.Plugin, 0),
 	}
 }
 
 // Register adds a plugin to the registry
-func (r *Registry) Register(plugin Interface) {
+func (r *Registry) Register(plugin core.Plugin) {
 	r.plugins = append(r.plugins, plugin)
 }
 
@@ -51,8 +52,8 @@ func (r *Registry) SetFinalNodeStructure(documentNodes []*manifest.Node) error {
 }
 
 // GetNodeProcessors returns unified plugins that have node processing capabilities
-func (r *Registry) GetNodeProcessors() []Interface {
-	var processors []Interface
+func (r *Registry) GetNodeProcessors() []core.Plugin {
+	var processors []core.Plugin
 
 	for _, plugin := range r.plugins {
 		// Only include plugins that have a processor

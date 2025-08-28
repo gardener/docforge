@@ -9,6 +9,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/gardener/docforge/pkg/core"
 	"github.com/gardener/docforge/pkg/core/manifest"
 	"github.com/gardener/docforge/pkg/core/registry"
 )
@@ -42,7 +43,7 @@ func (p *DocsyPlugin) Process(*manifest.Node) error {
 }
 
 // ProcessNew processes a node using the new channel-based method
-func (p *DocsyPlugin) ProcessNew(*manifest.Node) []chan Status {
+func (p *DocsyPlugin) ProcessNew(*manifest.Node) []chan core.Status {
 	return nil // Not used
 }
 
