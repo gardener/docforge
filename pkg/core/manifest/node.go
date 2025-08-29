@@ -78,7 +78,7 @@ func (n *Node) HugoPrettyPath() string {
 
 // HasContent returns true if the node is a document node
 func (n *Node) HasContent() bool {
-	return len(n.MultiSource) > 0 || len(n.Source) > 0
+	return len(n.Source) > 0
 }
 
 // Parent is the node parent

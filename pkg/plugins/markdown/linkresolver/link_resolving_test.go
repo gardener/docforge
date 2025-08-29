@@ -45,10 +45,6 @@ var _ = Describe("Document link resolving", func() {
 			for _, node := range nodes {
 				if node.Source != "" {
 					linkResolver.SourceToNode[node.Source] = append(linkResolver.SourceToNode[node.Source], node)
-				} else if len(node.MultiSource) > 0 {
-					for _, s := range node.MultiSource {
-						linkResolver.SourceToNode[s] = append(linkResolver.SourceToNode[s], node)
-					}
 				}
 			}
 			source = "https://github.com/gardener/docforge/blob/master/target.md"

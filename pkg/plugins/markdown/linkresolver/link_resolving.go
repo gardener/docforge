@@ -47,10 +47,6 @@ func New(structure []*manifest.Node, rhs registry.Interface, hugo hugo.Hugo) *Li
 	for _, node := range structure {
 		if node.Source != "" {
 			lr.SourceToNode[node.Source] = append(lr.SourceToNode[node.Source], node)
-		} else if len(node.MultiSource) > 0 {
-			for _, s := range node.MultiSource {
-				lr.SourceToNode[s] = append(lr.SourceToNode[s], node)
-			}
 		}
 	}
 	return lr

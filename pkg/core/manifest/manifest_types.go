@@ -10,8 +10,6 @@ type FileType struct {
 	File string `yaml:"file,omitempty"`
 	// Source is the source of file. If empty File must be the url
 	Source string `yaml:"source,omitempty"`
-	// MultiSource is a file build from multiple sources
-	MultiSource []string `yaml:"multiSource,omitempty"`
 }
 
 // DirType represents a directory node

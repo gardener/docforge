@@ -88,71 +88,47 @@ func (d *Worker) ProcessNode(ctx context.Context, node *manifest.Node) ([]manife
 }
 
 func (d *Worker) process(ctx context.Context, b *bytes.Buffer, n *manifest.Node) ([]manifest.ExternalLink, error) {
-	var allLinks []manifest.ExternalLink
-	sources := []string{}
 	nodePath := n.NodePath()
-	if len(n.Source) > 0 {
-		sources = append(sources, n.Source)
-	}
-	sources = append(sources, n.MultiSource...)
-	if len(sources) == 0 {
+	if len(n.Source) == 0 {
 		klog.Warningf("empty content for node %s\n", nodePath)
 		return nil, nil
 	}
 
-	type docContent struct {
-		docAst ast.Node
-		docCnt []byte
-		docURI string
+	// Read content from the single source
+	content, err := d.repositoryhosts.Read(ctx, n.Source)
+	if err != nil {
+		return nil, fmt.Errorf("reading %s from node %s failed: %w", n.Source, nodePath, err)
 	}
-	var fullContent []*docContent
 
-	for _, source := range sources {
-		content, err := d.repositoryhosts.Read(ctx, source)
+	var docAst ast.Node
+	if strings.HasSuffix(n.Source, ".md") {
+		docAst, err = parser.Parse(d.markdown, content)
 		if err != nil {
-			return nil, fmt.Errorf("reading %s from node %s failed: %w", source, nodePath, err)
+			return nil, fmt.Errorf("fail to parses %s from node %s: %w", n.Source, nodePath, err)
 		}
-		dc := &docContent{docCnt: content, docURI: source}
-		if strings.HasSuffix(source, ".md") {
-			dc.docAst, err = parser.Parse(d.markdown, content)
-			if err != nil {
-				return nil, fmt.Errorf("fail to parses %s from node %s: %w", source, nodePath, err)
-			}
-		}
-		fullContent = append(fullContent, dc)
 	}
 
-	if fullContent[0].docAst != nil && fullContent[0].docAst.Kind() == ast.KindDocument {
-		firstDoc := fullContent[0].docAst.(*ast.Document)
-		docs := []frontmatter.NodeMeta{}
-		for _, astNode := range fullContent {
-			if astNode.docAst != nil && astNode.docAst.Kind() == ast.KindDocument {
-				docs = append(docs, astNode.docAst.(*ast.Document))
-			}
-		}
-		frontmatter.MoveMultiSourceFrontmatterToTopDocument(docs)
-		frontmatter.ComputeNodeTitle(firstDoc, n, d.hugo.IndexFileNames, d.hugo.Enabled)
-		frontmatter.MergeDocumentAndNodeFrontmatter(firstDoc, n)
+	// Handle frontmatter processing for markdown documents
+	if docAst != nil && docAst.Kind() == ast.KindDocument {
+		doc := docAst.(*ast.Document)
+		frontmatter.ComputeNodeTitle(doc, n, d.hugo.IndexFileNames, d.hugo.Enabled)
+		frontmatter.MergeDocumentAndNodeFrontmatter(doc, n)
 	}
-	for _, cnt := range fullContent {
-		lrt := linkResolverTask{
-			Worker:         *d,
-			node:           n,
-			source:         cnt.docURI,
-			collectedLinks: []manifest.ExternalLink{},
-		}
-		if strings.HasSuffix(cnt.docURI, ".md") {
-			rnd := parser.NewLinkModifierRenderer(parser.WithLinkResolver(lrt.resolveLink))
-			if err := rnd.Render(b, cnt.docCnt, cnt.docAst); err != nil {
-				return nil, err
-			}
-		} else {
-			b.Write(cnt.docCnt)
-		}
-		// Collect links from this content piece
-		allLinks = append(allLinks, lrt.collectedLinks...)
+
+	// Process the content and resolve links
+	lrt := linkResolverTask{
+		Worker:         *d,
+		node:           n,
+		source:         n.Source,
+		collectedLinks: []manifest.ExternalLink{},
 	}
-	return allLinks, nil
+
+	rnd := parser.NewLinkModifierRenderer(parser.WithLinkResolver(lrt.resolveLink))
+	if err := rnd.Render(b, content, docAst); err != nil {
+		return nil, err
+	}
+
+	return lrt.collectedLinks, nil
 }
 
 type linkResolverTask struct {
@@ -188,9 +164,6 @@ func (d *linkResolverTask) resolveLink(dest string, isEmbeddable bool) (string, 
 					URL:        dest,
 					SourceFile: d.source,
 				})
-
-				// Let validator decide whether to validate immediately or defer
-				//d.validator.ValidateLink(dest, d.source)
 			}
 			return dest, nil
 		}

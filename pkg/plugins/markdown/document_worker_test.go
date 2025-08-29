@@ -52,39 +52,6 @@ var _ = Describe("Document resolving", func() {
 	})
 
 	Context("#ProcessNode", func() {
-		It("returns correct multisource content from md and html files", func() {
-			node := &manifest.Node{
-				FileType: manifest.FileType{
-					File:        "renamed-document.md",
-					MultiSource: []string{"https://github.com/gardener/docforge/blob/master/docs/target.md", "https://github.com/gardener/docforge/blob/master/docs/target2.md", "https://github.com/gardener/docforge/blob/master/docs/target3.html"},
-				},
-				Type: "file",
-				Path: "one",
-			}
-			_, err := dw.ProcessNode(context.TODO(), node)
-			Expect(err).ToNot(HaveOccurred())
-
-			target, err := manifests.ReadFile("tests/docs/expected_target.md")
-			Expect(err).NotTo(HaveOccurred())
-			target2, err := manifests.ReadFile("tests/docs/expected_target2.md")
-			Expect(err).NotTo(HaveOccurred())
-			target3, err := manifests.ReadFile("tests/docs/expected_target3.html")
-			Expect(err).NotTo(HaveOccurred())
-
-			// Verify content and frontmatter
-			expectedPath := filepath.Join(tempDir, "one", "renamed-document.md")
-			expectedContent := string(target) + string(target2) + string(target3)
-			Expect(node.Frontmatter["title"]).To(Equal("Renamed Document"))
-
-			// Read the actual file that was written
-			writtenContent, err := os.ReadFile(expectedPath)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(string(writtenContent)).To(Equal(expectedContent))
-
-			// Clean up test files
-			os.RemoveAll(tempDir)
-		})
-
 		It("returns correct single source content", func() {
 			node := &manifest.Node{
 				FileType: manifest.FileType{

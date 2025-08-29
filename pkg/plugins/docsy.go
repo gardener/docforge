@@ -51,7 +51,6 @@ func (p *DocsyPlugin) ProcessNew(*manifest.Node) []chan core.Status {
 func (p *DocsyPlugin) editThisPage(node *manifest.Node, _ *manifest.Node, r registry.Interface) (bool, error) {
 	if node.Type != "file" ||
 		(node.File == "_index.md" && node.Source == "") ||
-		(len(node.MultiSource) > 0) ||
 		node.Processor != "markdown" {
 		return false, nil
 	}

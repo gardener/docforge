@@ -136,11 +136,7 @@ func loadRepositoriesOfResources(node *Node, parent *Node, _ *Node, r registry.I
 		}
 		return nil
 	}
-	loadErr := errors.Join(loadRepoFrom(node.File), loadRepoFrom(node.Source), loadRepoFrom(node.FileTree), loadRepoFrom(node.Manifest))
-	for _, multiSource := range node.MultiSource {
-		loadErr = errors.Join(loadErr, loadRepoFrom(multiSource))
-	}
-	return loadErr
+	return errors.Join(loadRepoFrom(node.File), loadRepoFrom(node.Source), loadRepoFrom(node.FileTree), loadRepoFrom(node.Manifest))
 }
 
 func readManifestContents(node *Node, parent *Node, manifest *Node, r registry.Interface) error {
@@ -259,11 +255,6 @@ func resolveManifestLinks(node *Node, _ *Node, manifest *Node, r registry.Interf
 		if strings.Contains(node.File, "/") {
 			node.Source = node.File
 			node.File = path.Base(node.File)
-		}
-		for i := range node.MultiSource {
-			if err := resolveLink(&node.MultiSource[i]); err != nil {
-				return err
-			}
 		}
 		return resolveLink(&node.Source)
 	case node.FileTree != "":
