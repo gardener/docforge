@@ -104,17 +104,5 @@ func (l *LinkResolver) resolveDestinationNode(destinationResourceURL string, nod
 		relPathBetweenNodeAndB, _ := filepath.Rel(node.Path, b.NodePath())
 		return cmp.Compare(strings.Count(relPathBetweenNodeAndA, "/"), strings.Count(relPathBetweenNodeAndB, "/"))
 	})
-
-	desiredPath, ok := node.LinkResolution[destinationResourceURL]
-	if !ok {
-		return destinationNode, nil
-	}
-	// resolve linkResolution override
-	candidateNodes := slices.DeleteFunc(nl, func(element *manifest.Node) bool {
-		return element.NodePath() != desiredPath
-	})
-	if len(candidateNodes) != 1 {
-		return nil, fmt.Errorf("node with path %s's LinkResolution of %s field maps to %d nodes", node.NodePath(), destinationResourceURL, len(candidateNodes))
-	}
-	return candidateNodes[0], nil
+	return destinationNode, nil
 }
