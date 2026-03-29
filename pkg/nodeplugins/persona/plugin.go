@@ -72,6 +72,7 @@ func urlToPersonas(node *manifest.Node, res map[string]string) map[string]string
 				if !slices.Contains(currentPersonas, persona) {
 					currentPersonas = append(currentPersonas, persona)
 				}
+				slices.Sort(currentPersonas)
 				res[subpath] = strings.Join(currentPersonas, ",")
 			}
 		}
