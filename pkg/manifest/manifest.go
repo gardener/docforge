@@ -325,10 +325,6 @@ func constructNodeTree(files []string, node *Node, parent *Node) (bool, error) {
 			return changed, err
 		}
 		fileName := path.Base(file)
-		// Rename README.md files to index.md
-		if strings.EqualFold(fileName, "README.md") {
-			fileName = "index.md"
-		}
 		filePath, err := link.Build(node.Path, path.Dir(file))
 		if err != nil {
 			return changed, err
