@@ -67,6 +67,8 @@ func (n *Node) HugoPrettyPath() string {
 	}
 	name = strings.TrimSuffix(name, ".md")
 	name = strings.TrimSuffix(name, "_index")
+	// TODO: use IndexFileNames instead
+	name = strings.TrimSuffix(name, "README")
 	return must.Succeed(link.Build(n.Path, name, "/"))
 }
 
