@@ -31,11 +31,14 @@ func IsRelative(link string) bool {
 	return !url.IsAbs()
 }
 
-// RawURL returns the GitHub raw URL if the resource is 'blob', otherwise returns the origin URL
+// RawURL returns the GitHub raw URL for the resource, unless the resource type is 'actions' in which case it returns the origin URL
 func RawURL(resourceURL string) (string, error) {
 	r, err := new(resourceURL)
 	if err != nil {
 		return "", err
+	}
+	if r.resourceType == "actions" {
+		return resourceURL, nil
 	}
 	return link.Build("https://", r.host, r.owner, r.repo, "raw", r.ref, r.resourcePath)
 }

@@ -58,6 +58,10 @@ func New(structure []*manifest.Node, rhs registry.Interface, hugo hugo.Hugo) *Li
 
 // ResolveResourceLink resolves resource link from a given source
 func (l *LinkResolver) ResolveResourceLink(resourceLink string, node *manifest.Node, source string) (string, error) {
+	// fragment-only links (e.g. #heading) are same-document anchors — pass through unchanged
+	if strings.HasPrefix(resourceLink, "#") {
+		return resourceLink, nil
+	}
 	// handle relative links to resources
 	if repositoryhost.IsRelative(resourceLink) {
 		var err error
