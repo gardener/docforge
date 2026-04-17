@@ -13,7 +13,7 @@ on:
 
 jobs:
   prepare:
-    uses: gardener/cc-utils/.github/workflows/prepare.yaml@master
+    uses: gardener/cc-utils/.github/workflows/prepare.yaml@v1
     with:
       mode: ${{ inputs.mode }}
     permissions:
@@ -44,7 +44,7 @@ jobs:
             arch: '386'
             runner: ubuntu-latest
     steps:
-      - uses: gardener/cc-utils/.github/actions/trusted-checkout@master
+      - uses: gardener/cc-utils/.github/actions/trusted-checkout@v1
       - uses: actions/setup-go@v6
         with:
           go-version: '1.22'
@@ -75,7 +75,7 @@ jobs:
 
           tar czf $tar_out $out
 
-      - uses: gardener/cc-utils/.github/actions/export-ocm-fragments@master
+      - uses: gardener/cc-utils/.github/actions/export-ocm-fragments@v1
         with:
           blobs-directory: /tmp/blobs.d
           ocm-resources: |
@@ -92,7 +92,7 @@ jobs:
       # expose for oci-image-build
       # we could also import the ocm-fragment; however, using an explicit artefact will require
       # less code, and less redundant downloads
-      - uses: gardener/cc-utils/.github/actions/upload-artifact@master
+      - uses: gardener/cc-utils/.github/actions/upload-artifact@v1
         if: ${{ matrix.args.os == 'linux' }} # oci-images are only built for linux
         with:
           name: docforge-${{ matrix.args.os }}-${{ matrix.args.arch }}
@@ -108,7 +108,7 @@ jobs:
       packages: write
       id-token: write
     secrets: inherit
-    uses: gardener/cc-utils/.github/workflows/oci-ocm.yaml@master
+    uses: gardener/cc-utils/.github/workflows/oci-ocm.yaml@v1
     strategy:
       matrix:
         args:
@@ -145,7 +145,7 @@ jobs:
           - run: .ci/e2e
           - run: .ci/integration-test
     steps:
-      - uses: gardener/cc-utils/.github/actions/trusted-checkout@master
+      - uses: gardener/cc-utils/.github/actions/trusted-checkout@v1
       - uses: actions/setup-go@v6
         with:
           go-version: '1.22'
