@@ -56,8 +56,9 @@ func (n *Node) NodePath() string {
 	return must.Succeed(link.Build(n.Path, n.Name()))
 }
 
-// HugoPrettyPath returns hugo pretty path
-func (n *Node) HugoPrettyPath() string {
+// HugoPrettyPath returns hugo pretty path using the configured index file names
+// and section files name to trim index suffixes from URLs.
+func (n *Node) HugoPrettyPath(indexFileNames []string, sectionFilesName string) string {
 	name := n.Name()
 	if n.Type == "dir" {
 		return must.Succeed(link.Build(n.Path, name, "/"))
@@ -66,9 +67,14 @@ func (n *Node) HugoPrettyPath() string {
 		return must.Succeed(link.Build(n.Path, name))
 	}
 	name = strings.TrimSuffix(name, ".md")
-	name = strings.TrimSuffix(name, "_index")
-	// TODO: use IndexFileNames instead
-	name = strings.TrimSuffix(name, "README")
+	if sectionFilesName != "" {
+		name = strings.TrimSuffix(name, strings.TrimSuffix(sectionFilesName, ".md"))
+	} else {
+		name = strings.TrimSuffix(name, "_index")
+	}
+	for _, ifn := range indexFileNames {
+		name = strings.TrimSuffix(name, strings.TrimSuffix(ifn, ".md"))
+	}
 	return must.Succeed(link.Build(n.Path, name, "/"))
 }
 

@@ -127,7 +127,7 @@ func (d *Worker) process(ctx context.Context, b *bytes.Buffer, n *manifest.Node)
 			}
 		}
 		frontmatter.MoveMultiSourceFrontmatterToTopDocument(docs)
-		frontmatter.ComputeNodeTitle(firstDoc, n, d.hugo.IndexFileNames, d.hugo.Enabled)
+		frontmatter.ComputeNodeTitle(firstDoc, n, d.hugo.IndexFileNames, d.hugo.Enabled, d.hugo.SectionFilesName)
 		frontmatter.MergeDocumentAndNodeFrontmatter(firstDoc, n)
 	}
 	for _, cnt := range fullContent {

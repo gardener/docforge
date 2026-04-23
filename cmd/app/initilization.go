@@ -109,8 +109,9 @@ func getReactorConfig(options Options, hugo hugo.Hugo, rhs []repositoryhost.Inte
 	}
 
 	config.Writer = &writers.FSWriter{
-		Root: config.DestinationPath,
-		Hugo: config.Hugo.Enabled,
+		Root:             config.DestinationPath,
+		Hugo:             config.Hugo.Enabled,
+		SectionFilesName: config.Hugo.SectionFilesName,
 	}
 
 	if len(config.GhInfoDestination) > 0 {

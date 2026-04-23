@@ -70,7 +70,7 @@ func MergeDocumentAndNodeFrontmatter(nodeAst NodeMeta, node *manifest.Node) {
 // it is eligible to be index file, and then normalizes either
 // as a title - removing `-`, `_`, `.md` and converting to title
 // case.
-func ComputeNodeTitle(nodeAst NodeMeta, node *manifest.Node, IndexFileNames []string, hugoEnabled bool) {
+func ComputeNodeTitle(nodeAst NodeMeta, node *manifest.Node, IndexFileNames []string, hugoEnabled bool, sectionFilesName string) {
 	if !hugoEnabled || nodeAst == nil {
 		return
 	}
@@ -80,9 +80,9 @@ func ComputeNodeTitle(nodeAst NodeMeta, node *manifest.Node, IndexFileNames []st
 	}
 	title := node.Name()
 	// index node with parent
-	if nodeIsIndexFile(node.Name(), IndexFileNames) && node.Parent() != nil && node.Parent().Path != "" {
+	if nodeIsIndexFile(node.Name(), IndexFileNames, sectionFilesName) && node.Parent() != nil && node.Parent().Path != "" {
 		title = node.Parent().Name()
-	} else if nodeIsIndexFile(node.Name(), IndexFileNames) && node.Parent() != nil && node.Parent().Path == "" {
+	} else if nodeIsIndexFile(node.Name(), IndexFileNames, sectionFilesName) && node.Parent() != nil && node.Parent().Path == "" {
 		// root index node
 		title = "Root"
 	}
@@ -97,13 +97,16 @@ func ComputeNodeTitle(nodeAst NodeMeta, node *manifest.Node, IndexFileNames []st
 }
 
 // Compares a node name to the configured list of index file
-// and a default name '_index.md' to determine if this node
+// and the configured section files name to determine if this node
 // is an index document node.
-func nodeIsIndexFile(name string, IndexFileNames []string) bool {
+func nodeIsIndexFile(name string, IndexFileNames []string, sectionFilesName string) bool {
 	for _, s := range IndexFileNames {
 		if strings.EqualFold(name, s) {
 			return true
 		}
 	}
-	return name == "_index.md"
+	if sectionFilesName == "" {
+		sectionFilesName = "_index.md"
+	}
+	return name == sectionFilesName
 }

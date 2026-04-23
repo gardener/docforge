@@ -22,8 +22,10 @@ var jsTemplate string
 
 // Plugin is the node plugin object
 type Plugin struct {
-	Root   *manifest.Node
-	Writer writers.Writer
+	Root             *manifest.Node
+	Writer           writers.Writer
+	IndexFileNames   []string
+	SectionFilesName string
 }
 
 // Processor returns the persona processor
@@ -33,7 +35,7 @@ func (Plugin) Processor() string {
 
 // Process processes the node that will be constructed as the js file
 func (p *Plugin) Process(node *manifest.Node) error {
-	linkToPersonaMap := urlToPersonas(p.Root, map[string]string{})
+	linkToPersonaMap := urlToPersonas(p.Root, map[string]string{}, p.IndexFileNames, p.SectionFilesName)
 	t, err := template.New("webpage").Parse(jsTemplate)
 	if err != nil {
 		log.Fatalf("Error parsing template: %v", err)
@@ -47,8 +49,8 @@ func (p *Plugin) Process(node *manifest.Node) error {
 	return p.Writer.Write(node.Name(), node.Path, renderedTemplate.Bytes(), node, []string{})
 }
 
-func urlToPersonas(node *manifest.Node, res map[string]string) map[string]string {
-	if node.Frontmatter["persona"] != nil && strings.HasPrefix(node.HugoPrettyPath(), "content") {
+func urlToPersonas(node *manifest.Node, res map[string]string, indexFileNames []string, sectionFilesName string) map[string]string {
+	if node.Frontmatter["persona"] != nil && strings.HasPrefix(node.HugoPrettyPath(indexFileNames, sectionFilesName), "content") {
 		// bubble persona up
 		persona, ok := node.Frontmatter["persona"].(string)
 		must.BeTrue(ok)
@@ -57,7 +59,7 @@ func urlToPersonas(node *manifest.Node, res map[string]string) map[string]string
 			return res
 		}
 
-		url := node.HugoPrettyPath()
+		url := node.HugoPrettyPath(indexFileNames, sectionFilesName)
 		trimmedPath := strings.TrimPrefix(url, "content")
 		components := strings.Split(trimmedPath, "/")
 		var subpaths []string
@@ -77,7 +79,7 @@ func urlToPersonas(node *manifest.Node, res map[string]string) map[string]string
 		}
 	}
 	for _, child := range node.Structure {
-		urlToPersonas(child, res)
+		urlToPersonas(child, res, indexFileNames, sectionFilesName)
 	}
 	return res
 }

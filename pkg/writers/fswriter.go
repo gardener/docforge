@@ -17,17 +17,22 @@ import (
 
 // FSWriter is implementation of Writer interface for writing blobs to the file system
 type FSWriter struct {
-	Root string
-	Ext  string
-	Hugo bool
+	Root             string
+	Ext              string
+	Hugo             bool
+	SectionFilesName string
 }
 
 func (f *FSWriter) Write(name, path string, docBlob []byte, node *manifest.Node, IndexFileNames []string) error {
-	if slices.Contains(IndexFileNames, name) {
-		name = "_index.md"
+	sectionFilesName := f.SectionFilesName
+	if sectionFilesName == "" {
+		sectionFilesName = "_index.md"
 	}
-	//generate _index.md content
-	if f.Hugo && name == "_index.md" && node != nil && node.Frontmatter != nil && docBlob == nil {
+	if slices.Contains(IndexFileNames, name) {
+		name = sectionFilesName
+	}
+	//generate index content
+	if f.Hugo && name == sectionFilesName && node != nil && node.Frontmatter != nil && docBlob == nil {
 		buf := bytes.Buffer{}
 		_, _ = buf.Write([]byte("---\n"))
 		fm, err := yaml.Marshal(node.Frontmatter)

@@ -10,16 +10,22 @@ import (
 )
 
 // Docsy is the object representing the docsy plugin
-type Docsy struct{}
+type Docsy struct {
+	SectionFilesName string
+}
 
 // PluginNodeTransformations returns the node transformations for the docsy plugin
 func (d *Docsy) PluginNodeTransformations() []manifest.NodeTransformation {
-	return []manifest.NodeTransformation{editThisPage}
+	return []manifest.NodeTransformation{d.editThisPage}
 }
 
-func editThisPage(node *manifest.Node, _ *manifest.Node, r registry.Interface) (bool, error) {
+func (d *Docsy) editThisPage(node *manifest.Node, _ *manifest.Node, r registry.Interface) (bool, error) {
+	sectionFilesName := d.SectionFilesName
+	if sectionFilesName == "" {
+		sectionFilesName = "_index.md"
+	}
 	isNotFile := node.Type != "file"
-	isIndexFileWithoutSource := (node.File == "_index.md" || node.File == "index.md") && node.Source == ""
+	isIndexFileWithoutSource := node.File == sectionFilesName && node.Source == ""
 	hasMultipleSource := len(node.MultiSource) > 0
 	isNotMarkdown := node.Processor != "markdown"
 
