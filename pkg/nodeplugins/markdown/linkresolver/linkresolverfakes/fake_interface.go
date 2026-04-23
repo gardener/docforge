@@ -12,12 +12,13 @@ import (
 )
 
 type FakeInterface struct {
-	ResolveResourceLinkStub        func(string, *manifest.Node, string) (string, error)
+	ResolveResourceLinkStub        func(string, *manifest.Node, string, bool) (string, error)
 	resolveResourceLinkMutex       sync.RWMutex
 	resolveResourceLinkArgsForCall []struct {
 		arg1 string
 		arg2 *manifest.Node
 		arg3 string
+		arg4 bool
 	}
 	resolveResourceLinkReturns struct {
 		result1 string
@@ -31,20 +32,21 @@ type FakeInterface struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeInterface) ResolveResourceLink(arg1 string, arg2 *manifest.Node, arg3 string) (string, error) {
+func (fake *FakeInterface) ResolveResourceLink(arg1 string, arg2 *manifest.Node, arg3 string, arg4 bool) (string, error) {
 	fake.resolveResourceLinkMutex.Lock()
 	ret, specificReturn := fake.resolveResourceLinkReturnsOnCall[len(fake.resolveResourceLinkArgsForCall)]
 	fake.resolveResourceLinkArgsForCall = append(fake.resolveResourceLinkArgsForCall, struct {
 		arg1 string
 		arg2 *manifest.Node
 		arg3 string
-	}{arg1, arg2, arg3})
+		arg4 bool
+	}{arg1, arg2, arg3, arg4})
 	stub := fake.ResolveResourceLinkStub
 	fakeReturns := fake.resolveResourceLinkReturns
-	fake.recordInvocation("ResolveResourceLink", []interface{}{arg1, arg2, arg3})
+	fake.recordInvocation("ResolveResourceLink", []interface{}{arg1, arg2, arg3, arg4})
 	fake.resolveResourceLinkMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2, arg3)
+		return stub(arg1, arg2, arg3, arg4)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -58,17 +60,17 @@ func (fake *FakeInterface) ResolveResourceLinkCallCount() int {
 	return len(fake.resolveResourceLinkArgsForCall)
 }
 
-func (fake *FakeInterface) ResolveResourceLinkCalls(stub func(string, *manifest.Node, string) (string, error)) {
+func (fake *FakeInterface) ResolveResourceLinkCalls(stub func(string, *manifest.Node, string, bool) (string, error)) {
 	fake.resolveResourceLinkMutex.Lock()
 	defer fake.resolveResourceLinkMutex.Unlock()
 	fake.ResolveResourceLinkStub = stub
 }
 
-func (fake *FakeInterface) ResolveResourceLinkArgsForCall(i int) (string, *manifest.Node, string) {
+func (fake *FakeInterface) ResolveResourceLinkArgsForCall(i int) (string, *manifest.Node, string, bool) {
 	fake.resolveResourceLinkMutex.RLock()
 	defer fake.resolveResourceLinkMutex.RUnlock()
 	argsForCall := fake.resolveResourceLinkArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
 }
 
 func (fake *FakeInterface) ResolveResourceLinkReturns(result1 string, result2 error) {

@@ -11,4 +11,5 @@ type Hugo struct {
 	BaseURL            string   `mapstructure:"hugo-base-url"`
 	IndexFileNames     []string `mapstructure:"hugo-section-files"`
 	HugoStructuralDirs []string `mapstructure:"hugo-structural-dirs"`
+	RelativeImageLinks bool     `mapstructure:"hugo-relative-image-links"`
 }

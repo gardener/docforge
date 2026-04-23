@@ -176,7 +176,7 @@ func (d *linkResolverTask) resolveLink(dest string, isEmbeddable bool) (string, 
 			return dest, nil
 		}
 	}
-	return d.linkresolver.ResolveResourceLink(dest, d.node, d.source)
+	return d.linkresolver.ResolveResourceLink(dest, d.node, d.source, false)
 }
 
 func (d *linkResolverTask) resolveEmbededLink(embeddedLink string, source string) (string, error) {
@@ -196,5 +196,5 @@ func (d *linkResolverTask) resolveEmbededLink(embeddedLink string, source string
 		return repositoryhost.RawURL(embeddedLink)
 	}
 	// resolve urls from referenced repositories
-	return d.linkresolver.ResolveResourceLink(resourceURL.String(), d.node, source)
+	return d.linkresolver.ResolveResourceLink(resourceURL.String(), d.node, source, true)
 }
