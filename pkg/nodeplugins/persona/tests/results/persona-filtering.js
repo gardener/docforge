@@ -62,7 +62,7 @@ taxonomyTerms
     .map(tt => tt.setAttribute("class","taxonomy-term selectedTaxonomy"))
 
 linkToPersona = {
-    "/docs/": "Developers,Users,Operators",
+    "/docs/": "Developers,Operators,Users",
     "/docs/foo/": "Operators",
     "/docs/getting-started/": "Developers,Users",
     "/docs/getting-started/users-content/": "Users",

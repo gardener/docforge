@@ -25,6 +25,7 @@ jobs:
     runs-on: ${{ matrix.args.runner }}
     permissions:
       contents: read
+      id-token: write
     strategy:
       matrix:
         args:
