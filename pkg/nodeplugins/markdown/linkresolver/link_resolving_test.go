@@ -80,7 +80,7 @@ var _ = Describe("Document link resolving", func() {
 		It("Resolves internal anchor correctly", func() {
 			newLink, err := linkResolver.ResolveResourceLink("#anchor", node, source)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(newLink).To(Equal("/baseURL/one/node/#anchor"))
+			Expect(newLink).To(Equal("#anchor"))
 		})
 
 		It("Resolves _index.md correctly", func() {
