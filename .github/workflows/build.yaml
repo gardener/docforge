@@ -85,7 +85,7 @@ jobs:
             type: executable
             extraIdentity:
               os: ${{ matrix.args.os }}
-              architecture: ${{ matrix.args.arch }}
+              architecture: '${{ matrix.args.arch }}'
             access:
               type: localBlob
               localReference: docforge.tar.gz
