@@ -17,7 +17,6 @@ import (
 	"github.com/gardener/docforge/pkg/nodeplugins/markdown/document/frontmatter"
 	"github.com/gardener/docforge/pkg/nodeplugins/markdown/document/markdown"
 	"github.com/gardener/docforge/pkg/nodeplugins/markdown/linkresolver"
-	"github.com/gardener/docforge/pkg/nodeplugins/markdown/linkvalidator"
 	"github.com/gardener/docforge/pkg/registry"
 	"github.com/gardener/docforge/pkg/registry/repositoryhost"
 	"github.com/gardener/docforge/pkg/writers"
@@ -30,25 +29,21 @@ import (
 type Worker struct {
 	markdown     goldmark.Markdown
 	linkresolver linkresolver.Interface
-	validator    linkvalidator.Interface
 
 	writer writers.Writer
 
-	repositoryhosts    registry.Interface
-	hugo               hugo.Hugo
-	skipLinkValidation bool
+	repositoryhosts registry.Interface
+	hugo            hugo.Hugo
 }
 
 // NewDocumentWorker creates Worker objects
-func NewDocumentWorker(validator linkvalidator.Interface, linkResolver linkresolver.Interface, rh registry.Interface, hugo hugo.Hugo, writer writers.Writer, skipLinkValidation bool) *Worker {
+func NewDocumentWorker(linkResolver linkresolver.Interface, rh registry.Interface, hugo hugo.Hugo, writer writers.Writer) *Worker {
 	return &Worker{
 		markdown.New(),
 		linkResolver,
-		validator,
 		writer,
 		rh,
 		hugo,
-		skipLinkValidation,
 	}
 }
 
@@ -169,10 +164,6 @@ func (d *linkResolverTask) resolveLink(dest string, isEmbeddable bool) (string, 
 	// handle non-embeded links
 	if url.IsAbs() {
 		if _, err = d.repositoryhosts.ResourceURL(dest); err != nil {
-			// absolute link that is not referencing any documentation page
-			if !d.node.SkipValidation && !d.skipLinkValidation {
-				d.validator.ValidateLink(dest, d.source)
-			}
 			return dest, nil
 		}
 	}

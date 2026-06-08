@@ -41,10 +41,6 @@ func configureFlags(command *cobra.Command, vip *viper.Viper) {
 		"Number of parallel workers for document processing.")
 	_ = vip.BindPFlag("document-workers", command.Flags().Lookup("document-workers"))
 
-	command.Flags().Int("validation-workers", 10,
-		"Number of parallel workers to validate the markdown links")
-	_ = vip.BindPFlag("validation-workers", command.Flags().Lookup("validation-workers"))
-
 	command.Flags().Int("download-workers", 10,
 		"Number of workers downloading document resources in parallel.")
 	_ = vip.BindPFlag("download-workers", command.Flags().Lookup("download-workers"))
@@ -84,14 +80,6 @@ func configureFlags(command *cobra.Command, vip *viper.Viper) {
 	command.Flags().Bool("aliases-enabled", false,
 		"Set this flag when you want to enable aliases for files.")
 	_ = vip.BindPFlag("aliases-enabled", command.Flags().Lookup("aliases-enabled"))
-
-	command.Flags().Bool("skip-link-validation", false,
-		"Links validation will be skipped")
-	_ = vip.BindPFlag("skip-link-validation", command.Flags().Lookup("skip-link-validation"))
-
-	command.Flags().StringSlice("hosts-to-report", []string{},
-		"When a link has a host from the given array it will get reported")
-	_ = vip.BindPFlag("hosts-to-report", command.Flags().Lookup("hosts-to-report"))
 
 	cacheDir := ""
 	userHomeDir, err := os.UserHomeDir()

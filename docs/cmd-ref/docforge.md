@@ -36,7 +36,6 @@ docforge [flags]
       --skip_log_headers                            If true, avoid headers when opening log files
       --stderrthreshold severity                    logs at or above this threshold go to stderr (default 2)
   -v, --v Level                                     number for the log level verbosity
-      --validation-workers int                      Number of parallel workers to validate the markdown links (default 50)
       --vmodule moduleSpec                          comma-separated list of pattern=N settings for file-filtered logging
 ```
 

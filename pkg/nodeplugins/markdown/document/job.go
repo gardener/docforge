@@ -12,7 +12,6 @@ import (
 	"github.com/gardener/docforge/cmd/hugo"
 	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/nodeplugins/markdown/linkresolver"
-	"github.com/gardener/docforge/pkg/nodeplugins/markdown/linkvalidator"
 	"github.com/gardener/docforge/pkg/registry"
 	"github.com/gardener/docforge/pkg/workers/taskqueue"
 	"github.com/gardener/docforge/pkg/writers"
@@ -31,9 +30,9 @@ type Processor interface {
 }
 
 // New creates a new Worker
-func New(workerCount int, failFast bool, wg *sync.WaitGroup, structure []*manifest.Node, validator linkvalidator.Interface, rhs registry.Interface, hugo hugo.Hugo, writer writers.Writer, skipLinkValidation bool) (Processor, taskqueue.QueueController, error) {
+func New(workerCount int, failFast bool, wg *sync.WaitGroup, structure []*manifest.Node, rhs registry.Interface, hugo hugo.Hugo, writer writers.Writer) (Processor, taskqueue.QueueController, error) {
 	lr := linkresolver.New(structure, rhs, hugo)
-	worker := NewDocumentWorker(validator, lr, rhs, hugo, writer, skipLinkValidation)
+	worker := NewDocumentWorker(lr, rhs, hugo, writer)
 	queue, err := taskqueue.New("Document", workerCount, worker.execute, failFast, wg)
 	if err != nil {
 		return nil, nil, err
