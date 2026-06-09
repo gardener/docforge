@@ -14,7 +14,6 @@ import (
 // new Reactor objects
 type Options struct {
 	DocumentWorkersCount         int      `mapstructure:"document-workers"`
-	ValidationWorkersCount       int      `mapstructure:"validation-workers"`
 	FailFast                     bool     `mapstructure:"fail-fast"`
 	DestinationPath              string   `mapstructure:"destination"`
 	ManifestPath                 string   `mapstructure:"manifest"`
@@ -22,8 +21,6 @@ type Options struct {
 	GhInfoDestination            string   `mapstructure:"github-info-destination"`
 	DryRun                       bool     `mapstructure:"dry-run"`
 	ContentFileFormats           []string `mapstructure:"content-files-formats"`
-	HostsToReport                []string `mapstructure:"hosts-to-report"`
-	SkipLinkValidation           bool     `mapstructure:"skip-link-validation"`
 }
 
 // Writers struct that collects all the writesr

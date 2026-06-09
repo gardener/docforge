@@ -74,6 +74,7 @@ func NewCommand(ctx context.Context) *cobra.Command {
 func configure(command *cobra.Command) *viper.Viper {
 	//set delimiter to be ::
 	vip := viper.NewWithOptions(viper.KeyDelimiter("::"))
+	vip.SetConfigType("yaml")
 	configureFlags(command, vip)
 	configureConfigFile(vip)
 	return vip
@@ -92,7 +93,6 @@ func configureConfigFile(vip *viper.Viper) {
 	}
 	vip.AddConfigPath(filepath.Dir(cfgFile))
 	vip.SetConfigName(filepath.Base(cfgFile))
-	vip.SetConfigType("yaml")
 	err := vip.ReadInConfig()
 	if err != nil {
 		klog.Warningf("Non-fatal error in loading configuration file %s. No configuration file will be used: %v\n", cfgFile, err)

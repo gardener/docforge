@@ -24,8 +24,6 @@ type Node struct {
 
 	// Proccessor determines which node processor to use
 	Processor string `yaml:"processor,omitempty"`
-	// Properties of the node
-	SkipValidation bool `yaml:"skipValidation,omitempty"`
 	// Frontmatter of the node
 	Frontmatter map[string]interface{} `yaml:"frontmatter,omitempty"`
 	// Type of node

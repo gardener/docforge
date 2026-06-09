@@ -12,7 +12,7 @@ type Markdown struct{}
 
 // PluginNodeTransformations returns the node transformations for the markdown plugin
 func (d *Markdown) PluginNodeTransformations() []manifest.NodeTransformation {
-	return []manifest.NodeTransformation{setMarkdownProcessor, propagateFrontmatter, propagateSkipValidation}
+	return []manifest.NodeTransformation{setMarkdownProcessor, propagateFrontmatter}
 }
 
 func setMarkdownProcessor(node *manifest.Node, parent *manifest.Node, _ registry.Interface) (bool, error) {
@@ -34,13 +34,6 @@ func propagateFrontmatter(node *manifest.Node, parent *manifest.Node, _ registry
 			newFM[k] = v
 		}
 		node.Frontmatter = newFM
-	}
-	return false, nil
-}
-
-func propagateSkipValidation(node *manifest.Node, parent *manifest.Node, _ registry.Interface) (bool, error) {
-	if parent != nil && parent.SkipValidation {
-		node.SkipValidation = parent.SkipValidation
 	}
 	return false, nil
 }
