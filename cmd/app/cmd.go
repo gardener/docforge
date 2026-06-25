@@ -16,7 +16,6 @@ import (
 	"github.com/gardener/docforge/cmd/gendocs"
 	"github.com/gardener/docforge/cmd/hugo"
 	"github.com/gardener/docforge/cmd/markdown"
-	"github.com/gardener/docforge/cmd/persona"
 	"github.com/gardener/docforge/cmd/version"
 	"github.com/gardener/docforge/pkg/registry/repositoryhost"
 	"github.com/spf13/cobra"
@@ -36,7 +35,6 @@ type options struct {
 	Options                    `mapstructure:",squash"`
 	hugo.Hugo                  `mapstructure:",squash"`
 	docsy.Docsy                `mapstructure:",squash"`
-	persona.Persona            `mapstructure:",squash"`
 	markdown.Markdown          `mapstructure:",squash"`
 	alias.Alias                `mapstructure:",squash"`
 	repositoryhost.InitOptions `mapstructure:",squash"`

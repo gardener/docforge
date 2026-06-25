@@ -17,11 +17,9 @@ import (
 	"github.com/gardener/docforge/pkg/manifestplugins/docsy"
 	"github.com/gardener/docforge/pkg/manifestplugins/filetypefilter"
 	manifestmarkdown "github.com/gardener/docforge/pkg/manifestplugins/markdown"
-	"github.com/gardener/docforge/pkg/manifestplugins/persona"
 	"github.com/gardener/docforge/pkg/nodeplugins"
 	"github.com/gardener/docforge/pkg/nodeplugins/downloader"
 	"github.com/gardener/docforge/pkg/nodeplugins/markdown"
-	personanodeplugin "github.com/gardener/docforge/pkg/nodeplugins/persona"
 	"github.com/gardener/docforge/pkg/osfakes/osshim"
 	"github.com/gardener/docforge/pkg/registry"
 	"github.com/gardener/docforge/pkg/registry/repositoryhost"
@@ -61,10 +59,6 @@ func exec(ctx context.Context, vip *viper.Viper) error {
 	rhRegistry := registry.NewRegistry(append(localRH, config.RepositoryHosts...)...)
 
 	pluginTransformations := []manifest.NodeTransformation{}
-	if options.Persona.PersonaFilterEnabled {
-		personaPlugin := persona.Persona{}
-		pluginTransformations = append(pluginTransformations, personaPlugin.PluginNodeTransformations()...)
-	}
 	if options.Alias.AliasesEnabled {
 		aliasPlugin := alias.Alias{}
 		pluginTransformations = append(pluginTransformations, aliasPlugin.PluginNodeTransformations()...)
@@ -92,9 +86,6 @@ func exec(ctx context.Context, vip *viper.Viper) error {
 	}
 
 	additionalNodePlugins := []nodeplugins.Interface{}
-	if options.Persona.PersonaFilterEnabled {
-		additionalNodePlugins = append(additionalNodePlugins, &personanodeplugin.Plugin{Root: documentNodes[0], Writer: config.Writer})
-	}
 	// Stage 1
 	reactorWGStage1 := &sync.WaitGroup{}
 	mdPlugin, mdTasks, err := markdown.NewPlugin(config.DocumentWorkersCount, config.FailFast, reactorWGStage1, documentNodes, rhRegistry, config.Hugo, config.Writer, config.ResourceDownloadWorkersCount, config.GitInfoWriter)
