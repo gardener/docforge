@@ -27,7 +27,7 @@ import (
 
 // Interface represent link resolving interface
 type Interface interface {
-	ResolveResourceLink(destination string, node *manifest.Node, source string) (string, error)
+	ResolveResourceLink(destination string, node *manifest.Node, source string, isEmbeddable bool) (string, error)
 }
 
 // LinkResolver represents link resolving nessesary objects
@@ -56,8 +56,10 @@ func New(structure []*manifest.Node, rhs registry.Interface, hugo hugo.Hugo) *Li
 	return lr
 }
 
-// ResolveResourceLink resolves resource link from a given source
-func (l *LinkResolver) ResolveResourceLink(resourceLink string, node *manifest.Node, source string) (string, error) {
+// ResolveResourceLink resolves resource link from a given source.
+// When isEmbeddable is true and RelativeImageLinks is enabled, the link is
+// resolved as a relative path instead of being prefixed with the base URL.
+func (l *LinkResolver) ResolveResourceLink(resourceLink string, node *manifest.Node, source string, isEmbeddable bool) (string, error) {
 	// fragment-only links (e.g. #heading) are same-document anchors — pass through unchanged
 	if strings.HasPrefix(resourceLink, "#") {
 		return resourceLink, nil
@@ -93,6 +95,27 @@ func (l *LinkResolver) ResolveResourceLink(resourceLink string, node *manifest.N
 	}
 	for _, structuralDir := range l.Hugo.HugoStructuralDirs {
 		websiteLink = strings.TrimPrefix(websiteLink, structuralDir+"/")
+	}
+	// When resolving embedded resources (images) with relative image links enabled,
+	// compute a relative path from the source node to the destination instead of
+	// prepending the base URL. This produces portable markdown paths like ./image.png
+	// that work with VitePress and other SSGs.
+	if isEmbeddable && l.Hugo.RelativeImageLinks {
+		srcDir := node.Path
+		for _, structuralDir := range l.Hugo.HugoStructuralDirs {
+			srcDir = strings.TrimPrefix(srcDir, structuralDir+"/")
+		}
+		destPath := websiteLink
+		if destinationResource.GetResourceSuffix() != "" {
+			destPath = destPath + destinationResource.GetResourceSuffix()
+		}
+		relPath, relErr := filepath.Rel(srcDir, destPath)
+		if relErr == nil {
+			if !strings.HasPrefix(relPath, ".") {
+				relPath = "./" + relPath
+			}
+			return relPath, nil
+		}
 	}
 	if destinationResource.GetResourceSuffix() != "" {
 		return link.Build("/", l.Hugo.BaseURL, websiteLink, destinationResource.GetResourceSuffix())

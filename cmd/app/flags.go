@@ -69,6 +69,10 @@ func configureFlags(command *cobra.Command, vip *viper.Viper) {
 		"When building a Hugo-compliant documentation bundle, files with filename matching one form this list (in that order) will be renamed to _index.md. Only useful with --hugo=true")
 	_ = vip.BindPFlag("hugo-section-files", command.Flags().Lookup("hugo-section-files"))
 
+	command.Flags().Bool("hugo-relative-image-links", false,
+		"Resolve image and embedded resource links as relative paths instead of prepending hugo-base-url. Produces portable markdown compatible with VitePress and other SSGs. Only useful with --hugo=true")
+	_ = vip.BindPFlag("hugo-relative-image-links", command.Flags().Lookup("hugo-relative-image-links"))
+
 	command.Flags().StringSlice("content-files-formats", []string{},
 		"Supported content format extensions (example: .md)")
 	_ = vip.BindPFlag("content-files-formats", command.Flags().Lookup("content-files-formats"))

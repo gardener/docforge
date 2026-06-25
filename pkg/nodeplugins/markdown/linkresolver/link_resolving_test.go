@@ -60,49 +60,49 @@ var _ = Describe("Document link resolving", func() {
 		})
 
 		It("Broken links should not return error", func() {
-			newLink, err := linkResolver.ResolveResourceLink("invalidfoo/bar.md", node, source)
+			newLink, err := linkResolver.ResolveResourceLink("invalidfoo/bar.md", node, source, false)
 			Expect(err).To(Not(HaveOccurred()))
 			Expect(newLink).To(Equal("https://github.com/gardener/docforge/blob/master/invalidfoo/bar.md"))
 		})
 
 		It("Resolves linking closest source correctly", func() {
-			newLink, err := linkResolver.ResolveResourceLink("clickhere.md?a=b#c", node, source)
+			newLink, err := linkResolver.ResolveResourceLink("clickhere.md?a=b#c", node, source, false)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(newLink).To(Equal("/baseURL/one/internal/linked/?a=b#c"))
 		})
 
 		It("Resolves anchor to closes source correctly", func() {
-			newLink, err := linkResolver.ResolveResourceLink("clickhere.md#anchor", node, source)
+			newLink, err := linkResolver.ResolveResourceLink("clickhere.md#anchor", node, source, false)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(newLink).To(Equal("/baseURL/one/internal/linked/#anchor"))
 		})
 
 		It("Resolves internal anchor correctly", func() {
-			newLink, err := linkResolver.ResolveResourceLink("#anchor", node, source)
+			newLink, err := linkResolver.ResolveResourceLink("#anchor", node, source, false)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(newLink).To(Equal("#anchor"))
 		})
 
 		It("Resolves _index.md correctly", func() {
-			newLink, err := linkResolver.ResolveResourceLink("https://github.com/gardener/docforge/blob/master/docs/_index.md", node, source)
+			newLink, err := linkResolver.ResolveResourceLink("https://github.com/gardener/docforge/blob/master/docs/_index.md", node, source, false)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(newLink).To(Equal("/baseURL/two/internal/"))
 		})
 
 		It("Resolves non-page resource links correctly", func() {
-			newLink, err := linkResolver.ResolveResourceLink("./non-page.md", node, source)
+			newLink, err := linkResolver.ResolveResourceLink("./non-page.md", node, source, false)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(newLink).To(Equal("https://github.com/gardener/docforge/blob/master/non-page.md"))
 		})
 
 		It("Resolving url with no suitable repository host", func() {
-			_, err := linkResolver.ResolveResourceLink("https://gitlab.com/gardener/docforge/blob/master/README.md", node, source)
+			_, err := linkResolver.ResolveResourceLink("https://gitlab.com/gardener/docforge/blob/master/README.md", node, source, false)
 			Expect(err.Error()).To(ContainSubstring("no sutiable repository host"))
 		})
 
 		It("Resolves resource links containing hugo structural directory correctly", func() {
 			linkResolver.Hugo.HugoStructuralDirs = []string{"content"}
-			newLink, err := linkResolver.ResolveResourceLink("https://github.com/gardener/docforge/blob/master/file.md", node, source)
+			newLink, err := linkResolver.ResolveResourceLink("https://github.com/gardener/docforge/blob/master/file.md", node, source, false)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(newLink).To(Equal("/baseURL/docs/file/"))
 		})
@@ -112,24 +112,24 @@ var _ = Describe("Document link resolving", func() {
 				By("Node having no linkResolution should map to closest node")
 				lr := node.LinkResolution
 				node.LinkResolution = map[string]string{}
-				newLink, err := linkResolver.ResolveResourceLink("https://github.com/gardener/docforge/blob/master/linkresolution.md", node, source)
+				newLink, err := linkResolver.ResolveResourceLink("https://github.com/gardener/docforge/blob/master/linkresolution.md", node, source, false)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(newLink).To(Equal("/baseURL/one/linkresolution/"))
 
 				By("Node having linkResolution should map to the desired node")
 				node.LinkResolution = lr
-				newLink, err = linkResolver.ResolveResourceLink("https://github.com/gardener/docforge/blob/master/linkresolution.md", node, source)
+				newLink, err = linkResolver.ResolveResourceLink("https://github.com/gardener/docforge/blob/master/linkresolution.md", node, source, false)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(newLink).To(Equal("/baseURL/two/internal/far_linkresolution/"))
 			})
 
 			It("Resolves linkResolution correctly", func() {
-				_, err := linkResolver.ResolveResourceLink("https://github.com/gardener/docforge/blob/master/linkresolution2.md", node, source)
+				_, err := linkResolver.ResolveResourceLink("https://github.com/gardener/docforge/blob/master/linkresolution2.md", node, source, false)
 				Expect(err.Error()).To(ContainSubstring("node with path one/node.md's LinkResolution of https://github.com/gardener/docforge/blob/master/linkresolution2.md field maps to 0 nodes"))
 			})
 
 			It("Does not change URL if there is no node with that source", func() {
-				newLink, err := linkResolver.ResolveResourceLink("https://github.com/gardener/docforge/blob/master/linkresolution3.md", node, source)
+				newLink, err := linkResolver.ResolveResourceLink("https://github.com/gardener/docforge/blob/master/linkresolution3.md", node, source, false)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(newLink).To(Equal("https://github.com/gardener/docforge/blob/master/linkresolution3.md"))
 			})
