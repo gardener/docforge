@@ -174,7 +174,7 @@ var _ = Describe("Document frontmatter", func() {
 		Context("top level node", func() {
 			It("removes _,- and .md in the general case", func() {
 				node = nodes[1]
-				frontmatter.ComputeNodeTitle(nodeAst, node, indexFileNames, hugoEnabled)
+				frontmatter.ComputeNodeTitle(nodeAst, node, indexFileNames, hugoEnabled, "")
 				setMeta := nodeAst.SetMetaArgsForCall(0)
 				Expect(setMeta).To(Equal(map[string]interface{}{
 					"title": "File Node 1",
@@ -182,7 +182,7 @@ var _ = Describe("Document frontmatter", func() {
 			})
 			It("has title Root if file is index", func() {
 				node = nodes[2]
-				frontmatter.ComputeNodeTitle(nodeAst, node, indexFileNames, hugoEnabled)
+				frontmatter.ComputeNodeTitle(nodeAst, node, indexFileNames, hugoEnabled, "")
 				setMeta := nodeAst.SetMetaArgsForCall(0)
 				Expect(setMeta).To(Equal(map[string]interface{}{
 					"title": "Root",
@@ -191,7 +191,7 @@ var _ = Describe("Document frontmatter", func() {
 			Context("node with parent", func() {
 				It("removes _,- and .md in the general case", func() {
 					node = nodes[4]
-					frontmatter.ComputeNodeTitle(nodeAst, node, indexFileNames, hugoEnabled)
+					frontmatter.ComputeNodeTitle(nodeAst, node, indexFileNames, hugoEnabled, "")
 					setMeta := nodeAst.SetMetaArgsForCall(0)
 					Expect(setMeta).To(Equal(map[string]interface{}{
 						"title": "File Node 2",
@@ -199,7 +199,7 @@ var _ = Describe("Document frontmatter", func() {
 				})
 				It("uses parents name if file is index", func() {
 					node = nodes[5]
-					frontmatter.ComputeNodeTitle(nodeAst, node, indexFileNames, hugoEnabled)
+					frontmatter.ComputeNodeTitle(nodeAst, node, indexFileNames, hugoEnabled, "")
 					setMeta := nodeAst.SetMetaArgsForCall(0)
 					Expect(setMeta).To(Equal(map[string]interface{}{
 						"title": "Parent Dir",

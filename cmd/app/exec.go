@@ -66,7 +66,7 @@ func exec(ctx context.Context, vip *viper.Viper) error {
 		pluginTransformations = append(pluginTransformations, personaPlugin.PluginNodeTransformations()...)
 	}
 	if options.Alias.AliasesEnabled {
-		aliasPlugin := alias.Alias{}
+		aliasPlugin := alias.Alias{SectionFilesName: options.Hugo.SectionFilesName}
 		pluginTransformations = append(pluginTransformations, aliasPlugin.PluginNodeTransformations()...)
 	}
 	if options.Markdown.MarkdownEnabled {
@@ -74,7 +74,7 @@ func exec(ctx context.Context, vip *viper.Viper) error {
 		pluginTransformations = append(pluginTransformations, markdownPlugin.PluginNodeTransformations()...)
 	}
 	if options.Docsy.EditThisPageEnabled {
-		docsyPlugin := docsy.Docsy{}
+		docsyPlugin := docsy.Docsy{SectionFilesName: options.Hugo.SectionFilesName}
 		pluginTransformations = append(pluginTransformations, docsyPlugin.PluginNodeTransformations()...)
 	}
 
@@ -93,7 +93,7 @@ func exec(ctx context.Context, vip *viper.Viper) error {
 
 	additionalNodePlugins := []nodeplugins.Interface{}
 	if options.Persona.PersonaFilterEnabled {
-		additionalNodePlugins = append(additionalNodePlugins, &personanodeplugin.Plugin{Root: documentNodes[0], Writer: config.Writer})
+		additionalNodePlugins = append(additionalNodePlugins, &personanodeplugin.Plugin{Root: documentNodes[0], Writer: config.Writer, IndexFileNames: config.Hugo.IndexFileNames, SectionFilesName: config.Hugo.SectionFilesName})
 	}
 	// Stage 1
 	reactorWGStage1 := &sync.WaitGroup{}

@@ -10,13 +10,19 @@ import (
 )
 
 // Alias is the object representing the alias plugin
-type Alias struct{}
+type Alias struct {
+	SectionFilesName string
+}
 
 // PluginNodeTransformations returns the node transformations for the alias plugin
 func (d *Alias) PluginNodeTransformations() []manifest.NodeTransformation {
-	return []manifest.NodeTransformation{calculateAliases}
+	return []manifest.NodeTransformation{d.calculateAliases}
 }
-func calculateAliases(node *manifest.Node, parent *manifest.Node, _ registry.Interface) (bool, error) {
+func (d *Alias) calculateAliases(node *manifest.Node, parent *manifest.Node, _ registry.Interface) (bool, error) {
+	sectionFilesName := d.SectionFilesName
+	if sectionFilesName == "" {
+		sectionFilesName = "_index.md"
+	}
 	var (
 		nodeAliases  []interface{}
 		childAliases []interface{}
@@ -37,7 +43,7 @@ func calculateAliases(node *manifest.Node, parent *manifest.Node, _ registry.Int
 				return false, fmt.Errorf("node \n\n%s\n has invalid alias format", child)
 			}
 			childAliasSuffix := strings.TrimSuffix(child.Name(), ".md")
-			if child.Name() == "_index.md" {
+			if child.Name() == sectionFilesName {
 				childAliasSuffix = ""
 			}
 			nodeAlias := fmt.Sprintf("%s", nodeAliasI)
