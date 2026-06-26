@@ -42,6 +42,7 @@ func initRepositoryHosts(ctx context.Context, o repositoryhost.InitOptions) ([]r
 			errs = multierror.Append(errs, fmt.Errorf("couldn't parse url: %s", instance))
 			continue
 		}
+		repositoryhost.RegisterHost(u.Host)
 		cachePath := filepath.Join(o.CacheHomeDir, "diskv", host)
 		client, httpClient, err := buildClient(ctx, oAuthToken, instance, cachePath)
 		if err != nil {
