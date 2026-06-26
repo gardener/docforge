@@ -12,14 +12,47 @@ import (
 )
 
 var (
-	rawPrefixed       = regexp.MustCompile(`https://(github.com|github.tools.sap|raw.github.tools.sap|github.wdf.sap.corp)/raw/([^/]+)/([^/]+)/([^/]+)/([^\?#]*)(.*)`)
-	resource          = regexp.MustCompile(`https://(github.com|github.tools.sap|raw.github.tools.sap|github.wdf.sap.corp)/([^/]+)/([^/]+)/([^/]+)/([^/]+)/?([^\?#]*)(.*)`)
+	// knownHosts holds all GitHub-compatible hosts that docforge can process.
+	// Populated at startup via RegisterHost() for each entry in github-oauth-env-map.
+	// TODO: extend this mechanism to support GitLab hosts when a GitLab implementation is added.
+	knownHosts = []string{"github.com"} //nolint:gochecknoglobals
+
+	cachedRaw      *regexp.Regexp //nolint:gochecknoglobals
+	cachedResource *regexp.Regexp //nolint:gochecknoglobals
+
 	githubusercontent = regexp.MustCompile(`https://raw.githubusercontent.com/([^/]+)/([^/]+)/([^/]+)/([^\?#]*)(.*)`)
 )
 
+func init() {
+	cachedRaw, cachedResource = buildRegexps()
+}
+
+func buildRegexps() (*regexp.Regexp, *regexp.Regexp) {
+	escaped := make([]string, len(knownHosts))
+	for i, h := range knownHosts {
+		escaped[i] = regexp.QuoteMeta(h)
+	}
+	hostGroup := strings.Join(escaped, "|")
+	raw := regexp.MustCompile(`https://(` + hostGroup + `)/raw/([^/]+)/([^/]+)/([^/]+)/([^\?#]*)(.*)`)
+	res := regexp.MustCompile(`https://(` + hostGroup + `)/([^/]+)/([^/]+)/([^/]+)/([^/]+)/?([^\?#]*)(.*)`)
+	return raw, res
+}
+
+// RegisterHost adds a GitHub-compatible host to the list of recognized hosts.
+// Must be called before any URL parsing occurs (i.e. at startup, before goroutines are started).
+func RegisterHost(host string) {
+	for _, h := range knownHosts {
+		if h == host {
+			return
+		}
+	}
+	knownHosts = append(knownHosts, host)
+	cachedRaw, cachedResource = buildRegexps()
+}
+
 // IsResourceURL checks if link is resource URL
 func IsResourceURL(link string) bool {
-	return rawPrefixed.MatchString(link) || resource.MatchString(link) || githubusercontent.MatchString(link)
+	return cachedRaw.MatchString(link) || cachedResource.MatchString(link) || githubusercontent.MatchString(link)
 }
 
 // IsRelative is a helper function that checks if a link is relative
@@ -63,7 +96,7 @@ func new(resourceURL string) (*URL, error) {
 	if u.String() == "" {
 		return nil, nil
 	}
-	components := rawPrefixed.FindStringSubmatch(u.String())
+	components := cachedRaw.FindStringSubmatch(u.String())
 	if components != nil {
 		return &URL{
 			host:           components[1],
@@ -87,7 +120,7 @@ func new(resourceURL string) (*URL, error) {
 			resourceSuffix: components[5],
 		}, nil
 	}
-	components = resource.FindStringSubmatch(u.String())
+	components = cachedResource.FindStringSubmatch(u.String())
 	if components != nil {
 		return &URL{
 			host:           components[1],

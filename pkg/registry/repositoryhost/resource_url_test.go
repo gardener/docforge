@@ -140,4 +140,29 @@ var _ = Describe("URL", func() {
 			})
 		})
 	})
+
+	Describe("#RegisterHost", func() {
+		AfterEach(func() {
+			repositoryhost.ResetHosts()
+		})
+
+		It("allows parsing URLs from a newly registered host", func() {
+			repositoryhost.RegisterHost("github.example.com")
+
+			Expect(repositoryhost.IsResourceURL("https://github.example.com/owner/repo/blob/master/docs/readme.md")).To(BeTrue())
+
+			r, err := repositoryhost.NewResourceURL("https://github.example.com/owner/repo/blob/master/docs/readme.md")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(r.GetHost()).To(Equal("github.example.com"))
+			Expect(r.GetOwner()).To(Equal("owner"))
+			Expect(r.GetRepo()).To(Equal("repo"))
+		})
+
+		It("rejects URLs from an unregistered host", func() {
+			Expect(repositoryhost.IsResourceURL("https://unknown.example.com/owner/repo/blob/master/docs/readme.md")).To(BeFalse())
+
+			_, err := repositoryhost.NewResourceURL("https://unknown.example.com/owner/repo/blob/master/docs/readme.md")
+			Expect(err).To(HaveOccurred())
+		})
+	})
 })
