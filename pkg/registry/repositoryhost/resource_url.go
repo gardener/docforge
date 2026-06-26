@@ -15,10 +15,10 @@ var (
 	// knownHosts holds all GitHub-compatible hosts that docforge can process.
 	// Populated at startup via RegisterHost() for each entry in github-oauth-env-map.
 	// TODO: extend this mechanism to support GitLab hosts when a GitLab implementation is added.
-	knownHosts = []string{"github.com"}
+	knownHosts = []string{"github.com"} //nolint:gochecknoglobals
 
-	cachedRaw      *regexp.Regexp
-	cachedResource *regexp.Regexp
+	cachedRaw      *regexp.Regexp //nolint:gochecknoglobals
+	cachedResource *regexp.Regexp //nolint:gochecknoglobals
 
 	githubusercontent = regexp.MustCompile(`https://raw.githubusercontent.com/([^/]+)/([^/]+)/([^/]+)/([^\?#]*)(.*)`)
 )
