@@ -65,6 +65,8 @@ func NewCommand(ctx context.Context) *cobra.Command {
 	genCmdDocs := gendocs.NewGenCmdDocs()
 	cmd.AddCommand(genCmdDocs)
 
+	cmd.AddCommand(NewGenTocCmd(ctx))
+
 	klog.InitFlags(nil)
 	addFlags(cmd)
 
