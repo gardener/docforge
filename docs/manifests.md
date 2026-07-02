@@ -62,7 +62,7 @@ Manifest: fileTree.yaml
 structure:
 - dir: section
   structure:
-  # loads all files from a given github directory (tree)
+  # loads all files from a given github directory and all subdirectories (recursively)
   - fileTree: https://github.com/gardener/docforge/tree/master/docs
     # relative paths of files to exclude
     excludeFiles:
@@ -71,10 +71,16 @@ structure:
     - cmd-ref/docforge_completion.md
     - cmd-ref/docforge_gen-cmd-docs.md
 ```
-Result:
+Result: Folders with only images/assets (.png,.jpg, etc.) will be silently skipped.
 ```
 docforge-docs
 └── section
+    └── plugin
+        |── alias.md
+        |── docsy.md
+        |── filetypefilter.md
+        |── markdown.md
+        |── persona.md
     |── consistency.md
     |── manifest-ref.md
     |── manifests.md
