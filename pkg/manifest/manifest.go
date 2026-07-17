@@ -361,6 +361,7 @@ func getParrentNode(pathToDirNode map[string]*Node, parentPath string) *Node {
 
 func mergeFolders(node *Node, parent *Node, _ registry.Interface) (bool, error) {
 	nodeNameToNode := map[string]*Node{}
+	var toRemove []*Node
 	for _, child := range node.Structure {
 		switch child.Type {
 		case "dir":
@@ -369,7 +370,7 @@ func mergeFolders(node *Node, parent *Node, _ registry.Interface) (bool, error) 
 					return false, fmt.Errorf("there is a file \n\n%s\n colliding with directory \n\n%s", mergeIntoNode, child)
 				}
 				mergeIntoNode.Structure = append(mergeIntoNode.Structure, child.Structure...)
-				RemoveNodeFromParent(child, node)
+				toRemove = append(toRemove, child)
 				// TODO should be removed?
 				if len(child.Frontmatter) > 0 {
 					if len(nodeNameToNode[child.Dir].Frontmatter) > 0 {
@@ -386,6 +387,9 @@ func mergeFolders(node *Node, parent *Node, _ registry.Interface) (bool, error) 
 			}
 			nodeNameToNode[child.File] = child
 		}
+	}
+	for _, child := range toRemove {
+		RemoveNodeFromParent(child, node)
 	}
 	return false, nil
 }
