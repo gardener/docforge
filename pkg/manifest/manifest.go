@@ -292,9 +292,7 @@ func removeFileTreeNodes(node *Node, parent *Node, r registry.Interface) (bool, 
 func RemoveNodeFromParent(node *Node, parent *Node) {
 	for i, child := range parent.Structure {
 		if child == node {
-			size := len(parent.Structure)
-			parent.Structure[i] = parent.Structure[size-1]
-			parent.Structure = parent.Structure[:size-1]
+			parent.Structure = append(parent.Structure[:i], parent.Structure[i+1:]...)
 			return
 		}
 	}

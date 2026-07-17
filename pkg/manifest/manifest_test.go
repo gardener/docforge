@@ -62,6 +62,7 @@ var _ = Describe("Manifest test", func() {
 		Entry("covering directory merges", "merging"),
 		Entry("covering manifest use cases", "manifest"),
 		Entry("covering fileTree filtering", "fileTree_filtering"),
+		Entry("covering fileTree combined with manually added file", "filetree_with_manual_file"),
 	)
 
 	Describe("When there are dirs with frontmatter collision", func() {
