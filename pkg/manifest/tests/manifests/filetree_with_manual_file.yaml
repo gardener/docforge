@@ -1,0 +1,8 @@
+structure:
+- dir: Troubleshooting
+  structure:
+  - fileTree: /contents/blogs/2024
+    excludeFiles:
+    - foo.txt
+  - file: manual.txt
+    source: /contents/README.txt
