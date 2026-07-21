@@ -102,4 +102,37 @@ var _ = Describe("Document resolving", func() {
 		})
 
 	})
+
+	Context("Fix A: root-absolute embed link on re-aggregation", func() {
+		It("re-anchors a root-absolute image link to its structural-dir source and resolves it", func() {
+			registry := registry.NewRegistry(repositoryhost.NewLocalTest(manifests, "https://github.com/gardener/docforge", "tests"))
+			h := hugo.Hugo{
+				Enabled:            true,
+				BaseURL:            "baseURL",
+				HugoStructuralDirs: []string{"content", "static"},
+				IndexFileNames:     []string{"readme.md", "readme", "read.me", "index.md", "index"},
+			}
+			nodes, err := manifest.ResolveManifest("https://github.com/gardener/docforge/blob/master/ra/manifest.yaml", registry)
+			Expect(err).NotTo(HaveOccurred())
+			lr := linkresolver.New(nodes, registry, h)
+			w := &writersfakes.FakeWriter{}
+			dw := document.NewDocumentWorker(lr, registry, h, w)
+
+			node := &manifest.Node{
+				FileType: manifest.FileType{
+					File:   "page.md",
+					Source: "https://github.com/gardener/docforge/blob/master/ra/content/docs/page.md",
+				},
+				Type: "file",
+				Path: "docs",
+			}
+			err = dw.ProcessNode(context.TODO(), node)
+			Expect(err).ToNot(HaveOccurred())
+			_, _, cnt, _, _ := w.WriteArgsForCall(0)
+			// Without Fix A the root-absolute link resolves against the repo root
+			// (ra/images/logo.png), misses, and hard-fails. Re-anchored to the
+			// content/docs source it resolves to the real blob instead.
+			Expect(string(cnt)).To(ContainSubstring("ra/content/docs/images/logo.png"))
+		})
+	})
 })

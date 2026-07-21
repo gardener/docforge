@@ -1,0 +1,7 @@
+structure:
+- dir: content
+  structure:
+  - dir: docs
+    structure:
+    - file: page.md
+      source: https://github.com/gardener/docforge/blob/master/ra/content/docs/page.md
