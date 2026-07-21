@@ -38,6 +38,14 @@ func MoveMultiSourceFrontmatterToTopDocument(dc []NodeMeta) {
 	dc[0].SetMeta(aggregated)
 }
 
+// protectedRoundTripKeys are frontmatter keys whose already-present source-file value must survive
+// re-aggregation (the original wins). params.github_branch is handled separately (nested).
+var protectedRoundTripKeys = []string{
+	"github_repo",
+	"github_subdir",
+	"path_base_for_github_subdir",
+}
+
 // MergeDocumentAndNodeFrontmatter merges frontmatter from document and node object
 func MergeDocumentAndNodeFrontmatter(nodeAst NodeMeta, node *manifest.Node) {
 	if nodeAst == nil || node == nil {
@@ -52,8 +60,10 @@ func MergeDocumentAndNodeFrontmatter(nodeAst NodeMeta, node *manifest.Node) {
 				nodeFrontmatterAliases = append(nodeFrontmatterAliases, fmt.Sprintf("%s", docFrontmatterAlias))
 			}
 			docFrontmatter["aliases"] = nodeFrontmatterAliases
+		} else if frontMatterProperty == "params" {
+			mergeParamsProtectingBranch(docFrontmatter, frontMatterValue)
 		} else {
-			docFrontmatter[frontMatterProperty] = frontMatterValue
+			mergeProtectingRoundTrip(docFrontmatter, frontMatterProperty, frontMatterValue)
 		}
 	}
 	// doc frontmatter has been computed. Copy it to node
@@ -64,6 +74,43 @@ func MergeDocumentAndNodeFrontmatter(nodeAst NodeMeta, node *manifest.Node) {
 		node.Frontmatter[frontMatterProperty] = frontMatterValue
 	}
 	nodeAst.SetMeta(docFrontmatter)
+}
+
+// mergeProtectingRoundTrip sets node value unless the key is a protected round-trip
+// field already present in the source file frontmatter (then the original wins).
+func mergeProtectingRoundTrip(docFrontmatter map[string]interface{}, prop string, val interface{}) {
+	for _, k := range protectedRoundTripKeys {
+		if prop == k {
+			if _, present := docFrontmatter[k]; present {
+				return // original (file) value wins
+			}
+		}
+	}
+	docFrontmatter[prop] = val
+}
+
+// mergeParamsProtectingBranch merges node params into doc params but keeps an already-present
+// github_branch from the source file (original wins).
+func mergeParamsProtectingBranch(docFrontmatter map[string]interface{}, nodeParams interface{}) {
+	nodeMap, ok := nodeParams.(map[interface{}]interface{})
+	if !ok {
+		docFrontmatter["params"] = nodeParams // unexpected shape -> prior node-wins behavior
+		return
+	}
+	docMap, ok := docFrontmatter["params"].(map[interface{}]interface{})
+	if !ok || docMap == nil {
+		docFrontmatter["params"] = nodeParams
+		return
+	}
+	for k, v := range nodeMap {
+		if k == "github_branch" {
+			if _, present := docMap["github_branch"]; present {
+				continue // original branch wins
+			}
+		}
+		docMap[k] = v
+	}
+	docFrontmatter["params"] = docMap
 }
 
 // ComputeNodeTitle Determines node title from its name or its parent name if

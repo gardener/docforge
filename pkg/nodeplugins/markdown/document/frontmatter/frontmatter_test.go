@@ -150,6 +150,107 @@ var _ = Describe("Document frontmatter", func() {
 			Expect(reflect.DeepEqual(setMeta, node.Frontmatter)).To(BeTrue())
 		})
 	})
+
+	Context("#MergeDocumentAndNodeFrontmatter protects round-trip fields", func() {
+		var nodeAst *frontmatterfakes.FakeNodeMeta
+
+		newNode := func(fm map[string]interface{}) *manifest.Node {
+			n := &manifest.Node{}
+			n.Frontmatter = fm
+			return n
+		}
+
+		BeforeEach(func() {
+			nodeAst = &frontmatterfakes.FakeNodeMeta{}
+		})
+
+		It("B1: keeps the original github_repo when the file already has it", func() {
+			nodeAst.MetaReturns(map[string]interface{}{
+				"github_repo": "https://github.com/gardener/documentation",
+			})
+			node := newNode(map[string]interface{}{
+				"github_repo": "https://github.com/gardener/new-source",
+			})
+
+			frontmatter.MergeDocumentAndNodeFrontmatter(nodeAst, node)
+
+			setMeta := nodeAst.SetMetaArgsForCall(0)
+			Expect(setMeta["github_repo"]).To(Equal("https://github.com/gardener/documentation"))
+			Expect(node.Frontmatter["github_repo"]).To(Equal("https://github.com/gardener/documentation"))
+		})
+
+		It("B2: uses the node value when the file lacks github_repo", func() {
+			nodeAst.MetaReturns(map[string]interface{}{})
+			node := newNode(map[string]interface{}{
+				"github_repo": "https://github.com/gardener/new-source",
+			})
+
+			frontmatter.MergeDocumentAndNodeFrontmatter(nodeAst, node)
+
+			setMeta := nodeAst.SetMetaArgsForCall(0)
+			Expect(setMeta["github_repo"]).To(Equal("https://github.com/gardener/new-source"))
+		})
+
+		It("B3: keeps the original path_base_for_github_subdir map", func() {
+			original := map[interface{}]interface{}{
+				"from": "content/docs/getting-started/page.md",
+				"to":   "page.md",
+			}
+			nodeAst.MetaReturns(map[string]interface{}{
+				"path_base_for_github_subdir": original,
+			})
+			node := newNode(map[string]interface{}{
+				"path_base_for_github_subdir": map[interface{}]interface{}{
+					"from": "new/from.md",
+					"to":   "new-to.md",
+				},
+			})
+
+			frontmatter.MergeDocumentAndNodeFrontmatter(nodeAst, node)
+
+			setMeta := nodeAst.SetMetaArgsForCall(0)
+			Expect(setMeta["path_base_for_github_subdir"]).To(Equal(original))
+		})
+
+		It("B4: keeps original params.github_branch but merges other params keys", func() {
+			nodeAst.MetaReturns(map[string]interface{}{
+				"params": map[interface{}]interface{}{
+					"github_branch": "master",
+					"foo":           "bar",
+				},
+			})
+			node := newNode(map[string]interface{}{
+				"params": map[interface{}]interface{}{
+					"github_branch": "newbranch",
+					"extra":         "added",
+				},
+			})
+
+			frontmatter.MergeDocumentAndNodeFrontmatter(nodeAst, node)
+
+			setMeta := nodeAst.SetMetaArgsForCall(0)
+			params, ok := setMeta["params"].(map[interface{}]interface{})
+			Expect(ok).To(BeTrue())
+			Expect(params["github_branch"]).To(Equal("master"))
+			Expect(params["foo"]).To(Equal("bar"))
+			Expect(params["extra"]).To(Equal("added"))
+		})
+
+		It("B5: an empty-string original value still wins (present = present)", func() {
+			nodeAst.MetaReturns(map[string]interface{}{
+				"github_repo": "",
+			})
+			node := newNode(map[string]interface{}{
+				"github_repo": "https://github.com/gardener/new-source",
+			})
+
+			frontmatter.MergeDocumentAndNodeFrontmatter(nodeAst, node)
+
+			setMeta := nodeAst.SetMetaArgsForCall(0)
+			Expect(setMeta["github_repo"]).To(Equal(""))
+		})
+	})
+
 	Context("#ComputeNodeTitle", func() {
 		var (
 			nodeAst        *frontmatterfakes.FakeNodeMeta
