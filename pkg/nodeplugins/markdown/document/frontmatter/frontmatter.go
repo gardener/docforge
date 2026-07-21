@@ -38,14 +38,6 @@ func MoveMultiSourceFrontmatterToTopDocument(dc []NodeMeta) {
 	dc[0].SetMeta(aggregated)
 }
 
-// protectedRoundTripKeys are frontmatter keys whose already-present source-file value must survive
-// re-aggregation (the original wins). params.github_branch is handled separately (nested).
-var protectedRoundTripKeys = []string{
-	"github_repo",
-	"github_subdir",
-	"path_base_for_github_subdir",
-}
-
 // MergeDocumentAndNodeFrontmatter merges frontmatter from document and node object
 func MergeDocumentAndNodeFrontmatter(nodeAst NodeMeta, node *manifest.Node) {
 	if nodeAst == nil || node == nil {
@@ -78,7 +70,13 @@ func MergeDocumentAndNodeFrontmatter(nodeAst NodeMeta, node *manifest.Node) {
 
 // mergeProtectingRoundTrip sets node value unless the key is a protected round-trip
 // field already present in the source file frontmatter (then the original wins).
+// params.github_branch is handled separately (nested) in mergeParamsProtectingBranch.
 func mergeProtectingRoundTrip(docFrontmatter map[string]interface{}, prop string, val interface{}) {
+	protectedRoundTripKeys := []string{
+		"github_repo",
+		"github_subdir",
+		"path_base_for_github_subdir",
+	}
 	for _, k := range protectedRoundTripKeys {
 		if prop == k {
 			if _, present := docFrontmatter[k]; present {
