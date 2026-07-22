@@ -1,0 +1,28 @@
+structure:
+- dir: third
+  frontmatter:
+    weight: 30
+  structure:
+  - file: ../contents/README.txt
+- dir: first
+  frontmatter:
+    weight: 10
+  structure:
+  - dir: nested-b
+    frontmatter:
+      weight: 20
+    structure:
+    - file: ../../contents/README.txt
+  - dir: nested-a
+    frontmatter:
+      weight: 10
+    structure:
+    - file: ../../contents/README.txt
+- dir: second
+  frontmatter:
+    weight: 20
+  structure:
+  - file: ../contents/README.txt
+- dir: unweighted
+  structure:
+  - file: ../contents/README.txt

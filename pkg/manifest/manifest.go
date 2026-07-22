@@ -429,6 +429,7 @@ func ResolveManifest(url string, r registry.Interface, additionalTransformations
 		validateTreeAfterManifestToNodeTree,
 		removeFileTreeNodes,
 		setDefaultProcessor,
+		resolveOrder,
 	)
 	if err != nil {
 		return nil, err
