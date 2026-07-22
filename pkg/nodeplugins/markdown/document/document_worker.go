@@ -173,6 +173,9 @@ func (d *linkResolverTask) resolveLink(dest string, isEmbeddable bool) (string, 
 func (d *linkResolverTask) resolveEmbededLink(embeddedLink string, source string) (string, error) {
 	var err error
 	if repositoryhost.IsRelative(embeddedLink) {
+		if srcURL, e := d.repositoryhosts.ResourceURL(source); e == nil {
+			embeddedLink = linkresolver.ReAnchorRootAbsolute(embeddedLink, srcURL.GetResourcePath(), d.hugo.HugoStructuralDirs)
+		}
 		embeddedLink, err = d.repositoryhosts.ResolveRelativeLink(source, embeddedLink)
 		if err != nil {
 			return embeddedLink, err

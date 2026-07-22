@@ -65,6 +65,9 @@ func (l *LinkResolver) ResolveResourceLink(resourceLink string, node *manifest.N
 	// handle relative links to resources
 	if repositoryhost.IsRelative(resourceLink) {
 		var err error
+		if srcURL, e := l.Repositoryhosts.ResourceURL(source); e == nil {
+			resourceLink = ReAnchorRootAbsolute(resourceLink, srcURL.GetResourcePath(), l.Hugo.HugoStructuralDirs)
+		}
 		// making resourceLink to be resourceURL
 		resourceLink, err = l.Repositoryhosts.ResolveRelativeLink(source, resourceLink)
 		if err != nil {
