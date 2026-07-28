@@ -21,6 +21,16 @@ import (
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate -header ../../../../license_prefix.txt
 
+// ErrStripLink is returned by ResolveResourceLink when a relative link points to a file
+// not included in the manifest. The renderer should strip the link and keep only the label text.
+type ErrStripLink struct {
+	Destination string
+}
+
+func (e ErrStripLink) Error() string {
+	return "link destination not in manifest: " + e.Destination
+}
+
 // Interface resolves links URLs
 //
 //counterfeiter:generate . Interface
@@ -62,8 +72,9 @@ func (l *LinkResolver) ResolveResourceLink(resourceLink string, node *manifest.N
 	if strings.HasPrefix(resourceLink, "#") {
 		return resourceLink, nil
 	}
+	wasRelative := repositoryhost.IsRelative(resourceLink)
 	// handle relative links to resources
-	if repositoryhost.IsRelative(resourceLink) {
+	if wasRelative {
 		var err error
 		if srcURL, e := l.Repositoryhosts.ResourceURL(source); e == nil {
 			resourceLink = ReAnchorRootAbsolute(resourceLink, srcURL.GetResourcePath(), l.Hugo.HugoStructuralDirs)
@@ -72,9 +83,8 @@ func (l *LinkResolver) ResolveResourceLink(resourceLink string, node *manifest.N
 		resourceLink, err = l.Repositoryhosts.ResolveRelativeLink(source, resourceLink)
 		if err != nil {
 			if _, ok := err.(repositoryhost.ErrResourceNotFound); ok {
-				klog.Warningf("failed to validate absolute link for %s from source %s: %v\n", resourceLink, source, err)
-				// don't process broken link and don't return error
-				return resourceLink, nil
+				klog.V(6).Infof("stripping relative link %s from source %s — target not found in repository", resourceLink, source)
+				return "", ErrStripLink{Destination: resourceLink}
 			}
 			return resourceLink, err
 		}
@@ -86,7 +96,15 @@ func (l *LinkResolver) ResolveResourceLink(resourceLink string, node *manifest.N
 	destinationResourceURL := destinationResource.ResourceURL()
 	destinationNode, err := l.resolveDestinationNode(destinationResourceURL, node)
 	if destinationNode == nil {
-		return resourceLink, err
+		if err != nil {
+			return resourceLink, err
+		}
+		if wasRelative {
+			klog.V(6).Infof("stripping relative link %s (resolved to %s) — not found in manifest", resourceLink, destinationResourceURL)
+			return "", ErrStripLink{Destination: resourceLink}
+		}
+		klog.V(6).Infof("passing through absolute link %s — not found in manifest", destinationResourceURL)
+		return resourceLink, nil
 	}
 
 	// construct destination from node path

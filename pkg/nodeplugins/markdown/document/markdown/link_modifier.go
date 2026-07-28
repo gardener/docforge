@@ -7,12 +7,14 @@ package markdown
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"regexp"
 	"strings"
 	"sync"
 
+	"github.com/gardener/docforge/pkg/nodeplugins/markdown/linkresolver"
 	"github.com/yuin/goldmark/ast"
 	extast "github.com/yuin/goldmark/extension/ast"
 	"github.com/yuin/goldmark/renderer"
@@ -181,6 +183,7 @@ type Renderer struct {
 	markers      []int
 	emphasis     []byte
 	table        bool
+	linkStack    []int
 }
 
 // --------------------------- Node Renders
@@ -487,15 +490,27 @@ func (r *Renderer) renderEmphasis(node ast.Node, entering bool) (ast.WalkStatus,
 
 func (r *Renderer) renderLink(node ast.Node, entering bool) (ast.WalkStatus, error) {
 	if entering {
+		r.linkStack = append(r.linkStack, r.writer.Len())
 		_ = r.writer.WriteByte('[')
 	} else {
 		n := node.(*ast.Link)
-		_ = r.writer.WriteByte(']')
-		_ = r.writer.WriteByte('(')
 		dest, err := r.linkResolver(string(n.Destination), false)
+		var stripErr linkresolver.ErrStripLink
+		if errors.As(err, &stripErr) {
+			// strip link: remove the leading '[' and keep only the label text
+			labelStart := r.linkStack[len(r.linkStack)-1] + 1
+			r.linkStack = r.linkStack[:len(r.linkStack)-1]
+			label := bytes.Clone(r.writer.Bytes()[labelStart:])
+			r.writer.Truncate(labelStart - 1)
+			_, _ = r.writer.Write(label)
+			return ast.WalkContinue, nil
+		}
+		r.linkStack = r.linkStack[:len(r.linkStack)-1]
 		if err != nil {
 			return ast.WalkStop, err
 		}
+		_ = r.writer.WriteByte(']')
+		_ = r.writer.WriteByte('(')
 		wrap := wrapLinkDestination([]byte(dest))
 		if wrap {
 			_ = r.writer.WriteByte('<')

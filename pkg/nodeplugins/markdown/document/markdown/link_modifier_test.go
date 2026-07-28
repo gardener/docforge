@@ -9,6 +9,7 @@ import (
 	"errors"
 
 	"github.com/gardener/docforge/pkg/nodeplugins/markdown/document/markdown"
+	"github.com/gardener/docforge/pkg/nodeplugins/markdown/linkresolver"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/yuin/goldmark/ast"
@@ -139,6 +140,28 @@ var _ = Describe("Links modifier", func() {
 				Expect(err.Error()).To(ContainSubstring("fake-error"))
 			})
 		})
+		Context("strip link", func() {
+			BeforeEach(func() {
+				lr.strip = true
+				md = "text:\n[guide](../excluded/file.md) for details.\n"
+				exp = "text:\nguide for details.\n"
+			})
+			It("strips the link and keeps the label", func() {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(buf.String()).To(Equal(exp))
+			})
+		})
+		Context("strip link with title", func() {
+			BeforeEach(func() {
+				lr.strip = true
+				md = "text:\n[guide](../excluded/file.md \"some title\") for details.\n"
+				exp = "text:\nguide for details.\n"
+			})
+			It("strips the link and title, keeps only label", func() {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(buf.String()).To(Equal(exp))
+			})
+		})
 	})
 	When("Render markdown with images", func() {
 		BeforeEach(func() {
@@ -233,11 +256,15 @@ var _ = Describe("Links modifier", func() {
 })
 
 type linkResolver struct {
-	dst string
-	err error
+	dst  string
+	err  error
+	strip bool
 }
 
 // implements markdown.ResolveLink and fakes the result
-func (lr *linkResolver) fakeLink(_ string, _ bool) (string, error) {
+func (lr *linkResolver) fakeLink(dest string, _ bool) (string, error) {
+	if lr.strip {
+		return "", linkresolver.ErrStripLink{Destination: dest}
+	}
 	return lr.dst, lr.err
 }

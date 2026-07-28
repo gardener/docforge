@@ -6,6 +6,7 @@ package linkresolver_test
 
 import (
 	"embed"
+	"errors"
 	"testing"
 
 	_ "embed"
@@ -59,10 +60,11 @@ var _ = Describe("Document link resolving", func() {
 			node = linkResolver.SourceToNode[source][0]
 		})
 
-		It("Broken links should not return error", func() {
+		It("Relative links to files not in repository are stripped", func() {
 			newLink, err := linkResolver.ResolveResourceLink("invalidfoo/bar.md", node, source)
-			Expect(err).To(Not(HaveOccurred()))
-			Expect(newLink).To(Equal("https://github.com/gardener/docforge/blob/master/invalidfoo/bar.md"))
+			var stripErr linkresolver.ErrStripLink
+			Expect(errors.As(err, &stripErr)).To(BeTrue())
+			Expect(newLink).To(Equal(""))
 		})
 
 		It("Resolves linking closest source correctly", func() {
@@ -91,8 +93,9 @@ var _ = Describe("Document link resolving", func() {
 
 		It("Resolves non-page resource links correctly", func() {
 			newLink, err := linkResolver.ResolveResourceLink("./non-page.md", node, source)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(newLink).To(Equal("https://github.com/gardener/docforge/blob/master/non-page.md"))
+			var stripErr linkresolver.ErrStripLink
+			Expect(errors.As(err, &stripErr)).To(BeTrue())
+			Expect(newLink).To(Equal(""))
 		})
 
 		It("Resolving url with no suitable repository host", func() {
