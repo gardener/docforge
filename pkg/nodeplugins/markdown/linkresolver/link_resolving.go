@@ -116,9 +116,30 @@ func (l *LinkResolver) ResolveResourceLink(resourceLink string, node *manifest.N
 		websiteLink = strings.TrimPrefix(websiteLink, structuralDir+"/")
 	}
 	if destinationResource.GetResourceSuffix() != "" {
-		return link.Build("/", l.Hugo.BaseURL, websiteLink, destinationResource.GetResourceSuffix())
+		websiteLink, err = link.Build(websiteLink, destinationResource.GetResourceSuffix())
+		if err != nil {
+			return resourceLink, err
+		}
 	}
-	return link.Build("/", l.Hugo.BaseURL, websiteLink)
+	// Hugo + BaseURL: return BaseURL-prefixed absolute path (legacy Hugo consumers).
+	if l.Hugo.Enabled && l.Hugo.BaseURL != "" {
+		return link.Build("/", l.Hugo.BaseURL, websiteLink)
+	}
+	// Relative path: rewrite to be relative to the source node's destination directory
+	// so consumers that don't share a site root (VitePress, SAP Help Portal) can resolve
+	// the link without any base-URL assumptions.
+	sourceDir := filepath.Dir(node.NodePath())
+	rel, err := filepath.Rel(sourceDir, websiteLink)
+	if err != nil {
+		// filepath.Rel failed (different volumes in theory) — fall back to absolute
+		return link.Build("/", websiteLink)
+	}
+	// filepath.Rel strips any trailing slash (e.g. Hugo section URLs like "two/internal/").
+	// Re-append it so section index links remain valid directory URLs.
+	if strings.HasSuffix(websiteLink, "/") {
+		rel += "/"
+	}
+	return rel, nil
 }
 
 func (l *LinkResolver) resolveDestinationNode(destinationResourceURL string, node *manifest.Node) (*manifest.Node, error) {
