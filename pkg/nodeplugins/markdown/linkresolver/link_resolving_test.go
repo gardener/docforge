@@ -60,11 +60,10 @@ var _ = Describe("Document link resolving", func() {
 			node = linkResolver.SourceToNode[source][0]
 		})
 
-		It("Relative links to files not in repository are stripped", func() {
+		It("Relative links to files not in repository pass through as absolute links", func() {
 			newLink, err := linkResolver.ResolveResourceLink("invalidfoo/bar.md", node, source)
-			var stripErr linkresolver.ErrStripLink
-			Expect(errors.As(err, &stripErr)).To(BeTrue())
-			Expect(newLink).To(Equal(""))
+			Expect(err).To(Not(HaveOccurred()))
+			Expect(newLink).To(Equal("https://github.com/gardener/docforge/blob/master/invalidfoo/bar.md"))
 		})
 
 		It("Resolves linking closest source correctly", func() {

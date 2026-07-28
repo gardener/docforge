@@ -83,8 +83,8 @@ func (l *LinkResolver) ResolveResourceLink(resourceLink string, node *manifest.N
 		resourceLink, err = l.Repositoryhosts.ResolveRelativeLink(source, resourceLink)
 		if err != nil {
 			if _, ok := err.(repositoryhost.ErrResourceNotFound); ok {
-				klog.V(6).Infof("stripping relative link %s from source %s — target not found in repository", resourceLink, source)
-				return "", ErrStripLink{Destination: resourceLink}
+				klog.Warningf("failed to validate absolute link for %s from source %s: %v\n", resourceLink, source, err)
+				return resourceLink, nil
 			}
 			return resourceLink, err
 		}
