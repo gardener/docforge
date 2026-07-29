@@ -72,21 +72,18 @@ func (l *LinkResolver) ResolveResourceLink(resourceLink string, node *manifest.N
 	if strings.HasPrefix(resourceLink, "#") {
 		return resourceLink, nil
 	}
-	wasRelative := repositoryhost.IsRelative(resourceLink)
-	// handle relative links to resources
-	if wasRelative {
-		var err error
-		if srcURL, e := l.Repositoryhosts.ResourceURL(source); e == nil {
-			resourceLink = ReAnchorRootAbsolute(resourceLink, srcURL.GetResourcePath(), l.Hugo.HugoStructuralDirs)
-		}
-		// making resourceLink to be resourceURL
-		resourceLink, err = l.Repositoryhosts.ResolveRelativeLink(source, resourceLink)
+	if repositoryhost.IsRelative(resourceLink) {
+		resolved, err := l.resolveRelativeToAbsolute(resourceLink, source)
 		if err != nil {
 			if _, ok := err.(repositoryhost.ErrResourceNotFound); ok {
 				klog.Warningf("failed to validate absolute link for %s from source %s: %v\n", resourceLink, source, err)
-				return resourceLink, nil
+				return resolved, nil
 			}
 			return resourceLink, err
+		}
+		resourceLink = resolved
+		if repositoryhost.IsRelative(resourceLink) {
+			return resourceLink, nil
 		}
 	}
 	destinationResource, err := l.Repositoryhosts.ResourceURL(resourceLink)
@@ -105,8 +102,20 @@ func (l *LinkResolver) ResolveResourceLink(resourceLink string, node *manifest.N
 		klog.V(6).Infof("passing through link %s (resolved to %s) — not found in manifest", resourceLink, destinationResourceURL)
 		return resourceLink, nil
 	}
+	return l.buildOutputLink(resourceLink, destinationNode, destinationResource, node)
+}
 
-	// construct destination from node path
+// resolveRelativeToAbsolute converts a relative or root-absolute link to a full blob URL.
+// Returns the original link unchanged (with nil error) when the target does not exist in the repo.
+func (l *LinkResolver) resolveRelativeToAbsolute(resourceLink, source string) (string, error) {
+	if srcURL, e := l.Repositoryhosts.ResourceURL(source); e == nil {
+		resourceLink = ReAnchorRootAbsolute(resourceLink, srcURL.GetResourcePath(), l.Hugo.HugoStructuralDirs)
+	}
+	return l.Repositoryhosts.ResolveRelativeLink(source, resourceLink)
+}
+
+// buildOutputLink constructs the final output link given the resolved destination node.
+func (l *LinkResolver) buildOutputLink(resourceLink string, destinationNode *manifest.Node, destinationResource *repositoryhost.URL, node *manifest.Node) (string, error) {
 	websiteLink := destinationNode.NodePath()
 	if l.Hugo.Enabled {
 		websiteLink = destinationNode.HugoPrettyPath()
@@ -115,26 +124,20 @@ func (l *LinkResolver) ResolveResourceLink(resourceLink string, node *manifest.N
 		websiteLink = strings.TrimPrefix(websiteLink, structuralDir+"/")
 	}
 	if destinationResource.GetResourceSuffix() != "" {
+		var err error
 		websiteLink, err = link.Build(websiteLink, destinationResource.GetResourceSuffix())
 		if err != nil {
 			return resourceLink, err
 		}
 	}
-	// Hugo: return BaseURL-prefixed absolute path (default behavior).
 	if l.Hugo.Enabled {
 		return link.Build("/", l.Hugo.BaseURL, websiteLink)
 	}
-	// Relative path: rewrite to be relative to the source node's destination directory
-	// so consumers that don't share a site root (VitePress, SAP Help Portal) can resolve
-	// the link without any base-URL assumptions.
 	sourceDir := filepath.Dir(node.NodePath())
 	rel, err := filepath.Rel(sourceDir, websiteLink)
 	if err != nil {
-		// filepath.Rel failed (different volumes in theory) — fall back to absolute
 		return link.Build("/", websiteLink)
 	}
-	// filepath.Rel strips any trailing slash (e.g. Hugo section URLs like "two/internal/").
-	// Re-append it so section index links remain valid directory URLs.
 	if strings.HasSuffix(websiteLink, "/") {
 		rel += "/"
 	}
