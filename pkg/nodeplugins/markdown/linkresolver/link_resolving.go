@@ -99,11 +99,10 @@ func (l *LinkResolver) ResolveResourceLink(resourceLink string, node *manifest.N
 		if err != nil {
 			return resourceLink, err
 		}
-		if wasRelative {
-			klog.V(6).Infof("stripping relative link %s (resolved to %s) — not found in manifest", resourceLink, destinationResourceURL)
-			return "", ErrStripLink{Destination: resourceLink}
-		}
-		klog.V(6).Infof("passing through absolute link %s — not found in manifest", destinationResourceURL)
+		// The link is not in the manifest — pass through as the resolved absolute URL.
+		// For originally-relative links resourceLink is already the resolved blob URL at this point,
+		// so the output is a valid absolute link rather than a broken relative path.
+		klog.V(6).Infof("passing through link %s (resolved to %s) — not found in manifest", resourceLink, destinationResourceURL)
 		return resourceLink, nil
 	}
 

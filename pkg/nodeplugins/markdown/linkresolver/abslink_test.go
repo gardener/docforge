@@ -92,11 +92,12 @@ var _ = Describe("Absolute link rewriting", func() {
 			),
 
 			// Pass-through cases — must be unchanged
-			Entry("already-relative bare link unchanged",
+			Entry("relative link not in manifest passes through as absolute URL",
 				"clickhere.md",
-				// resolves to one/internal/linked.md in baseline; here it is not in manifest -> ErrStripLink
-				"",
-				true, // not in abslink manifest, so stripped
+				// resolves in the repo to blob/master/clickhere.md, but not in abslink manifest
+				// → passed through as the resolved absolute blob URL
+				"https://github.com/gardener/docforge/blob/master/clickhere.md",
+				false,
 			),
 			// Absolute URL on the same host but pointing to a file NOT in the manifest
 			// (e.g. a different repo on the same GitHub instance) passes through unchanged.

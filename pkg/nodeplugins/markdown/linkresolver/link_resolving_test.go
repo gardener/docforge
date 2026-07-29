@@ -6,7 +6,6 @@ package linkresolver_test
 
 import (
 	"embed"
-	"errors"
 	"testing"
 
 	_ "embed"
@@ -92,10 +91,11 @@ var _ = Describe("Document link resolving", func() {
 		})
 
 		It("Resolves non-page resource links correctly", func() {
+			// non-page.md exists in the repo but is not in the manifest →
+			// resolved to its absolute blob URL and passed through unchanged.
 			newLink, err := linkResolver.ResolveResourceLink("./non-page.md", node, source)
-			var stripErr linkresolver.ErrStripLink
-			Expect(errors.As(err, &stripErr)).To(BeTrue())
-			Expect(newLink).To(Equal(""))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(newLink).To(Equal("https://github.com/gardener/docforge/blob/master/non-page.md"))
 		})
 
 		It("Resolving url with no suitable repository host", func() {
