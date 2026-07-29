@@ -121,8 +121,8 @@ func (l *LinkResolver) ResolveResourceLink(resourceLink string, node *manifest.N
 			return resourceLink, err
 		}
 	}
-	// Hugo + BaseURL: return BaseURL-prefixed absolute path (legacy Hugo consumers).
-	if l.Hugo.Enabled && l.Hugo.BaseURL != "" {
+	// Hugo: return BaseURL-prefixed absolute path (default behavior).
+	if l.Hugo.Enabled {
 		return link.Build("/", l.Hugo.BaseURL, websiteLink)
 	}
 	// Relative path: rewrite to be relative to the source node's destination directory

@@ -182,26 +182,24 @@ var _ = Describe("Document link resolving", func() {
 				Expect(got).To(Equal("../docs/file.md"))
 			})
 
-			It("Hugo.Enabled=true but BaseURL empty also produces relative output", func() {
+			It("Hugo.Enabled=true BaseURL empty produces absolute without prefix", func() {
 				relLR.Hugo.Enabled = true
 				relLR.Hugo.BaseURL = ""
-				// clickhere.md -> HugoPrettyPath of one/internal/linked.md = "one/internal/linked/"
-				// Rel("one", "one/internal/linked/") = "internal/linked/" (trailing slash preserved)
+				// HugoPrettyPath of one/internal/linked.md = "one/internal/linked/"
+				// link.Build("/", "", "one/internal/linked/") = "/one/internal/linked/"
 				got, err := relLR.ResolveResourceLink("clickhere.md", node, source)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(got).To(Equal("internal/linked/"))
+				Expect(got).To(Equal("/one/internal/linked/"))
 			})
 
-			It("Section index trailing slash preserved (Hugo.Enabled=true, no BaseURL)", func() {
+			It("Section index with Hugo.Enabled=true no BaseURL produces absolute without prefix", func() {
 				relLR.Hugo.Enabled = true
 				relLR.Hugo.BaseURL = ""
-				// docs/_index.md -> HugoPrettyPath of two/internal/_index.md:
-				//   name = "_index", TrimSuffix(".md") -> "_index", TrimSuffix("_index") -> ""
-				//   link.Build("two/internal", "", "/") = "two/internal/"
-				// Rel("one", "two/internal/") = "../two/internal/" (trailing slash preserved)
+				// HugoPrettyPath of two/internal/_index.md = "two/internal/"
+				// link.Build("/", "", "two/internal/") = "/two/internal/"
 				got, err := relLR.ResolveResourceLink("https://github.com/gardener/docforge/blob/master/docs/_index.md", node, source)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(got).To(Equal("../two/internal/"))
+				Expect(got).To(Equal("/two/internal/"))
 			})
 		})
 

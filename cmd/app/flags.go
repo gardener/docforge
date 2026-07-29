@@ -49,7 +49,7 @@ func configureFlags(command *cobra.Command, vip *viper.Viper) {
 		"Number of workers downloading document resources in parallel.")
 	_ = vip.BindPFlag("download-workers", command.Flags().Lookup("download-workers"))
 
-	command.Flags().Bool("hugo", false,
+	command.Flags().Bool("hugo", true,
 		"Build documentation bundle for hugo.")
 	_ = vip.BindPFlag("hugo", command.Flags().Lookup("hugo"))
 
