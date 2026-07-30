@@ -102,7 +102,7 @@ func (l *LinkResolver) ResolveResourceLink(resourceLink string, node *manifest.N
 		klog.V(6).Infof("passing through link %s (resolved to %s) — not found in manifest", resourceLink, destinationResourceURL)
 		return resourceLink, nil
 	}
-	return l.buildOutputLink(resourceLink, destinationNode, destinationResource, node)
+	return l.buildOutputLink(destinationNode, destinationResource, node)
 }
 
 // resolveRelativeToAbsolute converts a relative or root-absolute link to a full blob URL.
@@ -115,7 +115,7 @@ func (l *LinkResolver) resolveRelativeToAbsolute(resourceLink, source string) (s
 }
 
 // buildOutputLink constructs the final output link given the resolved destination node.
-func (l *LinkResolver) buildOutputLink(resourceLink string, destinationNode *manifest.Node, destinationResource *repositoryhost.URL, node *manifest.Node) (string, error) {
+func (l *LinkResolver) buildOutputLink(destinationNode *manifest.Node, destinationResource *repositoryhost.URL, node *manifest.Node) (string, error) {
 	websiteLink := destinationNode.NodePath()
 	if l.Hugo.Enabled {
 		websiteLink = destinationNode.HugoPrettyPath()
@@ -123,12 +123,12 @@ func (l *LinkResolver) buildOutputLink(resourceLink string, destinationNode *man
 	for _, structuralDir := range l.Hugo.HugoStructuralDirs {
 		websiteLink = strings.TrimPrefix(websiteLink, structuralDir+"/")
 	}
-	if destinationResource.GetResourceSuffix() != "" {
-		var err error
-		websiteLink, err = link.Build(websiteLink, destinationResource.GetResourceSuffix())
-		if err != nil {
-			return resourceLink, err
-		}
+	// Append the suffix (?query, #fragment, or ?query#fragment) with plain
+	// concatenation. url.JoinPath (used inside link.Build) treats the suffix
+	// as a path segment — it inserts a "/" separator and escapes "#" — which
+	// produces malformed URLs like "controllers.md/#gardener-operator".
+	if suffix := destinationResource.GetResourceSuffix(); suffix != "" {
+		websiteLink += suffix
 	}
 	if l.Hugo.Enabled {
 		return link.Build("/", l.Hugo.BaseURL, websiteLink)

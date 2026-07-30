@@ -146,11 +146,19 @@ var _ = Describe("Document link resolving", func() {
 				// Rel("one", "one/internal/linked.md/?a=b#c") = "internal/linked.md/?a=b#c"
 				Entry("query and anchor preserved",
 					"clickhere.md?a=b#c",
-					"internal/linked.md/?a=b#c",
+					"internal/linked.md?a=b#c",
 				),
 				Entry("anchor-only suffix preserved",
 					"clickhere.md#anchor",
-					"internal/linked.md/#anchor",
+					"internal/linked.md#anchor",
+				),
+				Entry("anchor with double hyphens preserved exactly",
+					"clickhere.md#vpn-vpn-seed-server--vpn-shoot-client",
+					"internal/linked.md#vpn-vpn-seed-server--vpn-shoot-client",
+				),
+				Entry("link without suffix produces no trailing fragment",
+					"clickhere.md",
+					"internal/linked.md",
 				),
 				// docs/_index.md URL -> node at two/internal/_index.md (filename = last URL segment)
 				// Hugo disabled: NodePath = "two/internal/_index.md"
