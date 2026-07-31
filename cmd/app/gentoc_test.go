@@ -21,7 +21,7 @@ import (
 )
 
 // update regenerates testdata golden files when set via -args -update.
-var update = flag.Bool("update", false, "regenerate testdata golden files")
+var update = flag.Bool("update", false, "regenerate testdata golden files") //nolint:gochecknoglobals
 
 func TestMain(m *testing.M) {
 	flag.Parse()
