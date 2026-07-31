@@ -31,13 +31,13 @@ func TestMain(m *testing.M) {
 // fixtures embeds the same test manifest/docs used in pkg/gentoc tests.
 //
 //go:embed all:tests/*
-var cmdFixtures embed.FS
+var cmdFixtures embed.FS //nolint:gochecknoglobals
 
 const fixtureURLPrefix = "https://github.com/gardener/docforge"
 const fixtureLocalPath = "tests"
 const fixtureManifestURL = "https://github.com/gardener/docforge/blob/master/toc.yaml"
 
-var cmdIndexNames = []string{"readme.md", "README.md", "index.md"}
+var cmdIndexNames = []string{"readme.md", "README.md", "index.md"} //nolint:gochecknoglobals
 
 func newCmdRegistry() registry.Interface {
 	rh := repositoryhost.NewLocalTest(cmdFixtures, fixtureURLPrefix, fixtureLocalPath)

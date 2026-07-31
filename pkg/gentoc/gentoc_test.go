@@ -18,9 +18,9 @@ import (
 )
 
 //go:embed all:tests/*
-var fixtures embed.FS
+var fixtures embed.FS //nolint:gochecknoglobals
 
-var defaultIndexNames = []string{"readme.md", "README.md", "index.md"}
+var defaultIndexNames = []string{"readme.md", "README.md", "index.md"} //nolint:gochecknoglobals
 
 // newLocalRegistry returns a registry backed by the embedded test fixtures.
 func newLocalRegistry() registry.Interface {
