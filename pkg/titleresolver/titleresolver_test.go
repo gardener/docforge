@@ -10,7 +10,7 @@ import (
 	"github.com/gardener/docforge/pkg/titleresolver"
 )
 
-var defaultIndexNames = []string{"readme.md", "README.md"}
+var defaultIndexNames = []string{"readme.md", "README.md"} //nolint:gochecknoglobals
 
 func TestResolveTitle(t *testing.T) {
 	t.Parallel()
