@@ -1,0 +1,13 @@
+structure:
+- dir: Operations
+  structure:
+  - file: README.md
+    source: https://github.com/gardener/docforge/blob/master/operations-readme.md
+  - dir: assets
+    structure:
+    - file: https://github.com/gardener/docforge/blob/master/assets/garden-overview.drawio.png
+    - file: https://github.com/gardener/docforge/blob/master/assets/network-connectivity.drawio.png
+- dir: Installation
+  structure:
+  - file: README.md
+    source: https://github.com/gardener/docforge/blob/master/other-section.md

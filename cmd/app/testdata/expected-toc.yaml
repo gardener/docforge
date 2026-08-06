@@ -1,0 +1,25 @@
+nav:
+    - title: Installation Guide
+      filename: Installation/README.md
+      subnav:
+        - title: Quick Start Guide
+          filename: Installation/quickstart.md
+        - title: Advanced
+          filename: Installation/advanced.md
+    - title: Operations
+      filename: Operations/README.md
+      subnav:
+        - title: Gardener Operator
+          filename: Operations/gardener-operator/README.md
+          subnav:
+            - title: Api Resources
+              filename: Operations/gardener-operator/api-resources.md
+    - title: Troubleshooting
+      filename: Troubleshooting/README.md
+    - title: Reference
+      filename: Reference/_index.md
+      subnav:
+        - title: Managed Resources
+          filename: Reference/managed-resources.md
+        - title: No Frontmatter
+          filename: Reference/no-frontmatter.md

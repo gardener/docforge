@@ -21,6 +21,16 @@ import (
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate -header ../../../../license_prefix.txt
 
+// ErrStripLink is returned by ResolveResourceLink when a relative link points to a file
+// not included in the manifest. The renderer should strip the link and keep only the label text.
+type ErrStripLink struct {
+	Destination string
+}
+
+func (e ErrStripLink) Error() string {
+	return "link destination not in manifest: " + e.Destination
+}
+
 // Interface resolves links URLs
 //
 //counterfeiter:generate . Interface
@@ -62,21 +72,18 @@ func (l *LinkResolver) ResolveResourceLink(resourceLink string, node *manifest.N
 	if strings.HasPrefix(resourceLink, "#") {
 		return resourceLink, nil
 	}
-	// handle relative links to resources
 	if repositoryhost.IsRelative(resourceLink) {
-		var err error
-		if srcURL, e := l.Repositoryhosts.ResourceURL(source); e == nil {
-			resourceLink = ReAnchorRootAbsolute(resourceLink, srcURL.GetResourcePath(), l.Hugo.HugoStructuralDirs)
-		}
-		// making resourceLink to be resourceURL
-		resourceLink, err = l.Repositoryhosts.ResolveRelativeLink(source, resourceLink)
+		resolved, err := l.resolveRelativeToAbsolute(resourceLink, source)
 		if err != nil {
 			if _, ok := err.(repositoryhost.ErrResourceNotFound); ok {
 				klog.Warningf("failed to validate absolute link for %s from source %s: %v\n", resourceLink, source, err)
-				// don't process broken link and don't return error
-				return resourceLink, nil
+				return resolved, nil
 			}
 			return resourceLink, err
+		}
+		resourceLink = resolved
+		if repositoryhost.IsRelative(resourceLink) {
+			return resourceLink, nil
 		}
 	}
 	destinationResource, err := l.Repositoryhosts.ResourceURL(resourceLink)
@@ -86,10 +93,29 @@ func (l *LinkResolver) ResolveResourceLink(resourceLink string, node *manifest.N
 	destinationResourceURL := destinationResource.ResourceURL()
 	destinationNode, err := l.resolveDestinationNode(destinationResourceURL, node)
 	if destinationNode == nil {
-		return resourceLink, err
+		if err != nil {
+			return resourceLink, err
+		}
+		// The link is not in the manifest — pass through as the resolved absolute URL.
+		// For originally-relative links resourceLink is already the resolved blob URL at this point,
+		// so the output is a valid absolute link rather than a broken relative path.
+		klog.V(6).Infof("passing through link %s (resolved to %s) — not found in manifest", resourceLink, destinationResourceURL)
+		return resourceLink, nil
 	}
+	return l.buildOutputLink(destinationNode, destinationResource, node)
+}
 
-	// construct destination from node path
+// resolveRelativeToAbsolute converts a relative or root-absolute link to a full blob URL.
+// Returns the original link unchanged (with nil error) when the target does not exist in the repo.
+func (l *LinkResolver) resolveRelativeToAbsolute(resourceLink, source string) (string, error) {
+	if srcURL, e := l.Repositoryhosts.ResourceURL(source); e == nil {
+		resourceLink = ReAnchorRootAbsolute(resourceLink, srcURL.GetResourcePath(), l.Hugo.HugoStructuralDirs)
+	}
+	return l.Repositoryhosts.ResolveRelativeLink(source, resourceLink)
+}
+
+// buildOutputLink constructs the final output link given the resolved destination node.
+func (l *LinkResolver) buildOutputLink(destinationNode *manifest.Node, destinationResource *repositoryhost.URL, node *manifest.Node) (string, error) {
 	websiteLink := destinationNode.NodePath()
 	if l.Hugo.Enabled {
 		websiteLink = destinationNode.HugoPrettyPath()
@@ -97,10 +123,25 @@ func (l *LinkResolver) ResolveResourceLink(resourceLink string, node *manifest.N
 	for _, structuralDir := range l.Hugo.HugoStructuralDirs {
 		websiteLink = strings.TrimPrefix(websiteLink, structuralDir+"/")
 	}
-	if destinationResource.GetResourceSuffix() != "" {
-		return link.Build("/", l.Hugo.BaseURL, websiteLink, destinationResource.GetResourceSuffix())
+	// Append the suffix (?query, #fragment, or ?query#fragment) with plain
+	// concatenation. url.JoinPath (used inside link.Build) treats the suffix
+	// as a path segment — it inserts a "/" separator and escapes "#" — which
+	// produces malformed URLs like "controllers.md/#gardener-operator".
+	if suffix := destinationResource.GetResourceSuffix(); suffix != "" {
+		websiteLink += suffix
 	}
-	return link.Build("/", l.Hugo.BaseURL, websiteLink)
+	if l.Hugo.Enabled {
+		return link.Build("/", l.Hugo.BaseURL, websiteLink)
+	}
+	sourceDir := filepath.Dir(node.NodePath())
+	rel, err := filepath.Rel(sourceDir, websiteLink)
+	if err != nil {
+		return link.Build("/", websiteLink)
+	}
+	if strings.HasSuffix(websiteLink, "/") {
+		rel += "/"
+	}
+	return rel, nil
 }
 
 func (l *LinkResolver) resolveDestinationNode(destinationResourceURL string, node *manifest.Node) (*manifest.Node, error) {

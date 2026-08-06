@@ -167,7 +167,11 @@ func (d *linkResolverTask) resolveLink(dest string, isEmbeddable bool) (string, 
 			return dest, nil
 		}
 	}
-	return d.linkresolver.ResolveResourceLink(dest, d.node, d.source)
+	resolved, err := d.linkresolver.ResolveResourceLink(dest, d.node, d.source)
+	if err != nil {
+		return resolved, err
+	}
+	return resolved, nil
 }
 
 func (d *linkResolverTask) resolveEmbededLink(embeddedLink string, source string) (string, error) {

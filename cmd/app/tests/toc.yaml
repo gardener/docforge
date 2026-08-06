@@ -1,0 +1,35 @@
+structure:
+- dir: Installation
+  frontmatter:
+    title: "Installation Guide"
+  structure:
+  - file: README.md
+    source: https://github.com/gardener/docforge/blob/master/installation-readme.md
+  - file: quickstart.md
+    source: https://github.com/gardener/docforge/blob/master/quickstart.md
+  - file: advanced.md
+    source: https://github.com/gardener/docforge/blob/master/advanced.md
+- dir: Operations
+  structure:
+  - file: README.md
+    source: https://github.com/gardener/docforge/blob/master/operations-readme.md
+  - dir: gardener-operator
+    structure:
+    - file: README.md
+      source: https://github.com/gardener/docforge/blob/master/operator-readme.md
+    - file: api-resources.md
+      source: https://github.com/gardener/docforge/blob/master/api-resources.md
+- dir: Troubleshooting
+  structure:
+  - file: README.md
+    source: https://github.com/gardener/docforge/blob/master/troubleshooting-readme.md
+  - dir: assets
+    structure:
+    - file: https://github.com/gardener/docforge/blob/master/diagram.png
+- dir: Reference
+  structure:
+  - file: _index.md
+    source: https://github.com/gardener/docforge/blob/master/reference-index.md
+  - file: managed-resources.md
+    source: https://github.com/gardener/docforge/blob/master/managed-resources.md
+  - file: https://github.com/gardener/docforge/blob/master/no-frontmatter.md

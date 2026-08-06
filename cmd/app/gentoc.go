@@ -24,6 +24,7 @@ type genTocFlags struct {
 	githubOAuthMap map[string]string
 	cacheDir       string
 	stripRoot      bool
+	indexFileNames []string
 }
 
 // NewGenTocCmd returns the gen-toc subcommand.
@@ -37,7 +38,12 @@ func NewGenTocCmd(ctx context.Context) *cobra.Command {
 
 The generated YAML reflects the dir / file / fileTree hierarchy defined in the
 manifest. It can be used as input for VitePress, SAP portal (toc.yaml), MkDocs,
-or any other site generator that consumes a navigation file.`,
+or any other site generator that consumes a navigation file.
+
+Each entry includes a title resolved from (in order of priority):
+  1. manifest frontmatter.title
+  2. document frontmatter.title (read from the source .md file)
+  3. filename derivation (hyphens/underscores → spaces, Title case)`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 			return runGenToc(ctx, f)
@@ -53,6 +59,9 @@ or any other site generator that consumes a navigation file.`,
 		"Map between GitHub instances and ENV variable names that hold access tokens.")
 	cmd.Flags().StringVar(&f.cacheDir, "cache-dir", defaultCacheDir, "Cache directory for repository HTTP cache.")
 	cmd.Flags().BoolVar(&f.stripRoot, "strip-root", false, "Strip the top-level directory prefix from all filenames.")
+	cmd.Flags().StringSliceVar(&f.indexFileNames, "index-file-names",
+		[]string{"readme.md", "README.md", "index.md"},
+		"Filenames treated as section index files (promoted to section entry).")
 
 	if err := cmd.MarkFlagRequired("manifest"); err != nil {
 		klog.Error(err)
@@ -79,7 +88,8 @@ func runGenToc(ctx context.Context, f *genTocFlags) error {
 		return fmt.Errorf("failed to resolve manifest %s: %w", f.manifestURL, err)
 	}
 
-	nav := gentoc.FromNodes(nodes, f.stripRoot)
+	builder := gentoc.NewBuilder(rhRegistry, f.indexFileNames)
+	nav := builder.FromNodes(ctx, nodes, f.stripRoot)
 	out, err := gentoc.Marshal(nav)
 	if err != nil {
 		return fmt.Errorf("failed to marshal navigation YAML: %w", err)
