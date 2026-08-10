@@ -1,225 +1,179 @@
-# Documentation Manifests Reference
+# Manifest Reference
 
-This is a reference documentation for the elements in a docforge manifest.
+A docforge manifest is a YAML file that declares the documentation structure to build.
+Every manifest is a node tree. The top-level keys are nodes listed under `structure`.
 
-Table of Contents
+> All YAML keys and default values in this document are verified against
+> `pkg/manifest/manifest_types.go`, `pkg/manifest/node.go`, and `pkg/manifest/manifest.go`.
 
-- [Documentation Manifests Reference](#documentation-manifests-reference)
-  - [Documentation](#documentation)
-  - [Node](#node)
-  - [NodeSelector](#nodeselector)
+## Top-level structure
 
-## Documentation
+```yaml
+structure:
+  - <node>
+  - <node>
+```
 
-**Type**: Object
+`structure` is the only top-level key. It contains a list of nodes.
+<!-- verified: pkg/manifest/manifest_types.go DirType.Structure yaml:"structure" -->
 
-The documentation element represents a manifest document and the top-level element 
-in the model.
+---
 
-**Properties**:
+## Node types
 
-- **Structure**  
-  Type: Array of [Node](#node)  
-  _Optional_, if NodeSelector is set
+A node must have exactly one of the four type-determining keys: `file`, `dir`, `fileTree`, or `manifest`.
+Combining more than one is an error.
+<!-- verified: pkg/manifest/manifest.go decideNodeType() — returns error if len(candidateType) != 1 -->
 
-  The root of this Documentation hierarchy that contains the top-level nodes of 
-  the structure. Physically, it translates to the path provided with the 
-  `--destination` flag to docforge.
+---
 
-- **NodeSelector**  
-  Type: [NodeSelector](#nodeselector)  
-  _Optional_, if Structure is set
+### `file` — single document node
 
-  Declare rules for dynamic resolution of nodes into a Structure. Can be defined
-  together with Structure to combine implicit and explicit definition of structure.
+Includes a single file in the output bundle.
 
-## Node
+```yaml
+- file: https://github.com/org/repo/blob/main/docs/guide.md
+```
 
-**Type**: Object
+```yaml
+- file: guide.md
+  source: https://github.com/org/repo/blob/main/docs/guide.md
+```
 
-A Node is a node in a documentation structure.   
-A Node with a `Nodes` property is a *container node*. Container nodes are 
-recursive. They can contain other nodes in their `Nodes` property, which in turn 
-can contain other nodes and form a tree hierarchy in this way. On a file system 
-it is serialized as directory.   
-A Node that defines either of the content assignment properties - `source` or
-`multiSource` is a *document node*. The two properties are alternatives. Only
-one can be used in a node. On a file system a document node is serialized as file.
+```yaml
+- file: combined.md
+  multiSource:
+    - https://github.com/org/repo/blob/main/docs/part1.md
+    - https://github.com/org/repo/blob/main/docs/part2.md
+```
 
-**Properties**:
+| Key | Type | Description |
+|---|---|---|
+| `file` | string | Output filename. If `source` is omitted, this must be a full resource URL and the filename is derived from it. |
+| `source` | string | Source URL. If set, `file` is the output name. Mutually exclusive with `multiSource`. |
+| `multiSource` | list of strings | Multiple source URLs whose content is concatenated (in order) into a single output file. Mutually exclusive with `source`. |
 
-- **Name**  
-  Type: [string](https://golang.org/ref/spec#String_types)  
-  *Optional* if Source is specified, _Mandatory_ otherwise
+<!-- verified: pkg/manifest/manifest_types.go FileType — file yaml:"file", source yaml:"source", multiSource yaml:"multiSource" -->
 
-  Name is an identifying string for this node that will be used also for its 
-  serialization.
-  If this is a document node that defines a Source property, and Name is not 
-  explicitly defined, the Name is inferred to be the resource name in the Source 
-  location.  
-  The Name value of a node that defines Source property can be an expression 
-  constructed from several variables:
+**Shorthand:** if `file` contains a `/`, the last path segment becomes the filename and the full value is used as the source URL.
+<!-- verified: pkg/manifest/manifest.go resolveManifestLinks() — strings.Contains(node.File, "/") → node.Source = node.File; node.File = path.Base(node.File) -->
 
-  - `$name`: the original name of the resource provided by Source
-  - `$ext`: the extension of the resource provided by Source. May be empty string 
-    if the resource has no extension.
-  - `$uuid`: a UUID identifier generated and at disposal for each node.
-  
-  Example: `name: $name-$uuid$ext`
-- **Source**  
-  Type: [string](https://golang.org/ref/spec#String_types)  
-  *Mandatory* if this is a *document node* and MultiSource is not specified.  
-  *Alternative* to MultiSource.  
-  Applicable to document nodes only.
+**Empty section index:** `file: _index.md` with no `source` and no `multiSource` is valid — it produces a file containing only the declared `frontmatter`.
+<!-- verified: pkg/manifest/manifest.go resolveManifestLinks() — node.File == "_index.md" && node.Source == "" → return nil -->
 
-  Source declares a content assignment to this node from a single location.
+---
 
-- **MultiSource**  
-  Type: Array of [string](https://golang.org/ref/spec#String_types)  
-  *Mandatory* if this is a *document node* and Source is not specified.  
-  *Alternative* to Source.
+### `dir` — container node
 
-  The contents provided in the MultiSource list is aggregated into a single
-  document in the order in which they are declared.   
-  Applicable to document nodes only.
+Creates a directory in the output. Contains child nodes under `structure`.
 
-- **Nodes**  
-  Type: Array of [Node](#node)  
-  *Mandatory* for container nodes  
+```yaml
+- dir: guides
+  structure:
+    - file: https://github.com/org/repo/blob/main/docs/guide.md
+```
 
-  The Nodes' property is a list of nodes that are descendants of this Node in the
-  documentation structure. Applicable to container nodes only.
+| Key | Type | Description |
+|---|---|---|
+| `dir` | string | Output directory name. |
+| `structure` | list of nodes | Child nodes. |
 
-- **NodeSelector**  
-  Type: [NodeSelector](#nodeselector)  
-  *Optional*  
-  Applicable to container nodes only.
+<!-- verified: pkg/manifest/manifest_types.go DirType — dir yaml:"dir", structure yaml:"structure" -->
 
-  NodesSelector specifies a [NodeSelector](#nodeselector) to be used for dynamic 
-  resolution of nodes into descendants of this container node. The modelled 
-  structure is merged into this node's *Nodes* field, mashing it up with 
-  potentially explicitly defined descendants there. The merge strategy 
-  identifies identical nodes by their name and when there is a match, it performs 
-  a deep merge of their properties. When there are merger conflicts, the 
-  explicitly defined node wins.   
-  Depending on the goal, a NodeSelector can coexist, or be an alternative to an 
-  explicitly defined structure.
+---
 
-- **Properties**  
-  Type: Map[string][any]  
-  *Optional*
+### `fileTree` — directory tree
 
-  Properties are a map of arbitrary, key-value pairs to model custom, untyped 
-  node properties. The requirements and constraints on the properties depends 
-  on the feature that makes use of them.   
-  For example, specifying a "frontmatter" 
-  property on a node will result in applying the value as front matter in the 
-  resulting document content. When Hugo processors are applied this can be 
-  applied not only on document, but also on container nodes.
+Recursively includes all files from a GitHub directory tree.
 
-## NodeSelector
+```yaml
+- fileTree: https://github.com/org/repo/tree/main/docs
+  excludeFiles:
+    - cmd-ref/docforge.md
+    - internal/
+```
 
-**Type**: Object
+| Key | Type | Description |
+|---|---|---|
+| `fileTree` | string | URL of a GitHub directory (using `/tree/` path). |
+| `excludeFiles` | list of strings | Path prefixes (relative to the `fileTree` root) to exclude. Matching uses `strings.HasPrefix`. |
 
-NodeSelector is a specification for selecting nodes from a location that is 
-resolved at runtime dynamically.
+<!-- verified: pkg/manifest/manifest_types.go FilesTreeType — fileTree yaml:"fileTree", excludeFiles yaml:"excludeFiles" -->
+<!-- verified: pkg/manifest/manifest.go constructNodeTree() — strings.HasPrefix(file, excludeFile) -->
 
-**Properties**:
+---
 
-- **Path**  
-  Type: [string](https://golang.org/ref/spec#String_types)  
-  _Mandatory_
+### `manifest` — include another manifest
 
-  Path specifies the source for generating a node hierarchy. This can be another
-  Documentation manifest or path that can be resolved to file/folder list, 
-  and potentially recursively into hierarchy.
+Recursively includes another manifest file, merging its `structure` into the current tree.
 
-  When Path references a Documentation manifest, it is resolved recursively and 
-  reconciled with the including Documentation manifest.
+```yaml
+- manifest: https://github.com/org/repo/blob/main/docs/sub-manifest.yaml
+```
 
-  When Path references a supported resource container (GitHub or file system at 
-  the moment), the structure of the resource inside will be used to generate a 
-  node structure. For GitHub path that is a folder in a GitHub repo, the 
-  generated nodes' hierarchy corresponds ot the file/folder structure at that 
-  path.
+```yaml
+- manifest: ../shared/base.yaml
+```
 
-  Without any further criteria, all nodes within path are included, but 
-  optionally nodes can be excluded e.g. by defining constraints on accepted paths 
-  or the depth of the hierarchy.
+Relative paths are resolved from the location of the including manifest.
+<!-- verified: pkg/manifest/manifest.go readManifestContents() — repositoryhost.IsRelative check + r.ResolveRelativeLink -->
 
-- **ExcludePaths**  
-  Type: Array of string
-  _Optional_
+Duplicate `dir` nodes from included manifests are merged. When the same directory name appears more than once, their `structure` lists are concatenated. If both have `frontmatter`, docforge returns an error.
+<!-- verified: pkg/manifest/manifest.go mergeFolders() -->
 
-  ExcludePath is a set of exclusion rules applied to node candidates based on the 
-  nodes' path. Each rule is a regular expression tested to match on each node's 
-  path, relative to the Path property.
+---
 
-- **Depth**  
-  Type: [int32](https://golang.org/ref/spec#Numeric_types)  
-  _Optional_
+## Common fields (all node types)
 
-  Depth is a maximum depth of the recursion for selecting nodes from hierarchy. 
-  If omitted or less than 0, the constraint is not considered.
-  
-- **FrontMatter**
-  Type: Map[string][any]
-  _Optional_
+### `frontmatter`
 
-  FrontMatter is a set of rules for a `nodesSelector` to **include** nodes with
-  compliant front-matter. The compliance is positive if a node matches one or 
-  more rules. Applies to document nodes only.
+Arbitrary key-value map written as YAML front matter into the output file.
 
-  If a node is evaluated to be compliant with both `FrontMatter` and 
-  `ExcludeFrontMatter` rules, it will be excluded. 
-  
-  Markdown metadata is commonly provisioned as `front-matter` block at the head
-  of the document delimited by comment tags (`---`). The supported format of the 
-  metadata is YAML. 
+```yaml
+- dir: guides
+  frontmatter:
+    weight: 10
+    title: Guides
+  structure:
+    - file: https://github.com/org/repo/blob/main/docs/guide.md
+      frontmatter:
+        title: Getting Started
+        weight: 1
+```
 
-  The `FrontMatter` rules are mappings between path patterns identifying an 
-  element in the front-matter and a value. If the path matches an actual path
-  to an element in the front-matter and the value of this element matches the 
-  rule value, there is a positive match.
-  
-  The path patterns are a very simplified form of JSONPath notation.
-  An object in path is modeled as dot (`.`). Paths start with the root object, 
-  i.e. the most minimal path is `.`.
-  An object element value is referenced by its name (key) in the object map: 
-  `.a.b.c` is path to element `c` in map `b` in map `a` in root object map.
-  Element values can be scalar, object maps or arrays.
-  An element in an array is referenced by its index: `.a.b[1]` references `b` 
-  array element with index 1.
-  Paths can include up to one wildcard `**` symbol that models *any* path node.
-  A `.a.**.c` models any path starting with  `.a.` and ending with `.c`.
+A parent node's `frontmatter` is inherited by all descendants. Child values override parent values on collision. The `aliases` key is never propagated from parent to child.
+<!-- verified: pkg/manifestplugins/markdown/plugin.go propagateFrontmatter() -->
 
-- **ExcludeFrontMatter**
-  Type: Map[string][any]
-  _Optional_
+**Ordering by `weight`:** if any child node has `frontmatter.weight` (integer or float), children are sorted ascending by weight. Weighted children sort before unweighted ones. Nodes with equal weight preserve manifest order (stable sort). A warning is logged when some siblings have `weight` and others do not.
+<!-- verified: pkg/manifest/order.go resolveOrder() and weightOf() -->
 
-  ExcludeFrontMatter is a set of rules for a `nodesSelector` to **exclude** nodes 
-  with compliant front-matter. The compliance is positive if a node matches one or
-  more rules. Applies to document nodes only.
+---
 
-  If a node is evaluated to be compliant with both `FrontMatter` and 
-  `ExcludeFrontMatter` rules, it will be excluded. 
-  
-  Markdown metadata is commonly provisioned as `front-matter` block at the head
-  of the document delimited by comment tags (`---`). The supported format of the 
-  metadata is YAML. 
+### `linkResolution`
 
-  The `ExcludeFrontMatter` rules are mappings between path patterns identifying an 
-  element in the front-matter and a value. If the path matches an actual path
-  to an element in the front-matter and the value of this element matches the 
-  rule value, there is a positive match.
-  
-  The path patterns are a very simplified form of JSONPath notation.
-  An object in path is modeled as dot (`.`). Paths start with the root object, 
-  i.e. the most minimal path is `.`.
-  An object element value is referenced by its name (key) in the object map: 
-  `.a.b.c` is path to element `c` in map `b` in map `a` in root object map.
-  Element values can be scalar, object maps or arrays.
-  An element in an array is referenced by its index: `.a.b[1]` references `b` 
-  array element with index 1.
-  Paths can include up to one wildcard `**` symbol that models *any* path node.
-  A `.a.**.c` models any path starting with  `.a.` and ending with `.c`.
+Map of source URL → destination node path, overriding docforge's automatic link rewriting for specific links within this node's document.
+
+```yaml
+- file: https://github.com/org/repo/blob/main/docs/guide.md
+  linkResolution:
+    https://github.com/org/repo/blob/main/docs/other.md: other/other.md
+```
+
+<!-- verified: pkg/manifest/node.go LinkResolution yaml:"linkResolution" -->
+<!-- verified: pkg/nodeplugins/markdown/linkresolver/link_resolving.go — node.LinkResolution[destinationResourceURL] -->
+
+---
+
+## Relative links in manifests
+
+If a path starts with `/` it is resolved from the repository root. Otherwise it is resolved relative to the manifest file's own location.
+
+```yaml
+structure:
+  # resolves relative to this manifest's directory
+  - file: ../README.md
+  # resolves from repo root
+  - fileTree: /docs
+```
+
+<!-- verified: pkg/manifest/manifest.go resolveManifestLinks() — repositoryhost.IsRelative check + r.ResolveRelativeLink(manifest.Manifest, link) -->

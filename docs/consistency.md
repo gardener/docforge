@@ -14,11 +14,10 @@ If a linked document is not a document node in the documentation model, then it 
 Cascading download of documents based on hyperlinks in their content is not supported intentionally to ensure predictable results and avoid accidental downloads.
 
 ## Links to resources
-Resources linked by downloaded documents are downloaded if they are embeddable resources, like images, and the link is relative or must be part of the host organization (e.g. it has prefixed https://github.com/gardener/)
 
-Resources are downloaded in a dedicated destination, with their names changed to `$name_$<source_md5_hash>$ext` to avoid potential name clashes. Links in all downloaded documents originally referencing a resource that has been downloaded and processed like that are adjusted according to the documents relative position to the new location of the resource and rewritten as *relative* links. The new name of the resource is used in the document links referencing it. A resource is downloaded only once, regardless of how many documents reference it.
+Embedded resources (images and other non-document files) referenced by downloaded Markdown documents are **not downloaded** by docforge unless they appear as explicit nodes in the manifest. When a `.md` file references an image via a relative link, docforge rewrites the link to its absolute raw GitHub URL so the reference remains valid in the output bundle. No resource is renamed or copied to the destination.
 
-Link adjustment to downloaded resource and its rewrite to relative form applies to all downloaded documents that reference that resource. 
+If you need a resource to be present locally in the output bundle, declare it explicitly in the manifest as a `file` node alongside the documents that reference it.
 
 Absolute links that do not need to be processed because of a reason outlined so far are left intact.
 

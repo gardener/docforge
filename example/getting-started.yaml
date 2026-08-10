@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: 2024 SAP SE or an SAP affiliate company and Gardener contributors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Minimal manifest: pulls two files from the docforge repository itself.
+# No GitHub token is strictly required for public repos, but recommended to
+# avoid rate limiting (60 req/h unauthenticated).
+structure:
+- file: https://github.com/gardener/docforge/blob/master/README.md
+- dir: docs
+  structure:
+  - fileTree: https://github.com/gardener/docforge/tree/master/docs
+    excludeFiles:
+    - cmd-ref/docforge.md
+    - cmd-ref/docforge_completion.md
+    - cmd-ref/docforge_gen-cmd-docs.md
+    - cmd-ref/docforge_version.md
