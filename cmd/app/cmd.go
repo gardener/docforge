@@ -33,13 +33,13 @@ const (
 
 // options data structure with all the options for docforge
 type options struct {
-	Options                        `mapstructure:",squash"`
-	hugo.Hugo                      `mapstructure:",squash"`
-	docsy.Docsy                    `mapstructure:",squash"`
-	markdown.Markdown              `mapstructure:",squash"`
-	alias.Alias                    `mapstructure:",squash"`
-	sourceorigin.SourceOrigin      `mapstructure:",squash"`
-	repositoryhost.InitOptions     `mapstructure:",squash"`
+	Options                    `mapstructure:",squash"`
+	hugo.Hugo                  `mapstructure:",squash"`
+	docsy.Docsy                `mapstructure:",squash"`
+	markdown.Markdown          `mapstructure:",squash"`
+	alias.Alias                `mapstructure:",squash"`
+	sourceorigin.SourceOrigin  `mapstructure:",squash"`
+	repositoryhost.InitOptions `mapstructure:",squash"`
 }
 
 // NewCommand creates a new root command and propagates
