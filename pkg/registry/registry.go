@@ -37,6 +37,10 @@ type Interface interface {
 	ResourceURL(resourceURL string) (*repositoryhost.URL, error)
 	// LogRateLimits logs rate limit and remaining API calls for all resource handler backends
 	LogRateLimits(ctx context.Context)
+	// IsRemote reports whether resourceURL is served by a remote (GitHub) host in this
+	// run, as opposed to a locally-mapped host (resourceMappings). The answer reflects
+	// which host actually accepts the URL at runtime, not a static property of the URL.
+	IsRemote(resourceURL string) (bool, error)
 }
 
 type registry struct {
@@ -114,6 +118,14 @@ func (r *registry) anyRepositoryHost(resourceURL string) (repositoryhost.Interfa
 func (r *registry) ResourceURL(resourceURL string) (*repositoryhost.URL, error) {
 	_, url, err := r.anyRepositoryHost(resourceURL)
 	return url, err
+}
+
+func (r *registry) IsRemote(resourceURL string) (bool, error) {
+	rh, err := r.acceptAnyRH(resourceURL)
+	if err != nil {
+		return false, err
+	}
+	return rh.Repositories() != nil, nil
 }
 
 func (r *registry) githubRepositoryHost(resourceURL string) (repositoryhost.Interface, *repositoryhost.URL, error) {

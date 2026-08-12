@@ -25,6 +25,19 @@ type FakeInterface struct {
 	clientReturnsOnCall map[int]struct {
 		result1 httpclient.Client
 	}
+	IsRemoteStub        func(string) (bool, error)
+	isRemoteMutex       sync.RWMutex
+	isRemoteArgsForCall []struct {
+		arg1 string
+	}
+	isRemoteReturns struct {
+		result1 bool
+		result2 error
+	}
+	isRemoteReturnsOnCall map[int]struct {
+		result1 bool
+		result2 error
+	}
 	LoadRepositoryStub        func(context.Context, string) error
 	loadRepositoryMutex       sync.RWMutex
 	loadRepositoryArgsForCall []struct {
@@ -173,6 +186,70 @@ func (fake *FakeInterface) ClientReturnsOnCall(i int, result1 httpclient.Client)
 	fake.clientReturnsOnCall[i] = struct {
 		result1 httpclient.Client
 	}{result1}
+}
+
+func (fake *FakeInterface) IsRemote(arg1 string) (bool, error) {
+	fake.isRemoteMutex.Lock()
+	ret, specificReturn := fake.isRemoteReturnsOnCall[len(fake.isRemoteArgsForCall)]
+	fake.isRemoteArgsForCall = append(fake.isRemoteArgsForCall, struct {
+		arg1 string
+	}{arg1})
+	stub := fake.IsRemoteStub
+	fakeReturns := fake.isRemoteReturns
+	fake.recordInvocation("IsRemote", []interface{}{arg1})
+	fake.isRemoteMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *FakeInterface) IsRemoteCallCount() int {
+	fake.isRemoteMutex.RLock()
+	defer fake.isRemoteMutex.RUnlock()
+	return len(fake.isRemoteArgsForCall)
+}
+
+func (fake *FakeInterface) IsRemoteCalls(stub func(string) (bool, error)) {
+	fake.isRemoteMutex.Lock()
+	defer fake.isRemoteMutex.Unlock()
+	fake.IsRemoteStub = stub
+}
+
+func (fake *FakeInterface) IsRemoteArgsForCall(i int) string {
+	fake.isRemoteMutex.RLock()
+	defer fake.isRemoteMutex.RUnlock()
+	argsForCall := fake.isRemoteArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *FakeInterface) IsRemoteReturns(result1 bool, result2 error) {
+	fake.isRemoteMutex.Lock()
+	defer fake.isRemoteMutex.Unlock()
+	fake.IsRemoteStub = nil
+	fake.isRemoteReturns = struct {
+		result1 bool
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeInterface) IsRemoteReturnsOnCall(i int, result1 bool, result2 error) {
+	fake.isRemoteMutex.Lock()
+	defer fake.isRemoteMutex.Unlock()
+	fake.IsRemoteStub = nil
+	if fake.isRemoteReturnsOnCall == nil {
+		fake.isRemoteReturnsOnCall = make(map[int]struct {
+			result1 bool
+			result2 error
+		})
+	}
+	fake.isRemoteReturnsOnCall[i] = struct {
+		result1 bool
+		result2 error
+	}{result1, result2}
 }
 
 func (fake *FakeInterface) LoadRepository(arg1 context.Context, arg2 string) error {
@@ -597,6 +674,8 @@ func (fake *FakeInterface) Invocations() map[string][][]interface{} {
 	defer fake.invocationsMutex.RUnlock()
 	fake.clientMutex.RLock()
 	defer fake.clientMutex.RUnlock()
+	fake.isRemoteMutex.RLock()
+	defer fake.isRemoteMutex.RUnlock()
 	fake.loadRepositoryMutex.RLock()
 	defer fake.loadRepositoryMutex.RUnlock()
 	fake.logRateLimitsMutex.RLock()

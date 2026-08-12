@@ -81,6 +81,14 @@ func configureFlags(command *cobra.Command, vip *viper.Viper) {
 		"Propagate Hugo aliases from parent dir frontmatter to child files.")
 	_ = vip.BindPFlag("aliases-enabled", command.Flags().Lookup("aliases-enabled"))
 
+	command.Flags().Bool("source-origin-enabled", false,
+		"Write an 'origin' frontmatter field to every processed file node: 'remote' for sources resolved via a GitHub host, 'local' for sources resolved via a resourceMappings entry.")
+	_ = vip.BindPFlag("source-origin-enabled", command.Flags().Lookup("source-origin-enabled"))
+
+	command.Flags().Bool("source-origin-gardener-mapping", false,
+		"When --source-origin-enabled is set, emit 'managed: true' (remote) / 'local: true' (local) instead of the default 'origin: remote/local' fields. Opt-in downstream mapping for Gardener tooling.")
+	_ = vip.BindPFlag("source-origin-gardener-mapping", command.Flags().Lookup("source-origin-gardener-mapping"))
+
 	cacheDir := ""
 	userHomeDir, err := os.UserHomeDir()
 	if err == nil {

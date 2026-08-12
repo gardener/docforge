@@ -18,6 +18,7 @@ import (
 	"github.com/gardener/docforge/pkg/manifestplugins/docsy"
 	"github.com/gardener/docforge/pkg/manifestplugins/filetypefilter"
 	manifestmarkdown "github.com/gardener/docforge/pkg/manifestplugins/markdown"
+	"github.com/gardener/docforge/pkg/manifestplugins/sourceorigin"
 	"github.com/gardener/docforge/pkg/nodeplugins"
 	"github.com/gardener/docforge/pkg/nodeplugins/downloader"
 	"github.com/gardener/docforge/pkg/nodeplugins/markdown"
@@ -76,6 +77,10 @@ func exec(ctx context.Context, vip *viper.Viper) error {
 	if options.Docsy.EditThisPageEnabled {
 		docsyPlugin := docsy.Docsy{}
 		pluginTransformations = append(pluginTransformations, docsyPlugin.PluginNodeTransformations()...)
+	}
+	if options.SourceOrigin.SourceOriginEnabled {
+		soPlugin := sourceorigin.SourceOrigin{GardenerMapping: options.SourceOrigin.GardenerMapping}
+		pluginTransformations = append(pluginTransformations, soPlugin.PluginNodeTransformations()...)
 	}
 
 	if len(options.Options.ContentFileFormats) > 0 {
