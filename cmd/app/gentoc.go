@@ -37,8 +37,8 @@ func NewGenTocCmd(ctx context.Context) *cobra.Command {
 		Long: `Reads a Docforge manifest and derives a navigation structure from it.
 
 The generated YAML reflects the dir / file / fileTree hierarchy defined in the
-manifest. It can be used as input for VitePress, SAP portal (toc.yaml), MkDocs,
-or any other site generator that consumes a navigation file.
+manifest. It can be used as input for VitePress, MkDocs, or any other site
+generator that consumes a navigation file.
 
 Each entry includes a title resolved from (in order of priority):
   1. manifest frontmatter.title
@@ -57,7 +57,7 @@ Each entry includes a title resolved from (in order of priority):
 	cmd.Flags().StringVarP(&f.output, "output", "o", "", "Output file path. Prints to stdout when omitted.")
 	cmd.Flags().StringToStringVar(&f.githubOAuthMap, "github-oauth-env-map", map[string]string{},
 		"Map between GitHub instances and ENV variable names that hold access tokens.")
-	cmd.Flags().StringVar(&f.cacheDir, "cache-dir", defaultCacheDir, "Cache directory for repository HTTP cache.")
+	cmd.Flags().StringVar(&f.cacheDir, "cache-dir", defaultCacheDir, "Directory for the repository HTTP cache.")
 	cmd.Flags().BoolVar(&f.stripRoot, "strip-root", false, "Strip the top-level directory prefix from all filenames.")
 	cmd.Flags().StringSliceVar(&f.indexFileNames, "index-file-names",
 		[]string{"readme.md", "README.md", "index.md"},

@@ -14,27 +14,27 @@ import (
 
 func configureFlags(command *cobra.Command, vip *viper.Viper) {
 	command.Flags().StringP("destination", "d", "",
-		"Destination path.")
+		"Path to the directory where the forged documentation bundle will be written.")
 	_ = vip.BindPFlag("destination", command.Flags().Lookup("destination"))
 
 	command.Flags().StringP("manifest", "f", "",
-		"Manifest path.")
+		"Path or URL of the documentation manifest file.")
 	_ = vip.BindPFlag("manifest", command.Flags().Lookup("manifest"))
 
 	command.Flags().StringToString("github-oauth-env-map", map[string]string{},
-		"Map between GitHub instances and ENV var names that will be used for access tokens")
+		"Map of GitHub host to environment variable name holding the access token (e.g. github.com=GITHUB_TOKEN). Required for authenticated requests.")
 	_ = vip.BindPFlag("github-oauth-env-map", command.Flags().Lookup("github-oauth-env-map"))
 
 	command.Flags().String("github-info-destination", "",
-		"If specified, docforge will download also additional github info for the files from the documentation structure into this destination.")
+		"If set, write a .json sidecar per source file with GitHub commit metadata (author, contributors, lastmod, publishdate, SHA) into this subdirectory of --destination.")
 	_ = vip.BindPFlag("github-info-destination", command.Flags().Lookup("github-info-destination"))
 
 	command.Flags().Bool("fail-fast", false,
-		"Fail-fast vs fault tolerant operation.")
+		"Stop immediately on the first processing error. Default (false) is fault-tolerant: log the error and continue with remaining files.")
 	_ = vip.BindPFlag("fail-fast", command.Flags().Lookup("fail-fast"))
 
 	command.Flags().Bool("dry-run", false,
-		"Runs the command end-to-end but instead of writing files, it will output the projected file/folder hierarchy to the standard output and statistics for the processing of each file.")
+		"Print the resolved manifest node tree to stdout and skip cleaning the destination. Does NOT prevent files from being written — node processing and downloads still run.")
 	_ = vip.BindPFlag("dry-run", command.Flags().Lookup("dry-run"))
 
 	command.Flags().Bool("clean-destination", false,
@@ -50,15 +50,15 @@ func configureFlags(command *cobra.Command, vip *viper.Viper) {
 	_ = vip.BindPFlag("download-workers", command.Flags().Lookup("download-workers"))
 
 	command.Flags().Bool("hugo", true,
-		"Build documentation bundle for hugo.")
+		"Enable Hugo-specific processing: rename section index files to _index.md and rewrite links to pretty-URL format. Pass --hugo=false for non-Hugo targets.")
 	_ = vip.BindPFlag("hugo", command.Flags().Lookup("hugo"))
 
 	command.Flags().Bool("docsy-edit-this-page-enabled", false,
-		"Set this flag when you are using edit this page in the docsy theme")
+		"Add Docsy 'Edit this page' frontmatter fields to output files.")
 	_ = vip.BindPFlag("docsy-edit-this-page-enabled", command.Flags().Lookup("docsy-edit-this-page-enabled"))
 
 	command.Flags().Bool("hugo-pretty-urls", true,
-		"Build documentation bundle for hugo with pretty URLs (./sample.md -> ../sample). Only useful with --hugo=true")
+		"Rewrite .md links to directory-style pretty URLs (./sample.md -> ../sample/). Only active when --hugo=true.")
 	_ = vip.BindPFlag("hugo-pretty-urls", command.Flags().Lookup("hugo-pretty-urls"))
 
 	command.Flags().String("hugo-base-url", "",
@@ -70,15 +70,15 @@ func configureFlags(command *cobra.Command, vip *viper.Viper) {
 	_ = vip.BindPFlag("hugo-structural-dirs", command.Flags().Lookup("hugo-structural-dirs"))
 
 	command.Flags().StringSlice("hugo-section-files", []string{"readme.md", "README.md"},
-		"When building a Hugo-compliant documentation bundle, files with filename matching one form this list (in that order) will be renamed to _index.md. Only useful with --hugo=true")
+		"Files with a name matching any entry in this list are renamed to _index.md in the output. Only active when --hugo=true.")
 	_ = vip.BindPFlag("hugo-section-files", command.Flags().Lookup("hugo-section-files"))
 
 	command.Flags().StringSlice("content-files-formats", []string{},
-		"Supported content format extensions (example: .md)")
+		"File extensions to include in the output (e.g. .md,.html). When empty (the default), all file types are included.")
 	_ = vip.BindPFlag("content-files-formats", command.Flags().Lookup("content-files-formats"))
 
 	command.Flags().Bool("aliases-enabled", false,
-		"Set this flag when you want to enable aliases for files.")
+		"Propagate Hugo aliases from parent dir frontmatter to child files.")
 	_ = vip.BindPFlag("aliases-enabled", command.Flags().Lookup("aliases-enabled"))
 
 	cacheDir := ""
@@ -88,6 +88,6 @@ func configureFlags(command *cobra.Command, vip *viper.Viper) {
 		cacheDir = filepath.Join(userHomeDir, DocforgeHomeDir)
 	}
 	command.Flags().String("cache-dir", cacheDir,
-		"Cache directory, used for repository cache.")
+		"Directory for the repository HTTP cache.")
 	_ = vip.BindPFlag("cache-dir", command.Flags().Lookup("cache-dir"))
 }
