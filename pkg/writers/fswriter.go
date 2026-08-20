@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	"github.com/gardener/docforge/pkg/manifest"
 	"gopkg.in/yaml.v3"
@@ -39,6 +40,10 @@ func (f *FSWriter) Write(name, path string, docBlob []byte, node *manifest.Node,
 		docBlob = buf.Bytes()
 	}
 	p := filepath.Join(f.Root, path)
+	root := filepath.Clean(f.Root)
+	if rel, err := filepath.Rel(root, filepath.Clean(p)); err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return fmt.Errorf("path traversal: %q escapes destination root", path)
+	}
 	if len(docBlob) == 0 {
 		return nil
 	}
