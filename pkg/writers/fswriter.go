@@ -54,6 +54,9 @@ func (f *FSWriter) Write(name, path string, docBlob []byte, node *manifest.Node,
 		name = fmt.Sprintf("%s.%s", name, f.Ext)
 	}
 	filePath := filepath.Join(p, name)
+	if rel, err := filepath.Rel(root, filepath.Clean(filePath)); err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return fmt.Errorf("path traversal: %q escapes destination root", name)
+	}
 	if err := os.WriteFile(filePath, docBlob, 0644); err != nil {
 		return fmt.Errorf("error writing %s: %v", filePath, err)
 	}

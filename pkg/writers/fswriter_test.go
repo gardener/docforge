@@ -110,6 +110,12 @@ func TestWritePathTraversal(t *testing.T) {
 			path:     "..config",
 			wantErr:  false,
 		},
+		{
+			name:     "traversal via file name is rejected",
+			fileName: "../../../sibling-secret",
+			path:     "docs",
+			wantErr:  true,
+		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
