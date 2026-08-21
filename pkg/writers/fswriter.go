@@ -27,22 +27,14 @@ func (f *FSWriter) Write(name, path string, docBlob []byte, node *manifest.Node,
 	if slices.Contains(IndexFileNames, name) {
 		name = "_index.md"
 	}
-	//generate _index.md content
-	if f.Hugo && name == "_index.md" && node != nil && node.Frontmatter != nil && docBlob == nil {
-		buf := bytes.Buffer{}
-		_, _ = buf.Write([]byte("---\n"))
-		fm, err := yaml.Marshal(node.Frontmatter)
-		if err != nil {
-			return err
-		}
-		_, _ = buf.Write(fm)
-		_, _ = buf.Write([]byte("---\n"))
-		docBlob = buf.Bytes()
+	var err error
+	if docBlob, err = f.hugoIndexContent(name, node, docBlob); err != nil {
+		return err
 	}
-	p := filepath.Join(f.Root, path)
 	root := filepath.Clean(f.Root)
-	if rel, err := filepath.Rel(root, filepath.Clean(p)); err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		return fmt.Errorf("path traversal: %q escapes destination root", path)
+	p := filepath.Join(f.Root, path)
+	if err := checkContainment(root, p, path); err != nil {
+		return err
 	}
 	if len(docBlob) == 0 {
 		return nil
@@ -54,11 +46,34 @@ func (f *FSWriter) Write(name, path string, docBlob []byte, node *manifest.Node,
 		name = fmt.Sprintf("%s.%s", name, f.Ext)
 	}
 	filePath := filepath.Join(p, name)
-	if rel, err := filepath.Rel(root, filepath.Clean(filePath)); err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		return fmt.Errorf("path traversal: %q escapes destination root", name)
+	if err := checkContainment(root, filePath, name); err != nil {
+		return err
 	}
 	if err := os.WriteFile(filePath, docBlob, 0644); err != nil {
 		return fmt.Errorf("error writing %s: %v", filePath, err)
+	}
+	return nil
+}
+
+func (f *FSWriter) hugoIndexContent(name string, node *manifest.Node, docBlob []byte) ([]byte, error) {
+	if !f.Hugo || name != "_index.md" || node == nil || node.Frontmatter == nil || docBlob != nil {
+		return docBlob, nil
+	}
+	buf := bytes.Buffer{}
+	_, _ = buf.Write([]byte("---\n"))
+	fm, err := yaml.Marshal(node.Frontmatter)
+	if err != nil {
+		return nil, err
+	}
+	_, _ = buf.Write(fm)
+	_, _ = buf.Write([]byte("---\n"))
+	return buf.Bytes(), nil
+}
+
+func checkContainment(root, target, label string) error {
+	rel, err := filepath.Rel(root, filepath.Clean(target))
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return fmt.Errorf("path traversal: %q escapes destination root", label)
 	}
 	return nil
 }
