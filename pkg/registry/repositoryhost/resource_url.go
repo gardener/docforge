@@ -64,6 +64,19 @@ func IsRelative(link string) bool {
 	return !url.IsAbs()
 }
 
+// IsLocalPath reports whether s is a local filesystem path (absolute, relative, or file://).
+// Returns false for http:// and https:// URLs.
+func IsLocalPath(s string) bool {
+	if s == "" {
+		return false
+	}
+	u, err := url.Parse(s)
+	if err != nil {
+		return true // unparseable: treat as local
+	}
+	return u.Scheme == "" || u.Scheme == "file"
+}
+
 // RawURL returns the GitHub raw URL for the resource, unless the resource type is 'actions' in which case it returns the origin URL
 func RawURL(resourceURL string) (string, error) {
 	r, err := new(resourceURL)
@@ -95,6 +108,10 @@ func new(resourceURL string) (*URL, error) {
 	}
 	if u.String() == "" {
 		return nil, nil
+	}
+	// file:// URLs represent local filesystem paths.
+	if u.Scheme == "file" {
+		return &URL{host: "local", resourcePath: u.Path}, nil
 	}
 	components := cachedRaw.FindStringSubmatch(u.String())
 	if components != nil {
@@ -137,6 +154,9 @@ func new(resourceURL string) (*URL, error) {
 
 // String returns the full url
 func (r URL) String() string {
+	if r.host == "local" {
+		return "file://" + r.resourcePath + r.resourceSuffix
+	}
 	if r.resourcePath == "" {
 		return must.Succeed(link.Build("https://", r.host, r.owner, r.repo, r.resourceType, r.ref))
 	}
@@ -145,6 +165,9 @@ func (r URL) String() string {
 
 // ResourceURL returns the resource url without resource suffix
 func (r URL) ResourceURL() string {
+	if r.host == "local" {
+		return "file://" + r.resourcePath
+	}
 	if r.resourcePath == "" {
 		return must.Succeed(link.Build("https://", r.host, r.owner, r.repo, r.resourceType, r.ref))
 	}

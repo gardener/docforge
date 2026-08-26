@@ -20,14 +20,25 @@ You need a Personal Access Token from GitHub (or from your corporate GitHub Ente
 export GITHUB_OAUTH_TOKEN=ghp_yourtoken
 ```
 
-### Step 2 — Commit a manifest to a GitHub repository
+### Step 2 — Point `-f` at your manifest
 
-Docforge resolves manifests through its repository host abstraction — it does not read manifest files directly from the local filesystem. The manifest must be accessible via a GitHub URL.
+Docforge accepts a **local filesystem path** or a **GitHub `blob` URL** for `-f`.
 
-The simplest way to get started is to commit a manifest to a repository you control and pass the GitHub `blob` URL to `-f`. Alternatively, use one of the example manifests already in the docforge repository:
+**Local path (no GitHub token needed for the manifest itself):**
 
 ```sh
-# Use the getting-started manifest from the docforge repo itself
+docforge \
+  -f ./example/getting-started.yaml \
+  -d /tmp/docforge-output \
+  --github-oauth-env-map github.com=GITHUB_OAUTH_TOKEN \
+  --dry-run
+```
+
+Any relative or absolute path is detected automatically and resolved to an absolute path before loading. Sources referenced *inside* the manifest are still fetched normally — absolute GitHub URLs go to the GitHub host, and relative paths (e.g. `./README.md`) are resolved relative to the manifest's directory and read from disk.
+
+**Remote GitHub URL (the previous default, still fully supported):**
+
+```sh
 docforge \
   -f https://github.com/gardener/docforge/blob/master/example/getting-started.yaml \
   -d /tmp/docforge-output \
@@ -35,15 +46,13 @@ docforge \
   --dry-run
 ```
 
-If you want to iterate on a manifest locally without pushing, add a `resourceMappings` entry to `~/.docforge/config` to map a GitHub URL prefix to a local directory:
+If you want to remap a GitHub URL prefix to a local directory for the *source files* (e.g. to avoid fetching sources over the network during development), add a `resourceMappings` entry to `~/.docforge/config`:
 
 ```yaml
 # ~/.docforge/config
 resourceMappings:
   https://github.com/myorg/myrepo/blob/main: /path/to/local/checkout
 ```
-
-With that mapping in place, any GitHub URL under that prefix is read from disk instead of fetched over the network. This is only necessary during development — in CI, always use GitHub URLs directly.
 
 ### Step 3 — Dry run (inspect the resolved node tree)
 
@@ -384,19 +393,33 @@ Docforge caches GitHub HTTP responses on disk under `--cache-dir` (default `~/.d
 `--download-workers` also controls the concurrency of the GitHub commit-info fetcher (used when `--github-info-destination` is set) — it is not only for resource downloads.
 <!-- verified: pkg/workers/taskqueue/taskqueue.go minWorkerSize=1 maxWorkerSize=100; pkg/nodeplugins/markdown/plugin.go:30 githubinfo uses resourceDownloadWorkersCount -->
 
-### Manifest URLs must be accessible via a registered host
+### Local manifest paths and remote sources
 
-Docforge resolves manifest files through the same repository-host abstraction as document files. A manifest passed via `-f` must be a GitHub `blob` URL (or a URL under a registered `resourceMappings` prefix). Local filesystem paths are not accepted directly.
+Passing a local filesystem path to `-f` is supported directly — no `resourceMappings` config is required for the manifest itself.
 
-To read a manifest from a local checkout without pushing, add a `resourceMappings` entry to `~/.docforge/config`:
+```sh
+docforge -f ./my-manifest.yaml -d /tmp/out --github-oauth-env-map github.com=GITHUB_TOKEN
+```
+
+Detection is automatic: if the value passed to `-f` has no URL scheme (or uses `file://`), it is treated as a local path and resolved to an absolute path. A GitHub URL (`https://...`) continues to be fetched from the network as before.
+
+**Four manifest × source combinations**
+
+| Manifest | Sources in manifest | How it works |
+|---|---|---|
+| Local path (`-f ./manifest.yaml`) | Absolute GitHub URLs | Manifest read from disk; sources fetched from GitHub host as usual |
+| Local path (`-f ./manifest.yaml`) | Relative paths (`./README.md`) | Manifest and sources both read from disk; relative paths resolved relative to the manifest directory |
+| GitHub URL | Absolute GitHub URLs | Existing behaviour — fully unchanged |
+| GitHub URL | Remapped via `resourceMappings` | Existing behaviour — fully unchanged |
+
+`resourceMappings` is still useful when you want to remap *source* GitHub URLs to a local directory, regardless of where the manifest lives:
 
 ```yaml
+# ~/.docforge/config
 resourceMappings:
   https://github.com/myorg/myrepo/blob/main: /path/to/local/checkout
 ```
-
-Any GitHub URL under that prefix is then read from the mapped local directory instead of fetched over the network. The prefix match is exact — a trailing `/` in the key is significant.
-<!-- verified: pkg/registry/repositoryhost/repository_host.go:57 ResourceMappings mapstructure:"resourceMappings"; cmd/app/exec.go:46-49 NewLocal; pkg/registry/repositoryhost/local.go -->
+<!-- verified: cmd/app/exec.go IsLocalPath + NewLocalPath registration; pkg/registry/repositoryhost/local_path.go LocalPath host; cmd/app/local_manifest_test.go TestCaseA–D -->
 
 ### Configuration file and environment overrides
 
