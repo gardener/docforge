@@ -45,13 +45,15 @@ Go to the [latest release](https://github.com/gardener/docforge/releases/latest)
 | Linux | arm64 | `docforge-linux-arm64` |
 | Windows | x86 | `docforge-windows-386` |
 
-Make the binary executable and place it on your PATH. Example for Linux/macOS:
+Download the archive, extract the binary, and place it on your PATH. Example for Linux/macOS:
 
 ```sh
-# Replace <VERSION> and <BINARY> with the values for your platform
-curl -Lo /usr/local/bin/docforge \
+# Replace <BINARY> with the binary name for your platform from the table above
+curl -Lo /tmp/docforge.tar.gz \
   https://github.com/gardener/docforge/releases/latest/download/<BINARY>
-chmod +x /usr/local/bin/docforge
+tar -xzf /tmp/docforge.tar.gz -C /tmp
+chmod +x /tmp/<BINARY>
+sudo mv /tmp/<BINARY> /usr/local/bin/docforge
 ```
 
 > **Disclaimer on releases**: Until there is a stable 1.0 version changes are likely to occur and not necessarily backwards compatible. New features are released with a minor version increase. We do not release hotfixes except for the latest minor release, only for bugs and only when critical.
