@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
@@ -61,6 +62,29 @@ func exec(ctx context.Context, vip *viper.Viper) error {
 	}
 
 	manifestURL := options.ManifestPath
+	// Auto-detect local manifest path: if the value is a local filesystem path rather than
+	// a remote resource URL, resolve it to an absolute file:// URL and register a LocalPath
+	// host so the registry can serve it.  This is the single dispatch point for
+	// local-manifest vs remote-manifest; the sources referenced inside the manifest are
+	// orthogonal and continue to be routed by their own URLs (remote → GitHub host,
+	// local-relative → LocalPath host via ResolveRelativeLink).
+	if repositoryhost.IsLocalPath(manifestURL) {
+		rawPath := strings.TrimPrefix(manifestURL, "file://")
+		absPath, err := filepath.Abs(rawPath)
+		if err != nil {
+			return fmt.Errorf("failed to resolve manifest path %q: %w", manifestURL, err)
+		}
+		// Resolve symlinks so localDir is scoped to the real directory, not a symlink to it.
+		// This ensures the LocalPath containment check uses consistent real paths.
+		realPath, err := filepath.EvalSymlinks(absPath)
+		if err != nil {
+			return fmt.Errorf("failed to resolve manifest path %q: %w", manifestURL, err)
+		}
+		manifestURL = "file://" + realPath
+		// Scope the host to the manifest's real directory so that a malicious remote
+		// sub-manifest cannot inject file:// URLs pointing outside that directory.
+		localRH = append(localRH, repositoryhost.NewLocalPath(&osshim.OsShim{}, filepath.Dir(realPath)))
+	}
 
 	rhRegistry := registry.NewRegistry(append(localRH, config.RepositoryHosts...)...)
 
