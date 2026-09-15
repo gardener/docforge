@@ -109,7 +109,9 @@ func (l *LinkResolver) ResolveResourceLink(resourceLink string, node *manifest.N
 // Returns the original link unchanged (with nil error) when the target does not exist in the repo.
 func (l *LinkResolver) resolveRelativeToAbsolute(resourceLink, source string) (string, error) {
 	if srcURL, e := l.Repositoryhosts.ResourceURL(source); e == nil {
-		resourceLink = ReAnchorRootAbsolute(resourceLink, srcURL.GetResourcePath(), l.Hugo.HugoStructuralDirs)
+		if l.Hugo.Enabled {
+			resourceLink = ReAnchorRootAbsolute(resourceLink, srcURL.GetResourcePath(), l.Hugo.HugoStructuralDirs)
+		}
 	}
 	return l.Repositoryhosts.ResolveRelativeLink(source, resourceLink)
 }
@@ -120,8 +122,10 @@ func (l *LinkResolver) buildOutputLink(destinationNode *manifest.Node, destinati
 	if l.Hugo.Enabled {
 		websiteLink = destinationNode.HugoPrettyPath()
 	}
-	for _, structuralDir := range l.Hugo.HugoStructuralDirs {
-		websiteLink = strings.TrimPrefix(websiteLink, structuralDir+"/")
+	if l.Hugo.Enabled {
+		for _, structuralDir := range l.Hugo.HugoStructuralDirs {
+			websiteLink = strings.TrimPrefix(websiteLink, structuralDir+"/")
+		}
 	}
 	// Append the suffix (?query, #fragment, or ?query#fragment) with plain
 	// concatenation. url.JoinPath (used inside link.Build) treats the suffix

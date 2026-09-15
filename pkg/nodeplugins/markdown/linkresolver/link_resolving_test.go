@@ -182,12 +182,13 @@ var _ = Describe("Document link resolving", func() {
 				Expect(got).To(Equal("linkresolution.md"))
 			})
 
-			It("hugo structural dir stripped", func() {
+			It("hugo structural dirs NOT stripped when Hugo disabled", func() {
 				relLR.Hugo.HugoStructuralDirs = []string{"content"}
-				// content/docs/file.md; TrimPrefix("content/") -> docs/file.md; Rel("one","docs/file.md") = ../docs/file.md
+				// Hugo disabled: NodePath = "content/docs/file.md", structural dirs must NOT be stripped.
+				// Rel("one", "content/docs/file.md") = "../content/docs/file.md"
 				got, err := relLR.ResolveResourceLink("https://github.com/gardener/docforge/blob/master/file.md", node, source)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(got).To(Equal("../docs/file.md"))
+				Expect(got).To(Equal("../content/docs/file.md"))
 			})
 
 			It("Hugo.Enabled=true BaseURL empty produces absolute without prefix", func() {
