@@ -24,7 +24,7 @@ type FSWriter struct {
 }
 
 func (f *FSWriter) Write(name, path string, docBlob []byte, node *manifest.Node, IndexFileNames []string) error {
-	if slices.Contains(IndexFileNames, name) {
+	if f.Hugo && slices.Contains(IndexFileNames, name) {
 		name = "_index.md"
 	}
 	var err error
