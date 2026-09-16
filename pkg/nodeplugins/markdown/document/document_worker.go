@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"slices"
 	"strings"
 	"sync"
 
@@ -73,7 +74,11 @@ func (d *Worker) ProcessNode(ctx context.Context, node *manifest.Node) error {
 		}
 		cnt = bytesBuff.Bytes()
 	}
-	if err := d.writer.Write(node.Name(), node.Path, cnt, node, d.hugo.IndexFileNames); err != nil {
+	name := node.Name()
+	if d.hugo.Enabled && slices.Contains(d.hugo.IndexFileNames, name) {
+		name = "_index.md"
+	}
+	if err := d.writer.Write(name, node.Path, cnt, node); err != nil {
 		return err
 	}
 	return nil
