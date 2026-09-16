@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/gardener/docforge/cmd/hugo"
+	hugoutil "github.com/gardener/docforge/pkg/hugo"
 	"github.com/gardener/docforge/pkg/internal/link"
 	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/registry"
@@ -120,7 +121,7 @@ func (l *LinkResolver) resolveRelativeToAbsolute(resourceLink, source string) (s
 func (l *LinkResolver) buildOutputLink(destinationNode *manifest.Node, destinationResource *repositoryhost.URL, node *manifest.Node) (string, error) {
 	websiteLink := destinationNode.NodePath()
 	if l.Hugo.Enabled {
-		websiteLink = destinationNode.HugoPrettyPath()
+		websiteLink = hugoutil.HugoPrettyPath(destinationNode, l.Hugo.IndexFileNames)
 	}
 	if l.Hugo.Enabled {
 		for _, structuralDir := range l.Hugo.HugoStructuralDirs {
