@@ -12,10 +12,10 @@ import (
 	"github.com/gardener/docforge/pkg/manifest"
 )
 
-// HugoPrettyPath returns the Hugo pretty-URL path for n, trimming the .md
+// PrettyPath returns the Hugo pretty-URL path for n, trimming the .md
 // extension and any index file stem (from indexFileNames) to produce a
 // directory-style path (e.g. "docs/readme/" instead of "docs/README.md").
-func HugoPrettyPath(n *manifest.Node, indexFileNames []string) string {
+func PrettyPath(n *manifest.Node, indexFileNames []string) string {
 	name := n.Name()
 	if n.Type == "dir" {
 		return must.Succeed(link.Build(n.Path, name, "/"))

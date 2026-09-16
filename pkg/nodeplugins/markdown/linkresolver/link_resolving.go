@@ -121,7 +121,7 @@ func (l *LinkResolver) resolveRelativeToAbsolute(resourceLink, source string) (s
 func (l *LinkResolver) buildOutputLink(destinationNode *manifest.Node, destinationResource *repositoryhost.URL, node *manifest.Node) (string, error) {
 	websiteLink := destinationNode.NodePath()
 	if l.Hugo.Enabled {
-		websiteLink = hugoutil.HugoPrettyPath(destinationNode, l.Hugo.IndexFileNames)
+		websiteLink = hugoutil.PrettyPath(destinationNode, l.Hugo.IndexFileNames)
 	}
 	if l.Hugo.Enabled {
 		for _, structuralDir := range l.Hugo.HugoStructuralDirs {

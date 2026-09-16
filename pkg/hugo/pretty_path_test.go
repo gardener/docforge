@@ -94,7 +94,7 @@ func TestHugoPrettyPath(t *testing.T) {
 			}
 			n.File = c.nodeFile
 			n.Dir = c.nodeDir
-			got := pkghugo.HugoPrettyPath(n, c.indexFileNames)
+			got := pkghugo.PrettyPath(n, c.indexFileNames)
 			if got != c.want {
 				t.Errorf("HugoPrettyPath() = %q, want %q", got, c.want)
 			}
