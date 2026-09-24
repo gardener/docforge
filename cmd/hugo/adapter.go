@@ -24,8 +24,10 @@ func NewAdapter(h Hugo) *Adapter { return &Adapter{h: h} }
 
 var _ sitegen.Config = (*Adapter)(nil)
 
+// Enabled implements sitegen.Config.
 func (a *Adapter) Enabled() bool { return a.h.Enabled }
 
+// IsIndexFile implements sitegen.Config.
 func (a *Adapter) IsIndexFile(name string) bool {
 	if name == "_index.md" {
 		return true
@@ -38,9 +40,13 @@ func (a *Adapter) IsIndexFile(name string) bool {
 	return false
 }
 
+// PrettyPath implements sitegen.Config.
 func (a *Adapter) PrettyPath(node *manifest.Node) string {
 	return hugoutil.PrettyPath(node, a.h.IndexFileNames)
 }
 
-func (a *Adapter) BaseURL() string          { return a.h.BaseURL }
+// BaseURL implements sitegen.Config.
+func (a *Adapter) BaseURL() string { return a.h.BaseURL }
+
+// StructuralDirs implements sitegen.Config.
 func (a *Adapter) StructuralDirs() []string { return a.h.HugoStructuralDirs }
