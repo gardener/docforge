@@ -102,16 +102,17 @@ func newRepositoryHost(host string, client *github.Client, httpClient *http.Clie
 }
 
 // NewReactor creates a Reactor from Options
-func getReactorConfig(options Options, hugo hugo.Hugo, rhs []repositoryhost.Interface) Config {
+func getReactorConfig(options Options, h hugo.Hugo, rhs []repositoryhost.Interface) Config {
 	config := Config{
 		Options:         options,
 		RepositoryHosts: rhs,
-		Hugo:            hugo,
+		Hugo:            h,
+		SiteGen:         hugo.NewAdapter(h),
 	}
 
 	config.Writer = &writers.FSWriter{
-		Root: config.DestinationPath,
-		Hugo: config.Hugo.Enabled,
+		Root:   config.DestinationPath,
+		Config: config.SiteGen,
 	}
 
 	if len(config.GhInfoDestination) > 0 {

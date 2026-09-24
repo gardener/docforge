@@ -9,17 +9,16 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"slices"
 	"strings"
 	"sync"
 
-	"github.com/gardener/docforge/cmd/hugo"
 	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/nodeplugins/markdown/document/frontmatter"
 	"github.com/gardener/docforge/pkg/nodeplugins/markdown/document/markdown"
 	"github.com/gardener/docforge/pkg/nodeplugins/markdown/linkresolver"
 	"github.com/gardener/docforge/pkg/registry"
 	"github.com/gardener/docforge/pkg/registry/repositoryhost"
+	"github.com/gardener/docforge/pkg/sitegen"
 	"github.com/gardener/docforge/pkg/writers"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
@@ -34,17 +33,17 @@ type Worker struct {
 	writer writers.Writer
 
 	repositoryhosts registry.Interface
-	hugo            hugo.Hugo
+	config          sitegen.Config
 }
 
 // NewDocumentWorker creates Worker objects
-func NewDocumentWorker(linkResolver linkresolver.Interface, rh registry.Interface, hugo hugo.Hugo, writer writers.Writer) *Worker {
+func NewDocumentWorker(linkResolver linkresolver.Interface, rh registry.Interface, config sitegen.Config, writer writers.Writer) *Worker {
 	return &Worker{
 		markdown.New(),
 		linkResolver,
 		writer,
 		rh,
-		hugo,
+		config,
 	}
 }
 
@@ -75,7 +74,7 @@ func (d *Worker) ProcessNode(ctx context.Context, node *manifest.Node) error {
 		cnt = bytesBuff.Bytes()
 	}
 	name := node.Name()
-	if d.hugo.Enabled && slices.Contains(d.hugo.IndexFileNames, name) {
+	if d.config != nil && d.config.Enabled() && d.config.IsIndexFile(name) {
 		name = "_index.md"
 	}
 	if err := d.writer.Write(name, node.Path, cnt, node); err != nil {
@@ -127,7 +126,7 @@ func (d *Worker) process(ctx context.Context, b *bytes.Buffer, n *manifest.Node)
 			}
 		}
 		frontmatter.MoveMultiSourceFrontmatterToTopDocument(docs)
-		frontmatter.ComputeNodeTitle(firstDoc, n, d.hugo.IndexFileNames, d.hugo.Enabled)
+		frontmatter.ComputeNodeTitle(firstDoc, n, d.config)
 		frontmatter.MergeDocumentAndNodeFrontmatter(firstDoc, n)
 	}
 	for _, cnt := range fullContent {
@@ -183,7 +182,11 @@ func (d *linkResolverTask) resolveEmbededLink(embeddedLink string, source string
 	var err error
 	if repositoryhost.IsRelative(embeddedLink) {
 		if srcURL, e := d.repositoryhosts.ResourceURL(source); e == nil {
-			embeddedLink = linkresolver.ReAnchorRootAbsolute(embeddedLink, srcURL.GetResourcePath(), d.hugo.HugoStructuralDirs)
+			var structuralDirs []string
+			if d.config != nil {
+				structuralDirs = d.config.StructuralDirs()
+			}
+			embeddedLink = linkresolver.ReAnchorRootAbsolute(embeddedLink, srcURL.GetResourcePath(), structuralDirs)
 		}
 		embeddedLink, err = d.repositoryhosts.ResolveRelativeLink(source, embeddedLink)
 		if err != nil {
