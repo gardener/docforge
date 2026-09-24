@@ -20,8 +20,10 @@ type SimpleConfig struct {
 	StructDirs   []string
 }
 
+// Enabled implements Config.
 func (s SimpleConfig) Enabled() bool { return s.IsEnabled }
 
+// IsIndexFile implements Config.
 func (s SimpleConfig) IsIndexFile(name string) bool {
 	if name == "_index.md" {
 		return true
@@ -34,9 +36,13 @@ func (s SimpleConfig) IsIndexFile(name string) bool {
 	return false
 }
 
+// PrettyPath implements Config.
 func (s SimpleConfig) PrettyPath(node *manifest.Node) string {
 	return hugoutil.PrettyPath(node, s.IndexFiles)
 }
 
-func (s SimpleConfig) BaseURL() string          { return s.BaseURLValue }
+// BaseURL implements Config.
+func (s SimpleConfig) BaseURL() string { return s.BaseURLValue }
+
+// StructuralDirs implements Config.
 func (s SimpleConfig) StructuralDirs() []string { return s.StructDirs }
