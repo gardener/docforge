@@ -11,12 +11,11 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/gardener/docforge/cmd/hugo"
-	hugoutil "github.com/gardener/docforge/pkg/hugo"
 	"github.com/gardener/docforge/pkg/internal/link"
 	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/registry"
 	"github.com/gardener/docforge/pkg/registry/repositoryhost"
+	"github.com/gardener/docforge/pkg/sitegen"
 	"k8s.io/klog/v2"
 )
 
@@ -45,14 +44,14 @@ type Interface interface {
 type LinkResolver struct {
 	Repositoryhosts registry.Interface
 	SourceToNode    map[string][]*manifest.Node
-	Hugo            hugo.Hugo
+	Config          sitegen.Config
 }
 
 // New creates a new linkresolver given the manifest structure and a registry used for working with links
-func New(structure []*manifest.Node, rhs registry.Interface, hugo hugo.Hugo) *LinkResolver {
+func New(structure []*manifest.Node, rhs registry.Interface, config sitegen.Config) *LinkResolver {
 	lr := &LinkResolver{
 		Repositoryhosts: rhs,
-		Hugo:            hugo,
+		Config:          config,
 		SourceToNode:    make(map[string][]*manifest.Node),
 	}
 	for _, node := range structure {
@@ -110,8 +109,8 @@ func (l *LinkResolver) ResolveResourceLink(resourceLink string, node *manifest.N
 // Returns the original link unchanged (with nil error) when the target does not exist in the repo.
 func (l *LinkResolver) resolveRelativeToAbsolute(resourceLink, source string) (string, error) {
 	if srcURL, e := l.Repositoryhosts.ResourceURL(source); e == nil {
-		if l.Hugo.Enabled {
-			resourceLink = ReAnchorRootAbsolute(resourceLink, srcURL.GetResourcePath(), l.Hugo.HugoStructuralDirs)
+		if l.Config != nil && l.Config.Enabled() {
+			resourceLink = ReAnchorRootAbsolute(resourceLink, srcURL.GetResourcePath(), l.Config.StructuralDirs())
 		}
 	}
 	return l.Repositoryhosts.ResolveRelativeLink(source, resourceLink)
@@ -120,11 +119,11 @@ func (l *LinkResolver) resolveRelativeToAbsolute(resourceLink, source string) (s
 // buildOutputLink constructs the final output link given the resolved destination node.
 func (l *LinkResolver) buildOutputLink(destinationNode *manifest.Node, destinationResource *repositoryhost.URL, node *manifest.Node) (string, error) {
 	websiteLink := destinationNode.NodePath()
-	if l.Hugo.Enabled {
-		websiteLink = hugoutil.PrettyPath(destinationNode, l.Hugo.IndexFileNames)
+	if l.Config != nil && l.Config.Enabled() {
+		websiteLink = l.Config.PrettyPath(destinationNode)
 	}
-	if l.Hugo.Enabled {
-		for _, structuralDir := range l.Hugo.HugoStructuralDirs {
+	if l.Config != nil && l.Config.Enabled() {
+		for _, structuralDir := range l.Config.StructuralDirs() {
 			websiteLink = strings.TrimPrefix(websiteLink, structuralDir+"/")
 		}
 	}
@@ -135,8 +134,8 @@ func (l *LinkResolver) buildOutputLink(destinationNode *manifest.Node, destinati
 	if suffix := destinationResource.GetResourceSuffix(); suffix != "" {
 		websiteLink += suffix
 	}
-	if l.Hugo.Enabled {
-		return link.Build("/", l.Hugo.BaseURL, websiteLink)
+	if l.Config != nil && l.Config.Enabled() {
+		return link.Build("/", l.Config.BaseURL(), websiteLink)
 	}
 	sourceDir := filepath.Dir(node.NodePath())
 	rel, err := filepath.Rel(sourceDir, websiteLink)

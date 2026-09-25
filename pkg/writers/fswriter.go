@@ -12,14 +12,15 @@ import (
 	"strings"
 
 	"github.com/gardener/docforge/pkg/manifest"
+	"github.com/gardener/docforge/pkg/sitegen"
 	"gopkg.in/yaml.v3"
 )
 
 // FSWriter is implementation of Writer interface for writing blobs to the file system
 type FSWriter struct {
-	Root string
-	Ext  string
-	Hugo bool
+	Root   string
+	Ext    string
+	Config sitegen.Config
 }
 
 func (f *FSWriter) Write(name, path string, docBlob []byte, node *manifest.Node) error {
@@ -52,7 +53,7 @@ func (f *FSWriter) Write(name, path string, docBlob []byte, node *manifest.Node)
 }
 
 func (f *FSWriter) hugoIndexContent(name string, node *manifest.Node, docBlob []byte) ([]byte, error) {
-	if !f.Hugo || name != "_index.md" || node == nil || node.Frontmatter == nil || docBlob != nil {
+	if f.Config == nil || !f.Config.Enabled() || name != "_index.md" || node == nil || node.Frontmatter == nil || docBlob != nil {
 		return docBlob, nil
 	}
 	buf := bytes.Buffer{}

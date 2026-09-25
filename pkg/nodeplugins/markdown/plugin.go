@@ -3,12 +3,12 @@ package markdown
 import (
 	"sync"
 
-	"github.com/gardener/docforge/cmd/hugo"
 	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/nodeplugins"
 	"github.com/gardener/docforge/pkg/nodeplugins/markdown/document"
 	"github.com/gardener/docforge/pkg/nodeplugins/markdown/githubinfo"
 	"github.com/gardener/docforge/pkg/registry"
+	"github.com/gardener/docforge/pkg/sitegen"
 	"github.com/gardener/docforge/pkg/workers/taskqueue"
 	"github.com/gardener/docforge/pkg/writers"
 )
@@ -19,7 +19,7 @@ type plugin struct {
 }
 
 // NewPlugin creates a new markdown plugin
-func NewPlugin(workerCount int, failFast bool, wg *sync.WaitGroup, structure []*manifest.Node, rhs registry.Interface, hugo hugo.Hugo, writer writers.Writer, resourceDownloadWorkersCount int, gitInfoWriter writers.Writer) (nodeplugins.Interface, []taskqueue.QueueController, error) {
+func NewPlugin(workerCount int, failFast bool, wg *sync.WaitGroup, structure []*manifest.Node, rhs registry.Interface, config sitegen.Config, writer writers.Writer, resourceDownloadWorkersCount int, gitInfoWriter writers.Writer) (nodeplugins.Interface, []taskqueue.QueueController, error) {
 	var (
 		ghInfo      githubinfo.GitHubInfo
 		ghInfoTasks taskqueue.QueueController
@@ -33,7 +33,7 @@ func NewPlugin(workerCount int, failFast bool, wg *sync.WaitGroup, structure []*
 		}
 		queues = append(queues, ghInfoTasks)
 	}
-	docProcessor, docTasks, err := document.New(workerCount, failFast, wg, structure, rhs, hugo, writer)
+	docProcessor, docTasks, err := document.New(workerCount, failFast, wg, structure, rhs, config, writer)
 	return &plugin{docProcessor, ghInfo}, append(queues, docTasks), err
 }
 

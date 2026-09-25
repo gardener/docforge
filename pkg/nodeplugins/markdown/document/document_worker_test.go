@@ -12,12 +12,12 @@ import (
 
 	_ "embed"
 
-	"github.com/gardener/docforge/cmd/hugo"
 	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/nodeplugins/markdown/document"
 	"github.com/gardener/docforge/pkg/nodeplugins/markdown/linkresolver"
 	"github.com/gardener/docforge/pkg/registry"
 	"github.com/gardener/docforge/pkg/registry/repositoryhost"
+	"github.com/gardener/docforge/pkg/sitegen"
 	"github.com/gardener/docforge/pkg/writers/writersfakes"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -39,18 +39,18 @@ var _ = Describe("Document resolving", func() {
 	)
 	BeforeEach(func() {
 		registry := registry.NewRegistry(repositoryhost.NewLocalTest(manifests, "https://github.com/gardener/docforge", "tests"))
-		hugo := hugo.Hugo{
-			Enabled:        true,
-			BaseURL:        "baseURL",
-			IndexFileNames: []string{"readme.md", "readme", "read.me", "index.md", "index"},
+		cfg := sitegen.SimpleConfig{
+			IsEnabled:    true,
+			BaseURLValue: "baseURL",
+			IndexFiles:   []string{"readme.md", "readme", "read.me", "index.md", "index"},
 		}
 		nodes, err := manifest.ResolveManifest("https://github.com/gardener/docforge/blob/master/docs/manifest.yaml", registry)
 		Expect(err).NotTo(HaveOccurred())
 
-		lr := linkresolver.New(nodes, registry, hugo)
+		lr := linkresolver.New(nodes, registry, cfg)
 
 		w = &writersfakes.FakeWriter{}
-		dw = document.NewDocumentWorker(lr, registry, hugo, w)
+		dw = document.NewDocumentWorker(lr, registry, cfg, w)
 	})
 
 	Context("#ProcessNode", func() {
@@ -106,11 +106,11 @@ var _ = Describe("Document resolving", func() {
 	Context("Fix A: root-absolute embed link on re-aggregation", func() {
 		It("re-anchors a root-absolute image link to its structural-dir source and resolves it", func() {
 			registry := registry.NewRegistry(repositoryhost.NewLocalTest(manifests, "https://github.com/gardener/docforge", "tests"))
-			h := hugo.Hugo{
-				Enabled:            true,
-				BaseURL:            "baseURL",
-				HugoStructuralDirs: []string{"content", "static"},
-				IndexFileNames:     []string{"readme.md", "readme", "read.me", "index.md", "index"},
+			h := sitegen.SimpleConfig{
+				IsEnabled:    true,
+				BaseURLValue: "baseURL",
+				StructDirs:   []string{"content", "static"},
+				IndexFiles:   []string{"readme.md", "readme", "read.me", "index.md", "index"},
 			}
 			nodes, err := manifest.ResolveManifest("https://github.com/gardener/docforge/blob/master/ra/manifest.yaml", registry)
 			Expect(err).NotTo(HaveOccurred())

@@ -10,11 +10,11 @@ import (
 
 	_ "embed"
 
-	"github.com/gardener/docforge/cmd/hugo"
 	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/nodeplugins/markdown/linkresolver"
 	"github.com/gardener/docforge/pkg/registry"
 	"github.com/gardener/docforge/pkg/registry/repositoryhost"
+	"github.com/gardener/docforge/pkg/sitegen"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -40,9 +40,9 @@ var _ = Describe("Document link resolving", func() {
 			linkResolver = linkresolver.LinkResolver{}
 			registry := registry.NewRegistry(repositoryhost.NewLocalTest(manifests, "https://github.com/gardener/docforge", "tests"))
 			linkResolver.Repositoryhosts = registry
-			linkResolver.Hugo = hugo.Hugo{
-				Enabled: true,
-				BaseURL: "baseURL",
+			linkResolver.Config = sitegen.SimpleConfig{
+				IsEnabled:    true,
+				BaseURLValue: "baseURL",
 			}
 			linkResolver.SourceToNode = make(map[string][]*manifest.Node)
 			nodes, err := manifest.ResolveManifest("https://github.com/gardener/docforge/blob/master/baseline.yaml", linkResolver.Repositoryhosts)
@@ -104,7 +104,7 @@ var _ = Describe("Document link resolving", func() {
 		})
 
 		It("Resolves resource links containing hugo structural directory correctly", func() {
-			linkResolver.Hugo.HugoStructuralDirs = []string{"content"}
+			linkResolver.Config = sitegen.SimpleConfig{IsEnabled: true, BaseURLValue: "baseURL", StructDirs: []string{"content"}}
 			newLink, err := linkResolver.ResolveResourceLink("https://github.com/gardener/docforge/blob/master/file.md", node, source)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(newLink).To(Equal("/baseURL/docs/file/"))
@@ -119,7 +119,7 @@ var _ = Describe("Document link resolving", func() {
 				relLR = linkresolver.LinkResolver{}
 				relRegistry := registry.NewRegistry(repositoryhost.NewLocalTest(manifests, "https://github.com/gardener/docforge", "tests"))
 				relLR.Repositoryhosts = relRegistry
-				relLR.Hugo = hugo.Hugo{Enabled: false}
+				relLR.Config = sitegen.NoopConfig{}
 				relLR.SourceToNode = make(map[string][]*manifest.Node)
 				nodes, err := manifest.ResolveManifest("https://github.com/gardener/docforge/blob/master/baseline.yaml", relLR.Repositoryhosts)
 				Expect(err).NotTo(HaveOccurred())
@@ -183,7 +183,7 @@ var _ = Describe("Document link resolving", func() {
 			})
 
 			It("hugo structural dirs NOT stripped when Hugo disabled", func() {
-				relLR.Hugo.HugoStructuralDirs = []string{"content"}
+				relLR.Config = sitegen.SimpleConfig{IsEnabled: false, StructDirs: []string{"content"}}
 				// Hugo disabled: NodePath = "content/docs/file.md", structural dirs must NOT be stripped.
 				// Rel("one", "content/docs/file.md") = "../content/docs/file.md"
 				got, err := relLR.ResolveResourceLink("https://github.com/gardener/docforge/blob/master/file.md", node, source)
@@ -192,8 +192,7 @@ var _ = Describe("Document link resolving", func() {
 			})
 
 			It("Hugo.Enabled=true BaseURL empty produces absolute without prefix", func() {
-				relLR.Hugo.Enabled = true
-				relLR.Hugo.BaseURL = ""
+				relLR.Config = sitegen.SimpleConfig{IsEnabled: true, BaseURLValue: ""}
 				// HugoPrettyPath of one/internal/linked.md = "one/internal/linked/"
 				// link.Build("/", "", "one/internal/linked/") = "/one/internal/linked/"
 				got, err := relLR.ResolveResourceLink("clickhere.md", node, source)
@@ -202,8 +201,7 @@ var _ = Describe("Document link resolving", func() {
 			})
 
 			It("Section index with Hugo.Enabled=true no BaseURL produces absolute without prefix", func() {
-				relLR.Hugo.Enabled = true
-				relLR.Hugo.BaseURL = ""
+				relLR.Config = sitegen.SimpleConfig{IsEnabled: true, BaseURLValue: ""}
 				// HugoPrettyPath of two/internal/_index.md = "two/internal/"
 				// link.Build("/", "", "two/internal/") = "/two/internal/"
 				got, err := relLR.ResolveResourceLink("https://github.com/gardener/docforge/blob/master/docs/_index.md", node, source)
