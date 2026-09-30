@@ -7,11 +7,11 @@ package linkresolver_test
 import (
 	"errors"
 
-	"github.com/gardener/docforge/cmd/hugo"
 	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/nodeplugins/markdown/linkresolver"
 	"github.com/gardener/docforge/pkg/registry"
 	"github.com/gardener/docforge/pkg/registry/repositoryhost"
+	"github.com/gardener/docforge/pkg/sitegen"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -27,7 +27,7 @@ func absLinkFixture() (linkresolver.LinkResolver, *manifest.Node, string) {
 	reg := registry.NewRegistry(repositoryhost.NewLocalTest(manifests, "https://github.com/gardener/docforge", "tests"))
 	lr := linkresolver.LinkResolver{
 		Repositoryhosts: reg,
-		Hugo:            hugo.Hugo{Enabled: false},
+		Config:          sitegen.NoopConfig{},
 		SourceToNode:    make(map[string][]*manifest.Node),
 	}
 	nodes, err := manifest.ResolveManifest(

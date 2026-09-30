@@ -9,10 +9,10 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/gardener/docforge/cmd/hugo"
 	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/nodeplugins/markdown/linkresolver"
 	"github.com/gardener/docforge/pkg/registry"
+	"github.com/gardener/docforge/pkg/sitegen"
 	"github.com/gardener/docforge/pkg/workers/taskqueue"
 	"github.com/gardener/docforge/pkg/writers"
 	"k8s.io/klog/v2"
@@ -30,9 +30,9 @@ type Processor interface {
 }
 
 // New creates a new Worker
-func New(workerCount int, failFast bool, wg *sync.WaitGroup, structure []*manifest.Node, rhs registry.Interface, hugo hugo.Hugo, writer writers.Writer) (Processor, taskqueue.QueueController, error) {
-	lr := linkresolver.New(structure, rhs, hugo)
-	worker := NewDocumentWorker(lr, rhs, hugo, writer)
+func New(workerCount int, failFast bool, wg *sync.WaitGroup, structure []*manifest.Node, rhs registry.Interface, config sitegen.Config, writer writers.Writer) (Processor, taskqueue.QueueController, error) {
+	lr := linkresolver.New(structure, rhs, config)
+	worker := NewDocumentWorker(lr, rhs, config, writer)
 	queue, err := taskqueue.New("Document", workerCount, worker.execute, failFast, wg)
 	if err != nil {
 		return nil, nil, err

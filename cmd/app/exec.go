@@ -94,7 +94,7 @@ func exec(ctx context.Context, vip *viper.Viper) error {
 	additionalNodePlugins := []nodeplugins.Interface{}
 	// Stage 1
 	reactorWGStage1 := &sync.WaitGroup{}
-	mdPlugin, mdTasks, err := markdown.NewPlugin(config.DocumentWorkersCount, config.FailFast, reactorWGStage1, documentNodes, rhRegistry, config.Hugo, config.Writer, config.ResourceDownloadWorkersCount, config.GitInfoWriter)
+	mdPlugin, mdTasks, err := markdown.NewPlugin(config.DocumentWorkersCount, config.FailFast, reactorWGStage1, documentNodes, rhRegistry, config.SiteGen, config.Writer, config.ResourceDownloadWorkersCount, config.GitInfoWriter)
 	if err != nil {
 		return err
 	}

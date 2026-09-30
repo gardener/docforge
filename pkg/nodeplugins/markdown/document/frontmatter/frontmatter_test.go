@@ -16,6 +16,7 @@ import (
 	"github.com/gardener/docforge/pkg/nodeplugins/markdown/document/frontmatter/frontmatterfakes"
 	"github.com/gardener/docforge/pkg/registry"
 	"github.com/gardener/docforge/pkg/registry/repositoryhost"
+	"github.com/gardener/docforge/pkg/sitegen"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -253,12 +254,11 @@ var _ = Describe("Document frontmatter", func() {
 
 	Context("#ComputeNodeTitle", func() {
 		var (
-			nodeAst        *frontmatterfakes.FakeNodeMeta
-			nodes          []*manifest.Node
-			node           *manifest.Node
-			indexFileNames []string
-			hugoEnabled    bool
-			err            error
+			nodeAst *frontmatterfakes.FakeNodeMeta
+			nodes   []*manifest.Node
+			node    *manifest.Node
+			cfg     sitegen.SimpleConfig
+			err     error
 		)
 		BeforeEach(func() {
 			r := registry.NewRegistry(repositoryhost.NewLocalTest(manifests, "https://github.com/gardener/docforge", "tests"))
@@ -268,14 +268,13 @@ var _ = Describe("Document frontmatter", func() {
 			Expect(nodes[1].Name()).To(Equal("file_node-1.md"))
 			Expect(nodes[2].Name()).To(Equal("_index.md"))
 
-			indexFileNames = []string{"README.md"}
-			hugoEnabled = true
+			cfg = sitegen.SimpleConfig{IsEnabled: true, IndexFiles: []string{"README.md"}}
 			nodeAst = &frontmatterfakes.FakeNodeMeta{}
 		})
 		Context("top level node", func() {
 			It("removes _,- and .md in the general case", func() {
 				node = nodes[1]
-				frontmatter.ComputeNodeTitle(nodeAst, node, indexFileNames, hugoEnabled)
+				frontmatter.ComputeNodeTitle(nodeAst, node, cfg)
 				setMeta := nodeAst.SetMetaArgsForCall(0)
 				Expect(setMeta).To(Equal(map[string]interface{}{
 					"title": "File Node 1",
@@ -283,7 +282,7 @@ var _ = Describe("Document frontmatter", func() {
 			})
 			It("has title Root if file is index", func() {
 				node = nodes[2]
-				frontmatter.ComputeNodeTitle(nodeAst, node, indexFileNames, hugoEnabled)
+				frontmatter.ComputeNodeTitle(nodeAst, node, cfg)
 				setMeta := nodeAst.SetMetaArgsForCall(0)
 				Expect(setMeta).To(Equal(map[string]interface{}{
 					"title": "Root",
@@ -292,7 +291,7 @@ var _ = Describe("Document frontmatter", func() {
 			Context("node with parent", func() {
 				It("removes _,- and .md in the general case", func() {
 					node = nodes[4]
-					frontmatter.ComputeNodeTitle(nodeAst, node, indexFileNames, hugoEnabled)
+					frontmatter.ComputeNodeTitle(nodeAst, node, cfg)
 					setMeta := nodeAst.SetMetaArgsForCall(0)
 					Expect(setMeta).To(Equal(map[string]interface{}{
 						"title": "File Node 2",
@@ -300,7 +299,7 @@ var _ = Describe("Document frontmatter", func() {
 				})
 				It("uses parents name if file is index", func() {
 					node = nodes[5]
-					frontmatter.ComputeNodeTitle(nodeAst, node, indexFileNames, hugoEnabled)
+					frontmatter.ComputeNodeTitle(nodeAst, node, cfg)
 					setMeta := nodeAst.SetMetaArgsForCall(0)
 					Expect(setMeta).To(Equal(map[string]interface{}{
 						"title": "Parent Dir",

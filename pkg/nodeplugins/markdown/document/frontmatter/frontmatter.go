@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/gardener/docforge/pkg/manifest"
+	"github.com/gardener/docforge/pkg/sitegen"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )
@@ -115,8 +116,8 @@ func mergeParamsProtectingBranch(docFrontmatter map[string]interface{}, nodePara
 // it is eligible to be index file, and then normalizes either
 // as a title - removing `-`, `_`, `.md` and converting to title
 // case.
-func ComputeNodeTitle(nodeAst NodeMeta, node *manifest.Node, IndexFileNames []string, hugoEnabled bool) {
-	if !hugoEnabled || nodeAst == nil {
+func ComputeNodeTitle(nodeAst NodeMeta, node *manifest.Node, config sitegen.Config) {
+	if config == nil || !config.Enabled() || nodeAst == nil {
 		return
 	}
 	docFrontmatter := nodeAst.Meta()
@@ -125,9 +126,9 @@ func ComputeNodeTitle(nodeAst NodeMeta, node *manifest.Node, IndexFileNames []st
 	}
 	title := node.Name()
 	// index node with parent
-	if nodeIsIndexFile(node.Name(), IndexFileNames) && node.Parent() != nil && node.Parent().Path != "" {
+	if config.IsIndexFile(node.Name()) && node.Parent() != nil && node.Parent().Path != "" {
 		title = node.Parent().Name()
-	} else if nodeIsIndexFile(node.Name(), IndexFileNames) && node.Parent() != nil && node.Parent().Path == "" {
+	} else if config.IsIndexFile(node.Name()) && node.Parent() != nil && node.Parent().Path == "" {
 		// root index node
 		title = "Root"
 	}
@@ -139,16 +140,4 @@ func ComputeNodeTitle(nodeAst NodeMeta, node *manifest.Node, IndexFileNames []st
 		docFrontmatter["title"] = title
 	}
 	nodeAst.SetMeta(docFrontmatter)
-}
-
-// Compares a node name to the configured list of index file
-// and a default name '_index.md' to determine if this node
-// is an index document node.
-func nodeIsIndexFile(name string, IndexFileNames []string) bool {
-	for _, s := range IndexFileNames {
-		if strings.EqualFold(name, s) {
-			return true
-		}
-	}
-	return name == "_index.md"
 }

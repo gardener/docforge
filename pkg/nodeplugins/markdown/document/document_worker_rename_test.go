@@ -8,21 +8,21 @@ import (
 	"context"
 	"testing"
 
-	"github.com/gardener/docforge/cmd/hugo"
 	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/nodeplugins/markdown/document"
 	"github.com/gardener/docforge/pkg/nodeplugins/markdown/linkresolver/linkresolverfakes"
 	"github.com/gardener/docforge/pkg/registry/registryfakes"
+	"github.com/gardener/docforge/pkg/sitegen"
 	"github.com/gardener/docforge/pkg/writers/writersfakes"
 )
 
 func TestProcessNodeHugoIndexRename(t *testing.T) {
 	cases := []struct {
-		name         string
-		hugoEnabled  bool
-		inputFile    string
-		indexNames   []string
-		wantWriteAs  string
+		name        string
+		hugoEnabled bool
+		inputFile   string
+		indexNames  []string
+		wantWriteAs string
 	}{
 		{
 			name:        "README.md renamed to _index.md when Hugo enabled",
@@ -56,9 +56,9 @@ func TestProcessNodeHugoIndexRename(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			h := hugo.Hugo{
-				Enabled:        c.hugoEnabled,
-				IndexFileNames: c.indexNames,
+			h := sitegen.SimpleConfig{
+				IsEnabled:  c.hugoEnabled,
+				IndexFiles: c.indexNames,
 			}
 			w := &writersfakes.FakeWriter{}
 			dw := document.NewDocumentWorker(
