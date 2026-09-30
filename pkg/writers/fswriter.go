@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 
 	"github.com/gardener/docforge/pkg/manifest"
@@ -23,10 +22,7 @@ type FSWriter struct {
 	Hugo bool
 }
 
-func (f *FSWriter) Write(name, path string, docBlob []byte, node *manifest.Node, IndexFileNames []string) error {
-	if f.Hugo && slices.Contains(IndexFileNames, name) {
-		name = "_index.md"
-	}
+func (f *FSWriter) Write(name, path string, docBlob []byte, node *manifest.Node) error {
 	var err error
 	if docBlob, err = f.hugoIndexContent(name, node, docBlob); err != nil {
 		return err

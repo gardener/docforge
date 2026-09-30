@@ -37,7 +37,7 @@ func (d *ResourceDownloadWorker) Download(ctx context.Context, source string, de
 		return err
 	}
 
-	if err = d.writer.Write(path.Base(destinationPath), path.Dir(destinationPath), blob, nil, nil); err != nil {
+	if err = d.writer.Write(path.Base(destinationPath), path.Dir(destinationPath), blob, nil); err != nil {
 		return err
 	}
 	return nil

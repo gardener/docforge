@@ -58,7 +58,7 @@ func TestWrite(t *testing.T) {
 				}
 			}()
 
-			err := fs.Write(tc.name, tc.path, tc.docBlob, tc.node, nil)
+			err := fs.Write(tc.name, tc.path, tc.docBlob, tc.node)
 
 			if err != tc.wantErr {
 				t.Errorf("expected err %v != %v", tc.wantErr, err)
@@ -74,60 +74,6 @@ func TestWrite(t *testing.T) {
 			}
 			if !reflect.DeepEqual(b, []byte(tc.wantContent)) {
 				t.Errorf("expected content %v != %v", tc.wantContent, tc.wantContent)
-			}
-		})
-	}
-}
-
-func TestWriteHugoIndexRename(t *testing.T) {
-	cases := []struct {
-		name         string
-		hugoEnabled  bool
-		inputName    string
-		indexNames   []string
-		wantFileName string
-	}{
-		{
-			name:         "README.md renamed to _index.md when Hugo enabled",
-			hugoEnabled:  true,
-			inputName:    "README.md",
-			indexNames:   []string{"readme.md", "README.md"},
-			wantFileName: "_index.md",
-		},
-		{
-			name:         "README.md NOT renamed when Hugo disabled",
-			hugoEnabled:  false,
-			inputName:    "README.md",
-			indexNames:   []string{"readme.md", "README.md"},
-			wantFileName: "README.md",
-		},
-		{
-			name:         "non-index file unaffected regardless of Hugo flag",
-			hugoEnabled:  true,
-			inputName:    "guide.md",
-			indexNames:   []string{"readme.md", "README.md"},
-			wantFileName: "guide.md",
-		},
-	}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			root := filepath.Join(os.TempDir(), fmt.Sprintf("fswriter-hugo-test-%s", c.name))
-			defer os.RemoveAll(root)
-
-			w := &FSWriter{Root: root, Hugo: c.hugoEnabled}
-			err := w.Write(c.inputName, "docs", []byte("content"), nil, c.indexNames)
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			expected := filepath.Join(root, "docs", c.wantFileName)
-			if _, statErr := os.Stat(expected); os.IsNotExist(statErr) {
-				t.Errorf("expected file at %q but it was not written", expected)
-			}
-			unexpected := filepath.Join(root, "docs", c.inputName)
-			if c.inputName != c.wantFileName {
-				if _, statErr := os.Stat(unexpected); statErr == nil {
-					t.Errorf("file written at unexpected path %q", unexpected)
-				}
 			}
 		})
 	}
@@ -177,7 +123,7 @@ func TestWritePathTraversal(t *testing.T) {
 			defer os.RemoveAll(root)
 
 			w := &FSWriter{Root: root}
-			err := w.Write(c.fileName, c.path, []byte("test-content"), nil, nil)
+			err := w.Write(c.fileName, c.path, []byte("test-content"), nil)
 
 			if c.wantErr && err == nil {
 				t.Errorf("expected error for path %q but got none", c.path)

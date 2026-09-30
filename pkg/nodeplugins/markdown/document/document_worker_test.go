@@ -65,7 +65,7 @@ var _ = Describe("Document resolving", func() {
 			}
 			err := dw.ProcessNode(context.TODO(), node)
 			Expect(err).ToNot(HaveOccurred())
-			name, path, cnt, nodegot, _ := w.WriteArgsForCall(0)
+			name, path, cnt, nodegot := w.WriteArgsForCall(0)
 			Expect(name).To(Equal("renamed-document.md"))
 			Expect(path).To(Equal("one"))
 			target, err := manifests.ReadFile("tests/docs/expected_target.md")
@@ -91,7 +91,7 @@ var _ = Describe("Document resolving", func() {
 			}
 			err := dw.ProcessNode(context.TODO(), node)
 			Expect(err).ToNot(HaveOccurred())
-			name, path, cnt, nodegot, _ := w.WriteArgsForCall(0)
+			name, path, cnt, nodegot := w.WriteArgsForCall(0)
 			Expect(name).To(Equal("renamed-document.md"))
 			Expect(path).To(Equal("one"))
 			target, err := manifests.ReadFile("tests/docs/expected_target.md")
@@ -128,7 +128,7 @@ var _ = Describe("Document resolving", func() {
 			}
 			err = dw.ProcessNode(context.TODO(), node)
 			Expect(err).ToNot(HaveOccurred())
-			_, _, cnt, _, _ := w.WriteArgsForCall(0)
+			_, _, cnt, _ := w.WriteArgsForCall(0)
 			// Without Fix A the root-absolute link resolves against the repo root
 			// (ra/images/logo.png), misses, and hard-fails. Re-anchored to the
 			// content/docs source it resolves to the real blob instead.
