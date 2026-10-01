@@ -75,7 +75,9 @@ func (d *Worker) ProcessNode(ctx context.Context, node *manifest.Node) error {
 	}
 	name := node.Name()
 	if d.config != nil && d.config.Enabled() && d.config.IsIndexFile(name) {
-		name = "_index.md"
+		if target := d.config.IndexFileName(); target != "" {
+			name = target
+		}
 	}
 	if err := d.writer.Write(name, node.Path, cnt, node); err != nil {
 		return err
