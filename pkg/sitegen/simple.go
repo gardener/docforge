@@ -14,10 +14,11 @@ import (
 // SimpleConfig is a value-based Config for tests and cmd-layer wiring.
 // It delegates PrettyPath to pkg/hugo to share the canonical implementation.
 type SimpleConfig struct {
-	IsEnabled    bool
-	IndexFiles   []string
-	BaseURLValue string
-	StructDirs   []string
+	IsEnabled       bool
+	IndexFiles      []string
+	IndexFileTarget string
+	BaseURLValue    string
+	StructDirs      []string
 }
 
 // Enabled implements Config.
@@ -35,6 +36,9 @@ func (s SimpleConfig) IsIndexFile(name string) bool {
 	}
 	return false
 }
+
+// IndexFileName implements Config.
+func (s SimpleConfig) IndexFileName() string { return s.IndexFileTarget }
 
 // PrettyPath implements Config.
 func (s SimpleConfig) PrettyPath(node *manifest.Node) string {

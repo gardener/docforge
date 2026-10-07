@@ -40,6 +40,9 @@ func (a *Adapter) IsIndexFile(name string) bool {
 	return false
 }
 
+// IndexFileName implements sitegen.Config.
+func (a *Adapter) IndexFileName() string { return "_index.md" }
+
 // PrettyPath implements sitegen.Config.
 func (a *Adapter) PrettyPath(node *manifest.Node) string {
 	return hugoutil.PrettyPath(node, a.h.IndexFileNames)
