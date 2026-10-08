@@ -53,7 +53,7 @@ func (f *FSWriter) Write(name, path string, docBlob []byte, node *manifest.Node)
 }
 
 func (f *FSWriter) hugoIndexContent(name string, node *manifest.Node, docBlob []byte) ([]byte, error) {
-	if f.Config == nil || !f.Config.Enabled() || name != "_index.md" || node == nil || node.Frontmatter == nil || docBlob != nil {
+	if f.Config == nil || !f.Config.Enabled() || name != f.Config.IndexFileName() || node == nil || node.Frontmatter == nil || docBlob != nil {
 		return docBlob, nil
 	}
 	buf := bytes.Buffer{}
