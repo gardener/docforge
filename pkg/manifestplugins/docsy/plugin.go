@@ -41,34 +41,33 @@ func (d *Docsy) editThisPage(node *manifest.Node, _ *manifest.Node, r registry.I
 	node.Frontmatter["github_repo"] = url.RepositoryURLString()
 	node.Frontmatter["github_subdir"] = path.Dir(url.GetResourcePath())
 
-	// Compute the output filename used in .from.
-	// Hugo (UsesManifestNameInEditPath=true) keeps the original manifest filename
-	// (e.g. README.md) for byte-identity with previous releases, even though the
-	// output file is _index.md. VitePress (UsesManifestNameInEditPath=false)
-	// renames index files to IndexFileName() so .from reflects the served path.
-	outName := node.Name()
-	if d.Config != nil && d.Config.Enabled() && !d.Config.UsesManifestNameInEditPath() {
-		if d.Config.IsIndexFile(outName) {
-			if target := d.Config.IndexFileName(); target != "" {
-				outName = target
-			}
-		}
-	}
-	// Build the output-relative .from path.
-	// Structural-dir stripping also applies only in non-preserving modes.
-	from := path.Join(node.Path, outName)
-	if d.Config != nil && d.Config.Enabled() && !d.Config.UsesManifestNameInEditPath() {
-		for _, dir := range d.Config.StructuralDirs() {
-			from = strings.TrimPrefix(from, dir+"/")
-		}
-	}
-
 	pathBaseGithubSubdir := map[interface{}]interface{}{}
-	pathBaseGithubSubdir["from"] = from
+	pathBaseGithubSubdir["from"] = editPathFrom(node, d.Config)
 	pathBaseGithubSubdir["to"] = path.Base(url.GetResourcePath())
 	node.Frontmatter["path_base_for_github_subdir"] = pathBaseGithubSubdir
 	params := map[interface{}]interface{}{}
 	params["github_branch"] = url.GetRef()
 	node.Frontmatter["params"] = params
 	return false, nil
+}
+
+// editPathFrom returns the output-relative path used in path_base_for_github_subdir.from.
+// Hugo (UsesManifestNameInEditPath=true) keeps the original manifest filename for
+// byte-identity with previous releases. VitePress (UsesManifestNameInEditPath=false)
+// uses IndexFileName() so .from reflects the served path, and strips structural dirs.
+func editPathFrom(node *manifest.Node, cfg sitegen.Config) string {
+	useSitePath := cfg != nil && cfg.Enabled() && !cfg.UsesManifestNameInEditPath()
+	outName := node.Name()
+	if useSitePath && cfg.IsIndexFile(outName) {
+		if target := cfg.IndexFileName(); target != "" {
+			outName = target
+		}
+	}
+	from := path.Join(node.Path, outName)
+	if useSitePath {
+		for _, dir := range cfg.StructuralDirs() {
+			from = strings.TrimPrefix(from, dir+"/")
+		}
+	}
+	return from
 }
