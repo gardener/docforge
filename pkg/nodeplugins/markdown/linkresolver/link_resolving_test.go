@@ -10,6 +10,7 @@ import (
 
 	_ "embed"
 
+	"github.com/gardener/docforge/cmd/vitepress"
 	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/nodeplugins/markdown/linkresolver"
 	"github.com/gardener/docforge/pkg/registry"
@@ -239,3 +240,91 @@ var _ = Describe("Document link resolving", func() {
 		})
 	})
 })
+
+// TestResolveResourceLinkVitePress covers Bug 1: links to section files whose
+// source is named _index.md must resolve to the output filename index.md.
+//
+// Fixture mapping (from baseline.yaml):
+//
+//	source  https://…/docs/_index.md  →  node two/internal/_index.md
+//	source  https://…/clickhere.md    →  node one/internal/linked.md
+func TestResolveResourceLinkVitePress(t *testing.T) {
+	reg := registry.NewRegistry(repositoryhost.NewLocalTest(manifests, "https://github.com/gardener/docforge", "tests"))
+	vpCfg := vitepress.NewAdapter(vitepress.VitePress{
+		Enabled:        true,
+		BaseURL:        "baseURL",
+		IndexFileNames: []string{"readme.md", "README.md"},
+	})
+	lr := linkresolver.LinkResolver{
+		Repositoryhosts: reg,
+		Config:          vpCfg,
+		SourceToNode:    make(map[string][]*manifest.Node),
+	}
+	nodes, err := manifest.ResolveManifest("https://github.com/gardener/docforge/blob/master/baseline.yaml", reg)
+	if err != nil {
+		t.Fatalf("ResolveManifest: %v", err)
+	}
+	for _, n := range nodes {
+		if n.Source != "" {
+			lr.SourceToNode[n.Source] = append(lr.SourceToNode[n.Source], n)
+		}
+		for _, s := range n.MultiSource {
+			lr.SourceToNode[s] = append(lr.SourceToNode[s], n)
+		}
+	}
+	src := "https://github.com/gardener/docforge/blob/master/target.md"
+	node := lr.SourceToNode[src][0]
+
+	cases := []struct {
+		name        string
+		inputLink   string
+		wantLink    string
+	}{
+		{
+			// Real example: admission.md links to extensions/_index.md
+			// Hugo:      /baseURL/two/internal/
+			// VitePress: /baseURL/two/internal/index.md  (Bug 1 fix)
+			name:      "section _index.md resolves to index.md",
+			inputLink: "https://github.com/gardener/docforge/blob/master/docs/_index.md",
+			wantLink:  "/baseURL/two/internal/index.md",
+		},
+		{
+			// Same with an anchor — anchor must be preserved, filename corrected.
+			// Real example: /docs/gardener/api-reference/_index.md → /docs/gardener/api-reference/index.md
+			name:      "section _index.md with anchor preserves anchor",
+			inputLink: "https://github.com/gardener/docforge/blob/master/docs/_index.md#infrastructure-provider",
+			wantLink:  "/baseURL/two/internal/index.md#infrastructure-provider",
+		},
+		{
+			// Non-section file: must remain as .md (VitePress does not produce pretty URLs).
+			name:      "non-index .md link stays as .md",
+			inputLink: "clickhere.md",
+			wantLink:  "/baseURL/one/internal/linked.md",
+		},
+		{
+			// Non-index with query+anchor: both preserved.
+			name:      "non-index .md with query and anchor",
+			inputLink: "clickhere.md?a=b#c",
+			wantLink:  "/baseURL/one/internal/linked.md?a=b#c",
+		},
+		{
+			// Target not in manifest: passes through as the resolved absolute blob URL.
+			// Hugo and VitePress behave identically here.
+			name:      "link to target not in manifest passes through as absolute URL",
+			inputLink: "https://github.com/gardener/docforge/blob/master/linkresolution3.md",
+			wantLink:  "https://github.com/gardener/docforge/blob/master/linkresolution3.md",
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got, err := lr.ResolveResourceLink(c.inputLink, node, src)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != c.wantLink {
+				t.Errorf("ResolveResourceLink(%q) = %q, want %q", c.inputLink, got, c.wantLink)
+			}
+		})
+	}
+}
