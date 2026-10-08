@@ -43,6 +43,11 @@ func (a *Adapter) IsIndexFile(name string) bool {
 // IndexFileName implements sitegen.Config.
 func (a *Adapter) IndexFileName() string { return "_index.md" }
 
+// UsesManifestNameInEditPath implements sitegen.Config.
+// Hugo preserves the original manifest filename in .from for byte-identity
+// with previous releases (e.g. a README.md stays README.md, not _index.md).
+func (a *Adapter) UsesManifestNameInEditPath() bool { return true }
+
 // PrettyPath implements sitegen.Config.
 func (a *Adapter) PrettyPath(node *manifest.Node) string {
 	return hugoutil.PrettyPath(node, a.h.IndexFileNames)

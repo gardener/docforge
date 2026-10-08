@@ -41,22 +41,23 @@ func (d *Docsy) editThisPage(node *manifest.Node, _ *manifest.Node, r registry.I
 	node.Frontmatter["github_repo"] = url.RepositoryURLString()
 	node.Frontmatter["github_subdir"] = path.Dir(url.GetResourcePath())
 
-	// Compute the output filename: index files are renamed to IndexFileName() when
-	// a site generator is active; all other files keep their original name.
+	// Compute the output filename used in .from.
+	// Hugo (UsesManifestNameInEditPath=true) keeps the original manifest filename
+	// (e.g. README.md) for byte-identity with previous releases, even though the
+	// output file is _index.md. VitePress (UsesManifestNameInEditPath=false)
+	// renames index files to IndexFileName() so .from reflects the served path.
 	outName := node.Name()
-	if d.Config != nil && d.Config.Enabled() && d.Config.IsIndexFile(outName) {
-		if target := d.Config.IndexFileName(); target != "" {
-			outName = target
+	if d.Config != nil && d.Config.Enabled() && !d.Config.UsesManifestNameInEditPath() {
+		if d.Config.IsIndexFile(outName) {
+			if target := d.Config.IndexFileName(); target != "" {
+				outName = target
+			}
 		}
 	}
 	// Build the output-relative .from path.
-	// In Hugo mode the legacy code did strings.TrimPrefix(node.NodePath(), "hugo/")
-	// which was always a no-op for current manifests (paths start with "content/", not
-	// "hugo/"). We preserve that byte-identical behaviour for Hugo by not stripping here.
-	// In non-Hugo modes (e.g. VitePress, IndexFileName="index.md"), strip any structural
-	// directory prefixes so .from reflects the served URL structure.
+	// Structural-dir stripping also applies only in non-preserving modes.
 	from := path.Join(node.Path, outName)
-	if d.Config != nil && d.Config.Enabled() && d.Config.IndexFileName() != "_index.md" {
+	if d.Config != nil && d.Config.Enabled() && !d.Config.UsesManifestNameInEditPath() {
 		for _, dir := range d.Config.StructuralDirs() {
 			from = strings.TrimPrefix(from, dir+"/")
 		}
