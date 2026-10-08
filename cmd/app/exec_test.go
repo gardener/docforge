@@ -8,7 +8,46 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/gardener/docforge/cmd/hugo"
+	"github.com/gardener/docforge/cmd/vitepress"
 )
+
+func TestResolveSiteGenAdapter(t *testing.T) {
+	cases := []struct {
+		name          string
+		siteGenerator string
+		hugoEnabled   bool
+		wantEnabled   bool
+		wantIsVP      bool // true = VitePress adapter, false = Hugo adapter
+	}{
+		// Legacy fallback: --site-generator not set → honour --hugo flag as-is
+		{"unset + hugo=true → Hugo enabled", "", true, true, false},
+		{"unset + hugo=false → Hugo disabled", "", false, false, false},
+		// Explicit --site-generator values override --hugo
+		{"site-generator=hugo forces Hugo enabled", "hugo", false, true, false},
+		{"site-generator=none forces Hugo disabled", "none", true, false, false},
+		{"site-generator=vitepress returns VitePress adapter", "vitepress", false, true, true},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			h := hugo.Hugo{Enabled: c.hugoEnabled}
+			vp := vitepress.VitePress{}
+
+			got := resolveSiteGenAdapter(c.siteGenerator, h, vp)
+
+			if got.Enabled() != c.wantEnabled {
+				t.Errorf("Enabled() = %v, want %v", got.Enabled(), c.wantEnabled)
+			}
+			// Distinguish VitePress from Hugo by the index file name they produce.
+			_, isVP := got.(*vitepress.Adapter)
+			if isVP != c.wantIsVP {
+				t.Errorf("isVitePress = %v, want %v", isVP, c.wantIsVP)
+			}
+		})
+	}
+}
 
 func TestCleanDestination(t *testing.T) {
 	tests := []struct {

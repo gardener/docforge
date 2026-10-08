@@ -24,7 +24,11 @@ import (
 	"github.com/gardener/docforge/pkg/osfakes/osshim"
 	"github.com/gardener/docforge/pkg/registry"
 	"github.com/gardener/docforge/pkg/registry/repositoryhost"
+	"github.com/gardener/docforge/pkg/sitegen"
 	"github.com/spf13/viper"
+
+	"github.com/gardener/docforge/cmd/hugo"
+	"github.com/gardener/docforge/cmd/vitepress"
 )
 
 // TODO remove the ignore
@@ -54,7 +58,8 @@ func exec(ctx context.Context, vip *viper.Viper) error {
 		return err
 	}
 
-	config := getReactorConfig(options.Options, options.Hugo, rhs)
+	siteGenAdapter := resolveSiteGenAdapter(vip.GetString("site-generator"), options.Hugo, options.VitePress)
+	config := getReactorConfig(options.Options, siteGenAdapter, rhs)
 
 	if err := cleanDestination(config.CleanDestination, config.DryRun, config.DestinationPath); err != nil {
 		return err
@@ -109,6 +114,25 @@ func exec(ctx context.Context, vip *viper.Viper) error {
 
 	rhRegistry.LogRateLimits(ctx)
 	return nil
+}
+
+// resolveSiteGenAdapter selects the sitegen.Config adapter based on the
+// --site-generator flag. When site-generator is empty (unset), it falls back
+// to the legacy --hugo flag so existing configs continue to work unchanged.
+func resolveSiteGenAdapter(siteGenerator string, h hugo.Hugo, vp vitepress.VitePress) sitegen.Config {
+	switch siteGenerator {
+	case "vitepress":
+		vp.Enabled = true
+		return vitepress.NewAdapter(vp)
+	case "hugo":
+		h.Enabled = true
+		return hugo.NewAdapter(h)
+	case "none":
+		h.Enabled = false
+		return hugo.NewAdapter(h)
+	default: // "" — not set: honour the legacy --hugo flag value
+		return hugo.NewAdapter(h)
+	}
 }
 
 func cleanDestination(clean, dryRun bool, destinationPath string) error {
