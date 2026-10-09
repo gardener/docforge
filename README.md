@@ -197,9 +197,10 @@ The following flags have non-obvious defaults or behavior that is easy to miss:
 
 | Flag | Default | What it actually does |
 |---|---|---|
-| `--hugo` | `true` | Enables Hugo-specific processing on every build. Pass `--hugo=false` for non-Hugo targets. |
-| `--hugo-pretty-urls` | `true` | **Currently has no effect.** The field is registered but not consumed by the link resolver — pretty-URL rewriting is controlled solely by `--hugo`. |
-| `--hugo-section-files` | `[readme.md, README.md]` | Files matching these names are renamed to `_index.md` in the output. |
+| `--site-generator` | _(unset)_ | Which site generator to target: `hugo`, `vitepress`, or `none` (case-sensitive). When unset and `--hugo` is not set either, defaults to Hugo (unchanged from previous releases). When unset and the legacy `--hugo` flag or `hugo:` YAML key is explicitly set, falls back to that value. An invalid value is always an error. |
+| `--hugo` | _(hidden, legacy)_ | **Deprecated** — use `--site-generator=hugo\|none` instead. Logs a deprecation warning when explicitly set. Ignored when `--site-generator` is also set. |
+| `--hugo-pretty-urls` | _(hidden, legacy)_ | **Deprecated, no effect** — registered as a hidden no-op so existing invocations do not error; logs a deprecation warning when set. |
+| `--hugo-section-files` | `[readme.md, README.md]` | Files matching these names are renamed to `_index.md` in the output. Only active when `--site-generator=hugo`. |
 | `--content-files-formats` | _(empty)_ | When empty, all file types pass through. When set (e.g. `.md`), only files with matching extensions are included. |
 | `--clean-destination` | `false` | When set, removes the destination directory before writing. Ignored with `--dry-run`. |
 | `--aliases-enabled` | `false` | Enables Hugo alias propagation from `dir` frontmatter to child files. |
@@ -276,17 +277,28 @@ Title resolution order (first match wins):
 When targeting a non-Hugo site generator or a plain file output, use the following configuration (in `~/.docforge/config` or passed via `DOCFORGE_CONFIG`):
 
 ```yaml
-hugo: false
-hugo-section-files: []
+site-generator: none
 markdown-enabled: true
 ```
 
-- **`hugo: false`** — disables all Hugo-specific processing: files are written with their original names and links are not rewritten to pretty-URL format.
-- **`hugo-section-files: []`** — prevents `readme.md` / `README.md` from being renamed to `_index.md`. This setting only takes effect when `hugo: true`; it is included here so that enabling Hugo later does not accidentally rename your index files.
+- **`site-generator: none`** — disables all site-generator-specific processing: files are written with their original names and links are not rewritten.
 - **`markdown-enabled: true`** — **required for Markdown processing to work at all.** When false (the default), `.md` files are copied as raw bytes with no link rewriting, no frontmatter propagation, and no Hugo transformations. This is a config-file-only setting; it has no corresponding CLI flag.
 
 <!-- verified: cmd/markdown/option.go MarkdownEnabled mapstructure:"markdown-enabled" — no pflag registration in cmd/app/flags.go -->
 <!-- verified: cmd/app/exec.go:72-75 — markdown plugin only registered when MarkdownEnabled=true; pkg/manifest/manifest.go:402-404 setDefaultProcessor assigns "downloader" to all file nodes otherwise -->
+
+## Migrating from `--hugo`
+
+The `--hugo` bool flag is deprecated. Use `--site-generator` instead:
+
+| Old | New |
+|---|---|
+| `--hugo=true` (or `hugo: true` in config) | `--site-generator=hugo` (or `site-generator: hugo`) |
+| `--hugo=false` (or `hugo: false` in config) | `--site-generator=none` (or `site-generator: none`) |
+
+**Precedence rule:** `--site-generator` always wins over `--hugo`. If both are set to conflicting values, docforge uses `--site-generator` and logs a warning. If both agree, only the `--hugo` deprecation warning is logged.
+
+**Default behaviour:** When neither `--site-generator` nor `--hugo` is explicitly set, docforge defaults to Hugo mode — unchanged from previous releases.
 
 ## What's next
 - [User Documentation](docs/user-index.md)

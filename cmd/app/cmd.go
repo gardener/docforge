@@ -17,6 +17,7 @@ import (
 	"github.com/gardener/docforge/cmd/hugo"
 	"github.com/gardener/docforge/cmd/markdown"
 	"github.com/gardener/docforge/cmd/version"
+	"github.com/gardener/docforge/cmd/vitepress"
 	"github.com/gardener/docforge/pkg/registry/repositoryhost"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -34,6 +35,7 @@ const (
 type options struct {
 	Options                    `mapstructure:",squash"`
 	hugo.Hugo                  `mapstructure:",squash"`
+	vitepress.VitePress        `mapstructure:",squash"`
 	docsy.Docsy                `mapstructure:",squash"`
 	markdown.Markdown          `mapstructure:",squash"`
 	alias.Alias                `mapstructure:",squash"`
@@ -54,7 +56,7 @@ func NewCommand(ctx context.Context) *cobra.Command {
 		if err := vip.WriteConfigTo(os.Stdout); err != nil {
 			return fmt.Errorf("failed writing config to stdout: %w", err)
 		}
-		return exec(ctx, vip)
+		return exec(ctx, cmd, vip)
 	}
 
 	version := version.NewVersionCmd()
