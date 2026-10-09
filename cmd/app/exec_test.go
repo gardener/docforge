@@ -21,37 +21,237 @@ import (
 
 func TestResolveSiteGenAdapter(t *testing.T) {
 	cases := []struct {
-		name          string
-		siteGenerator string
-		hugoEnabled   bool
-		wantEnabled   bool
-		wantIsVP      bool // true = VitePress adapter, false = Hugo adapter
+		name        string
+		mode        string
+		wantEnabled bool
+		wantIsVP    bool // true = VitePress adapter, false = Hugo adapter
 	}{
-		// Legacy fallback: --site-generator not set → honour --hugo flag as-is
-		{"unset + hugo=true → Hugo enabled", "", true, true, false},
-		{"unset + hugo=false → Hugo disabled", "", false, false, false},
-		// Explicit --site-generator values override --hugo
-		{"site-generator=hugo forces Hugo enabled", "hugo", false, true, false},
-		{"site-generator=none forces Hugo disabled", "none", true, false, false},
-		{"site-generator=vitepress returns VitePress adapter", "vitepress", false, true, true},
+		// resolveSiteGenAdapter always receives a pre-validated mode from resolveSiteGenMode.
+		{"hugo → Hugo enabled", "hugo", true, false},
+		{"none → Hugo disabled", "none", false, false},
+		{"vitepress → VitePress adapter", "vitepress", true, true},
+		// Safety fallback: unknown mode behaves like "none".
+		{"unknown mode → Hugo disabled", "unexpected", false, false},
 	}
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			h := hugo.Hugo{Enabled: c.hugoEnabled}
+			h := hugo.Hugo{}
 			vp := vitepress.VitePress{}
 
-			got := resolveSiteGenAdapter(c.siteGenerator, h, vp)
+			got := resolveSiteGenAdapter(c.mode, h, vp)
 
 			if got.Enabled() != c.wantEnabled {
 				t.Errorf("Enabled() = %v, want %v", got.Enabled(), c.wantEnabled)
 			}
-			// Distinguish VitePress from Hugo by the index file name they produce.
 			_, isVP := got.(*vitepress.Adapter)
 			if isVP != c.wantIsVP {
 				t.Errorf("isVitePress = %v, want %v", isVP, c.wantIsVP)
 			}
 		})
+	}
+}
+
+// TestResolveSiteGenMode covers all rows of the flag-resolution test table.
+func TestResolveSiteGenMode(t *testing.T) {
+	cases := []struct {
+		name              string
+		siteGenerator     string
+		hugoSetCLI        bool
+		hugoSetYAML       bool
+		hugoValue         bool
+		prettyURLsSetCLI  bool
+		prettyURLsSetYAML bool
+		wantMode          string
+		wantErrContain    string   // non-empty → error expected containing this substring
+		wantWarnings      []string // each entry must appear as a substring in some warning
+		wantNoWarnings    bool
+	}{
+		{
+			// Nothing set: matches master default (--hugo defaulted to true).
+			name:           "nothing set → hugo (matches master default)",
+			wantMode:       "hugo",
+			wantNoWarnings: true,
+		},
+		{
+			name:           "--site-generator=hugo",
+			siteGenerator:  "hugo",
+			wantMode:       "hugo",
+			wantNoWarnings: true,
+		},
+		{
+			name:           "--site-generator=vitepress",
+			siteGenerator:  "vitepress",
+			wantMode:       "vitepress",
+			wantNoWarnings: true,
+		},
+		{
+			name:           "--site-generator=none",
+			siteGenerator:  "none",
+			wantMode:       "none",
+			wantNoWarnings: true,
+		},
+		{
+			name:           "--site-generator=invalid → error listing allowed values",
+			siteGenerator:  "invalid",
+			wantErrContain: `invalid --site-generator "invalid"`,
+		},
+		{
+			name:           "--site-generator=Hugo (uppercase) rejected: case-sensitive",
+			siteGenerator:  "Hugo",
+			wantErrContain: `invalid --site-generator "Hugo"`,
+		},
+		{
+			// CLI flag: message uses --hugo prefix.
+			name:         "--hugo=true (CLI) → hugo with CLI deprecation warning",
+			hugoSetCLI:   true,
+			hugoValue:    true,
+			wantMode:     "hugo",
+			wantWarnings: []string{"--hugo is deprecated"},
+		},
+		{
+			// CLI flag false: mode is none, CLI-style warning.
+			name:         "--hugo=false (CLI explicit) → none with CLI deprecation warning",
+			hugoSetCLI:   true,
+			hugoValue:    false,
+			wantMode:     "none",
+			wantWarnings: []string{"--hugo is deprecated"},
+		},
+		{
+			// YAML key: message uses config key prefix, not --.
+			name:         "YAML hugo: true → hugo with YAML deprecation warning",
+			hugoSetYAML:  true,
+			hugoValue:    true,
+			wantMode:     "hugo",
+			wantWarnings: []string{`config key "hugo" is deprecated`},
+		},
+		{
+			// YAML key false: mode is none, YAML-style warning.
+			name:         "YAML hugo: false → none with YAML deprecation warning",
+			hugoSetYAML:  true,
+			hugoValue:    false,
+			wantMode:     "none",
+			wantWarnings: []string{`config key "hugo" is deprecated`},
+		},
+		{
+			// CLI hugo conflicts with site-generator.
+			name:          "--hugo=true (CLI) + --site-generator=vitepress → conflict + CLI deprecation",
+			siteGenerator: "vitepress",
+			hugoSetCLI:    true,
+			hugoValue:     true,
+			wantMode:      "vitepress",
+			wantWarnings:  []string{"--hugo is deprecated", "both --site-generator and --hugo are set"},
+		},
+		{
+			// YAML hugo conflicts with site-generator.
+			name:          "YAML hugo: true + --site-generator=vitepress → conflict + YAML deprecation",
+			siteGenerator: "vitepress",
+			hugoSetYAML:   true,
+			hugoValue:     true,
+			wantMode:      "vitepress",
+			wantWarnings:  []string{`config key "hugo" is deprecated`, "both --site-generator and --hugo are set"},
+		},
+		{
+			name:          "--hugo=false (CLI) + --site-generator=hugo → conflict + CLI deprecation",
+			siteGenerator: "hugo",
+			hugoSetCLI:    true,
+			hugoValue:     false,
+			wantMode:      "hugo",
+			wantWarnings:  []string{"--hugo is deprecated", "both --site-generator and --hugo are set"},
+		},
+		{
+			// Agree: no conflict warning, just deprecation.
+			name:          "--hugo=true (CLI) + --site-generator=hugo (agree) → deprecation only, no conflict",
+			siteGenerator: "hugo",
+			hugoSetCLI:    true,
+			hugoValue:     true,
+			wantMode:      "hugo",
+			wantWarnings:  []string{"--hugo is deprecated"},
+		},
+		{
+			// Invalid site-generator is always an error even with --hugo set.
+			name:           "--hugo=true (CLI) + --site-generator=invalid → error (no fallback)",
+			siteGenerator:  "invalid",
+			hugoSetCLI:     true,
+			hugoValue:      true,
+			wantErrContain: `invalid --site-generator "invalid"`,
+		},
+		{
+			// CLI pretty-urls: CLI-style warning, mode unaffected (defaults to hugo).
+			name:             "--hugo-pretty-urls (CLI) → hugo (default), CLI deprecation",
+			prettyURLsSetCLI: true,
+			wantMode:         "hugo",
+			wantWarnings:     []string{"--hugo-pretty-urls is deprecated"},
+		},
+		{
+			// YAML pretty-urls: YAML-style warning.
+			name:              `YAML hugo-pretty-urls: true → hugo (default), YAML deprecation`,
+			prettyURLsSetYAML: true,
+			wantMode:          "hugo",
+			wantWarnings:      []string{`config key "hugo-pretty-urls" is deprecated`},
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			mode, warnings, err := resolveSiteGenMode(
+				c.siteGenerator,
+				c.hugoSetCLI, c.hugoSetYAML, c.hugoValue,
+				c.prettyURLsSetCLI, c.prettyURLsSetYAML,
+			)
+
+			if c.wantErrContain != "" {
+				if err == nil {
+					t.Fatalf("expected error containing %q, got nil", c.wantErrContain)
+				}
+				if !strings.Contains(err.Error(), c.wantErrContain) {
+					t.Errorf("error = %q, want it to contain %q", err.Error(), c.wantErrContain)
+				}
+				// On error: mode must be empty, no file/network ops occurred.
+				if mode != "" {
+					t.Errorf("on error mode = %q, want empty", mode)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if mode != c.wantMode {
+				t.Errorf("mode = %q, want %q", mode, c.wantMode)
+			}
+			checkWarnings(t, warnings, c.wantWarnings, c.wantNoWarnings)
+		})
+	}
+}
+
+// checkWarnings asserts that warnings matches the expected set: each entry in
+// wantWarnings must appear as a substring in some warning, wantNoWarnings must
+// be satisfied, and no warning may be emitted more than once.
+func checkWarnings(t *testing.T, warnings, wantWarnings []string, wantNoWarnings bool) {
+	t.Helper()
+	if wantNoWarnings && len(warnings) > 0 {
+		t.Errorf("expected no warnings, got: %v", warnings)
+	}
+	for _, sub := range wantWarnings {
+		found := false
+		for _, w := range warnings {
+			if strings.Contains(w, sub) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("expected a warning containing %q, got warnings: %v", sub, warnings)
+		}
+	}
+	seen := map[string]int{}
+	for _, w := range warnings {
+		seen[w]++
+	}
+	for w, n := range seen {
+		if n > 1 {
+			t.Errorf("warning %q emitted %d times, want exactly once", w, n)
+		}
 	}
 }
 

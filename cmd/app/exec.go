@@ -27,7 +27,9 @@ import (
 	"github.com/gardener/docforge/pkg/registry"
 	"github.com/gardener/docforge/pkg/registry/repositoryhost"
 	"github.com/gardener/docforge/pkg/sitegen"
+	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"k8s.io/klog/v2"
 
 	"github.com/gardener/docforge/cmd/hugo"
 	"github.com/gardener/docforge/cmd/vitepress"
@@ -36,7 +38,7 @@ import (
 // TODO remove the ignore
 //
 //gocyclo:ignore
-func exec(ctx context.Context, vip *viper.Viper) error {
+func exec(ctx context.Context, cmd *cobra.Command, vip *viper.Viper) error {
 	var (
 		rhs     []repositoryhost.Interface
 		options options
@@ -56,11 +58,33 @@ func exec(ctx context.Context, vip *viper.Viper) error {
 	if err != nil {
 		return err
 	}
+
+	// Validate --site-generator and emit deprecation warnings before any
+	// network call or file write.
+	hugoSetCLI := cmd.Flags().Changed("hugo")
+	hugoSetYAML := vip.IsSet("hugo") && !hugoSetCLI
+	prettyURLsSetCLI := cmd.Flags().Changed("hugo-pretty-urls")
+	prettyURLsSetYAML := vip.IsSet("hugo-pretty-urls") && !prettyURLsSetCLI
+	siteGenMode, siteGenWarnings, err := resolveSiteGenMode(
+		vip.GetString("site-generator"),
+		hugoSetCLI,
+		hugoSetYAML,
+		vip.GetBool("hugo"),
+		prettyURLsSetCLI,
+		prettyURLsSetYAML,
+	)
+	if err != nil {
+		return err
+	}
+	for _, w := range siteGenWarnings {
+		klog.Warning(w)
+	}
+
 	if rhs, err = initRepositoryHosts(ctx, options.InitOptions); err != nil {
 		return err
 	}
 
-	siteGenAdapter := resolveSiteGenAdapter(vip.GetString("site-generator"), options.Hugo, options.VitePress)
+	siteGenAdapter := resolveSiteGenAdapter(siteGenMode, options.Hugo, options.VitePress)
 	config := getReactorConfig(options.Options, siteGenAdapter, rhs)
 
 	if err := cleanDestination(config.CleanDestination, config.DryRun, config.DestinationPath); err != nil {
@@ -121,21 +145,105 @@ func exec(ctx context.Context, vip *viper.Viper) error {
 	return nil
 }
 
-// resolveSiteGenAdapter selects the sitegen.Config adapter based on the
-// --site-generator flag. When site-generator is empty (unset), it falls back
-// to the legacy --hugo flag so existing configs continue to work unchanged.
-func resolveSiteGenAdapter(siteGenerator string, h hugo.Hugo, vp vitepress.VitePress) sitegen.Config {
-	switch siteGenerator {
+// validateSiteGenerator returns a non-nil error when sg is non-empty and not
+// one of the valid values (hugo, vitepress, none — case-sensitive).
+// An empty sg (flag not set) is always accepted.
+func validateSiteGenerator(sg string) error {
+	if sg == "" {
+		return nil
+	}
+	valid := []string{"hugo", "vitepress", "none"}
+	for _, v := range valid {
+		if sg == v {
+			return nil
+		}
+	}
+	return fmt.Errorf("invalid --site-generator %q: allowed values are %s (case-sensitive)",
+		sg, strings.Join(valid, ", "))
+}
+
+// resolveSiteGenMode returns the effective generator mode ("hugo", "vitepress",
+// "none") and any deprecation warnings the caller should log. It returns a
+// non-nil error when siteGenerator is non-empty but not one of the valid values.
+//
+// hugoSetCLI and hugoSetYAML distinguish the source of the legacy hugo flag so
+// that each deprecation warning can name the source:
+//   - CLI:  "--hugo is deprecated, use --site-generator=hugo|none instead"
+//   - YAML: `config key "hugo" is deprecated, use "site-generator: hugo|none" instead`
+//
+// When nothing is explicitly set the returned mode is "hugo", preserving the
+// default behaviour of previous releases (--hugo had a default of true).
+func resolveSiteGenMode(siteGenerator string, hugoSetCLI, hugoSetYAML, hugoValue, prettyURLsSetCLI, prettyURLsSetYAML bool) (string, []string, error) {
+	var warnings []string
+
+	if err := validateSiteGenerator(siteGenerator); err != nil {
+		return "", nil, err
+	}
+
+	// Warn about deprecated hugo-pretty-urls, naming the source.
+	if prettyURLsSetCLI {
+		warnings = append(warnings, "--hugo-pretty-urls is deprecated and has no effect; it will be removed in a future release")
+	}
+	if prettyURLsSetYAML {
+		warnings = append(warnings, `config key "hugo-pretty-urls" is deprecated and has no effect; it will be removed in a future release`)
+	}
+
+	hugoExplicit := hugoSetCLI || hugoSetYAML
+
+	if siteGenerator != "" {
+		// New flag wins. Emit extra conflict warning when --hugo disagrees.
+		if hugoExplicit {
+			legacyEquiv := "none"
+			if hugoValue {
+				legacyEquiv = "hugo"
+			}
+			if legacyEquiv != siteGenerator {
+				warnings = append(warnings, fmt.Sprintf(
+					"both --site-generator and --hugo are set; using --site-generator=%s and ignoring --hugo",
+					siteGenerator))
+			}
+			if hugoSetCLI {
+				warnings = append(warnings, "--hugo is deprecated, use --site-generator=hugo|none instead")
+			}
+			if hugoSetYAML {
+				warnings = append(warnings, `config key "hugo" is deprecated, use "site-generator: hugo|none" instead`)
+			}
+		}
+		return siteGenerator, warnings, nil
+	}
+
+	// Legacy fallback: only if the user explicitly set --hugo / hugo:.
+	if hugoSetCLI {
+		warnings = append(warnings, "--hugo is deprecated, use --site-generator=hugo|none instead")
+		if hugoValue {
+			return "hugo", warnings, nil
+		}
+		return "none", warnings, nil
+	}
+	if hugoSetYAML {
+		warnings = append(warnings, `config key "hugo" is deprecated, use "site-generator: hugo|none" instead`)
+		if hugoValue {
+			return "hugo", warnings, nil
+		}
+		return "none", warnings, nil
+	}
+
+	// Nothing explicitly set → preserve the master default (Hugo enabled).
+	return "hugo", warnings, nil
+}
+
+// resolveSiteGenAdapter builds the sitegen.Config adapter for the pre-validated
+// mode string returned by resolveSiteGenMode.
+func resolveSiteGenAdapter(mode string, h hugo.Hugo, vp vitepress.VitePress) sitegen.Config {
+	switch mode {
 	case "vitepress":
 		vp.Enabled = true
 		return vitepress.NewAdapter(vp)
 	case "hugo":
 		h.Enabled = true
 		return hugo.NewAdapter(h)
-	case "none":
+	default: // "none" and any unexpected value
 		h.Enabled = false
-		return hugo.NewAdapter(h)
-	default: // "" — not set: honour the legacy --hugo flag value
 		return hugo.NewAdapter(h)
 	}
 }

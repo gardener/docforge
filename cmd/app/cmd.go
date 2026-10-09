@@ -56,7 +56,7 @@ func NewCommand(ctx context.Context) *cobra.Command {
 		if err := vip.WriteConfigTo(os.Stdout); err != nil {
 			return fmt.Errorf("failed writing config to stdout: %w", err)
 		}
-		return exec(ctx, vip)
+		return exec(ctx, cmd, vip)
 	}
 
 	version := version.NewVersionCmd()

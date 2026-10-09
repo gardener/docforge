@@ -50,13 +50,24 @@ func configureFlags(command *cobra.Command, vip *viper.Viper) {
 	_ = vip.BindPFlag("download-workers", command.Flags().Lookup("download-workers"))
 
 	command.Flags().String("site-generator", "",
-		"Site generator to use: hugo, vitepress, or none. When unset, falls back to the legacy --hugo flag (default: hugo).")
+		"Site generator to use: hugo, vitepress, or none (case-sensitive). "+
+			"When neither --site-generator nor the deprecated --hugo is set, docforge runs in Hugo mode (unchanged from previous releases). "+
+			"When unset and --hugo is explicitly set, falls back to the legacy --hugo value. "+
+			"An invalid value is always an error, even if --hugo is also set.")
 	_ = vip.BindPFlag("site-generator", command.Flags().Lookup("site-generator"))
 
 	command.Flags().Bool("hugo", true,
-		"Deprecated: use --site-generator=hugo|none instead.")
+		"Deprecated: use --site-generator=hugo|none instead. "+
+			"When explicitly set and --site-generator is not, enables (true) or disables (false) Hugo mode.")
 	_ = vip.BindPFlag("hugo", command.Flags().Lookup("hugo"))
-	_ = command.Flags().MarkDeprecated("hugo", "use --site-generator=hugo|none instead")
+	_ = command.Flags().MarkHidden("hugo")
+
+	// --hugo-pretty-urls: accepted but ignored. Re-registered as a hidden flag so
+	// CLI invocations that include it do not error; behaviour is unchanged.
+	command.Flags().Bool("hugo-pretty-urls", false,
+		"Deprecated: has no effect; will be removed in a future release.")
+	_ = vip.BindPFlag("hugo-pretty-urls", command.Flags().Lookup("hugo-pretty-urls"))
+	_ = command.Flags().MarkHidden("hugo-pretty-urls")
 
 	command.Flags().Bool("docsy-edit-this-page-enabled", false,
 		"Add Docsy 'Edit this page' frontmatter fields to output files.")
