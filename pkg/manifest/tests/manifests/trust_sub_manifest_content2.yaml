@@ -1,0 +1,4 @@
+structure:
+- dir: remote
+  structure:
+  - file: /contents/blogs/2024/two.txt

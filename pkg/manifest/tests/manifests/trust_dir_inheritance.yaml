@@ -1,0 +1,9 @@
+structure:
+- dir: trusted-docs
+  allowScriptBlocks: true
+  structure:
+  - file: /contents/blogs/2024/foo.txt
+  - file: /contents/blogs/2024/two.txt
+- dir: untrusted-docs
+  structure:
+  - file: /contents/blogs/2024/one

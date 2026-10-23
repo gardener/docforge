@@ -1,0 +1,3 @@
+structure:
+- file: /contents/blogs/2024/foo.txt
+  trusted: true
