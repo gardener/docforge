@@ -1,0 +1,7 @@
+structure:
+- file: merged.md
+  multiSource:
+  - /contents/blogs/2024/foo.txt
+  - /contents/blogs/2024/two.txt
+  allowScriptBlocks: true
+- file: /contents/blogs/2024/one
