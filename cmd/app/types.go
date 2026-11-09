@@ -5,7 +5,6 @@
 package app
 
 import (
-	"github.com/gardener/docforge/cmd/hugo"
 	"github.com/gardener/docforge/pkg/registry/repositoryhost"
 	"github.com/gardener/docforge/pkg/sitegen"
 	"github.com/gardener/docforge/pkg/writers"
@@ -35,7 +34,6 @@ type Writers struct {
 type Config struct {
 	Options
 	Writers
-	hugo.Hugo
 	SiteGen         sitegen.Config
 	RepositoryHosts []repositoryhost.Interface
 }

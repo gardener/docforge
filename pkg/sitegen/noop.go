@@ -18,6 +18,9 @@ func (NoopConfig) IsIndexFile(_ string) bool { return false }
 // IndexFileName implements Config.
 func (NoopConfig) IndexFileName() string { return "" }
 
+// UsesManifestNameInEditPath implements Config.
+func (NoopConfig) UsesManifestNameInEditPath() bool { return true }
+
 // PrettyPath implements Config.
 func (NoopConfig) PrettyPath(node *manifest.Node) string { return node.NodePath() }
 

@@ -1,0 +1,9 @@
+structure:
+- dir: foo
+  structure:
+  - dir: bar
+    structure:
+    - dir: two
+      structure:
+      - file: README.md
+        source: ../contents/README.md

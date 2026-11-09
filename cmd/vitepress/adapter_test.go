@@ -87,31 +87,53 @@ func TestAdapterPrettyPath(t *testing.T) {
 		name     string
 		nodePath string
 		nodeFile string
-		want     string
+		wantPath string
 	}{
 		{
-			"file node path is returned unchanged",
+			"non-index file returned unchanged",
 			"docs",
 			"guide.md",
 			"docs/guide.md",
 		},
 		{
-			"index.md path is returned unchanged (VitePress handles routing natively)",
-			"docs",
+			// _index.md from a Hugo-based external repo must link to the output file index.md
+			"_index.md normalised to index.md",
+			"docs/extensions",
+			"_index.md",
+			"docs/extensions/index.md",
+		},
+		{
+			"index.md stays index.md (no-op normalisation)",
+			"docs/extensions",
 			"index.md",
-			"docs/index.md",
+			"docs/extensions/index.md",
+		},
+		{
+			// README.md is an index file (via IndexFileNames) → normalised to index.md
+			"README.md (via IndexFileNames) normalised to index.md",
+			"docs/extensions",
+			"README.md",
+			"docs/extensions/index.md",
+		},
+		{
+			"top-level _index.md (path=.) normalised to index.md",
+			".",
+			"_index.md",
+			"index.md",
 		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			a := vitepress.NewAdapter(vitepress.VitePress{})
+			a := vitepress.NewAdapter(vitepress.VitePress{
+				IndexFileNames: []string{"readme.md", "README.md"},
+			})
 			node := &manifest.Node{
 				FileType: manifest.FileType{File: c.nodeFile},
 				Type:     "file",
 				Path:     c.nodePath,
 			}
-			if got := a.PrettyPath(node); got != c.want {
-				t.Errorf("PrettyPath() = %q, want %q", got, c.want)
+			if got := a.PrettyPath(node); got != c.wantPath {
+				t.Errorf("PrettyPath() = %q, want %q", got, c.wantPath)
 			}
 		})
 	}
