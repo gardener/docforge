@@ -18,6 +18,7 @@ import (
 	"github.com/gardener/docforge/pkg/registry"
 	"github.com/gardener/docforge/pkg/registry/repositoryhost"
 	"gopkg.in/yaml.v2"
+	"k8s.io/klog/v2"
 )
 
 const sectionFile = "_index.md"
@@ -129,6 +130,41 @@ func processTransformation(f NodeTransformation, node *Node, parent *Node, r reg
 	return runTreeChangeProcedure, nil
 }
 
+// makeComputeTrust returns a transformation that computes the trusted field for each node.
+// Trust is granted only to content nodes (file/dir/fileTree) whose nearest enclosing manifest
+// ancestor is the root manifest (pointer identity), and only when the node or one of its
+// ancestors in the root manifest declared allowScriptBlocks: true.
+// Manifest-boundary nodes (including the root manifest node itself) are never trusted.
+// trustDeclarant is set to the direct-declaring node here in Phase A; its Path and Type are
+// filled in by decideNodeType / calculatePath later in Phase B, but the pointer remains valid.
+func makeComputeTrust(root *Node) manifestToNodeTreeTransfromation {
+	return func(node *Node, parent *Node, manifest *Node, _ registry.Interface) error {
+		if node.Manifest != "" {
+			// manifest-boundary nodes are never trusted regardless of any flag
+			if node.AllowScriptBlocks {
+				klog.Warningf("content-trust: allowScriptBlocks on manifest node %s has no effect; set it on content nodes it references", node.Manifest)
+			}
+			node.trusted = false
+			node.trustManifest = ""
+			node.trustDeclarant = nil
+			return nil
+		}
+		fromRoot := manifest == root
+		inherited := parent != nil && parent.trusted
+		node.trusted = fromRoot && (node.AllowScriptBlocks || inherited)
+		if node.trusted {
+			if node.AllowScriptBlocks {
+				node.trustManifest = manifest.Manifest
+				node.trustDeclarant = node
+			} else {
+				node.trustManifest = parent.trustManifest
+				node.trustDeclarant = parent.trustDeclarant
+			}
+		}
+		return nil
+	}
+}
+
 func loadRepositoriesOfResources(node *Node, parent *Node, _ *Node, r registry.Interface) error {
 	loadRepoFrom := func(resourceURL string) error {
 		if repositoryhost.IsResourceURL(resourceURL) {
@@ -165,9 +201,17 @@ func readManifestContents(node *Node, parent *Node, manifest *Node, r registry.I
 	if err != nil {
 		return fmt.Errorf("can't get manifest file content : %w", err)
 	}
+	// Snapshot the parent-declared trust intent before unmarshalling the file content.
+	// This prevents a manifest file from granting trust to its own top-level node:
+	// only the parent (ultimately the root manifest author) may declare allowScriptBlocks.
+	savedAllowScriptBlocks := node.AllowScriptBlocks
 	if err = yaml.Unmarshal(byteContent, node); err != nil {
 		return fmt.Errorf("can't parse manifest %s yaml content : %w", node.Manifest, err)
 	}
+	if node.AllowScriptBlocks && !savedAllowScriptBlocks {
+		klog.Warningf("content-trust: allowScriptBlocks in manifest file %s has no effect; trust can only be granted by the referencing parent", node.Manifest)
+	}
+	node.AllowScriptBlocks = savedAllowScriptBlocks
 	return nil
 }
 
@@ -328,13 +372,20 @@ func constructNodeTree(files []string, node *Node, parent *Node) (bool, error) {
 			return changed, err
 		}
 		parentNode := getParrentNode(pathToDirNode, filePath)
+		var decl *Node
+		if node.trusted {
+			decl = node
+		}
 		parentNode.Structure = append(parentNode.Structure, &Node{
 			FileType: FileType{
 				File:   fileName,
 				Source: source,
 			},
-			Type: "file",
-			Path: filePath,
+			Type:           "file",
+			Path:           filePath,
+			trusted:        node.trusted,
+			trustManifest:  node.trustManifest,
+			trustDeclarant: decl,
 		})
 		changed = true
 	}
@@ -415,6 +466,7 @@ func ResolveManifest(url string, r registry.Interface, additionalTransformations
 	}
 	err := manifestToNodeTree(manifest, r,
 		readManifestContents,
+		makeComputeTrust(manifest),
 		// needed for resolveManifestLinks during check if links point to existing resources
 		loadRepositoriesOfResources,
 		resolveManifestLinks,
@@ -438,7 +490,42 @@ func ResolveManifest(url string, r registry.Interface, additionalTransformations
 	if err != nil {
 		return nil, err
 	}
-	return getAllNodes(manifest), nil
+	nodes := getAllNodes(manifest)
+
+	// per-node audit: one line per source URL for each trusted content node
+	for _, n := range nodes {
+		if !n.trusted || !n.HasContent() {
+			continue
+		}
+		srcs := n.MultiSource
+		if n.Source != "" {
+			srcs = append([]string{n.Source}, n.MultiSource...)
+		}
+		klog.Infof("content-trust: trusted node path=%s sources=[%s] declaredBy=%s",
+			n.NodePath(), strings.Join(srcs, ","), n.trustManifest)
+	}
+
+	// declaration-point summary: one line per declaring node, with the count of trusted content nodes.
+	// trustDeclarant points to the Phase-A node that declared the flag; by the time we log here,
+	// decideNodeType and calculatePath have already set its Type and Path (even for removed fileTree nodes,
+	// the pointer remains valid after RemoveNodeFromParent).
+	declManifest := map[*Node]string{}
+	declCounts := map[*Node]int{}
+	for _, n := range nodes {
+		if !n.trusted || !n.HasContent() || n.trustDeclarant == nil {
+			continue
+		}
+		declCounts[n.trustDeclarant]++
+		if _, exists := declManifest[n.trustDeclarant]; !exists {
+			declManifest[n.trustDeclarant] = n.trustManifest
+		}
+	}
+	for declarant, count := range declCounts {
+		klog.Infof("content-trust: trust declared path=%s type=%s manifest=%s trusted-nodes=%d",
+			declarant.NodePath(), declarant.Type, declManifest[declarant], count)
+	}
+
+	return nodes, nil
 }
 
 // GetAllNodes returns all nodes in a manifest as arrayqgi

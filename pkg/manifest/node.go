@@ -30,8 +30,17 @@ type Node struct {
 	Path string `yaml:"path,omitempty"`
 	// LinkResolution describes how links should be resolved when processing the given node
 	LinkResolution map[string]string `yaml:"linkResolution,omitempty"`
+	// AllowScriptBlocks opts this node's content into the trusted content policy (exempt from script/style stripping)
+	AllowScriptBlocks bool `yaml:"allowScriptBlocks,omitempty"`
 	// Parent of node
 	parent *Node
+	// trusted is computed by makeComputeTrust during manifest resolution; cannot be set via YAML
+	trusted bool
+	// trustManifest is the URL of the root manifest that granted trust to this node
+	trustManifest string
+	// trustDeclarant points to the node where allowScriptBlocks was directly declared.
+	// Set during Phase A; the pointer remains valid after Phase B removes fileTree nodes.
+	trustDeclarant *Node
 }
 
 // Name is the name of the node
@@ -52,7 +61,6 @@ func (n *Node) NodePath() string {
 	return must.Succeed(link.Build(n.Path, n.Name()))
 }
 
-
 // HasContent returns true if the node is a document node
 func (n *Node) HasContent() bool {
 	return len(n.MultiSource) > 0 || len(n.Source) > 0
@@ -61,6 +69,12 @@ func (n *Node) HasContent() bool {
 // Parent is the node parent
 func (n *Node) Parent() *Node {
 	return n.parent
+}
+
+// AllowsScriptBlocks reports whether this node is trusted (exempt from the content policy).
+// Trust is computed during manifest resolution and cannot be set via YAML.
+func (n *Node) AllowsScriptBlocks() bool {
+	return n.trusted
 }
 
 // RemoveParent removes parent of node

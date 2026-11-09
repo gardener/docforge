@@ -1,0 +1,4 @@
+allowScriptBlocks: true
+structure:
+- manifest: ./trust_sub_manifest_content.yaml
+  allowScriptBlocks: true

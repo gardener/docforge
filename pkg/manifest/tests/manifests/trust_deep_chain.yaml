@@ -1,0 +1,3 @@
+structure:
+- manifest: ./trust_deep_chain_mid.yaml
+  allowScriptBlocks: true

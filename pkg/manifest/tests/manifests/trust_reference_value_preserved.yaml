@@ -1,0 +1,5 @@
+structure:
+- manifest: ./trust_reference_value_preserved_content.yaml
+  allowScriptBlocks: true
+- file: /contents/blogs/2024/two.txt
+  allowScriptBlocks: true
