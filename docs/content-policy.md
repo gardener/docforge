@@ -10,11 +10,23 @@ The policy prevents executable content — mainly raw `<script>` and `<style>` H
 | Top-level `<script>` or `<style>` HTML block | Replace with `<!-- docforge: stripped block -->` |
 | HTML block that *contains* a `<script>` or `<style>` tag (e.g. inside `<pre>`) | Log a warning, keep the block unchanged |
 | Inline `<script>` or `<style>` in paragraph text | Replace the whole document with a placeholder |
-| Non-markdown source with extension `.vue`, `.js`, `.mjs`, `.ts` | Skip (do not include in output) |
+| Non-markdown source with extension `.vue`, `.js`, `.mjs`, `.ts` | Replace the whole document with a placeholder |
 | Non-markdown source with extension `.html` | Log a warning, include unchanged |
 | Frontmatter `head` key in untrusted document | Remove the key (prevent arbitrary `<link>`/`<script>` injection into the site head) |
 
 Code blocks (fenced or indented) are never inspected — only raw HTML in the rendered Markdown AST.
+
+In a **multi-source** node, any source that triggers a placeholder or Refuse decision replaces the **entire** node — no bytes from any source are rendered.
+
+The placeholder is a short document with a `title` frontmatter key and a suppression comment body:
+
+```
+---
+title: <computed from node name>
+---
+
+<!-- docforge: document suppressed due to active content -->
+```
 
 ## Trusted documents
 
@@ -37,6 +49,8 @@ See [Manifest reference — `allowScriptBlocks`](../manifest-ref.md#allowscriptb
 
 Pass `--fail-on-stripped-content` to make docforge exit with a non-zero status whenever any content is stripped or suppressed by the policy.
 Without this flag, violations are logged as warnings but processing continues.
+Strip and suppress decisions trigger the flag: `StripBlock`, `SuppressDocument` (inline script/style), `Refuse` (blocked file type), and `StripHead` (frontmatter `head` key removal).
+Warn-only decisions — `WarnBlock` (script inside nested HTML) and `WarnNonMarkdown` (`.html` sources) — are always warnings and never trigger the flag.
 
 ```sh
 docforge --fail-on-stripped-content --manifest manifest.yaml --destination out/
@@ -47,5 +61,3 @@ docforge --fail-on-stripped-content --manifest manifest.yaml --destination out/
 - Only the **default** policy is supported; there is no way to configure custom rules in the manifest today.
 - WarnBlock findings are always warnings, even with `--fail-on-stripped-content`.
   Use `allowScriptBlocks: true` on trusted sources to suppress them.
-- Inline script/style in a **multi-source** node suppresses only the single source that triggered it; remaining sources are still rendered.
-  If you need the full document to be replaced, all sources must be assessed together.
