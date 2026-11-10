@@ -26,29 +26,6 @@ func srcDocURL(filename string) string {
 	return "https://github.com/gardener/docforge/blob/master/docs/" + filename
 }
 
-// snapshotWriter records a deep copy of node.Frontmatter at each Write call.
-// Used to verify frontmatter state at the moment of the write, before any
-// deferred restores run.
-type snapshotWriter struct {
-	mu        sync.Mutex
-	snapshots []map[string]interface{}
-	callCount int
-}
-
-func (w *snapshotWriter) Write(_, _ string, _ []byte, node *manifest.Node) error {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	w.callCount++
-	snap := make(map[string]interface{})
-	if node != nil {
-		for k, v := range node.Frontmatter {
-			snap[k] = v
-		}
-	}
-	w.snapshots = append(w.snapshots, snap)
-	return nil
-}
-
 // newTestCfg returns a sitegen config matching the one used in the suite BeforeEach.
 func newTestCfg() sitegen.SimpleConfig {
 	return sitegen.SimpleConfig{
@@ -401,31 +378,8 @@ var _ = Describe("Document worker — content policy", func() {
 	// ------------------------------------------------------------------
 
 	Describe("Content-less node frontmatter sanitization", func() {
-		It("head in manifest frontmatter is absent when written (content-less node)", func() {
-			r := registry.NewRegistry(repositoryhost.NewLocalTest(manifests, "https://github.com/gardener/docforge", "tests"))
-			cfg := newTestCfg()
-			nodes, err := manifest.ResolveManifest("https://github.com/gardener/docforge/blob/master/docs/manifest.yaml", r)
-			Expect(err).NotTo(HaveOccurred())
-			lr := linkresolver.New(nodes, r, cfg)
-			sw := &snapshotWriter{}
-			dw := document.NewDocumentWorker(lr, r, cfg, sw)
-
-			node := &manifest.Node{
-				FileType: manifest.FileType{File: "_index.md"},
-				Type:     "file",
-				Path:     "section",
-				Frontmatter: map[string]interface{}{
-					"title": "Section",
-					"head":  []interface{}{map[string]interface{}{"tag": "link"}},
-				},
-			}
-			Expect(dw.ProcessNode(context.TODO(), node)).To(Succeed())
-			Expect(sw.callCount).To(Equal(1))
-			Expect(sw.snapshots[0]).NotTo(HaveKey("head"))
-		})
-
-		It("node.Frontmatter is restored to original after ProcessNode returns (content-less)", func() {
-			dw, _ := newPolicyWorker(false)
+		It("node.Frontmatter is never mutated: original has head before and after ProcessNode", func() {
+			dw, w := newPolicyWorker(false)
 			originalHead := []interface{}{map[string]interface{}{"tag": "link"}}
 			node := &manifest.Node{
 				FileType: manifest.FileType{File: "_index.md"},
@@ -437,32 +391,88 @@ var _ = Describe("Document worker — content policy", func() {
 				},
 			}
 			Expect(dw.ProcessNode(context.TODO(), node)).To(Succeed())
+			// Original node.Frontmatter is unchanged (no mutation).
 			Expect(node.Frontmatter["head"]).To(Equal(originalHead))
+			// The node passed to Write is a copy with head removed.
+			Expect(w.WriteCallCount()).To(Equal(1))
+			_, _, _, gotNode := w.WriteArgsForCall(0)
+			Expect(gotNode.Frontmatter).NotTo(HaveKey("head"))
 		})
 
-		It("StripHead on content-less node + flag: writes sanitized frontmatter then errors", func() {
-			r := registry.NewRegistry(repositoryhost.NewLocalTest(manifests, "https://github.com/gardener/docforge", "tests"))
-			cfg := newTestCfg()
-			nodes, err := manifest.ResolveManifest("https://github.com/gardener/docforge/blob/master/docs/manifest.yaml", r)
-			Expect(err).NotTo(HaveOccurred())
-			lr := linkresolver.New(nodes, r, cfg)
-			sw := &snapshotWriter{}
-			dw := document.NewDocumentWorker(lr, r, cfg, sw)
-			dw.SetFailOnStrippedContent(true)
-
+		It("StripHead on content-less node + flag: writes sanitized copy then errors; original unchanged", func() {
+			dw, w := newPolicyWorker(true)
+			originalHead := []interface{}{map[string]interface{}{"tag": "link"}}
 			node := &manifest.Node{
 				FileType: manifest.FileType{File: "_index.md"},
 				Type:     "file",
 				Path:     "section",
 				Frontmatter: map[string]interface{}{
 					"title": "Section",
-					"head":  []interface{}{map[string]interface{}{"tag": "link"}},
+					"head":  originalHead,
 				},
 			}
-			err = dw.ProcessNode(context.TODO(), node)
+			err := dw.ProcessNode(context.TODO(), node)
 			Expect(err).To(HaveOccurred())
-			Expect(sw.callCount).To(Equal(1), "write must occur before the policy error")
-			Expect(sw.snapshots[0]).NotTo(HaveKey("head"))
+			Expect(w.WriteCallCount()).To(Equal(1), "write must occur before the policy error")
+			_, _, _, gotNode := w.WriteArgsForCall(0)
+			Expect(gotNode.Frontmatter).NotTo(HaveKey("head"))
+			// Original node.Frontmatter must not have been mutated.
+			Expect(node.Frontmatter["head"]).To(Equal(originalHead))
+		})
+
+		It("50 content-less untrusted nodes with head processed concurrently: no mutation", func() {
+			const numNodes = 50
+			r := registry.NewRegistry(repositoryhost.NewLocalTest(manifests, "https://github.com/gardener/docforge", "tests"))
+			cfg := newTestCfg()
+			nodes, err := manifest.ResolveManifest("https://github.com/gardener/docforge/blob/master/docs/manifest.yaml", r)
+			Expect(err).NotTo(HaveOccurred())
+			lr := linkresolver.New(nodes, r, cfg)
+
+			type nodeResult struct {
+				original *manifest.Node
+				origHead interface{}
+				err      error
+			}
+			results := make([]nodeResult, numNodes)
+			fakeWriters := make([]*writersfakes.FakeWriter, numNodes)
+			dws := make([]*document.Worker, numNodes)
+			for i := 0; i < numNodes; i++ {
+				fakeWriters[i] = &writersfakes.FakeWriter{}
+				dws[i] = document.NewDocumentWorker(lr, r, cfg, fakeWriters[i])
+			}
+
+			var wg sync.WaitGroup
+			for i := 0; i < numNodes; i++ {
+				wg.Add(1)
+				go func(idx int) {
+					defer wg.Done()
+					head := []interface{}{map[string]interface{}{"tag": fmt.Sprintf("meta%d", idx)}}
+					n := &manifest.Node{
+						FileType: manifest.FileType{File: fmt.Sprintf("section%d.md", idx)},
+						Type:     "file",
+						Path:     fmt.Sprintf("path%d", idx),
+						Frontmatter: map[string]interface{}{
+							"title": fmt.Sprintf("Section %d", idx),
+							"head":  head,
+						},
+					}
+					results[idx] = nodeResult{original: n, origHead: head}
+					results[idx].err = dws[idx].ProcessNode(context.Background(), n)
+				}(i)
+			}
+			wg.Wait()
+
+			for i := 0; i < numNodes; i++ {
+				Expect(results[i].err).NotTo(HaveOccurred(), "node %d should not error", i)
+				// Original node must not have been mutated.
+				Expect(results[i].original.Frontmatter["head"]).To(Equal(results[i].origHead),
+					"node %d original head was mutated", i)
+				// The copy passed to Write must not have head.
+				Expect(fakeWriters[i].WriteCallCount()).To(Equal(1))
+				_, _, _, gotNode := fakeWriters[i].WriteArgsForCall(0)
+				Expect(gotNode.Frontmatter).NotTo(HaveKey("head"),
+					"node %d written frontmatter should not have head", i)
+			}
 		})
 	})
 

@@ -72,6 +72,7 @@ var (
 func (d *Worker) ProcessNode(ctx context.Context, node *manifest.Node) error {
 	var cnt []byte
 	var policyErr error
+	writeNode := node // default: write the original node unchanged
 	if node.HasContent() {
 		bytesBuff := bufPool.Get().(*bytes.Buffer)
 		defer bufPool.Put(bytesBuff)
@@ -88,20 +89,20 @@ func (d *Worker) ProcessNode(ctx context.Context, node *manifest.Node) error {
 		}
 		cnt = bytesBuff.Bytes()
 	} else {
-		// For content-less nodes, sanitize the node's own frontmatter to strip the "head" key.
-		// Copy → sanitize → write → restore so that the manifest tree is not permanently mutated.
+		// For content-less nodes, build a sanitized copy of the node to pass to Write.
+		// node.Frontmatter is never mutated.
 		if node.Frontmatter != nil && !node.AllowsScriptBlocks() {
-			original := node.Frontmatter
-			sanitized := make(map[string]interface{}, len(original))
-			for k, v := range original {
+			sanitized := make(map[string]interface{}, len(node.Frontmatter))
+			for k, v := range node.Frontmatter {
 				sanitized[k] = v
 			}
 			if findings := markdown.SanitizeFrontmatter(sanitized, false); len(findings) > 0 {
 				for _, f := range findings {
 					klog.Warningf("content policy: %s in node %s/%s", f.Kind, node.Path, node.Name())
 				}
-				node.Frontmatter = sanitized
-				defer func() { node.Frontmatter = original }()
+				nodeCopy := *node
+				nodeCopy.Frontmatter = sanitized
+				writeNode = &nodeCopy
 				if d.failOnStrippedContent {
 					policyErr = &policyViolation{fmt.Sprintf("content policy: stripped frontmatter field in node %s/%s", node.Path, node.Name())}
 				}
@@ -114,7 +115,7 @@ func (d *Worker) ProcessNode(ctx context.Context, node *manifest.Node) error {
 			name = target
 		}
 	}
-	if err := d.writer.Write(name, node.Path, cnt, node); err != nil {
+	if err := d.writer.Write(name, node.Path, cnt, writeNode); err != nil {
 		return err
 	}
 	return policyErr
