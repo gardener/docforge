@@ -63,10 +63,19 @@ func trustedNode() *manifest.Node {
 	return nodes[1]
 }
 
-// isPlaceholderOnly returns true when cnt is a YAML-only placeholder document (no body).
+// isPlaceholderOnly returns true when cnt is a placeholder document with the suppression body.
 func isPlaceholderOnly(cnt []byte) bool {
+	const body = "\n<!-- docforge: document suppressed due to active content -->\n"
 	s := string(cnt)
-	return strings.HasPrefix(s, "---\n") && strings.HasSuffix(s, "---\n") && strings.Count(s, "---\n") == 2
+	return strings.HasPrefix(s, "---\n") &&
+		strings.Count(s, "---\n") == 2 &&
+		strings.HasSuffix(s, body)
+}
+
+// placeholderBytes returns the exact bytes writePlaceholder produces for title.
+// Only correct for simple titles without YAML special characters.
+func placeholderBytes(title string) []byte {
+	return []byte("---\ntitle: " + title + "\n---\n\n<!-- docforge: document suppressed due to active content -->\n")
 }
 
 var _ = Describe("Document worker — content policy", func() {
@@ -161,7 +170,7 @@ var _ = Describe("Document worker — content policy", func() {
 			}
 			Expect(dw.ProcessNode(context.TODO(), node)).To(Succeed())
 			_, _, cnt, _ := w.WriteArgsForCall(0)
-			Expect(isPlaceholderOnly(cnt)).To(BeTrue(), "expected placeholder only, got: %s", string(cnt))
+			Expect(cnt).To(Equal(placeholderBytes("Test Out")), "expected exact placeholder, got: %s", string(cnt))
 		})
 
 		It("does not include any bytes from the accepted source when a refused source is present", func() {
@@ -207,7 +216,7 @@ var _ = Describe("Document worker — content policy", func() {
 			Expect(err.Error()).To(ContainSubstring("policy violation"))
 			Expect(w.WriteCallCount()).To(Equal(1), "output must be written before the error")
 			_, _, cnt, _ := w.WriteArgsForCall(0)
-			Expect(isPlaceholderOnly(cnt)).To(BeTrue())
+			Expect(cnt).To(Equal(placeholderBytes("Test Out")))
 		})
 
 		It("without --fail-on-stripped-content: returns nil", func() {
@@ -257,7 +266,7 @@ var _ = Describe("Document worker — content policy", func() {
 			}
 			Expect(dw.ProcessNode(context.TODO(), node)).To(Succeed())
 			_, _, cnt, _ := w.WriteArgsForCall(0)
-			Expect(isPlaceholderOnly(cnt)).To(BeTrue())
+			Expect(cnt).To(Equal(placeholderBytes("Inline Script")))
 			Expect(string(cnt)).To(ContainSubstring("Inline Script"))
 		})
 
@@ -273,7 +282,7 @@ var _ = Describe("Document worker — content policy", func() {
 			}
 			Expect(dw.ProcessNode(context.TODO(), node)).To(Succeed())
 			_, _, cnt, _ := w.WriteArgsForCall(0)
-			Expect(isPlaceholderOnly(cnt)).To(BeTrue())
+			Expect(cnt).To(Equal(placeholderBytes("Multi")))
 			Expect(string(cnt)).NotTo(ContainSubstring("Tested markdown file"))
 			Expect(string(cnt)).NotTo(ContainSubstring("alert(1)"))
 		})
@@ -289,7 +298,7 @@ var _ = Describe("Document worker — content policy", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(w.WriteCallCount()).To(Equal(1))
 			_, _, cnt, _ := w.WriteArgsForCall(0)
-			Expect(isPlaceholderOnly(cnt)).To(BeTrue())
+			Expect(cnt).To(Equal(placeholderBytes("Inline Script")))
 		})
 
 		It("placeholder does not contain the source URL", func() {

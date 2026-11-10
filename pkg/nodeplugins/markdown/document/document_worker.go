@@ -278,13 +278,13 @@ func (d *Worker) process(ctx context.Context, b *bytes.Buffer, n *manifest.Node)
 	return nil
 }
 
-// writePlaceholder writes a frontmatter-only placeholder document to b.
+// writePlaceholder writes a placeholder document (frontmatter + suppression body) to b.
 func writePlaceholder(b *bytes.Buffer, n *manifest.Node, config sitegen.Config) {
 	title := frontmatter.PlaceholderTitle(n, config)
 	placeholderMeta, _ := yaml.Marshal(map[string]interface{}{"title": title})
 	b.Write([]byte("---\n"))
 	b.Write(placeholderMeta)
-	b.Write([]byte("---\n"))
+	b.Write([]byte("---\n\n<!-- docforge: document suppressed due to active content -->\n"))
 }
 
 type linkResolverTask struct {
