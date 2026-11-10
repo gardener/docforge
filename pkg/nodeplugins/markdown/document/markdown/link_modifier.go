@@ -70,9 +70,31 @@ func WithLinkResolver(linkResolver ResolveLink) renderer.Option {
 	return &withLinkResolver{linkResolver}
 }
 
+// optContentPolicy is the option name for a ContentPolicy on the renderer config.
+const optContentPolicy renderer.OptionName = "ContentPolicy"
+
+// optTrusted is the option name for the trusted flag on the renderer config.
+const optTrusted renderer.OptionName = "Trusted"
+
+type withContentPolicy struct{ value ContentPolicy }
+
+func (o *withContentPolicy) SetConfig(c *renderer.Config) { c.Options[optContentPolicy] = o.value }
+
+// WithContentPolicy is a functional option that sets the ContentPolicy on the renderer.
+func WithContentPolicy(p ContentPolicy) renderer.Option { return &withContentPolicy{p} }
+
+type withTrusted struct{ value bool }
+
+func (o *withTrusted) SetConfig(c *renderer.Config) { c.Options[optTrusted] = o.value }
+
+// WithTrusted is a functional option that marks the rendered document as trusted,
+// exempting it from policy enforcement while still applying link rewriting.
+func WithTrusted(trusted bool) renderer.Option { return &withTrusted{trusted} }
+
 // A linkModifierRenderer struct is an implementation of renderer.Renderer interface.
 type linkModifierRenderer struct {
-	config *renderer.Config
+	config   *renderer.Config
+	findings []Finding // populated after each Render call; nil when no policy is set
 }
 
 // NewLinkModifierRenderer returns a new linkModifierRenderer with given renderer options.
@@ -89,6 +111,29 @@ func NewLinkModifierRenderer(opts ...renderer.Option) renderer.Renderer {
 	}
 }
 
+// policyRenderer wraps linkModifierRenderer and exposes policy findings.
+type policyRenderer struct {
+	*linkModifierRenderer
+}
+
+// NewPolicyRenderer returns a PolicyRenderer that enforces DefaultPolicy and supports
+// link rewriting. It shares all rendering logic with NewLinkModifierRenderer.
+func NewPolicyRenderer(opts ...renderer.Option) PolicyRenderer {
+	config := renderer.NewConfig()
+	// Defaults: identity link resolver, DefaultPolicy, untrusted.
+	WithLinkResolver(resolveSame).SetConfig(config)
+	WithContentPolicy(DefaultPolicy{}).SetConfig(config)
+	for _, opt := range opts {
+		opt.SetConfig(config)
+	}
+	return &policyRenderer{&linkModifierRenderer{config: config}}
+}
+
+// Result returns the findings from the last Render call.
+func (pr *policyRenderer) Result() []Finding {
+	return pr.linkModifierRenderer.findings
+}
+
 func (l *linkModifierRenderer) AddOptions(opts ...renderer.Option) {
 	for _, opt := range opts {
 		opt.SetConfig(l.config)
@@ -97,10 +142,17 @@ func (l *linkModifierRenderer) AddOptions(opts ...renderer.Option) {
 
 //gocyclo:ignore
 func (l *linkModifierRenderer) Render(w io.Writer, source []byte, node ast.Node) error {
+	// Reset findings at the start of every Render.
+	l.findings = nil
+	// Retrieve policy and trusted flag from config (both are nil/false when not set).
+	policy, _ := l.config.Options[optContentPolicy].(ContentPolicy)
+	trusted, _ := l.config.Options[optTrusted].(bool)
 	// walk & render nodes
 	r := &Renderer{
 		source:       source,
 		linkResolver: l.config.Options[optLinkResolver].(ResolveLink),
+		policy:       policy,
+		trusted:      trusted,
 		indents:      make([]byte, 0, 20),
 		markers:      make([]int, 0, 5),
 		emphasis:     make([]byte, 0, 5),
@@ -171,6 +223,8 @@ func (l *linkModifierRenderer) Render(w io.Writer, source []byte, node ast.Node)
 	if !ok {
 		_, _ = w.Write(r.writer.Bytes())
 	}
+	// Copy findings back so policyRenderer.Result() can return them.
+	l.findings = r.findings
 	return err
 }
 
@@ -184,6 +238,10 @@ type Renderer struct {
 	emphasis     []byte
 	table        bool
 	linkStack    []int
+	// policy enforcement (nil policy means no enforcement; trusted skips all checks)
+	policy   ContentPolicy
+	trusted  bool
+	findings []Finding
 }
 
 // --------------------------- Node Renders
