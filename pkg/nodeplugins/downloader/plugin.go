@@ -15,8 +15,8 @@ type plugin struct {
 }
 
 // NewPlugin creates a new downloader plugin
-func NewPlugin(workerCount int, failFast bool, wg *sync.WaitGroup, registry registry.Interface, writer writers.Writer) (nodeplugins.Interface, taskqueue.QueueController, error) {
-	dScheduler, q, err := New(workerCount, failFast, wg, registry, writer)
+func NewPlugin(workerCount int, failFast bool, wg *sync.WaitGroup, registry registry.Interface, writer writers.Writer, failOnStripped bool) (nodeplugins.Interface, taskqueue.QueueController, error) {
+	dScheduler, q, err := New(workerCount, failFast, wg, registry, writer, failOnStripped)
 	return &plugin{dScheduler}, q, err
 }
 

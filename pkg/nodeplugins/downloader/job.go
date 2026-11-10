@@ -32,11 +32,12 @@ type downloadScheduler struct {
 }
 
 // New create a DownloadScheduler to schedule download resources
-func New(workerCount int, failFast bool, wg *sync.WaitGroup, registry registry.Interface, writer writers.Writer) (Interface, taskqueue.QueueController, error) {
+func New(workerCount int, failFast bool, wg *sync.WaitGroup, registry registry.Interface, writer writers.Writer, failOnStripped bool) (Interface, taskqueue.QueueController, error) {
 	dWorker, err := NewDownloader(registry, writer)
 	if err != nil {
 		return nil, nil, err
 	}
+	dWorker.failOnStripped = failOnStripped
 	queue, err := taskqueue.New("Download", workerCount, dWorker.execute, failFast, wg)
 	if err != nil {
 		return nil, nil, err
@@ -66,6 +67,9 @@ func (d *ResourceDownloadWorker) execute(ctx context.Context, task interface{}) 
 		var pol markdown.DefaultPolicy
 		switch pol.NonMarkdownDecision(dt.source) {
 		case markdown.Refuse:
+			if d.failOnStripped {
+				return fmt.Errorf("content policy: refusing download of %s (blocked file type)", dt.source)
+			}
 			klog.Warningf("content policy: refusing download of %s (blocked file type)", dt.source)
 			return nil
 		case markdown.WarnNonMarkdown:
