@@ -207,6 +207,10 @@ func (d *Worker) process(ctx context.Context, b *bytes.Buffer, n *manifest.Node)
 				for _, f := range findings {
 					klog.Warningf("content policy: %s in node %s", f.Kind, nodePath)
 					if f.Decision == markdown.StripHead {
+						// MergeDocumentAndNodeFrontmatter writes merged frontmatter back to
+						// n.Frontmatter; delete "head" here too so both stay in sync.
+						// The content-less path uses a shallow copy instead of mutating n
+						// directly, because hugoIndexContent reads node.Frontmatter after Write.
 						delete(n.Frontmatter, "head")
 					}
 				}
