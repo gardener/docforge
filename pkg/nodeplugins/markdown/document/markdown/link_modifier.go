@@ -399,6 +399,18 @@ func (r *Renderer) renderHTMLBlock(node ast.Node, entering bool) (ast.WalkStatus
 	n := node.(*ast.HTMLBlock)
 	if entering {
 		r.blockSeparator(n)
+		// Apply content policy when set and the content is not trusted.
+		if r.policy != nil && !r.trusted {
+			switch r.policy.BlockDecision(n, r.source) {
+			case StripBlock:
+				r.findings = append(r.findings, Finding{Decision: StripBlock, Kind: "script/style block stripped"})
+				r.writeContent([]byte("<!-- docforge: stripped block -->\n"))
+				return ast.WalkSkipChildren, nil
+			case WarnBlock:
+				r.findings = append(r.findings, Finding{Decision: WarnBlock, Kind: "HTML block contains script/style (warning only)"})
+				// fall through: emit unchanged
+			}
+		}
 		// HTMLBlockType 6 & 7 may contain links and images
 		if n.HTMLBlockType >= ast.HTMLBlockType6 {
 			buf := bufPool.Get().(*bytes.Buffer)
@@ -630,6 +642,14 @@ func (r *Renderer) renderImage(node ast.Node, entering bool) (ast.WalkStatus, er
 func (r *Renderer) renderRawHTML(node ast.Node, entering bool) (ast.WalkStatus, error) {
 	if entering {
 		n := node.(*ast.RawHTML)
+		// Apply content policy: inline script/style → SuppressDocument finding.
+		// The whole node will be replaced by a placeholder in document_worker; rendering continues
+		// so that all findings across all sources are accumulated before the decision is made.
+		if r.policy != nil && !r.trusted {
+			if r.policy.InlineDecision(n, r.source) == SuppressDocument {
+				r.findings = append(r.findings, Finding{Decision: SuppressDocument, Kind: "inline script/style element"})
+			}
+		}
 		buf := bufPool.Get().(*bytes.Buffer)
 		defer bufPool.Put(buf)
 		buf.Reset()
