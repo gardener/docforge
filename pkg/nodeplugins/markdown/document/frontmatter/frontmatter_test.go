@@ -252,6 +252,44 @@ var _ = Describe("Document frontmatter", func() {
 		})
 	})
 
+	Context("#PlaceholderTitle", func() {
+		var (
+			nodes []*manifest.Node
+			cfg   sitegen.SimpleConfig
+			err   error
+		)
+		BeforeEach(func() {
+			r := registry.NewRegistry(repositoryhost.NewLocalTest(manifests, "https://github.com/gardener/docforge", "tests"))
+			nodes, err = manifest.ResolveManifest("https://github.com/gardener/docforge/blob/master/titles.yaml", r)
+			Expect(err).NotTo(HaveOccurred())
+			cfg = sitegen.SimpleConfig{IsEnabled: true, IndexFiles: []string{"README.md"}}
+		})
+
+		It("normalizes a regular node name", func() {
+			Expect(frontmatter.PlaceholderTitle(nodes[1], cfg)).To(Equal("File Node 1"))
+		})
+
+		It("returns 'Root' for a root-level index node", func() {
+			Expect(frontmatter.PlaceholderTitle(nodes[2], cfg)).To(Equal("Root"))
+		})
+
+		It("uses the parent name for an index node with a parent", func() {
+			Expect(frontmatter.PlaceholderTitle(nodes[5], cfg)).To(Equal("Parent Dir"))
+		})
+
+		It("normalizes a regular node name with disabled sitegen config", func() {
+			noopCfg := sitegen.SimpleConfig{IsEnabled: false}
+			Expect(frontmatter.PlaceholderTitle(nodes[1], noopCfg)).To(Equal("File Node 1"))
+		})
+
+		It("uses node name (not frontmatter) regardless of what frontmatter says", func() {
+			node := nodes[4]
+			node.Frontmatter = map[string]interface{}{"title": "Injected Title"}
+			Expect(frontmatter.PlaceholderTitle(node, cfg)).To(Equal("File Node 2"))
+			node.Frontmatter = nil
+		})
+	})
+
 	Context("#ComputeNodeTitle", func() {
 		var (
 			nodeAst *frontmatterfakes.FakeNodeMeta
