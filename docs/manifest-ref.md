@@ -164,6 +164,38 @@ Map of source URL → destination node path, overriding docforge's automatic lin
 
 ---
 
+### `allowScriptBlocks`
+
+Marks a node (and all its descendants, for `dir`/`fileTree` nodes) as **trusted**, exempting it from the content policy that normally strips or suppresses raw `<script>` and `<style>` HTML blocks.
+
+```yaml
+- file: api-reference.md
+  source: https://github.com/org/repo/blob/main/docs/api.md
+  allowScriptBlocks: true
+```
+
+```yaml
+- dir: trusted-section
+  allowScriptBlocks: true
+  structure:
+    - file: https://github.com/org/repo/blob/main/docs/part1.md
+    - file: https://github.com/org/repo/blob/main/docs/part2.md
+```
+
+**Trust model:**
+
+- `allowScriptBlocks: true` on a `file`, `dir`, or `fileTree` node grants trust to that node and its descendants.
+- A `manifest:` node with `allowScriptBlocks: true` has **no effect** on the nodes inside the included manifest. Trust cannot cross manifest boundaries.
+- A sub-manifest that declares `allowScriptBlocks: true` at its own top level also has no effect. Only the **parent** manifest author can grant trust.
+- The flag cannot be overridden by a value inside the included manifest: once a node is trusted, it stays trusted.
+
+<!-- verified: pkg/manifest/node.go AllowScriptBlocks yaml:"allowScriptBlocks" -->
+<!-- verified: pkg/manifest/manifest.go makeComputeTrust() — trust never crosses manifest imports -->
+
+See [Content policy](content-policy.md) for a description of what trust exempts.
+
+---
+
 ## Relative links in manifests
 
 If a path starts with `/` it is resolved from the repository root. Otherwise it is resolved relative to the manifest file's own location.
