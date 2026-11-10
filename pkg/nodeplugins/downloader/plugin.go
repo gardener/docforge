@@ -25,5 +25,5 @@ func (plugin) Processor() string {
 }
 
 func (p *plugin) Process(node *manifest.Node) error {
-	return p.dScheduler.Schedule(node.Source, node.NodePath())
+	return p.dScheduler.Schedule(node.Source, node.NodePath(), node.AllowsScriptBlocks())
 }
