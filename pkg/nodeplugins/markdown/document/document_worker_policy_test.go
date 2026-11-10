@@ -5,13 +5,18 @@
 package document_test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"strings"
 	"sync"
 
+	gast "github.com/yuin/goldmark/ast"
+
 	"github.com/gardener/docforge/pkg/manifest"
 	"github.com/gardener/docforge/pkg/nodeplugins/markdown/document"
+	fmpkg "github.com/gardener/docforge/pkg/nodeplugins/markdown/document/frontmatter"
+	mdpkg "github.com/gardener/docforge/pkg/nodeplugins/markdown/document/markdown"
 	"github.com/gardener/docforge/pkg/nodeplugins/markdown/linkresolver"
 	"github.com/gardener/docforge/pkg/registry"
 	"github.com/gardener/docforge/pkg/registry/repositoryhost"
@@ -594,5 +599,74 @@ var _ = Describe("Document worker — content policy", func() {
 				}
 			}
 		})
+	})
+})
+
+// newPolicyWorkerWithCfg creates a Worker with the given sitegen config.
+func newPolicyWorkerWithCfg(cfg sitegen.Config) (*document.Worker, *writersfakes.FakeWriter) {
+	r := registry.NewRegistry(repositoryhost.NewLocalTest(manifests, "https://github.com/gardener/docforge", "tests"))
+	nodes, err := manifest.ResolveManifest("https://github.com/gardener/docforge/blob/master/docs/manifest.yaml", r)
+	if err != nil {
+		panic(fmt.Sprintf("newPolicyWorkerWithCfg: %v", err))
+	}
+	lr := linkresolver.New(nodes, r, cfg)
+	w := &writersfakes.FakeWriter{}
+	return document.NewDocumentWorker(lr, r, cfg, w), w
+}
+
+var _ = Describe("Document worker — byte-identity for clean content", func() {
+
+	// none (nil config): worker output equals NewLinkModifierRenderer output for same source.
+	// Valid because nil config skips ComputeNodeTitle, so no frontmatter is injected.
+	It("none (nil config): untrusted clean node byte-equal to NewLinkModifierRenderer output", func() {
+		dw, fw := newPolicyWorkerWithCfg(nil)
+		node := &manifest.Node{
+			FileType: manifest.FileType{File: "no_head.md", Source: srcDocURL("no_head.md")},
+			Type:     "file",
+			Path:     "out",
+		}
+		Expect(dw.ProcessNode(context.TODO(), node)).To(Succeed())
+		_, _, workerOut, _ := fw.WriteArgsForCall(0)
+
+		src, err := manifests.ReadFile("tests/docs/no_head.md")
+		Expect(err).NotTo(HaveOccurred())
+		docAst, err := mdpkg.Parse(mdpkg.New(), src)
+		Expect(err).NotTo(HaveOccurred())
+		var lmrBuf bytes.Buffer
+		Expect(mdpkg.NewLinkModifierRenderer().Render(&lmrBuf, src, docAst)).To(Succeed())
+
+		Expect(workerOut).To(Equal(lmrBuf.Bytes()))
+	})
+
+	// vitepress mode: for the same pre-processed AST, PolicyRenderer and
+	// NewLinkModifierRenderer produce identical bytes (policy layer is transparent).
+	It("vitepress mode: PolicyRenderer byte-equal to NewLinkModifierRenderer for same preprocessed AST", func() {
+		vitepressCfg := sitegen.SimpleConfig{
+			IsEnabled:       true,
+			IndexFiles:      []string{"index.md", "_index.md"},
+			IndexFileTarget: "index.md",
+		}
+
+		src, err := manifests.ReadFile("tests/docs/no_head.md")
+		Expect(err).NotTo(HaveOccurred())
+
+		md := mdpkg.New()
+		policyAst, err := mdpkg.Parse(md, src)
+		Expect(err).NotTo(HaveOccurred())
+		lmrAst, err := mdpkg.Parse(md, src)
+		Expect(err).NotTo(HaveOccurred())
+
+		n1 := &manifest.Node{FileType: manifest.FileType{File: "no_head.md"}, Path: "out"}
+		n2 := &manifest.Node{FileType: manifest.FileType{File: "no_head.md"}, Path: "out"}
+		fmpkg.ComputeNodeTitle(policyAst.(*gast.Document), n1, vitepressCfg)
+		fmpkg.MergeDocumentAndNodeFrontmatter(policyAst.(*gast.Document), n1)
+		fmpkg.ComputeNodeTitle(lmrAst.(*gast.Document), n2, vitepressCfg)
+		fmpkg.MergeDocumentAndNodeFrontmatter(lmrAst.(*gast.Document), n2)
+
+		var policyBuf, lmrBuf bytes.Buffer
+		Expect(mdpkg.NewPolicyRenderer(mdpkg.WithTrusted(false)).Render(&policyBuf, src, policyAst)).To(Succeed())
+		Expect(mdpkg.NewLinkModifierRenderer().Render(&lmrBuf, src, lmrAst)).To(Succeed())
+
+		Expect(policyBuf.Bytes()).To(Equal(lmrBuf.Bytes()))
 	})
 })
