@@ -7,6 +7,7 @@ package document
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -26,6 +27,13 @@ import (
 	"k8s.io/klog/v2"
 )
 
+// policyViolation is a soft error returned by process() when content was stripped and
+// failOnStrippedContent is set. Unlike a hard error, the output buffer is fully populated
+// when this is returned, so ProcessNode still writes the output before propagating it.
+type policyViolation struct{ msg string }
+
+func (e *policyViolation) Error() string { return e.msg }
+
 // Worker represents document worker
 type Worker struct {
 	markdown     goldmark.Markdown
@@ -33,8 +41,8 @@ type Worker struct {
 
 	writer writers.Writer
 
-	repositoryhosts     registry.Interface
-	config              sitegen.Config
+	repositoryhosts       registry.Interface
+	config                sitegen.Config
 	failOnStrippedContent bool
 }
 
@@ -58,20 +66,25 @@ var (
 	}
 )
 
-// ProcessNode processes a node and writes its content
+// ProcessNode processes a node and writes its content.
+// When failOnStrippedContent is set, any policy violation causes a non-nil error return, but the
+// (placeholder or sanitized) output is always written to the writer before the error is returned.
 func (d *Worker) ProcessNode(ctx context.Context, node *manifest.Node) error {
 	var cnt []byte
+	var policyErr error
 	if node.HasContent() {
-		// Process the node
 		bytesBuff := bufPool.Get().(*bytes.Buffer)
 		defer bufPool.Put(bytesBuff)
 		bytesBuff.Reset()
-		if err := d.process(ctx, bytesBuff, node); err != nil {
-			return err
+		err := d.process(ctx, bytesBuff, node)
+		var pv *policyViolation
+		if err != nil && !errors.As(err, &pv) {
+			return err // hard error: do not write
 		}
+		policyErr = err
 		if bytesBuff.Len() == 0 {
 			klog.Warningf("document node processing halted: no content assigned to document node %s/%s", node.Path, node.Name())
-			return nil
+			return policyErr
 		}
 		cnt = bytesBuff.Bytes()
 	} else {
@@ -89,6 +102,9 @@ func (d *Worker) ProcessNode(ctx context.Context, node *manifest.Node) error {
 				}
 				node.Frontmatter = sanitized
 				defer func() { node.Frontmatter = original }()
+				if d.failOnStrippedContent {
+					policyErr = &policyViolation{fmt.Sprintf("content policy: stripped frontmatter field in node %s/%s", node.Path, node.Name())}
+				}
 			}
 		}
 	}
@@ -101,7 +117,7 @@ func (d *Worker) ProcessNode(ctx context.Context, node *manifest.Node) error {
 	if err := d.writer.Write(name, node.Path, cnt, node); err != nil {
 		return err
 	}
-	return nil
+	return policyErr
 }
 
 func (d *Worker) process(ctx context.Context, b *bytes.Buffer, n *manifest.Node) error {
@@ -124,6 +140,7 @@ func (d *Worker) process(ctx context.Context, b *bytes.Buffer, n *manifest.Node)
 		docURI string
 	}
 	var fullContent []*docContent
+	var refuseFindings []markdown.Finding
 
 	for _, source := range sources {
 		if !strings.HasSuffix(source, ".md") {
@@ -131,6 +148,7 @@ func (d *Worker) process(ctx context.Context, b *bytes.Buffer, n *manifest.Node)
 			switch pol.NonMarkdownDecision(source) {
 			case markdown.Refuse:
 				klog.Warningf("content policy: refusing non-markdown source %s in node %s (blocked file type)", source, nodePath)
+				refuseFindings = append(refuseFindings, markdown.Finding{Decision: markdown.Refuse, Kind: "non-markdown source refused", Source: source})
 				continue
 			case markdown.WarnNonMarkdown:
 				klog.Warningf("content policy: non-markdown source %s in node %s (include with warning)", source, nodePath)
@@ -151,10 +169,25 @@ func (d *Worker) process(ctx context.Context, b *bytes.Buffer, n *manifest.Node)
 		fullContent = append(fullContent, dc)
 	}
 
+	// Any refused source makes the whole document a placeholder (fail closed).
+	// This takes precedence over other content, even if other sources were accepted.
+	if len(refuseFindings) > 0 {
+		writePlaceholder(b, n, d.config)
+		klog.Warningf("content policy: document replaced with placeholder for node %s (non-markdown source refused)", nodePath)
+		if d.failOnStrippedContent {
+			return &policyViolation{fmt.Sprintf("content policy violation in node %s: %s", nodePath, refuseFindings[0].Kind)}
+		}
+		return nil
+	}
+
 	if len(fullContent) == 0 {
 		klog.Warningf("no accepted content sources for node %s\n", nodePath)
 		return nil
 	}
+
+	// Track a deferred StripHead policy violation: we want the rendered output in the buffer
+	// before returning the error so that ProcessNode can still write the sanitized content.
+	var stripHeadViolation *policyViolation
 
 	if fullContent[0].docAst != nil && fullContent[0].docAst.Kind() == ast.KindDocument {
 		firstDoc := fullContent[0].docAst.(*ast.Document)
@@ -166,18 +199,21 @@ func (d *Worker) process(ctx context.Context, b *bytes.Buffer, n *manifest.Node)
 		}
 		frontmatter.MoveMultiSourceFrontmatterToTopDocument(docs)
 		frontmatter.ComputeNodeTitle(firstDoc, n, d.config)
-		// Sanitize before merging so the "head" key is never copied to n.Frontmatter.
+		frontmatter.MergeDocumentAndNodeFrontmatter(firstDoc, n)
+		// Sanitize AFTER merging so "head" from manifest node frontmatter is also removed.
 		if meta := firstDoc.Meta(); meta != nil {
 			if findings := markdown.SanitizeFrontmatter(meta, trusted); len(findings) > 0 {
 				for _, f := range findings {
 					klog.Warningf("content policy: %s in node %s", f.Kind, nodePath)
+					if f.Decision == markdown.StripHead {
+						delete(n.Frontmatter, "head")
+					}
 				}
 				if d.failOnStrippedContent {
-					return fmt.Errorf("content policy: stripped frontmatter field in node %s", nodePath)
+					stripHeadViolation = &policyViolation{fmt.Sprintf("content policy: stripped frontmatter field in node %s", nodePath)}
 				}
 			}
 		}
-		frontmatter.MergeDocumentAndNodeFrontmatter(firstDoc, n)
 	}
 
 	type renderedSource struct {
@@ -219,11 +255,7 @@ func (d *Worker) process(ctx context.Context, b *bytes.Buffer, n *manifest.Node)
 	}
 
 	if suppressDoc {
-		title := frontmatter.PlaceholderTitle(n, d.config)
-		placeholderMeta, _ := yaml.Marshal(map[string]interface{}{"title": title})
-		b.Write([]byte("---\n"))
-		b.Write(placeholderMeta)
-		b.Write([]byte("---\n"))
+		writePlaceholder(b, n, d.config)
 		klog.Warningf("content policy: document suppressed for node %s (inline script/style found)", nodePath)
 	} else {
 		for _, rs := range rendered {
@@ -231,15 +263,27 @@ func (d *Worker) process(ctx context.Context, b *bytes.Buffer, n *manifest.Node)
 		}
 	}
 
+	// Return policy violations after the output is in the buffer, so ProcessNode can still write.
 	if d.failOnStrippedContent {
 		for _, f := range allFindings {
 			if f.Decision == markdown.StripBlock || f.Decision == markdown.SuppressDocument {
-				return fmt.Errorf("content policy violation in node %s: %s", nodePath, f.Kind)
+				return &policyViolation{fmt.Sprintf("content policy violation in node %s: %s", nodePath, f.Kind)}
 			}
 		}
 	}
-
+	if stripHeadViolation != nil {
+		return stripHeadViolation
+	}
 	return nil
+}
+
+// writePlaceholder writes a frontmatter-only placeholder document to b.
+func writePlaceholder(b *bytes.Buffer, n *manifest.Node, config sitegen.Config) {
+	title := frontmatter.PlaceholderTitle(n, config)
+	placeholderMeta, _ := yaml.Marshal(map[string]interface{}{"title": title})
+	b.Write([]byte("---\n"))
+	b.Write(placeholderMeta)
+	b.Write([]byte("---\n"))
 }
 
 type linkResolverTask struct {
