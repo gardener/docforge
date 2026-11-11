@@ -26,7 +26,8 @@ fi
 cd "${SOURCE_PATH}"
 
 # Get the Ginkgo (test framework) binary to be able to execute the tests.
-go install github.com/onsi/ginkgo/ginkgo@latest
+# Pinned to the module version in go.mod to avoid a mutable @latest build in CI.
+go install github.com/onsi/ginkgo/ginkgo@v1.16.5
 
 executable=${GOPATH}/bin/ginkgo
 if [ -z ${GOPATH+x} ]; then
