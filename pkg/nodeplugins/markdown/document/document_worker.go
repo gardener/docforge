@@ -89,8 +89,11 @@ func (d *Worker) ProcessNode(ctx context.Context, node *manifest.Node) error {
 		}
 		cnt = bytesBuff.Bytes()
 	} else {
-		// For content-less nodes, build a sanitized copy of the node to pass to Write.
-		// node.Frontmatter is never mutated.
+		// For content-less nodes, pass a shallow node copy to Write with "head" removed.
+		// The top-level frontmatter map is copied and "head" is deleted from the copy, so
+		// node.Frontmatter keeps its original keys. Nested values are shared with the
+		// original (shallow copy); this is safe because the writer only reads them
+		// (hugoIndexContent marshals node.Frontmatter without mutating it).
 		if node.Frontmatter != nil && !node.AllowsScriptBlocks() {
 			sanitized := make(map[string]interface{}, len(node.Frontmatter))
 			for k, v := range node.Frontmatter {
@@ -218,6 +221,36 @@ func (d *Worker) process(ctx context.Context, b *bytes.Buffer, n *manifest.Node)
 					stripHeadViolation = &policyViolation{fmt.Sprintf("content policy: stripped frontmatter field in node %s", nodePath)}
 				}
 			}
+		}
+	}
+
+	// The block above sanitizes only the first source, and only when the first source
+	// is Markdown. A node whose first source is non-Markdown (e.g. Source=page.html,
+	// MultiSource=[doc.md]) skips it entirely, so "head" from a later Markdown source
+	// would otherwise reach the output with no finding and no error. Strip "head" from
+	// EVERY Markdown source for untrusted nodes. SanitizeFrontmatter is a no-op when
+	// "head" is absent, so a source already sanitized above yields no duplicate finding.
+	if !trusted {
+		headStripped := false
+		for _, dc := range fullContent {
+			if dc.docAst == nil || dc.docAst.Kind() != ast.KindDocument {
+				continue
+			}
+			meta := dc.docAst.(*ast.Document).Meta()
+			if meta == nil {
+				continue
+			}
+			for _, f := range markdown.SanitizeFrontmatter(meta, false) {
+				klog.Warningf("content policy: %s in source %s (node %s)", f.Kind, dc.docURI, nodePath)
+				if f.Decision == markdown.StripHead {
+					// keep n.Frontmatter in sync; no-op when "head" is not present there
+					delete(n.Frontmatter, "head")
+				}
+				headStripped = true
+			}
+		}
+		if headStripped && d.failOnStrippedContent {
+			stripHeadViolation = &policyViolation{fmt.Sprintf("content policy: stripped frontmatter field in node %s", nodePath)}
 		}
 	}
 

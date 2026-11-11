@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 
@@ -24,6 +25,7 @@ import (
 	"github.com/gardener/docforge/pkg/writers/writersfakes"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"k8s.io/klog/v2"
 )
 
 // srcDocURL returns the test registry URL for docs/filename.
@@ -81,6 +83,23 @@ func isPlaceholderOnly(cnt []byte) bool {
 // Only correct for simple titles without YAML special characters.
 func placeholderBytes(title string) []byte {
 	return []byte("---\ntitle: " + title + "\n---\n\n<!-- docforge: document suppressed due to active content -->\n")
+}
+
+// captureWarnings runs fn with klog redirected to a buffer and returns everything
+// logged. klog cascades a warning to every severity <= WARNING, so a single finding
+// yields more than one line; tests must compare counts against a known baseline
+// rather than asserting an absolute number.
+func captureWarnings(fn func()) string {
+	var buf bytes.Buffer
+	klog.LogToStderr(false)
+	klog.SetOutput(&buf)
+	defer func() {
+		klog.SetOutput(os.Stderr)
+		klog.LogToStderr(true)
+	}()
+	fn()
+	klog.Flush()
+	return buf.String()
 }
 
 var _ = Describe("Document worker — content policy", func() {
@@ -155,6 +174,118 @@ var _ = Describe("Document worker — content policy", func() {
 			Expect(w.WriteCallCount()).To(Equal(1))
 			_, _, cnt, _ := w.WriteArgsForCall(0)
 			Expect(string(cnt)).NotTo(ContainSubstring("head:"))
+		})
+
+		// F1 regression: a non-Markdown first source must not let "head" from a later
+		// Markdown source bypass sanitization.
+		It("non-markdown first source: head from a later markdown source is stripped and recorded (untrusted)", func() {
+			dw, w := newPolicyWorker(false)
+			node := &manifest.Node{
+				FileType: manifest.FileType{
+					File:        "combo.md",
+					Source:      srcDocURL("target3.html"),
+					MultiSource: []string{srcDocURL("with_head.md")},
+				},
+				Type: "file",
+				Path: "out",
+			}
+			var out string
+			capture := captureWarnings(func() {
+				Expect(dw.ProcessNode(context.TODO(), node)).To(Succeed())
+			})
+			_, _, cnt, _ := w.WriteArgsForCall(0)
+			out = string(cnt)
+			Expect(out).NotTo(ContainSubstring("head:"))
+			// a StripHead finding was recorded by the per-source sanitization pass
+			Expect(capture).To(ContainSubstring("removed 'head' frontmatter key"))
+		})
+
+		It("non-markdown first source + flag: writes sanitized output then returns error (untrusted)", func() {
+			dw, w := newPolicyWorker(true)
+			node := &manifest.Node{
+				FileType: manifest.FileType{
+					File:        "combo.md",
+					Source:      srcDocURL("target3.html"),
+					MultiSource: []string{srcDocURL("with_head.md")},
+				},
+				Type: "file",
+				Path: "out",
+			}
+			err := dw.ProcessNode(context.TODO(), node)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("stripped frontmatter"))
+			Expect(w.WriteCallCount()).To(Equal(1))
+			_, _, cnt, _ := w.WriteArgsForCall(0)
+			Expect(string(cnt)).NotTo(ContainSubstring("head:"))
+		})
+
+		It("non-markdown first source: head is kept for a trusted node", func() {
+			dw, w := newPolicyWorker(false)
+			node := trustedNode()
+			node.FileType = manifest.FileType{
+				File:        "combo.md",
+				Source:      srcDocURL("target3.html"),
+				MultiSource: []string{srcDocURL("with_head.md")},
+			}
+			Expect(node.AllowsScriptBlocks()).To(BeTrue())
+			Expect(dw.ProcessNode(context.TODO(), node)).To(Succeed())
+			_, _, cnt, _ := w.WriteArgsForCall(0)
+			Expect(string(cnt)).To(ContainSubstring("head:"))
+		})
+
+		It("non-markdown first source with clean markdown: output byte-identical to the old (link-modifier) path", func() {
+			dw, w := newPolicyWorker(false)
+			node := &manifest.Node{
+				FileType: manifest.FileType{
+					File:        "combo.md",
+					Source:      srcDocURL("target3.html"),
+					MultiSource: []string{srcDocURL("no_head.md")},
+				},
+				Type: "file",
+				Path: "out",
+			}
+			Expect(dw.ProcessNode(context.TODO(), node)).To(Succeed())
+			_, _, workerOut, _ := w.WriteArgsForCall(0)
+
+			// Old path: non-markdown source is written raw, markdown source rendered by
+			// NewLinkModifierRenderer, concatenated with no separator.
+			htmlRaw, err := manifests.ReadFile("tests/docs/target3.html")
+			Expect(err).NotTo(HaveOccurred())
+			mdSrc, err := manifests.ReadFile("tests/docs/no_head.md")
+			Expect(err).NotTo(HaveOccurred())
+			mdAst, err := mdpkg.Parse(mdpkg.New(), mdSrc)
+			Expect(err).NotTo(HaveOccurred())
+			var mdBuf bytes.Buffer
+			Expect(mdpkg.NewLinkModifierRenderer().Render(&mdBuf, mdSrc, mdAst)).To(Succeed())
+			expected := append(append([]byte{}, htmlRaw...), mdBuf.Bytes()...)
+
+			Expect(workerOut).To(Equal(expected))
+		})
+
+		It("markdown multiSource with head: head stripped exactly once (no duplicate finding)", func() {
+			count := func(node *manifest.Node) int {
+				dw, _ := newPolicyWorker(false)
+				out := captureWarnings(func() {
+					Expect(dw.ProcessNode(context.TODO(), node)).To(Succeed())
+				})
+				return strings.Count(out, "removed 'head' frontmatter key")
+			}
+			single := count(&manifest.Node{
+				FileType: manifest.FileType{File: "with_head.md", Source: srcDocURL("with_head.md")},
+				Type:     "file",
+				Path:     "out",
+			})
+			multi := count(&manifest.Node{
+				FileType: manifest.FileType{
+					File:        "combo.md",
+					Source:      srcDocURL("with_head.md"),
+					MultiSource: []string{srcDocURL("no_head.md")},
+				},
+				Type: "file",
+				Path: "out",
+			})
+			Expect(single).To(BeNumerically(">", 0))
+			Expect(multi).To(Equal(single), "head must be stripped the same number of times as a single source (no duplicate finding)")
 		})
 	})
 
@@ -392,25 +523,36 @@ var _ = Describe("Document worker — content policy", func() {
 	// ------------------------------------------------------------------
 
 	Describe("Content-less node frontmatter sanitization", func() {
-		It("node.Frontmatter is never mutated: original has head before and after ProcessNode", func() {
+		It("content-less copy: top-level map copied with head removed; original keeps head; nested values shared (writer only reads)", func() {
 			dw, w := newPolicyWorker(false)
 			originalHead := []interface{}{map[string]interface{}{"tag": "link"}}
+			sharedParams := map[string]interface{}{"inner": "value"}
 			node := &manifest.Node{
 				FileType: manifest.FileType{File: "_index.md"},
 				Type:     "file",
 				Path:     "section",
 				Frontmatter: map[string]interface{}{
-					"title": "Section",
-					"head":  originalHead,
+					"title":  "Section",
+					"head":   originalHead,
+					"params": sharedParams,
 				},
 			}
 			Expect(dw.ProcessNode(context.TODO(), node)).To(Succeed())
-			// Original node.Frontmatter is unchanged (no mutation).
+			// Original top-level map keeps all its keys (not mutated).
+			Expect(node.Frontmatter).To(HaveKey("head"))
 			Expect(node.Frontmatter["head"]).To(Equal(originalHead))
-			// The node passed to Write is a copy with head removed.
+			// The node passed to Write is a shallow copy with head removed from the copy.
 			Expect(w.WriteCallCount()).To(Equal(1))
 			_, _, _, gotNode := w.WriteArgsForCall(0)
 			Expect(gotNode.Frontmatter).NotTo(HaveKey("head"))
+			// Nested values are shared between original and copy (shallow copy). This is
+			// safe because the writer (hugoIndexContent) only marshals them, never mutates.
+			// Demonstrate the sharing: a mutation of the original nested map is visible
+			// through the written copy.
+			sharedParams["mutated"] = true
+			gotParams, ok := gotNode.Frontmatter["params"].(map[string]interface{})
+			Expect(ok).To(BeTrue())
+			Expect(gotParams).To(HaveKey("mutated"))
 		})
 
 		It("StripHead on content-less node + flag: writes sanitized copy then errors; original unchanged", func() {
