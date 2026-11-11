@@ -1,0 +1,3 @@
+structure:
+  - file: https://github.com/gardener/docforge/blob/master/docs/no_head.md
+    allowScriptBlocks: true

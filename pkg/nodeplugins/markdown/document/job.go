@@ -30,9 +30,10 @@ type Processor interface {
 }
 
 // New creates a new Worker
-func New(workerCount int, failFast bool, wg *sync.WaitGroup, structure []*manifest.Node, rhs registry.Interface, config sitegen.Config, writer writers.Writer) (Processor, taskqueue.QueueController, error) {
+func New(workerCount int, failFast bool, wg *sync.WaitGroup, structure []*manifest.Node, rhs registry.Interface, config sitegen.Config, writer writers.Writer, failOnStripped bool) (Processor, taskqueue.QueueController, error) {
 	lr := linkresolver.New(structure, rhs, config)
 	worker := NewDocumentWorker(lr, rhs, config, writer)
+	worker.failOnStrippedContent = failOnStripped
 	queue, err := taskqueue.New("Document", workerCount, worker.execute, failFast, wg)
 	if err != nil {
 		return nil, nil, err
