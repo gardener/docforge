@@ -152,7 +152,7 @@ jobs:
           go-version: '1.22'
       - if: matrix.args.run == '.ci/e2e' || matrix.args.run == '.ci/integration-test'
         id: token
-        uses: gardener/cc-utils/.github/actions/github-auth@master
+        uses: gardener/cc-utils/.github/actions/github-auth@v1
         with:
           token-server: ${{ vars.FEDERATED_GITHUB_ACCESS_TOKEN_SERVER }}
           permissions: |

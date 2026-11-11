@@ -25,8 +25,8 @@ fi
 
 cd "${SOURCE_PATH}"
 
-# Build Golint.
-go install golang.org/x/lint/golint@latest
+# Build Golint. Pinned to avoid executing a mutable @latest build in CI.
+go install golang.org/x/lint/golint@v0.0.0-20241112194109-818c5a804067
 
 executable="${GOPATH}/bin/golint"
 if [ -z ${GOPATH+x} ]; then
