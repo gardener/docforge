@@ -191,4 +191,15 @@ var _ = Describe("SanitizeFrontmatter", func() {
 		Expect(meta).To(HaveKey("head"))
 		Expect(findings).To(BeEmpty())
 	})
+
+	It("is idempotent: a second call on the same untrusted meta returns no finding", func() {
+		meta := map[string]any{
+			"title": "My Doc",
+			"head":  []any{"<script>alert(1)</script>"},
+		}
+		first := markdown.SanitizeFrontmatter(meta, false)
+		second := markdown.SanitizeFrontmatter(meta, false)
+		Expect(first).To(HaveLen(1))
+		Expect(second).To(BeEmpty())
+	})
 })
