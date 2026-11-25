@@ -137,7 +137,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write
     strategy:
       matrix:
         args:
@@ -150,19 +149,13 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version: '1.22'
-      - if: matrix.args.run == '.ci/e2e' || matrix.args.run == '.ci/integration-test'
-        id: token
-        uses: gardener/cc-utils/.github/actions/github-auth@master
-        with:
-          token-server: ${{ vars.FEDERATED_GITHUB_ACCESS_TOKEN_SERVER }}
-          permissions: |
-            contents: read
+      # docforge reads sources primarily via raw.githubusercontent.com, which
+      # does not consume API rate limits. The default GITHUB_TOKEN authenticates
+      # the few metadata API calls and works on fork PRs (read-only is enough).
       - shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_OAUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          if ${{ matrix.args.run == '.ci/e2e' }}; then
-            export GITHUB_TOKEN=${{ steps.token.outputs.token }}
-          elif ${{ matrix.args.run == '.ci/integration-test' }}; then
-            export GITHUB_OAUTH_TOKEN=${{ steps.token.outputs.token }}
-          fi
           ${{ matrix.args.run }}
