@@ -10,6 +10,7 @@ on:
 
 jobs:
   build:
+    if: github.ref == 'refs/heads/master'
     uses: ./.github/workflows/build.yaml
     secrets: inherit
     permissions:
@@ -20,6 +21,7 @@ jobs:
       mode: release
 
   release-to-github-and-bump:
+    if: github.ref == 'refs/heads/master'
     uses: gardener/cc-utils/.github/workflows/release.yaml@bce63f62928717a11f610ec8022af9feb497d5df # v1
     needs:
       - build
@@ -29,6 +31,7 @@ jobs:
       id-token: write
       packages: write
     with:
+      github-environment: release
       release-commit-target: branch
       next-version: ${{ inputs.next-version }}
       slack-channel-id: G01MH3C9UCS # #gardener-documentation
