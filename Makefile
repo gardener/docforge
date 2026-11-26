@@ -93,10 +93,6 @@ test-clean:
 docs-gen:
 	@.ci/docs-gen
 
-.PHONY: check-manifest
-check-manifest:
-	@.ci/check-manifest
-
 .PHONY: generate
 generate:
 	@go generate ./...
