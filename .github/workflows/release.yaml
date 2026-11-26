@@ -18,6 +18,7 @@ jobs:
       packages: write
     with:
       mode: release
+      publish: true
 
   release-to-github-and-bump:
     uses: gardener/cc-utils/.github/workflows/release.yaml@bce63f62928717a11f610ec8022af9feb497d5df # v1

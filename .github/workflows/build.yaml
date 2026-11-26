@@ -4,15 +4,22 @@ on:
   workflow_call:
     inputs:
       mode:
-        required: true
         type: string
         default: snapshot
         description: |
           the mode to use. either `snapshot` or `release`. Will affect effective version, as well
           as target-oci-registry.
+      publish:
+        required: false
+        type: boolean
+        default: true
+        description: |
+          whether to publish artefacts (OCM component-descriptor + OCI images). When false, only
+          the binaries are compiled and the checks are run, without minting any publishing identity.
 
 jobs:
   prepare:
+    if: ${{ inputs.publish }}
     uses: gardener/cc-utils/.github/workflows/prepare.yaml@bce63f62928717a11f610ec8022af9feb497d5df # v1
     with:
       mode: ${{ inputs.mode }}
@@ -22,6 +29,9 @@ jobs:
   build:
     needs:
       - prepare
+    # runs on publish too; also runs when prepare is skipped (publish=false),
+    # hence the explicit !cancelled guard instead of relying on needs success.
+    if: ${{ !cancelled() && !failure() }}
     runs-on: ${{ matrix.args.runner }}
     permissions:
       contents: read
@@ -57,7 +67,7 @@ jobs:
           mkdir -p /tmp/blobs.d
 
           out=docforge-${{ matrix.args.os }}-${{ matrix.args.arch }}
-          ver='${{ needs.prepare.outputs.version }}'
+          ver='${{ needs.prepare.outputs.version || 'dev' }}'
           if ${{ matrix.args.os == 'windows' }}; then
             out="$out.exe"
           fi
@@ -77,6 +87,7 @@ jobs:
           tar czf $tar_out $out
 
       - uses: gardener/cc-utils/.github/actions/export-ocm-fragments@bce63f62928717a11f610ec8022af9feb497d5df # v1
+        if: ${{ inputs.publish }}
         with:
           blobs-directory: /tmp/blobs.d
           ocm-resources: |
@@ -94,13 +105,14 @@ jobs:
       # we could also import the ocm-fragment; however, using an explicit artefact will require
       # less code, and less redundant downloads
       - uses: gardener/cc-utils/.github/actions/upload-artifact@bce63f62928717a11f610ec8022af9feb497d5df # v1
-        if: ${{ matrix.args.os == 'linux' }} # oci-images are only built for linux
+        if: ${{ inputs.publish && matrix.args.os == 'linux' }} # oci-images are only built for linux
         with:
           name: docforge-${{ matrix.args.os }}-${{ matrix.args.arch }}
           path: /tmp/blobs.d/docforge.tar.gz
 
   oci-images:
     name: Build OCI-Images
+    if: ${{ inputs.publish }}
     needs:
       - prepare
       - build
