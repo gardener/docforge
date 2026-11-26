@@ -25,20 +25,6 @@ fi
 
 cd "${SOURCE_PATH}"
 
-# Build Golint.
-go install golang.org/x/lint/golint@latest
-
-executable="${GOPATH}/bin/golint"
-if [ -z ${GOPATH+x} ]; then
-  echo "GOPATH not set. Trying with HOME/go/bin"
-  if [ -f "${HOME}/go/bin/golint" ]; then
-    executable="${HOME}/go/bin/golint"
-  else
-    echo "HOME/go/bin/golint not found. Set GOPATH"
-    Exit 1
-  fi
-fi
-
 go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.61.0
 
 ###############################################################################
@@ -56,9 +42,5 @@ gofmt -l -w ${PACKAGES_DIRS}
 
 echo "Executing lint checks"
 golangci-lint run | sed "/bufPool is a global variable/,+2d ; /NewResourceURL is a global variable/,+2d ; /./q1"
-for package in ${PACKAGES_DIRS}; do
-  # shellcheck disable=SC2046
-  $executable -set_exit_status $(find "$package" -maxdepth 1 -name "*.go" | grep -vE '_test.go')
-done
 
 echo "Done"

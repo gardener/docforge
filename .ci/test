@@ -26,7 +26,9 @@ fi
 cd "${SOURCE_PATH}"
 
 # Get the Ginkgo (test framework) binary to be able to execute the tests.
-go install github.com/onsi/ginkgo/ginkgo@latest
+# Pinned to the go.mod version; `go install @latest` ignores the go.mod pin
+# and re-resolves per run, so an upstream compromise would run in CI.
+go install github.com/onsi/ginkgo/ginkgo@v1.16.5
 
 executable=${GOPATH}/bin/ginkgo
 if [ -z ${GOPATH+x} ]; then
