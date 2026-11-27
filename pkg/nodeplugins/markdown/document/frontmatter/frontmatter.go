@@ -112,6 +112,24 @@ func mergeParamsProtectingBranch(docFrontmatter map[string]interface{}, nodePara
 	docFrontmatter["params"] = docMap
 }
 
+// PlaceholderTitle returns a display title for a node whose content has been suppressed,
+// using the same name-normalization as ComputeNodeTitle.
+func PlaceholderTitle(node *manifest.Node, config sitegen.Config) string {
+	title := node.Name()
+	if config != nil && config.Enabled() {
+		if config.IsIndexFile(node.Name()) && node.Parent() != nil && node.Parent().Path != "" {
+			title = node.Parent().Name()
+		} else if config.IsIndexFile(node.Name()) && node.Parent() != nil && node.Parent().Path == "" {
+			title = "Root"
+		}
+	}
+	title = strings.TrimSuffix(title, ".md")
+	title = strings.ReplaceAll(title, "_", " ")
+	title = strings.ReplaceAll(title, "-", " ")
+	title = cases.Title(language.English).String(title)
+	return title
+}
+
 // ComputeNodeTitle Determines node title from its name or its parent name if
 // it is eligible to be index file, and then normalizes either
 // as a title - removing `-`, `_`, `.md` and converting to title

@@ -77,6 +77,10 @@ func configureFlags(command *cobra.Command, vip *viper.Viper) {
 		"File extensions to include in the output (e.g. .md,.html). When empty (the default), all file types are included.")
 	_ = vip.BindPFlag("content-files-formats", command.Flags().Lookup("content-files-formats"))
 
+	command.Flags().Bool("fail-on-stripped-content", false,
+		"Return a non-zero exit code when any content is stripped or suppressed by the content policy (script/style blocks, inline script/style, dangerous frontmatter keys).")
+	_ = vip.BindPFlag("fail-on-stripped-content", command.Flags().Lookup("fail-on-stripped-content"))
+
 	command.Flags().Bool("aliases-enabled", false,
 		"Propagate Hugo aliases from parent dir frontmatter to child files.")
 	_ = vip.BindPFlag("aliases-enabled", command.Flags().Lookup("aliases-enabled"))

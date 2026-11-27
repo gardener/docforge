@@ -14,8 +14,9 @@ import (
 
 // ResourceDownloadWorker is the structure that processes downloads
 type ResourceDownloadWorker struct {
-	registry registry.Interface
-	writer   writers.Writer
+	registry       registry.Interface
+	writer         writers.Writer
+	failOnStripped bool
 }
 
 // NewDownloader creates new downloader

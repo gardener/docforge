@@ -23,6 +23,7 @@ type Options struct {
 	DryRun                       bool     `mapstructure:"dry-run"`
 	CleanDestination             bool     `mapstructure:"clean-destination"`
 	ContentFileFormats           []string `mapstructure:"content-files-formats"`
+	FailOnStrippedContent        bool     `mapstructure:"fail-on-stripped-content"`
 }
 
 // Writers struct that collects all the writesr
