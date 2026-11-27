@@ -13,8 +13,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/gardener/docforge/cmd/hugo"
 	"github.com/gardener/docforge/pkg/registry/repositoryhost"
+	"github.com/gardener/docforge/pkg/sitegen"
 	"github.com/gardener/docforge/pkg/writers"
 	"github.com/google/go-github/v43/github"
 	"github.com/gregjones/httpcache"
@@ -102,12 +102,11 @@ func newRepositoryHost(host string, client *github.Client, httpClient *http.Clie
 }
 
 // NewReactor creates a Reactor from Options
-func getReactorConfig(options Options, h hugo.Hugo, rhs []repositoryhost.Interface) Config {
+func getReactorConfig(options Options, siteGen sitegen.Config, rhs []repositoryhost.Interface) Config {
 	config := Config{
 		Options:         options,
 		RepositoryHosts: rhs,
-		Hugo:            h,
-		SiteGen:         hugo.NewAdapter(h),
+		SiteGen:         siteGen,
 	}
 
 	config.Writer = &writers.FSWriter{

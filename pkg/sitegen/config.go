@@ -15,6 +15,12 @@ type Config interface {
 	// true (e.g. "_index.md" for Hugo, "index.md" for VitePress). An empty
 	// string means no rename should happen.
 	IndexFileName() string
+	// UsesManifestNameInEditPath reports whether the "edit this page" path
+	// (.from in Docsy frontmatter) should use the original manifest filename
+	// rather than the renamed output filename (true = Hugo: README.md stays
+	// README.md even though the output file is _index.md; false = VitePress,
+	// which uses IndexFileName() so .from reflects the served path).
+	UsesManifestNameInEditPath() bool
 	PrettyPath(node *manifest.Node) string
 	BaseURL() string
 	StructuralDirs() []string

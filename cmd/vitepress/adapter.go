@@ -5,6 +5,7 @@
 package vitepress
 
 import (
+	"path"
 	"strings"
 
 	"github.com/gardener/docforge/pkg/manifest"
@@ -44,10 +45,22 @@ func (a *Adapter) IsIndexFile(name string) bool {
 // VitePress uses "index.md" (not "_index.md") as the directory index file.
 func (a *Adapter) IndexFileName() string { return "index.md" }
 
+// UsesManifestNameInEditPath implements sitegen.Config.
+// VitePress uses IndexFileName() in .from so the edit path reflects the
+// served file name rather than the original manifest filename.
+func (a *Adapter) UsesManifestNameInEditPath() bool { return false }
+
 // PrettyPath implements sitegen.Config.
 // VitePress handles URL routing natively from the file structure, so no path
-// transformation is needed at document-generation time.
-func (a *Adapter) PrettyPath(node *manifest.Node) string { return node.NodePath() }
+// transformation is needed for regular files. Index files are normalised to
+// IndexFileName() so links point to the actual output file (index.md), not to
+// the original upstream name (_index.md).
+func (a *Adapter) PrettyPath(node *manifest.Node) string {
+	if a.IsIndexFile(node.Name()) {
+		return path.Join(node.Path, a.IndexFileName())
+	}
+	return node.NodePath()
+}
 
 // BaseURL implements sitegen.Config.
 func (a *Adapter) BaseURL() string { return a.v.BaseURL }

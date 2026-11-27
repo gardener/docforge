@@ -49,17 +49,29 @@ func configureFlags(command *cobra.Command, vip *viper.Viper) {
 		"Number of workers downloading document resources in parallel.")
 	_ = vip.BindPFlag("download-workers", command.Flags().Lookup("download-workers"))
 
+	command.Flags().String("site-generator", "",
+		"Site generator to use: hugo, vitepress, or none (case-sensitive). "+
+			"When neither --site-generator nor the deprecated --hugo is set, docforge runs in Hugo mode (unchanged from previous releases). "+
+			"When unset and --hugo is explicitly set, falls back to the legacy --hugo value. "+
+			"An invalid value is always an error, even if --hugo is also set.")
+	_ = vip.BindPFlag("site-generator", command.Flags().Lookup("site-generator"))
+
 	command.Flags().Bool("hugo", true,
-		"Enable Hugo-specific processing: rename section index files to _index.md and rewrite links to pretty-URL format. Pass --hugo=false for non-Hugo targets.")
+		"Deprecated: use --site-generator=hugo|none instead. "+
+			"When explicitly set and --site-generator is not, enables (true) or disables (false) Hugo mode.")
 	_ = vip.BindPFlag("hugo", command.Flags().Lookup("hugo"))
+	_ = command.Flags().MarkHidden("hugo")
+
+	// --hugo-pretty-urls: accepted but ignored. Re-registered as a hidden flag so
+	// CLI invocations that include it do not error; behaviour is unchanged.
+	command.Flags().Bool("hugo-pretty-urls", false,
+		"Deprecated: has no effect; will be removed in a future release.")
+	_ = vip.BindPFlag("hugo-pretty-urls", command.Flags().Lookup("hugo-pretty-urls"))
+	_ = command.Flags().MarkHidden("hugo-pretty-urls")
 
 	command.Flags().Bool("docsy-edit-this-page-enabled", false,
 		"Add Docsy 'Edit this page' frontmatter fields to output files.")
 	_ = vip.BindPFlag("docsy-edit-this-page-enabled", command.Flags().Lookup("docsy-edit-this-page-enabled"))
-
-	command.Flags().Bool("hugo-pretty-urls", true,
-		"Rewrite .md links to directory-style pretty URLs (./sample.md -> ../sample/). Only active when --hugo=true.")
-	_ = vip.BindPFlag("hugo-pretty-urls", command.Flags().Lookup("hugo-pretty-urls"))
 
 	command.Flags().String("hugo-base-url", "",
 		"Rewrites the relative links of documentation files to root-relative where possible.")
@@ -70,8 +82,20 @@ func configureFlags(command *cobra.Command, vip *viper.Viper) {
 	_ = vip.BindPFlag("hugo-structural-dirs", command.Flags().Lookup("hugo-structural-dirs"))
 
 	command.Flags().StringSlice("hugo-section-files", []string{"readme.md", "README.md"},
-		"Files with a name matching any entry in this list are renamed to _index.md in the output. Only active when --hugo=true.")
+		"Files with a name matching any entry in this list are renamed to _index.md in the output. Only active when --site-generator=hugo.")
 	_ = vip.BindPFlag("hugo-section-files", command.Flags().Lookup("hugo-section-files"))
+
+	command.Flags().String("vitepress-base-url", "",
+		"Root-relative base URL for VitePress link rewriting. Only active when --site-generator=vitepress.")
+	_ = vip.BindPFlag("vitepress-base-url", command.Flags().Lookup("vitepress-base-url"))
+
+	command.Flags().StringSlice("vitepress-structural-dirs", []string{},
+		"Directories that are part of the VitePress bundle structure and should not be included in resolved links.")
+	_ = vip.BindPFlag("vitepress-structural-dirs", command.Flags().Lookup("vitepress-structural-dirs"))
+
+	command.Flags().StringSlice("vitepress-section-files", []string{"readme.md", "README.md"},
+		"Files renamed to index.md in the VitePress output. Only active when --site-generator=vitepress.")
+	_ = vip.BindPFlag("vitepress-section-files", command.Flags().Lookup("vitepress-section-files"))
 
 	command.Flags().StringSlice("content-files-formats", []string{},
 		"File extensions to include in the output (e.g. .md,.html). When empty (the default), all file types are included.")
