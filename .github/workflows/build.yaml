@@ -20,7 +20,7 @@ on:
 jobs:
   prepare:
     if: ${{ inputs.publish }}
-    uses: gardener/cc-utils/.github/workflows/prepare.yaml@bce63f62928717a11f610ec8022af9feb497d5df # v1
+    uses: gardener/cc-utils/.github/workflows/prepare.yaml@00522ef3e8504bc7be46394a239a390f112336f6 # 1.2883.0
     with:
       mode: ${{ inputs.mode }}
     permissions:
@@ -55,7 +55,7 @@ jobs:
             arch: '386'
             runner: ubuntu-latest
     steps:
-      - uses: gardener/cc-utils/.github/actions/trusted-checkout@bce63f62928717a11f610ec8022af9feb497d5df # v1
+      - uses: gardener/cc-utils/.github/actions/trusted-checkout@00522ef3e8504bc7be46394a239a390f112336f6 # 1.2883.0
       - uses: actions/setup-go@v6
         with:
           go-version: '1.22'
@@ -86,7 +86,7 @@ jobs:
 
           tar czf $tar_out $out
 
-      - uses: gardener/cc-utils/.github/actions/export-ocm-fragments@bce63f62928717a11f610ec8022af9feb497d5df # v1
+      - uses: gardener/cc-utils/.github/actions/export-ocm-fragments@00522ef3e8504bc7be46394a239a390f112336f6 # 1.2883.0
         if: ${{ inputs.publish }}
         with:
           blobs-directory: /tmp/blobs.d
@@ -104,7 +104,7 @@ jobs:
       # expose for oci-image-build
       # we could also import the ocm-fragment; however, using an explicit artefact will require
       # less code, and less redundant downloads
-      - uses: gardener/cc-utils/.github/actions/upload-artifact@bce63f62928717a11f610ec8022af9feb497d5df # v1
+      - uses: gardener/cc-utils/.github/actions/upload-artifact@00522ef3e8504bc7be46394a239a390f112336f6 # 1.2883.0
         if: ${{ inputs.publish && matrix.args.os == 'linux' }} # oci-images are only built for linux
         with:
           name: docforge-${{ matrix.args.os }}-${{ matrix.args.arch }}
@@ -121,7 +121,7 @@ jobs:
       packages: write
       id-token: write
     secrets: inherit
-    uses: gardener/cc-utils/.github/workflows/oci-ocm.yaml@bce63f62928717a11f610ec8022af9feb497d5df # v1
+    uses: gardener/cc-utils/.github/workflows/oci-ocm.yaml@00522ef3e8504bc7be46394a239a390f112336f6 # 1.2883.0
     strategy:
       matrix:
         args:
@@ -157,7 +157,7 @@ jobs:
           - run: .ci/e2e
           - run: .ci/integration-test
     steps:
-      - uses: gardener/cc-utils/.github/actions/trusted-checkout@bce63f62928717a11f610ec8022af9feb497d5df # v1
+      - uses: gardener/cc-utils/.github/actions/trusted-checkout@00522ef3e8504bc7be46394a239a390f112336f6 # 1.2883.0
       - uses: actions/setup-go@v6
         with:
           go-version: '1.22'
