@@ -2,12 +2,14 @@
 
 aliases:
   docforge-reviewers:
+  - BoHristova
   - dimitar-kostadinov
   - klocke-io
   - Kostov6
   - RadaBDimitrova
   - VelmiraS
   docforge-approvers:
+  - BoHristova
   - dimitar-kostadinov
   - klocke-io
   - Kostov6
