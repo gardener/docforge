@@ -1,6 +1,5 @@
 name: Build
 on:
-  push:
   pull_request:
 
 jobs:
@@ -8,16 +7,6 @@ jobs:
     uses: ./.github/workflows/build.yaml
     with:
       mode: snapshot
-    secrets: inherit
+      publish: false
     permissions:
       contents: read
-      packages: write
-      id-token: write
-
-  component-descriptor:
-    uses: gardener/cc-utils/.github/workflows/post-build.yaml@bce63f62928717a11f610ec8022af9feb497d5df # v1
-    needs:
-      - build
-    permissions:
-      id-token: write
-      contents: write
