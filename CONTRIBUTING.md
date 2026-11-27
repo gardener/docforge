@@ -94,15 +94,6 @@ make docs-gen
 `make docs-gen` exits immediately if `bin/rel/` does not exist.
 <!-- verified: .ci/docs-gen — checks [[ ! -d "${BINARY}/rel" ]] → exit 1; then runs bin/rel/docforge-<os>-amd64 gen-cmd-docs -d docs/cmd-ref -->
 
-## Check manifest
-
-```sh
-make check-manifest
-```
-
-Downloads and runs the shared `check-manifest` script from `gardener/documentation` against `.docforge/manifest.yaml`, checking that the manifest and the `docs/` directory are consistent.
-<!-- verified: .ci/check-manifest — curls check-manifest entrypoint + check-manifest-config from gardener/documentation master; runs entrypoint with --repo-name docforge --use-token false --manifest-path .docforge/manifest.yaml --diff-dirs .docforge/;docs/ (plus --repo-path and --config-path pointing to local checkout and downloaded config) -->
-
 ## Generate counterfeiter fakes
 
 ```sh
